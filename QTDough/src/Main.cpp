@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <vulkan/vulkan.h>
-#include "QTDoughApplication.h"
+#include "Application/QTDoughApplication.h"
 //Screen dimension constants
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
