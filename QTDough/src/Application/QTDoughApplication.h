@@ -17,7 +17,10 @@ const bool enableValidationLayers = true;
 //QTDough Class.
 class QTDoughApplication {
 public:
+    //Methods.
     int Run();
+    void Cleanup();
+    //Fields.
     SDL_Window* QTSDLWindow;
     int SCREEN_WIDTH = 640;
     int SCREEN_HEIGHT = 520;
@@ -28,7 +31,6 @@ private:
     void InitSDLWindow();
     void InitVulkan();
     void MainLoop();
-    void Cleanup();
     void CreateInstance();
     bool CheckValidationLayerSupport();
     void PickPhysicalDevice();

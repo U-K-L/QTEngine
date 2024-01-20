@@ -19,14 +19,6 @@ int main(int argc, char* args[]) {
         return EXIT_FAILURE;
     }
 
+    qtDoughApp.Cleanup();
     return EXIT_SUCCESS;
-    /*
-    //Destroy window
-    SDL_DestroyWindow(window);
-
-    //Quit SDL subsystems
-    SDL_Quit();
-    */
-    SDL_Quit();
-    return 0;
 }

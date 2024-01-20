@@ -59,7 +59,6 @@ void QTDoughApplication::CreateInstance()
     VkInstanceCreateInfo createInfo{};
     
     SDL_Vulkan_GetInstanceExtensions(QTSDLWindow, &extensionCount, NULL); //Get the count.
-    throw std::runtime_error("failed to find a suitable GPU!");
     const char** extensions = (const char**)malloc(sizeof(char*) * extensionCount); //Well justified ;p
     SDL_Vulkan_GetInstanceExtensions(QTSDLWindow, &extensionCount, extensions); //Get the extensions.
 
@@ -90,12 +89,6 @@ void QTDoughApplication::CreateInstance()
         throw std::runtime_error("failed to create instance!");
     }
 
-}
-
-void QTDoughApplication::Cleanup()
-{
-    vkDestroyInstance(_vkInstance, nullptr);
-    SDL_DestroyWindow(QTSDLWindow);
 }
 
 bool QTDoughApplication::CheckValidationLayerSupport() {
@@ -144,9 +137,7 @@ void QTDoughApplication::PickPhysicalDevice()
     }
 
     if (_physicalDevice == VK_NULL_HANDLE) {
-        if (VK_KHR_ray_tracing_pipeline == false)
-            throw std::runtime_error("You need a GPU that supports accelerated raytracing");
-        throw std::runtime_error("failed to find a suitable GPU!");
+        throw std::runtime_error("failed to find a suitable GPU! Ensure you have GPU that supports Ray Tracing Acceleration");
     }
 }
 
@@ -188,4 +179,12 @@ std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
     }
 
     return extensions;
+}
+
+
+void QTDoughApplication::Cleanup()
+{
+    vkDestroyInstance(_vkInstance, nullptr);
+    SDL_DestroyWindow(QTSDLWindow);
+    SDL_Quit();
 }
