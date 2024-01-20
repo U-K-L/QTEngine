@@ -3,9 +3,15 @@
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
 #include <vector>
+#include <optional>
 //Globals.
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
+};
+
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
 };
 
 #ifdef NDEBUG
@@ -36,6 +42,7 @@ private:
     void PickPhysicalDevice();
     bool IsDeviceSuitable(VkPhysicalDevice device);
     std::vector<const char*> GetRequiredExtensions();
+    QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;

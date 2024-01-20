@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdexcept>
 #include <vector>
+#include <iostream>
 
 //extern SDL_Window *SDLWindow;
 int QTDoughApplication::Run() {
@@ -142,7 +143,6 @@ void QTDoughApplication::PickPhysicalDevice()
 }
 
 bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
-    return false;
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -156,13 +156,9 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
     deviceFeatures2.pNext = &rayTracingFeatures;
 
     vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
-
-    return deviceProperties.deviceType ==
-        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-        deviceFeatures.geometryShader &&
-        rayTracingFeatures.rayTracingPipeline && false;
-
-    return true;
+    QueueFamilyIndices indices = FindQueueFamilies(device);
+    //return rayTracingFeatures.rayTracingPipeline;
+    return indices.graphicsFamily.has_value();
 }
 
 std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
@@ -179,6 +175,34 @@ std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
     }
 
     return extensions;
+}
+
+
+QueueFamilyIndices QTDoughApplication::FindQueueFamilies(VkPhysicalDevice device) {
+
+    std::optional<uint32_t> graphicsFamily;
+    std::cout << std::boolalpha << graphicsFamily.has_value() << std::endl; // false
+    graphicsFamily = 0;
+    std::cout << std::boolalpha << graphicsFamily.has_value() << std::endl; // true
+
+    QueueFamilyIndices indices;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    int i = 0;
+    for (const auto& queueFamily : queueFamilies) {
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            indices.graphicsFamily = i;
+        }
+
+        i++;
+    }
+    
+    return indices;
 }
 
 
