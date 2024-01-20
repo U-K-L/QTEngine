@@ -157,8 +157,8 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 
     vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
     QueueFamilyIndices indices = FindQueueFamilies(device);
-    //return rayTracingFeatures.rayTracingPipeline;
-    return indices.graphicsFamily.has_value();
+    return rayTracingFeatures.rayTracingPipeline &&
+           indices.graphicsFamily.has_value();
 }
 
 std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
@@ -181,9 +181,7 @@ std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
 QueueFamilyIndices QTDoughApplication::FindQueueFamilies(VkPhysicalDevice device) {
 
     std::optional<uint32_t> graphicsFamily;
-    std::cout << std::boolalpha << graphicsFamily.has_value() << std::endl; // false
     graphicsFamily = 0;
-    std::cout << std::boolalpha << graphicsFamily.has_value() << std::endl; // true
 
     QueueFamilyIndices indices;
 
