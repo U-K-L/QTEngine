@@ -41,6 +41,7 @@ private:
     bool CheckValidationLayerSupport();
     void PickPhysicalDevice();
     bool IsDeviceSuitable(VkPhysicalDevice device);
+    void CreateLogicalDevice();
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
     //Fields.
