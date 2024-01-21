@@ -245,6 +245,7 @@ void QTDoughApplication::CreateLogicalDevice()
 void QTDoughApplication::Cleanup()
 {
     vkDestroyInstance(_vkInstance, nullptr);
+    vkDestroyDevice(_logicalDevice, nullptr);
     SDL_DestroyWindow(QTSDLWindow);
     SDL_Quit();
 }
