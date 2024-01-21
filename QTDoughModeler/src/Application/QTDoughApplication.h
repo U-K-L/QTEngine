@@ -47,4 +47,5 @@ private:
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
+    VkDevice _logicalDevice = VK_NULL_HANDLE;
 };
