@@ -50,6 +50,7 @@ void QTDoughApplication::InitVulkan()
 {
 	CreateInstance();
     PickPhysicalDevice();
+    CreateLogicalDevice();
 }
 
 void QTDoughApplication::CreateInstance()
@@ -157,8 +158,12 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 
     vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
     QueueFamilyIndices indices = FindQueueFamilies(device);
+
+    return true;
+    /*
     return rayTracingFeatures.rayTracingPipeline &&
            indices.graphicsFamily.has_value();
+           */
 }
 
 std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
@@ -240,6 +245,8 @@ void QTDoughApplication::CreateLogicalDevice()
     if (vkCreateDevice(_physicalDevice, &createInfo, nullptr, &_logicalDevice) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
     }
+
+    vkGetDeviceQueue(_logicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
 }
 
 void QTDoughApplication::Cleanup()

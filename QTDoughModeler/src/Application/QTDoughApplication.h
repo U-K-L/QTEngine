@@ -48,4 +48,5 @@ private:
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
     VkDevice _logicalDevice = VK_NULL_HANDLE;
+    VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
 };
