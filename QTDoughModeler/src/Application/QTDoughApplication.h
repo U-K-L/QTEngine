@@ -51,4 +51,5 @@ private:
     VkDevice _logicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
+    SDL_Surface* _screenSurface = NULL
 };

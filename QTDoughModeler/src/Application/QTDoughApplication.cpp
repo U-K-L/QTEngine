@@ -15,7 +15,6 @@ int QTDoughApplication::Run() {
 void QTDoughApplication::InitSDLWindow()
 {
     //The surface contained by the window
-    SDL_Surface* screenSurface = NULL;
     //Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -32,10 +31,10 @@ void QTDoughApplication::InitSDLWindow()
         else
         {
             //Get window surface
-            screenSurface = SDL_GetWindowSurface(QTSDLWindow);
+            _screenSurface = SDL_GetWindowSurface(QTSDLWindow);
 
             //Fill the surface white
-            SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface->format, 0xFF, 0xFF, 0xFF));
+            SDL_FillRect(_screenSurface, NULL, SDL_MapRGB(_screenSurface->format, 0xFF, 0xFF, 0xFF));
 
             //Update the surface
             SDL_UpdateWindowSurface(QTSDLWindow);
