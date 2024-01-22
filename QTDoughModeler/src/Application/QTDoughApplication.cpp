@@ -51,6 +51,7 @@ void QTDoughApplication::InitVulkan()
 	CreateInstance();
     PickPhysicalDevice();
     CreateLogicalDevice();
+    CreateWindowSurface();
 }
 
 void QTDoughApplication::CreateInstance()
@@ -247,6 +248,11 @@ void QTDoughApplication::CreateLogicalDevice()
     }
 
     vkGetDeviceQueue(_logicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
+}
+
+void QTDoughApplication::CreateWindowSurface()
+{
+
 }
 
 void QTDoughApplication::Cleanup()

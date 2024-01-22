@@ -42,6 +42,7 @@ private:
     void PickPhysicalDevice();
     bool IsDeviceSuitable(VkPhysicalDevice device);
     void CreateLogicalDevice();
+    void CreateWindowSurface();
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
     //Fields.
@@ -49,4 +50,5 @@ private:
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
     VkDevice _logicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
+    VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
 };
