@@ -197,9 +197,16 @@ QueueFamilyIndices QTDoughApplication::FindQueueFamilies(VkPhysicalDevice device
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
     int i = 0;
+    VkBool32 presentSupport = false;
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
+
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _vkSurface, &presentSupport);
+        }
+
+        if (presentSupport) {
+            indices.presentFamily = i;
         }
 
         i++;
@@ -251,13 +258,16 @@ void QTDoughApplication::CreateLogicalDevice()
 
 void QTDoughApplication::CreateWindowSurface()
 {
-
+    if (SDL_Vulkan_CreateSurface(QTSDLWindow, _vkInstance, &_vkSurface) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create window surface!");
+    }
 }
 
 void QTDoughApplication::Cleanup()
 {
     vkDestroyInstance(_vkInstance, nullptr);
     vkDestroyDevice(_logicalDevice, nullptr);
+    vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
     SDL_DestroyWindow(QTSDLWindow);
     SDL_Quit();
 }

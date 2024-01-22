@@ -12,6 +12,11 @@ const std::vector<const char*> validationLayers = {
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
+
+    bool isComplete() {
+        return graphicsFamily.has_value() && presentFamily.has_value();
+}
 };
 
 #ifdef NDEBUG
@@ -51,5 +56,5 @@ private:
     VkDevice _logicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
-    SDL_Surface* _screenSurface = NULL
+    SDL_Surface* _screenSurface = NULL;
 };
