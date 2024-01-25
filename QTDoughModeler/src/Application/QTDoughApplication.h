@@ -57,4 +57,6 @@ private:
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
     SDL_Surface* _screenSurface = NULL;
+    VkQueue _presentQueue = VK_NULL_HANDLE;
+    VkDeviceCreateInfo _createInfo{};
 };

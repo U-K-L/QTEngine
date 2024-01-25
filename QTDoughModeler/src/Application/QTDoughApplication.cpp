@@ -1,9 +1,11 @@
 #include "QTDoughApplication.h"
 #include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL_system.h>
+#include <SDL_syswm.h>
 #include <stdio.h>
 #include <stdexcept>
-#include <vector>
 #include <iostream>
+#include <set>
 
 //extern SDL_Window *SDLWindow;
 int QTDoughApplication::Run() {
@@ -227,29 +229,28 @@ void QTDoughApplication::CreateLogicalDevice()
     float queuePriority = 1.0f;
     queueCreateInfo.pQueuePriorities = &queuePriority;
 
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    _createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceFeatures(_physicalDevice, &deviceFeatures);
 
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
-    createInfo.queueCreateInfoCount = 1;
+    _createInfo.pQueueCreateInfos = &queueCreateInfo;
+    _createInfo.queueCreateInfoCount = 1;
 
-    createInfo.pEnabledFeatures = &deviceFeatures;
+    _createInfo.pEnabledFeatures = &deviceFeatures;
 
-    createInfo.enabledExtensionCount = 0;
+    _createInfo.enabledExtensionCount = 0;
 
     if (enableValidationLayers) {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
+        _createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        _createInfo.ppEnabledLayerNames = validationLayers.data();
     }
     else {
-        createInfo.enabledLayerCount = 0;
+        _createInfo.enabledLayerCount = 0;
     }
 
     //Finally instantiate this device.
-    if (vkCreateDevice(_physicalDevice, &createInfo, nullptr, &_logicalDevice) != VK_SUCCESS) {
+    if (vkCreateDevice(_physicalDevice, &_createInfo, nullptr, &_logicalDevice) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
     }
 
@@ -258,9 +259,30 @@ void QTDoughApplication::CreateLogicalDevice()
 
 void QTDoughApplication::CreateWindowSurface()
 {
+
     if (SDL_Vulkan_CreateSurface(QTSDLWindow, _vkInstance, &_vkSurface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
+
+    QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
+
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+
+    float queuePriority = 1.0f;
+    for (uint32_t queueFamily : uniqueQueueFamilies) {
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
+
+    _createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    _createInfo.pQueueCreateInfos = queueCreateInfos.data();
+
+    vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
 }
 
 void QTDoughApplication::Cleanup()
