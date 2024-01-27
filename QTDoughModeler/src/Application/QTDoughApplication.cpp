@@ -161,7 +161,11 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
     vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
     QueueFamilyIndices indices = FindQueueFamilies(device);
 
-    return true;
+    bool extensionsSupported = CheckDeviceExtensionSupport(device);
+
+    return indices.isComplete() && extensionsSupported;
+
+    //return true;
     /*
     return rayTracingFeatures.rayTracingPipeline &&
            indices.graphicsFamily.has_value();
@@ -239,7 +243,8 @@ void QTDoughApplication::CreateLogicalDevice()
 
     _createInfo.pEnabledFeatures = &deviceFeatures;
 
-    _createInfo.enabledExtensionCount = 0;
+    _createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    _createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
     if (enableValidationLayers) {
         _createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -283,6 +288,29 @@ void QTDoughApplication::CreateWindowSurface()
     _createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
     vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
+}
+
+
+bool QTDoughApplication::CheckDeviceExtensionSupport(VkPhysicalDevice device) {
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    for (const auto& extension : availableExtensions) {
+        requiredExtensions.erase(extension.extensionName);
+    }
+
+    return requiredExtensions.empty();
+}
+
+SwapChainSupportDetails QTDoughApplication::QuerySwapChainSupport(VkPhysicalDevice device) {
+    SwapChainSupportDetails details;
+
+    return details;
 }
 
 void QTDoughApplication::Cleanup()
