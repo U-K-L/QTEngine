@@ -163,7 +163,13 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 
     bool extensionsSupported = CheckDeviceExtensionSupport(device);
 
-    return indices.isComplete() && extensionsSupported;
+    bool swapChainAdequate = false;
+    if (extensionsSupported) {
+        SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
+        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+    }
+
+    return indices.isComplete() && extensionsSupported && swapChainAdequate;
 
     //return true;
     /*
@@ -309,6 +315,22 @@ bool QTDoughApplication::CheckDeviceExtensionSupport(VkPhysicalDevice device) {
 
 SwapChainSupportDetails QTDoughApplication::QuerySwapChainSupport(VkPhysicalDevice device) {
     SwapChainSupportDetails details;
+
+    uint32_t formatCount;
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, _vkSurface, &details.capabilities);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, _vkSurface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, _vkSurface, &presentModeCount, nullptr);
+
+    if (formatCount != 0) {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, _vkSurface, &formatCount, details.formats.data());
+    }
+
+    if (presentModeCount != 0) {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, _vkSurface, &presentModeCount, details.presentModes.data());
+    }
 
     return details;
 }
