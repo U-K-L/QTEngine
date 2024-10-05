@@ -86,7 +86,7 @@
     <LibraryPath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Lib;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Lib;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -135,14 +135,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;$(ProjectDir)\QTDough\src\Application;$(ProjectDir)..\..\ExternalLibs\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.290.0;C:\VulkanSDK\1.3.290.0\Include;$(ProjectDir)\QTDough\src\Application;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.290.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

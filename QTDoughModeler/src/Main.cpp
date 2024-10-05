@@ -1,6 +1,6 @@
 #include "glm/vec4.hpp"
 #include "glm/mat4x4.hpp"
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <stdio.h>
 
 #include <iostream>

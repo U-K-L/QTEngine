@@ -4,6 +4,9 @@
 #include <SDL2/SDL.h>
 #include <vector>
 #include <optional>
+#include <cstdint> 
+#include <limits> 
+#include <algorithm>
 //Globals.
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -45,6 +48,11 @@ public:
     SDL_Window* QTSDLWindow;
     int SCREEN_WIDTH = 640;
     int SCREEN_HEIGHT = 520;
+    std::vector<VkImage> swapChainImages;
+    std::vector<VkImageView> swapChainImageViews;
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
+    VkSwapchainKHR swapChain;
 
 
 private:
@@ -59,9 +67,14 @@ private:
     void CreateLogicalDevice();
     void CreateWindowSurface();
     bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
+    void CreateSwapChain();
+    void CreateImageViews();
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -71,4 +84,5 @@ private:
     SDL_Surface* _screenSurface = NULL;
     VkQueue _presentQueue = VK_NULL_HANDLE;
     VkDeviceCreateInfo _createInfo{};
+    VkSwapchainKHR _swapChain;
 };
