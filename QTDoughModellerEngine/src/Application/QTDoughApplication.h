@@ -97,7 +97,7 @@ private:
     void CreateRenderPass();
     void CreateFramebuffers();
     void CreateCommandPool();
-    void CreateCommandBuffer();
+    void CreateCommandBuffers();
     void RunMainGameLoop();
     void DrawFrame();
     void CreateSyncObjects();
@@ -118,13 +118,13 @@ private:
     SDL_Surface* _screenSurface = NULL;
     VkQueue _presentQueue = VK_NULL_HANDLE;
     VkCommandPool _commandPool;
-    VkCommandBuffer _commandBuffer;
+    std::vector<VkCommandBuffer> _commandBuffers;
     VkDeviceCreateInfo _createInfo{};
     VkSwapchainKHR _swapChain;
     VkFormat _swapChainImageFormat;
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
-    VkFence inFlightFence;
+    std::vector<VkSemaphore> _imageAvailableSemaphores;
+    std::vector<VkSemaphore> _renderFinishedSemaphores;
+    std::vector<VkFence> _inFlightFences;
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
     std::vector<VkDynamicState> dynamicStates = {

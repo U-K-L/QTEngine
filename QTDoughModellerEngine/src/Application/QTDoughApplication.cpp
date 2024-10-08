@@ -7,7 +7,9 @@
 #include <iostream>
 #include <set>
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
 bool PROGRAMEND = false;
+uint32_t currentFrame = 0;
 //extern SDL_Window *SDLWindow;
 int QTDoughApplication::Run() {
     InitSDLWindow();
@@ -44,38 +46,38 @@ void QTDoughApplication::RunMainGameLoop()
 
 void QTDoughApplication::DrawFrame()
 {
-    std::cout << "Begin drawing frame" << std::endl;
-    vkWaitForFences(_logicalDevice, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(_logicalDevice, 1, &inFlightFence);
 
-    std::cout << "Wait through fences." << std::endl;
+    vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
+
+
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
     
-    vkResetCommandBuffer(_commandBuffer, 0);
-    RecordCommandBuffer(_commandBuffer, imageIndex);
+    vkResetCommandBuffer(_commandBuffers[currentFrame], 0);
+    RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
     
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
+    VkSemaphore waitSemaphores[] = { _imageAvailableSemaphores[currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &_commandBuffer;
+    submitInfo.pCommandBuffers = &_commandBuffers[currentFrame];
 
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+    VkSemaphore signalSemaphores[] = { _renderFinishedSemaphores[currentFrame] };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(_vkGraphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS) {
+    if (vkQueueSubmit(_vkGraphicsQueue, 1, &submitInfo, _inFlightFences[currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
 
-    std::cout << "Submitted graphics queues" << std::endl;
+
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
@@ -92,7 +94,7 @@ void QTDoughApplication::DrawFrame()
 
     vkQueuePresentKHR(_presentQueue, &presentInfo);
 
-    std::cout << "End drawing frame" << std::endl;
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 }
 
@@ -146,13 +148,17 @@ void QTDoughApplication::InitVulkan()
     CreateGraphicsPipeline();
     CreateFramebuffers();
     CreateCommandPool();
-    CreateCommandBuffer();
+    CreateCommandBuffers();
     CreateSyncObjects();
 }
 
 
 void QTDoughApplication::CreateSyncObjects()
 {
+    _imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    _renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    _inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -160,13 +166,14 @@ void QTDoughApplication::CreateSyncObjects()
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-        vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
-        vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create semaphores!");
-    }
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_imageAvailableSemaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_renderFinishedSemaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &_inFlightFences[i]) != VK_SUCCESS) {
 
-    std::cout << "Created Sync Objects" << std::endl;
+            throw std::runtime_error("failed to create synchronization objects for a frame!");
+        }
+    }
 }
 
 
@@ -220,16 +227,17 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     }
 }
 
-void QTDoughApplication::CreateCommandBuffer()
+void QTDoughApplication::CreateCommandBuffers()
 {
-    std::cout << "Creating Command Buffer" << std::endl;
+    _commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = _commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = (uint32_t)_commandBuffers.size();
 
-    if (vkAllocateCommandBuffers(_logicalDevice , &allocInfo, &_commandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, _commandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 
@@ -989,9 +997,11 @@ void QTDoughApplication::Cleanup()
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(_logicalDevice, imageView, nullptr);
     }
-    vkDestroySemaphore(_logicalDevice, imageAvailableSemaphore, nullptr);
-    vkDestroySemaphore(_logicalDevice, renderFinishedSemaphore, nullptr);
-    vkDestroyFence(_logicalDevice, inFlightFence, nullptr);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
+        vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphores[i], nullptr);
+        vkDestroyFence(_logicalDevice, _inFlightFences[i], nullptr);
+    }
     vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_logicalDevice, pipelineLayout, nullptr);
