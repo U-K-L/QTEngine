@@ -32,8 +32,10 @@ struct QueueFamilyIndices {
 
     bool isComplete() {
         return graphicsFamily.has_value() && presentFamily.has_value();
-}
+    }
 };
+
+extern std::vector<VkDynamicState> dynamicStates;
 
 
 static std::vector<char> readFile(const std::string& filename) {
@@ -71,9 +73,10 @@ public:
     int SCREEN_HEIGHT = 520;
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;
-    VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
-    VkSwapchainKHR swapChain;
+    VkRenderPass renderPass;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
 
 
 private:
@@ -91,6 +94,13 @@ private:
     void CreateSwapChain();
     void CreateImageViews();
     void CreateGraphicsPipeline();
+    void CreateRenderPass();
+    void CreateFramebuffers();
+    void CreateCommandPool();
+    void CreateCommandBuffer();
+    void RunMainGameLoop();
+    void DrawFrame();
+    void CreateSyncObjects();
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
@@ -98,6 +108,7 @@ private:
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -106,6 +117,18 @@ private:
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
     SDL_Surface* _screenSurface = NULL;
     VkQueue _presentQueue = VK_NULL_HANDLE;
+    VkCommandPool _commandPool;
+    VkCommandBuffer _commandBuffer;
     VkDeviceCreateInfo _createInfo{};
     VkSwapchainKHR _swapChain;
+    VkFormat _swapChainImageFormat;
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
+    VkFence inFlightFence;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+
+    std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
 };
