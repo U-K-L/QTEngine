@@ -6,6 +6,34 @@
 #include <stdexcept>
 #include <iostream>
 #include <set>
+#include "UnigmaBlend.h"
+#include <glm/glm.hpp>
+#include <array>
+
+struct Vertex {
+    glm::vec2 pos;
+    glm::vec3 color;
+};
+
+const std::vector<Vertex> vertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
+VkVertexInputBindingDescription getBindingDescription() {
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return bindingDescription;
+}
+
+std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+
+    return attributeDescriptions;
+}
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 bool PROGRAMEND = false;
@@ -18,13 +46,10 @@ int QTDoughApplication::Run() {
     SDL_Event e; 
     
     while (PROGRAMEND == false) {
-
-        while (SDL_PollEvent(&e)) { 
-            if (e.type == SDL_QUIT) PROGRAMEND = true;
-
-            //Main Game Loop.
-            RunMainGameLoop();
-        } 
+        SDL_PollEvent(&e);
+        if (e.type == SDL_QUIT) PROGRAMEND = true;
+        //Main Game Loop.
+        RunMainGameLoop();
     }
     vkDeviceWaitIdle(_logicalDevice);
 	return 0;
@@ -33,6 +58,7 @@ int QTDoughApplication::Run() {
 void QTDoughApplication::RunMainGameLoop()
 {
     DrawFrame();
+    GatherBlenderInfo();
     //Quit if E key is pressed.
     const Uint8* state = SDL_GetKeyboardState(NULL);
     if (state[SDL_SCANCODE_E]) {
