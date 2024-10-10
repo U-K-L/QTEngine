@@ -101,6 +101,7 @@ private:
     void RunMainGameLoop();
     void DrawFrame();
     void CreateSyncObjects();
+    void CreateVertexBuffer();
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
@@ -122,6 +123,7 @@ private:
     VkDeviceCreateInfo _createInfo{};
     VkSwapchainKHR _swapChain;
     VkFormat _swapChainImageFormat;
+    VkBuffer _vertexBuffer;
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
     std::vector<VkFence> _inFlightFences;
