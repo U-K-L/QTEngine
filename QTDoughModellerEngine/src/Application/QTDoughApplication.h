@@ -1,5 +1,6 @@
 #pragma once
 #define VK_USE_PLATFORM_WIN32_KHR
+#define GLM_FORCE_RADIANS
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
 #include <vector>
@@ -10,6 +11,19 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL_system.h>
+#include <SDL2/SDL_syswm.h>
+#include <stdio.h>
+#include <stdexcept>
+#include <set>
+#include "UnigmaBlend.h"
+#include <array>
+
+#include <chrono>
 //Globals.
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -102,6 +116,8 @@ private:
     void DrawFrame();
     void CreateSyncObjects();
     void CreateVertexBuffer();
+    void CreateIndexBuffer();
+    void CreateDescriptorSetLayout();
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
@@ -110,6 +126,11 @@ private:
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void CreateUniformBuffers();
+    void UpdateUniformBuffer(uint32_t currentImage);
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -124,6 +145,14 @@ private:
     VkSwapchainKHR _swapChain;
     VkFormat _swapChainImageFormat;
     VkBuffer _vertexBuffer;
+    VkDeviceMemory _vertexBufferMemory;
+    VkBuffer _indexBuffer;
+    VkDeviceMemory _indexBufferMemory;
+    VkDescriptorSetLayout _descriptorSetLayout;
+    VkPipelineLayout _pipelineLayout;
+    std::vector<VkBuffer> _uniformBuffers;
+    std::vector<VkDeviceMemory> _uniformBuffersMemory;
+    std::vector<void*> _uniformBuffersMapped;
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
     std::vector<VkFence> _inFlightFences;
@@ -132,5 +161,11 @@ private:
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    struct UniformBufferObject {
+        glm::mat4 model;
+        glm::mat4 view;
+        glm::mat4 proj;
     };
 };
