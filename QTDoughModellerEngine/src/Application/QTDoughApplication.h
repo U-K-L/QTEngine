@@ -1,6 +1,7 @@
 #pragma once
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
 #include <vector>
@@ -89,7 +90,7 @@ public:
     std::vector<VkImageView> swapChainImageViews;
     VkExtent2D swapChainExtent;
     VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayout;
+    VkPipelineLayout _pipelineLayout;
     VkPipeline graphicsPipeline;
 
 
@@ -131,6 +132,10 @@ private:
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void CreateUniformBuffers();
     void UpdateUniformBuffer(uint32_t currentImage);
+    void CreateDescriptorPool();
+    void CreateDescriptorSets();
+    void RecreateSwapChain();
+    void CleanupSwapChain();
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -149,7 +154,7 @@ private:
     VkBuffer _indexBuffer;
     VkDeviceMemory _indexBufferMemory;
     VkDescriptorSetLayout _descriptorSetLayout;
-    VkPipelineLayout _pipelineLayout;
+    VkDescriptorPool _descriptorPool;
     std::vector<VkBuffer> _uniformBuffers;
     std::vector<VkDeviceMemory> _uniformBuffersMemory;
     std::vector<void*> _uniformBuffersMapped;
@@ -157,6 +162,7 @@ private:
     std::vector<VkSemaphore> _renderFinishedSemaphores;
     std::vector<VkFence> _inFlightFences;
     std::vector<VkFramebuffer> swapChainFramebuffers;
+    std::vector<VkDescriptorSet> _descriptorSets;
 
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -164,8 +170,8 @@ private:
     };
 
     struct UniformBufferObject {
-        glm::mat4 model;
-        glm::mat4 view;
-        glm::mat4 proj;
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
     };
 };

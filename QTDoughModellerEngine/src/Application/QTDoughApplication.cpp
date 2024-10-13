@@ -80,6 +80,9 @@ void QTDoughApplication::DrawFrame()
 {
 
     vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+    //UpdateUniformBuffer(currentFrame);
+
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
 
 
@@ -89,7 +92,7 @@ void QTDoughApplication::DrawFrame()
     vkResetCommandBuffer(_commandBuffers[currentFrame], 0);
     RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
     
-    UpdateUniformBuffer(currentFrame);
+
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -276,9 +279,69 @@ void QTDoughApplication::InitVulkan()
     CreateCommandPool();
     CreateVertexBuffer();
     CreateIndexBuffer();
-    CreateUniformBuffers();
+    //CreateUniformBuffers();
+    //CreateDescriptorPool();
+    //CreateDescriptorSets();
     CreateCommandBuffers();
     CreateSyncObjects();
+}
+
+void QTDoughApplication::CreateDescriptorSets()
+{
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = _descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    _descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, _descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = _uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = _descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr; // Optional
+        descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+        vkUpdateDescriptorSets(_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+
+
+    }
+
+
+}
+
+void QTDoughApplication::CreateDescriptorPool()
+{
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &_descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
 }
 
 void QTDoughApplication::CreateUniformBuffers()
@@ -412,32 +475,37 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChainExtent.width);
-    viewport.height = static_cast<float>(swapChainExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = swapChainExtent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     //Begin the actual render pass.
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(swapChainExtent.width);
+        viewport.height = static_cast<float>(swapChainExtent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-    //Get Vertex data.
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-    VkBuffer vertexBuffers[] = { _vertexBuffer };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+        VkRect2D scissor{};
+        scissor.offset = { 0, 0 };
+        scissor.extent = swapChainExtent;
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    //Draw to screen.
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        //Get Vertex data.
+        VkBuffer vertexBuffers[] = { _vertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+        //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &_descriptorSets[currentFrame], 0, nullptr);
+
+        //Draw to screen.
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
     //End Render Pass.
     vkCmdEndRenderPass(commandBuffer);
@@ -643,7 +711,7 @@ void QTDoughApplication::CreateGraphicsPipeline()
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional
@@ -689,7 +757,7 @@ void QTDoughApplication::CreateGraphicsPipeline()
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-    if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutInfo, nullptr, &_pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -707,7 +775,7 @@ void QTDoughApplication::CreateGraphicsPipeline()
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
 
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = _pipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
@@ -1069,6 +1137,16 @@ void QTDoughApplication::CreateLogicalDevice()
     vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
 }
 
+void QTDoughApplication::CleanupSwapChain()
+{
+
+}
+
+void QTDoughApplication::RecreateSwapChain()
+{
+
+}
+
 void QTDoughApplication::CreateWindowSurface()
 {
 
@@ -1232,7 +1310,9 @@ void QTDoughApplication::Cleanup()
     }
 
     vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(_logicalDevice, _descriptorPool, nullptr);
 
+    vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
     vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
     vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
     vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
@@ -1241,7 +1321,7 @@ void QTDoughApplication::Cleanup()
     vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
     vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(_logicalDevice, pipelineLayout, nullptr);
+    vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
     vkDestroyRenderPass(_logicalDevice, renderPass, nullptr);
     vkDestroyInstance(_vkInstance, nullptr);
     vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
