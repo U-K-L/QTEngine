@@ -70,6 +70,7 @@ static std::vector<char> readFile(const std::string& filename) {
     return buffer;
 };
 
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -92,6 +93,7 @@ public:
     VkRenderPass renderPass;
     VkPipelineLayout _pipelineLayout;
     VkPipeline graphicsPipeline;
+    bool framebufferResized = false;
 
 
 private:
@@ -136,6 +138,7 @@ private:
     void CreateDescriptorSets();
     void RecreateSwapChain();
     void CleanupSwapChain();
+
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -174,4 +177,12 @@ private:
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
     };
+};
+
+
+
+static void framebufferResizeCallback(SDL_Window* window, int width, int height)
+{
+    auto app = reinterpret_cast<QTDoughApplication*>(SDL_GetWindowData(window, "user_data"));
+    app->framebufferResized = true;
 };
