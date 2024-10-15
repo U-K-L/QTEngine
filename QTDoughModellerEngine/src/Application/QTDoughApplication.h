@@ -23,8 +23,23 @@
 #include <set>
 #include "UnigmaBlend.h"
 #include <array>
-
 #include <chrono>
+
+#include "imgui.h"
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_vulkan.h"
+#include <functional>
+
+
+#define VK_CHECK(x)                                                         \
+    do {                                                                    \
+        VkResult err = x;                                                   \
+        if (err) {                                                          \
+            std::cerr << "Detected Vulkan error: " << err << std::endl;     \
+            std::abort();                                                   \
+        }                                                                   \
+    } while (0)
+
 //Globals.
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -84,6 +99,11 @@ public:
     int Run();
     void Cleanup();
     //Fields.
+    std::chrono::high_resolution_clock::time_point timeSinceApplication;
+    std::chrono::high_resolution_clock::time_point timeSecondPassed;
+    std::chrono::high_resolution_clock::time_point timeMinutePassed;
+    std::chrono::high_resolution_clock::time_point currentTime;
+    float FPS;
     SDL_Window* QTSDLWindow;
     int SCREEN_WIDTH = 640;
     int SCREEN_HEIGHT = 520;
@@ -128,7 +148,12 @@ private:
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
+    VkRenderingAttachmentInfo AttachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
+    void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+    void InitCommands();
+    void InitSyncStructures();
     uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -138,7 +163,17 @@ private:
     void CreateDescriptorSets();
     void RecreateSwapChain();
     void CleanupSwapChain();
-
+    void InitImGui();
+    VkCommandBufferAllocateInfo CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/);
+    VkCommandBufferBeginInfo CommandBufferBeginInfo(VkCommandBufferUsageFlags flags /*= 0*/);
+    VkCommandBufferSubmitInfo CommandBufferSubmitInfo(VkCommandBuffer cmd);
+    VkSubmitInfo SubmitInfo(VkCommandBuffer* cmd);
+    VkSubmitInfo2 SubmitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+        VkSemaphoreSubmitInfo* waitSemaphoreInfo);
+    VkRenderingInfo RenderingInfo(
+        VkExtent2D extent,
+        VkRenderingAttachmentInfo* colorAttachment,
+        VkRenderingAttachmentInfo* depthAttachment);
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -148,8 +183,11 @@ private:
     SDL_Surface* _screenSurface = NULL;
     VkQueue _presentQueue = VK_NULL_HANDLE;
     VkCommandPool _commandPool;
+    VkCommandPoolCreateInfo _commandPoolInfo{};
     std::vector<VkCommandBuffer> _commandBuffers;
     VkDeviceCreateInfo _createInfo{};
+    VkFenceCreateInfo fenceInfo{};
+    VkSemaphoreCreateInfo semaphoreInfo{};
     VkSwapchainKHR _swapChain;
     VkFormat _swapChainImageFormat;
     VkBuffer _vertexBuffer;
@@ -166,6 +204,10 @@ private:
     std::vector<VkFence> _inFlightFences;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     std::vector<VkDescriptorSet> _descriptorSets;
+    // immediate submit structures
+    VkFence _immFence;
+    VkCommandBuffer _immCommandBuffer;
+    VkCommandPool _immCommandPool;
 
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,

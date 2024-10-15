@@ -54,6 +54,7 @@ int QTDoughApplication::Run() {
     while (PROGRAMEND == false) {
         SDL_PollEvent(&e);
         if (e.type == SDL_QUIT) PROGRAMEND = true;
+        ImGui_ImplSDL2_ProcessEvent(&e);
         //Main Game Loop.
         RunMainGameLoop();
     }
@@ -61,8 +62,33 @@ int QTDoughApplication::Run() {
 	return 0;
 }
 
+
 void QTDoughApplication::RunMainGameLoop()
 {
+    //Get current time.
+    currentTime = std::chrono::high_resolution_clock::now();
+    // imgui new frame
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::Begin("Performance"); // Create a window titled "Performance"
+
+    // Display FPS
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSecondPassed).count() > 999)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        FPS = io.Framerate;
+    }
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+        1000.0f / FPS, FPS);
+
+    ImGui::End(); // End the ImGui window
+
+    //make imgui calculate internal draw structures
+    ImGui::Render();
+
     DrawFrame();
     GatherBlenderInfo();
     //Quit if E key is pressed.
@@ -73,6 +99,20 @@ void QTDoughApplication::RunMainGameLoop()
     }
 
 
+    // Calculate the elapsed time in milliseconds
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSecondPassed);
+
+    if (elapsedTime.count() >= 1000) {
+
+        timeSecondPassed = currentTime;
+    }
+
+    elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeMinutePassed);
+
+    if (elapsedTime.count() >= 1000 * 60) {
+
+        timeMinutePassed = currentTime;
+    }
 
 }
 
@@ -97,6 +137,8 @@ void QTDoughApplication::DrawFrame()
 
     vkResetCommandBuffer(_commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
     RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
+
+
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -141,6 +183,8 @@ void QTDoughApplication::DrawFrame()
     }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    //DrawImgui(_commandBuffers[currentFrame], swapChainImageViews[currentFrame]);
 }
 
 void QTDoughApplication::InitSDLWindow()
@@ -178,6 +222,251 @@ void QTDoughApplication::InitSDLWindow()
 
         }
     }
+}
+
+VkRenderingAttachmentInfo QTDoughApplication::AttachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+{
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.pNext = nullptr;
+
+    colorAttachment.imageView = view;
+    colorAttachment.imageLayout = layout;
+    colorAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    if (clear) {
+        colorAttachment.clearValue = *clear;
+    }
+
+    return colorAttachment;
+}
+
+VkRenderingInfo QTDoughApplication::RenderingInfo(VkExtent2D extent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment)
+{
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.pNext = nullptr;
+    renderingInfo.flags = 0;
+    renderingInfo.renderArea.offset = { 0, 0 };
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.layerCount = 1;
+    renderingInfo.viewMask = 0; // For multiview rendering, if needed
+
+    if (colorAttachment != nullptr)
+    {
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = colorAttachment;
+    }
+    else
+    {
+        renderingInfo.colorAttachmentCount = 0;
+        renderingInfo.pColorAttachments = nullptr;
+    }
+
+    renderingInfo.pDepthAttachment = depthAttachment;
+    renderingInfo.pStencilAttachment = nullptr; // Assuming no separate stencil attachment
+
+    return renderingInfo;
+}
+
+
+void QTDoughApplication::DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
+{
+    VkRenderingAttachmentInfo colorAttachment = AttachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo renderInfo = RenderingInfo(swapChainExtent, &colorAttachment, nullptr);
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+
+    vkCmdEndRendering(cmd);
+}
+
+VkSubmitInfo QTDoughApplication::SubmitInfo(VkCommandBuffer* cmd)
+{
+    VkSubmitInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    info.pNext = nullptr;
+
+    info.waitSemaphoreCount = 0;
+    info.pWaitSemaphores = nullptr;
+    info.pWaitDstStageMask = nullptr;
+    info.commandBufferCount = 1;
+    info.pCommandBuffers = cmd;
+    info.signalSemaphoreCount = 0;
+    info.pSignalSemaphores = nullptr;
+
+    return info;
+}
+
+VkSubmitInfo2 QTDoughApplication::SubmitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+    VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+{
+    VkSubmitInfo2 info = {};
+    info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    info.pNext = nullptr;
+
+    info.waitSemaphoreInfoCount = waitSemaphoreInfo == nullptr ? 0 : 1;
+    info.pWaitSemaphoreInfos = waitSemaphoreInfo;
+
+    info.signalSemaphoreInfoCount = signalSemaphoreInfo == nullptr ? 0 : 1;
+    info.pSignalSemaphoreInfos = signalSemaphoreInfo;
+
+    info.commandBufferInfoCount = 1;
+    info.pCommandBufferInfos = cmd;
+
+    return info;
+}
+
+VkCommandBufferSubmitInfo QTDoughApplication::CommandBufferSubmitInfo(VkCommandBuffer cmd)
+{
+    VkCommandBufferSubmitInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    info.pNext = nullptr;
+    info.commandBuffer = cmd;
+    info.deviceMask = 0;
+
+    return info;
+}
+
+VkCommandBufferBeginInfo QTDoughApplication::CommandBufferBeginInfo(VkCommandBufferUsageFlags flags /*= 0*/)
+{
+    VkCommandBufferBeginInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    info.pNext = nullptr;
+
+    info.pInheritanceInfo = nullptr;
+    info.flags = flags;
+    return info;
+}
+
+VkCommandBufferAllocateInfo QTDoughApplication::CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/)
+{
+    VkCommandBufferAllocateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    info.pNext = nullptr;
+
+    info.commandPool = pool;
+    info.commandBufferCount = count;
+    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    return info;
+}
+
+void QTDoughApplication::InitCommands()
+{
+    VK_CHECK(vkCreateCommandPool(_logicalDevice, &_commandPoolInfo, nullptr, &_immCommandPool));
+
+    // allocate the command buffer for immediate submits
+    VkCommandBufferAllocateInfo cmdAllocInfo = CommandBufferAllocateInfo(_immCommandPool, 1);
+
+    VK_CHECK(vkAllocateCommandBuffers(_logicalDevice, &cmdAllocInfo, &_immCommandBuffer));
+
+
+    /*
+    _mainDeletionQueue.push_function([=]() {
+        vkDestroyCommandPool(_logicalDevice, _immCommandPool, nullptr);
+        });
+    */
+
+}
+
+void QTDoughApplication::InitSyncStructures()
+{
+    VK_CHECK(vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &_immFence));
+
+}
+
+void QTDoughApplication::ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function)
+{
+    VK_CHECK(vkResetFences(_logicalDevice, 1, &_immFence));
+    VK_CHECK(vkResetCommandBuffer(_immCommandBuffer, 0));
+
+    VkCommandBuffer cmd = _immCommandBuffer;
+
+    VkCommandBufferBeginInfo cmdBeginInfo = CommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    function(cmd);
+
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    VkCommandBufferSubmitInfo cmdinfo = CommandBufferSubmitInfo(cmd);
+    VkSubmitInfo2 submit = SubmitInfo(&cmdinfo, nullptr, nullptr);
+
+    // submit command buffer to the queue and execute it.
+    //  _renderFence will now block until the graphic commands finish execution
+    VK_CHECK(vkQueueSubmit2(_vkGraphicsQueue, 1, &submit, _immFence));
+
+    VK_CHECK(vkWaitForFences(_logicalDevice, 1, &_immFence, true, 9999999999));
+}
+
+void QTDoughApplication::InitImGui()
+{
+    //1: create descriptor pool for IMGUI
+    // the size of the pool is very oversize, but it's copied from imgui demo itself.
+    VkDescriptorPoolSize pool_sizes[] =
+    {
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000;
+    pool_info.poolSizeCount = std::size(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+
+    VkDescriptorPool imguiPool;
+    VK_CHECK(vkCreateDescriptorPool(_logicalDevice, &pool_info, nullptr, &imguiPool));
+
+    std::cout << "Started pool info imgui" << std::endl;
+    // 2: initialize imgui library
+
+    // this initializes the core structures of imgui
+    ImGui::CreateContext();
+    ImGui_ImplSDL2_InitForVulkan(QTSDLWindow);
+    std::cout << "Started pool info imgui" << std::endl;
+    // this initializes imgui for Vulkan
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = _vkInstance;
+    init_info.PhysicalDevice = _physicalDevice;
+    init_info.Device = _logicalDevice;
+    init_info.Queue = _vkGraphicsQueue;
+    init_info.DescriptorPool = imguiPool;
+    init_info.MinImageCount = 3;
+    init_info.ImageCount = 3;
+    init_info.UseDynamicRendering = true;
+
+    //dynamic rendering parameters for imgui to use
+    init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &_swapChainImageFormat;
+
+
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+    ImGui_ImplVulkan_Init(&init_info);
+
+    ImGui_ImplVulkan_CreateFontsTexture();
+
+    /*
+    // add the destroy the imgui created structures
+    _mainDeletionQueue.push_function([=]() {
+        ImGui_ImplVulkan_Shutdown();
+        vkDestroyDescriptorPool(_device, imguiPool, nullptr);
+        });
+        */
 }
 
 uint32_t QTDoughApplication::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -289,7 +578,9 @@ void QTDoughApplication::InitVulkan()
     CreateDescriptorPool();
     CreateDescriptorSets();
     CreateCommandBuffers();
+    InitImGui();
     CreateSyncObjects();
+
 }
 
 void QTDoughApplication::CreateDescriptorSets()
@@ -432,10 +723,8 @@ void QTDoughApplication::CreateSyncObjects()
     _renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
-    VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
@@ -498,7 +787,10 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
+
     vkCmdEndRenderPass(commandBuffer);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -526,13 +818,11 @@ void QTDoughApplication::CreateCommandPool()
 {
     std::cout << "Creating Command Pool" << std::endl;
     QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(_physicalDevice);
+    _commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    _commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    _commandPoolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-
-    if (vkCreateCommandPool(_logicalDevice , &poolInfo, nullptr, &_commandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(_logicalDevice , &_commandPoolInfo, nullptr, &_commandPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create command pool!");
     }
 

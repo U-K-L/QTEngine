@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -19,6 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ExternalLibs\imgui\backends\imgui_impl_sdl2.cpp" />
+    <ClCompile Include="..\ExternalLibs\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\ExternalLibs\imgui\imgui.cpp" />
+    <ClCompile Include="..\ExternalLibs\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\ExternalLibs\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\ExternalLibs\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\ExternalLibs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Application\QTDoughApplication.cpp" />
     <ClCompile Include="src\Engine\UnigmaGameObject.cpp" />
     <ClCompile Include="src\Engine\UnigmaGameObjectManager.cpp" />
@@ -26,6 +33,14 @@
     <ClCompile Include="src\Application\UnigmaBlend.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ExternalLibs\imgui\backends\imgui_impl_sdl2.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\backends\imgui_impl_vulkan.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\imconfig.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\imgui.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\imgui_internal.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\ExternalLibs\imgui\imstb_truetype.h" />
     <ClInclude Include="src\Application\QTDoughApplication.h" />
     <ClInclude Include="src\Application\UnigmaBlend.h" />
     <ClInclude Include="src\Engine\UnigmaGameObject.h" />
@@ -97,7 +112,7 @@
     <LibraryPath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Lib;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Lib;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -146,7 +161,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.290.0;C:\VulkanSDK\1.3.290.0\Include;$(ProjectDir)\QTDough\src\Application;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;C:\VulkanSDK\1.3.290.0;C:\VulkanSDK\1.3.290.0\Include;$(ProjectDir)\QTDough\src\Application;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
