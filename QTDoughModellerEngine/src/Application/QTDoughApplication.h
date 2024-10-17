@@ -2,6 +2,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
 #include <vector>
@@ -29,6 +30,7 @@
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
 #include <functional>
+
 
 
 #define VK_CHECK(x)                                                         \
@@ -114,6 +116,7 @@ public:
     VkPipelineLayout _pipelineLayout;
     VkPipeline graphicsPipeline;
     bool framebufferResized = false;
+    std::string AssetsPath = "Assets/";
 
 
 private:
@@ -141,6 +144,7 @@ private:
     void CreateVertexBuffer();
     void CreateIndexBuffer();
     void CreateDescriptorSetLayout();
+    void CreateTextureImage();
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
     std::vector<const char*> GetRequiredExtensions();
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
@@ -164,6 +168,10 @@ private:
     void RecreateSwapChain();
     void CleanupSwapChain();
     void InitImGui();
+    void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    VkCommandBuffer BeginSingleTimeCommands();
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/);
     VkCommandBufferBeginInfo CommandBufferBeginInfo(VkCommandBufferUsageFlags flags /*= 0*/);
     VkCommandBufferSubmitInfo CommandBufferSubmitInfo(VkCommandBuffer cmd);
@@ -196,6 +204,10 @@ private:
     VkDeviceMemory _indexBufferMemory;
     VkDescriptorSetLayout _descriptorSetLayout;
     VkDescriptorPool _descriptorPool;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
     std::vector<VkBuffer> _uniformBuffers;
     std::vector<VkDeviceMemory> _uniformBuffersMemory;
     std::vector<void*> _uniformBuffersMapped;
