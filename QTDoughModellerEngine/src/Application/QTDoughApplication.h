@@ -165,12 +165,15 @@ private:
     void UpdateUniformBuffer(uint32_t currentImage);
     void CreateDescriptorPool();
     void CreateDescriptorSets();
+    void CreateTextureSampler();
     void RecreateSwapChain();
     void CleanupSwapChain();
     void InitImGui();
     void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
     void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void CreateTextureImageView();
+    VkImageView CreateImageView(VkImage image, VkFormat format);
     VkCommandBuffer BeginSingleTimeCommands();
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/);
@@ -211,6 +214,9 @@ private:
     VkDeviceMemory textureImageMemory;
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
+    VkPhysicalDeviceProperties properties{};
     std::vector<VkBuffer> _uniformBuffers;
     std::vector<VkDeviceMemory> _uniformBuffersMemory;
     std::vector<void*> _uniformBuffersMapped;
