@@ -175,6 +175,7 @@ private:
     void CreateTextureImageView();
     void CreateDepthResources();
     bool HasStencilComponent(VkFormat format);
+    void LoadModel();
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     VkFormat FindDepthFormat();
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
