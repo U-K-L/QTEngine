@@ -5,33 +5,9 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
+#include "../Engine/Renderer/UnigmaRenderingManager.h"
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-
-};
-
-namespace std {
-    template<> struct hash<Vertex> {
-        size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^
-                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-                (hash<glm::vec2>()(vertex.texCoord) << 1);
-        }
-    };
-}
-
-std::vector<Vertex> vertices;
-std::vector<uint32_t> indices;
-
+UnigmaRenderingObject VikingRoom;
 
 VkVertexInputBindingDescription getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
@@ -62,12 +38,6 @@ std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
 
     return attributeDescriptions;
 }
-
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
-
-const std::string MODEL_PATH = "Models/viking_room.obj";
-const std::string TEXTURE_PATH = "Textures/viking_room.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 bool PROGRAMEND = false;
@@ -627,6 +597,18 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 
 void QTDoughApplication::InitVulkan()
 {
+    //Create Textures.
+    UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/Kanaloa_Sprite_DesignSPRITE.png");
+    //Create Material.
+    UnigmaMaterial material = UnigmaMaterial();
+    //Set texture for material.
+    material.textures[0] = vikText;
+
+    //Create Model.
+    UnigmaModel vikingModel = UnigmaModel("Models/viking_room.obj");
+
+    //Create rendering object.
+    VikingRoom = UnigmaRenderingObject(vikingModel, material);
 
 	CreateInstance();
     CreateWindowSurface();
@@ -671,7 +653,7 @@ void QTDoughApplication::LoadModel()
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
-    std::string path = AssetsPath + MODEL_PATH.c_str();
+    std::string path = AssetsPath + VikingRoom._model.MODEL_PATH.c_str();
 
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str())) {
         throw std::runtime_error(warn + err);
@@ -859,7 +841,7 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 void QTDoughApplication::CreateTextureImage()
 {
-    std::string path = AssetsPath + TEXTURE_PATH;
+    std::string path = AssetsPath + VikingRoom._material.textures[0].TEXTURE_PATH;
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -1084,6 +1066,7 @@ void QTDoughApplication::CreateSyncObjects()
 
 void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
+
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 

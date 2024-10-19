@@ -27,8 +27,10 @@
     <ClCompile Include="..\ExternalLibs\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\ExternalLibs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Application\QTDoughApplication.cpp" />
-    <ClCompile Include="src\Engine\UnigmaGameObject.cpp" />
-    <ClCompile Include="src\Engine\UnigmaGameObjectManager.cpp" />
+    <ClCompile Include="src\Engine\Core\UnigmaGameObject.cpp" />
+    <ClCompile Include="src\Engine\Core\UnigmaGameObjectManager.cpp" />
+    <ClCompile Include="src\Engine\Renderer\UnigmaRenderingManager.cpp" />
+    <ClCompile Include="src\Engine\Renderer\UnigmaRenderingObject.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Application\UnigmaBlend.cpp" />
   </ItemGroup>
@@ -43,8 +45,13 @@
     <ClInclude Include="..\ExternalLibs\imgui\imstb_truetype.h" />
     <ClInclude Include="src\Application\QTDoughApplication.h" />
     <ClInclude Include="src\Application\UnigmaBlend.h" />
-    <ClInclude Include="src\Engine\UnigmaGameObject.h" />
-    <ClInclude Include="src\Engine\UnigmaGameObjectManager.h" />
+    <ClInclude Include="src\Engine\Core\UnigmaGameObject.h" />
+    <ClInclude Include="src\Engine\Core\UnigmaGameObjectManager.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaMaterial.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaModel.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaRenderingManager.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaRenderingObject.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaTexture.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\tests\basicFrag.frag" />

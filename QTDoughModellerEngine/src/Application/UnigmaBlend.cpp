@@ -1,5 +1,5 @@
 #include "UnigmaBlend.h"
-#include "../Engine/UnigmaGameObject.h"
+#include "../Engine/Core/UnigmaGameObject.h"
 
 #define SHARED_MEMORY_NAME "Local\\MySharedMemory"
 #define NUM_OBJECTS 10
