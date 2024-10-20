@@ -1,12 +1,39 @@
 #include "UnigmaBlend.h"
 #include "../Engine/Core/UnigmaGameObject.h"
 
+#define DATA_READY_EVENT_NAME "Local\\DataReadyEvent"
+#define READ_COMPLETE_EVENT_NAME "Local\\ReadCompleteEvent"
 #define SHARED_MEMORY_NAME "Local\\MySharedMemory"
 #define NUM_OBJECTS 10
 
+//Return types:
+// 0: Success
+// -1: Error (general)
+// 1: No File
+// 2: Data not ready.
+
 int GatherBlenderInfo()
 {
-    const size_t sharedMemorySize = sizeof(UnigmaGameObject) * NUM_OBJECTS;
+    // Attempt to open the events
+    HANDLE hDataReadyEvent = OpenEventA(
+        SYNCHRONIZE,             // Desired access
+        FALSE,                   // Do not inherit handle
+        DATA_READY_EVENT_NAME    // Name of the event
+    );
+    HANDLE hReadCompleteEvent = OpenEventA(
+        EVENT_MODIFY_STATE,      // Desired access
+        FALSE,                   // Do not inherit handle
+        READ_COMPLETE_EVENT_NAME // Name of the event
+    );
+
+    if (hDataReadyEvent == NULL || hReadCompleteEvent == NULL) {
+        // Events not available; exit the function
+        return 1;
+    }
+
+
+
+    const size_t sharedMemorySize = sizeof(RenderObject) * NUM_OBJECTS;
     // Open the file mapping object
     HANDLE hMapFile = OpenFileMappingA(
         FILE_MAP_ALL_ACCESS,   // Read/write access
@@ -15,6 +42,18 @@ int GatherBlenderInfo()
     );
 
     if (hMapFile == NULL) {
+        CloseHandle(hDataReadyEvent);
+        CloseHandle(hReadCompleteEvent);
+        return 1;
+    }
+
+    // Wait for the data to be ready.
+    DWORD waitResult = WaitForSingleObject(hDataReadyEvent, 0);
+    if (waitResult != WAIT_OBJECT_0) {
+        // Failed to wait for data ready; clean up and exit
+        CloseHandle(hMapFile);
+        CloseHandle(hDataReadyEvent);
+        CloseHandle(hReadCompleteEvent);
         return 1;
     }
 
@@ -29,33 +68,58 @@ int GatherBlenderInfo()
 
     if (pBuf == NULL) {
         CloseHandle(hMapFile);
+        CloseHandle(hDataReadyEvent);
+        CloseHandle(hReadCompleteEvent);
         return 1;
     }
 
 
     // Cast the mapped view to an array of GameObject structs
-    UnigmaGameObject* gameObjects = static_cast<UnigmaGameObject*>(pBuf);
+    RenderObject* renderObjects = static_cast<RenderObject*>(pBuf);
 
     // Iterate over each GameObject and print the data
     for (int i = 0; i < NUM_OBJECTS; ++i) {
-        std::cout << "Reader: GameObject Name " << gameObjects[i].name << std::endl;
-        std::cout << "Reader: GameObject[" << i << "].id = " << gameObjects[i].id << std::endl;
+        std::cout << "Reader: GameObject Name " << renderObjects[i].name << std::endl;
+        std::cout << "Reader: GameObject[" << i << "].id = " << renderObjects[i].id << std::endl;
 
         // Print the transformMatrix
         std::cout << "Reader: GameObject[" << i << "].transformMatrix =\n";
         for (int row = 0; row < 4; ++row) {
             std::cout << "[ ";
             for (int col = 0; col < 4; ++col) {
-                std::cout << gameObjects[i].transformMatrix[row][col] << " ";
+                std::cout << renderObjects[i].transformMatrix[row][col] << " ";
             }
             std::cout << "]\n";
+        }
+
+        std::cout << "Vertices" << std::endl;
+        int vertCount = renderObjects[i].vertexCount;
+        for (int j = 0; j < vertCount; j++)
+        {
+            std::cout << "(" << renderObjects[i].vertices[j].x;
+            std::cout << "," << renderObjects[i].vertices[j].y;
+            std::cout << "," << renderObjects[i].vertices[j].z << ")" << std::endl;
+        }
+
+        std::cout << "Indices" << std::endl;
+        int indicesCount = renderObjects[i].indexCount;
+        for (int j = 0; j < indicesCount; j++)
+        {
+            std::cout << "  " << renderObjects[i].indices[j] << std::endl;
         }
     }
 
 
+    // Signal that reading is complete
+    SetEvent(hReadCompleteEvent);
+    ResetEvent(hDataReadyEvent);
+
     // Clean up
     UnmapViewOfFile(pBuf);
     CloseHandle(hMapFile);
+    //CloseHandle(hDataReadyEvent);
+    //CloseHandle(hReadCompleteEvent);
+
 
     return 0;
 }
