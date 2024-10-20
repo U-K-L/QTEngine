@@ -2,12 +2,12 @@
 #pragma once
 #include <string>
 
-struct UnigmaModel {
+struct UnigmaMesh {
 	std::string MODEL_PATH;
 
-	UnigmaModel(const std::string& modelPath)
+	UnigmaMesh(const std::string& modelPath)
 		: MODEL_PATH(modelPath) {}
 
 	//Default
-	UnigmaModel() : MODEL_PATH("") {}
+	UnigmaMesh() : MODEL_PATH("") {}
 };

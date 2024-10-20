@@ -51,6 +51,7 @@ const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+static const std::string AssetsPath = "Assets/";
 
 struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
@@ -115,9 +116,11 @@ public:
     VkRenderPass renderPass;
     VkPipelineLayout _pipelineLayout;
     VkPipeline graphicsPipeline;
+    VkDevice _logicalDevice = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet> _descriptorSets;
     bool framebufferResized = false;
-    std::string AssetsPath = "Assets/";
-
+    void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private:
     //Methods.
@@ -159,8 +162,6 @@ private:
     void InitCommands();
     void InitSyncStructures();
     uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-    void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-    void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void CreateUniformBuffers();
     void UpdateUniformBuffer(uint32_t currentImage);
     void CreateDescriptorPool();
@@ -195,7 +196,6 @@ private:
     //Fields.
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
-    VkDevice _logicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
     SDL_Surface* _screenSurface = NULL;
@@ -208,10 +208,6 @@ private:
     VkSemaphoreCreateInfo semaphoreInfo{};
     VkSwapchainKHR _swapChain;
     VkFormat _swapChainImageFormat;
-    VkBuffer _vertexBuffer;
-    VkDeviceMemory _vertexBufferMemory;
-    VkBuffer _indexBuffer;
-    VkDeviceMemory _indexBufferMemory;
     VkDescriptorSetLayout _descriptorSetLayout;
     VkDescriptorPool _descriptorPool;
     VkBuffer stagingBuffer;
@@ -233,7 +229,6 @@ private:
     std::vector<VkSemaphore> _renderFinishedSemaphores;
     std::vector<VkFence> _inFlightFences;
     std::vector<VkFramebuffer> swapChainFramebuffers;
-    std::vector<VkDescriptorSet> _descriptorSets;
     // immediate submit structures
     VkFence _immFence;
     VkCommandBuffer _immCommandBuffer;

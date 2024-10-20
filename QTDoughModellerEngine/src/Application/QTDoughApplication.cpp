@@ -2,9 +2,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
 
 UnigmaRenderingObject VikingRoom;
@@ -602,14 +599,14 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 void QTDoughApplication::InitVulkan()
 {
     //Create Textures.
-    UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/Kanaloa_Sprite_DesignSPRITE.png");
+    UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/viking_room.png");
     //Create Material.
     UnigmaMaterial material = UnigmaMaterial();
     //Set texture for material.
     material.textures[0] = vikText;
 
     //Create Model.
-    UnigmaModel vikingModel = UnigmaModel("Models/viking_room.obj");
+    UnigmaMesh vikingModel = UnigmaMesh("Models/viking_room.obj");
 
     //Create rendering object.
     VikingRoom = UnigmaRenderingObject(vikingModel, material);
@@ -620,11 +617,9 @@ void QTDoughApplication::InitVulkan()
     CreateLogicalDevice();
     CreateSwapChain();
     CreateImageViews();
-    //CreateRenderPass();
     CreateDescriptorSetLayout();
     CreateGraphicsPipeline();
     CreateDepthResources();
-    //CreateFramebuffers();
     CreateCommandPool();
     CreateTextureImage();
     CreateTextureImageView();
@@ -641,6 +636,21 @@ void QTDoughApplication::InitVulkan()
 
 }
 
+void QTDoughApplication::CreateVertexBuffer()
+{
+    VikingRoom.CreateVertexBuffer(*this);
+}
+
+void QTDoughApplication::CreateIndexBuffer()
+{
+    VikingRoom.CreateIndexBuffer(*this);
+}
+
+void QTDoughApplication::LoadModel()
+{
+    VikingRoom.LoadModel(VikingRoom._mesh);
+}
+
 void QTDoughApplication::CreateDepthResources()
 {
     VkFormat depthFormat = FindDepthFormat();
@@ -648,47 +658,6 @@ void QTDoughApplication::CreateDepthResources()
     CreateImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
     depthImageView = CreateImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-
-}
-
-void QTDoughApplication::LoadModel()
-{
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-    std::string path = AssetsPath + VikingRoom._model.MODEL_PATH.c_str();
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str())) {
-        throw std::runtime_error(warn + err);
-    }
-
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            Vertex vertex{};
-
-            vertex.pos = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
-            };
-
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-
-            vertex.color = { 1.0f, 1.0f, 1.0f };
-
-            if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
-            }
-
-            indices.push_back(uniqueVertices[vertex]);
-        }
-    }
 
 }
 
@@ -1000,52 +969,6 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 
 }
 
-void QTDoughApplication::CreateIndexBuffer()
-{
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-        stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(_logicalDevice, stagingBufferMemory);
-
-    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | 
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _indexBuffer, _indexBufferMemory);
-
-    CopyBuffer(stagingBuffer, _indexBuffer, bufferSize);
-
-    vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
-}
-
-void QTDoughApplication::CreateVertexBuffer()
-{
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(_logicalDevice, stagingBufferMemory);
-    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vertexBuffer, _vertexBufferMemory);
-
-    CopyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
-
-    vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
-}
-
-
 void QTDoughApplication::CreateSyncObjects()
 {
     //Resize to fit the amount of possible frames in flight.
@@ -1142,10 +1065,10 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-
+    //Render objects to the screen and change VBOs per object.
     RenderObjects(commandBuffer, imageIndex);
 
-        // Render ImGui using dynamic rendering
+    // Render ImGui using dynamic rendering
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -1155,18 +1078,7 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-
-    VkBuffer vertexBuffers[] = { _vertexBuffer };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &_descriptorSets[currentFrame], 0, nullptr);
-
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-
-    vkCmdEndRendering(commandBuffer);
+    VikingRoom.Render(*this, commandBuffer, imageIndex, currentFrame);
 }
 
 void QTDoughApplication::CreateCommandBuffers()
@@ -2037,12 +1949,7 @@ void QTDoughApplication::Cleanup()
     vkDestroyDescriptorPool(_logicalDevice, _descriptorPool, nullptr);
 
     vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
-    vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
-    vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
-    vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
-    vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
     vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
-    vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
     vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
