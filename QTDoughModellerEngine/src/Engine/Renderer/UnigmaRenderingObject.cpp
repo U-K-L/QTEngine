@@ -123,7 +123,11 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
 
 void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj)
 {
-    uRObj.Cleanup(app);
+    //Create Model.
+    UnigmaMesh monkeyModel = UnigmaMesh("Models/monkey.obj");
+    uRObj._mesh = monkeyModel;
+    uRObj.LoadModel(uRObj._mesh);
+    //uRObj.Cleanup(app);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
 }
