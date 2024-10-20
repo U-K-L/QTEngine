@@ -116,11 +116,14 @@ void QTDoughApplication::RunMainGameLoop()
 
 void QTDoughApplication::DrawFrame()
 {
+    //Waits for this fence to finish. 
     vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
+    //Aquire the rendered image.
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
+    //Resize screen if something had changed.
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         RecreateSwapChain();
         return;
@@ -129,10 +132,12 @@ void QTDoughApplication::DrawFrame()
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    UpdateUniformBuffer(currentFrame);
+    UpdateUniformBuffer(currentFrame); //TODO Refactor OUT.
 
+    //Set fence back to unsignled for next time.
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
 
+    //REturn command buffers back to original state.
     vkResetCommandBuffer(_commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
     RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
 
@@ -154,6 +159,7 @@ void QTDoughApplication::DrawFrame()
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
+    //Sends the recorded command buffer to be rendered.
     if (vkQueueSubmit(_vkGraphicsQueue, 1, &submitInfo, _inFlightFences[currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
@@ -181,8 +187,6 @@ void QTDoughApplication::DrawFrame()
     }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-    //DrawImgui(_commandBuffers[currentFrame], swapChainImageViews[currentFrame]);
 }
 
 void QTDoughApplication::InitSDLWindow()
@@ -1044,14 +1048,16 @@ void QTDoughApplication::CreateVertexBuffer()
 
 void QTDoughApplication::CreateSyncObjects()
 {
+    //Resize to fit the amount of possible frames in flight.
     _imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
+
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; //First frame doesn't wait.
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_imageAvailableSemaphores[i]) != VK_SUCCESS ||
@@ -1136,6 +1142,20 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+
+    RenderObjects(commandBuffer, imageIndex);
+
+        // Render ImGui using dynamic rendering
+    DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+}
+
+void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+{
+
     VkBuffer vertexBuffers[] = { _vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -1147,13 +1167,6 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
     vkCmdEndRendering(commandBuffer);
-
-        // Render ImGui using dynamic rendering
-    DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to record command buffer!");
-    }
 }
 
 void QTDoughApplication::CreateCommandBuffers()
@@ -1283,6 +1296,8 @@ void QTDoughApplication::CreateRenderPass()
     std::cout << "Renderpasses created." << std::endl;
 }
 
+
+//Graphics pipeline has to be made per shader, and therefore per material using a different shader.
 void QTDoughApplication::CreateGraphicsPipeline()
 {
     printf("Start Creating Graphics Pipeline\n");
