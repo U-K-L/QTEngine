@@ -120,3 +120,10 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
     vkFreeMemory(app._logicalDevice, _vertexBufferMemory, nullptr);
     vkDestroyBuffer(app._logicalDevice, _vertexBuffer, nullptr);
 }
+
+void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj)
+{
+    uRObj.Cleanup(app);
+    uRObj.CreateVertexBuffer(app);
+    uRObj.CreateIndexBuffer(app);
+}

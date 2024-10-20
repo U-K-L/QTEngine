@@ -64,6 +64,7 @@ class UnigmaRenderingObject {
 		void CreateVertexBuffer(QTDoughApplication& app);
 		void CreateIndexBuffer(QTDoughApplication& app);
 		void Render(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
+		void RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj);
 		void LoadModel(UnigmaMesh& mesh);
 		void Cleanup(QTDoughApplication& app);
 	private:
