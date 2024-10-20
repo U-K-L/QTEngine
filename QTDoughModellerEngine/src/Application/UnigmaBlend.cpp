@@ -5,7 +5,7 @@
 #define READ_COMPLETE_EVENT_NAME "Local\\ReadCompleteEvent"
 #define SHARED_MEMORY_NAME "Local\\MySharedMemory"
 #define NUM_OBJECTS 10
-
+RenderObject* renderObjects = nullptr;
 //Return types:
 // 0: Success
 // -1: Error (general)
@@ -75,7 +75,7 @@ int GatherBlenderInfo()
 
 
     // Cast the mapped view to an array of GameObject structs
-    RenderObject* renderObjects = static_cast<RenderObject*>(pBuf);
+    renderObjects = static_cast<RenderObject*>(pBuf);
 
     // Iterate over each GameObject and print the data
     for (int i = 0; i < NUM_OBJECTS; ++i) {

@@ -86,6 +86,8 @@ void QTDoughApplication::RunMainGameLoop()
 
     DrawFrame();
     GatherBlenderInfo();
+    //Set new data.
+    
     //Quit if E key is pressed.
     const Uint8* state = SDL_GetKeyboardState(NULL);
     if (state[SDL_SCANCODE_E]) {

@@ -47,3 +47,6 @@ struct RenderObject {
 };
 
 int GatherBlenderInfo();
+
+
+extern RenderObject* renderObjects;
