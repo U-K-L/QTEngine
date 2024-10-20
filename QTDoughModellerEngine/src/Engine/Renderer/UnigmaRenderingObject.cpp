@@ -127,7 +127,49 @@ void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, Render
     UnigmaMesh monkeyModel = UnigmaMesh("Models/monkey.obj");
     uRObj._mesh = monkeyModel;
     uRObj.LoadModel(uRObj._mesh);
+    uRObj.LoadBlenderMeshData(rObj);
     //uRObj.Cleanup(app);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
+}
+
+void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
+{
+    _renderer.indices.clear();
+    _renderer.vertices.clear();
+
+    const std::vector<Vertex> vertices = {
+        {{-0.5f, -0.5f,0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f,0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f,0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f,0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+    };
+
+    const std::vector<uint16_t> indices = {
+    0, 1, 2, 2, 3, 0
+    };
+
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+    for (const auto& index : indices) {
+        Vertex vertex{};
+
+        vertex.pos = vertices[index].pos;
+
+        vertex.texCoord = {
+            0.0f,0.0f
+            //attrib.texcoords[2 * index.texcoord_index + 0],
+            //1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+        };
+
+        vertex.color = { 1.0f, 1.0f, 1.0f };
+
+        if (uniqueVertices.count(vertex) == 0) {
+            uniqueVertices[vertex] = static_cast<uint32_t>(_renderer.vertices.size());
+            _renderer.vertices.push_back(vertex);
+        }
+
+        _renderer.indices.push_back(uniqueVertices[vertex]);
+    }
+
 }

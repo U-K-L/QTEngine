@@ -67,5 +67,6 @@ class UnigmaRenderingObject {
 		void RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj);
 		void LoadModel(UnigmaMesh& mesh);
 		void Cleanup(QTDoughApplication& app);
+		void LoadBlenderMeshData(RenderObject& rObj);
 	private:
 };
