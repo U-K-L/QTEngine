@@ -86,7 +86,7 @@ void QTDoughApplication::RunMainGameLoop()
 
     DrawFrame();
     if (GatherBlenderInfo() == 0)
-        VikingRoom.RenderObjectToUnigma(*this, renderObjects[1], VikingRoom);
+        VikingRoom.RenderObjectToUnigma(*this, renderObjects[0], VikingRoom);
     //Set new data.
     
     //Quit if E key is pressed.

@@ -8,6 +8,8 @@
 
 #include "UnigmaRenderingManager.h"
 
+
+
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 color;

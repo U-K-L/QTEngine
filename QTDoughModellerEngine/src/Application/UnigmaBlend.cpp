@@ -1,5 +1,5 @@
 #include "UnigmaBlend.h"
-#include "../Engine/Core/UnigmaGameObject.h"
+
 
 #define DATA_READY_EVENT_NAME "Local\\DataReadyEvent"
 #define READ_COMPLETE_EVENT_NAME "Local\\ReadCompleteEvent"
@@ -11,6 +11,34 @@ RenderObject* renderObjects = nullptr;
 // -1: Error (general)
 // 1: No File
 // 2: Data not ready.
+void PrintRenderObjectRaw(const RenderObject& obj) {
+    std::cout << "RenderObject Name: " << obj.name << "\n";
+    std::cout << "ID: " << obj.id << "\n";
+    std::cout << "Vertex Count: " << obj.vertexCount << "\n";
+    std::cout << "Index Count: " << obj.indexCount << "\n";
+
+    std::cout << "Transform Matrix:\n";
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            std::cout << std::setw(10) << obj.transformMatrix[i*4 + j] << " ";
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "Vertices:\n";
+    for (int i = 0; i < obj.vertexCount; i++) {
+        std::cout << "  Vertex " << i << ": ("
+            << obj.vertices[i].x << ", "
+            << obj.vertices[i].y << ", "
+            << obj.vertices[i].z << ")\n";
+    }
+
+    std::cout << "Address of obj.indices: " << static_cast<const void*>(obj.indices) << std::endl;
+    std::cout << "Indices:\n";
+    for (int i = 0; i < obj.indexCount; i++) {
+        std::cout << " RAW PRINT Index " << i << ": " << obj.indices[i] << "\n";
+    }
+}
 
 int GatherBlenderInfo()
 {
@@ -87,7 +115,7 @@ int GatherBlenderInfo()
         for (int row = 0; row < 4; ++row) {
             std::cout << "[ ";
             for (int col = 0; col < 4; ++col) {
-                std::cout << renderObjects[i].transformMatrix[row][col] << " ";
+                std::cout << renderObjects[i].transformMatrix[row*4 + col] << " ";
             }
             std::cout << "]\n";
         }
@@ -101,11 +129,18 @@ int GatherBlenderInfo()
             std::cout << "," << renderObjects[i].vertices[j].z << ")" << std::endl;
         }
 
-        std::cout << "Indices" << std::endl;
+        std::cout << "Indices TRUE VALUE" << std::endl;
         int indicesCount = renderObjects[i].indexCount;
         for (int j = 0; j < indicesCount; j++)
         {
-            std::cout << "  " << renderObjects[i].indices[j] << std::endl;
+            std::cout << " RAW " << renderObjects[i].indices[j] << std::endl;
+        }
+
+        std::cout << " Print after debug " << std::endl;
+        PrintRenderObjectRaw(renderObjects[i]);
+        for (int j = 0; j < indicesCount; j++)
+        {
+            std::cout << " RAW " << renderObjects[i].indices[j] << std::endl;
         }
     }
 
@@ -115,8 +150,8 @@ int GatherBlenderInfo()
     ResetEvent(hDataReadyEvent);
 
     // Clean up
-    UnmapViewOfFile(pBuf);
-    CloseHandle(hMapFile);
+    //UnmapViewOfFile(pBuf);
+    //CloseHandle(hMapFile);
     //CloseHandle(hDataReadyEvent);
     //CloseHandle(hReadCompleteEvent);
 
