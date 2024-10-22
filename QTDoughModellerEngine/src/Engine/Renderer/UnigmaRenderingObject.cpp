@@ -123,21 +123,7 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
 
 void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj)
 {
-    PrintRenderObjectRaw(renderObjects[0]);
-    std::cout << "Indices TEST replicated from function" << std::endl;
-    int indicesCount = renderObjects[0].indexCount;
-    std::cout << "indicesCount: " << indicesCount << std::endl;
-    std::cout << "Address of renderObjects[0].indices: " << static_cast<const void*>(renderObjects[0].indices) << std::endl;
-
-    for (int i = 0; i < indicesCount; ++i) {
-        std::cout << "  Index " << i << ": " << renderObjects[0].indices[i] << "\n";
-    }
-    //Create Model.
-    UnigmaMesh monkeyModel = UnigmaMesh("Models/monkey.obj");
-    uRObj._mesh = monkeyModel;
-    //uRObj.LoadModel(uRObj._mesh);
     uRObj.LoadBlenderMeshData(renderObjects[0]);
-    //uRObj.Cleanup(app);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
 }
@@ -147,22 +133,9 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
     _renderer.indices.clear();
     _renderer.vertices.clear();
 
-    /*
-    const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f,0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f,0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f,0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f,0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-    };
-
-    const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0
-    };
-    */
     uint32_t* indices = rObj.indices;
     Vec3* vertices = rObj.vertices;
     int indexCount = rObj.indexCount;
-    std::cout << "PRINT BEFORE DATA GIVE!!!!!!!!!!!-----------------------" << std::endl;
     for (int i = 0; i < indexCount; i++)
     {
         Vertex vertex{};
@@ -182,41 +155,5 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
         _renderer.vertices.push_back(vertex);
 
         _renderer.indices.push_back(indices[i]);
-    }
-    /*
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-    for (int i = 0; i < indexCount; i++) {
-        Vertex vertex{};
-
-        vertex.pos.x = vertices[i].x;
-        vertex.pos.y = vertices[i].y;
-        vertex.pos.z = vertices[i].z;
-
-        vertex.texCoord = {
-            0.0f,0.0f
-            //attrib.texcoords[2 * index.texcoord_index + 0],
-            //1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-        };
-
-        vertex.color = { 1.0f, 1.0f, 1.0f };
-
-        if (uniqueVertices.count(vertex) == 0) {
-            uniqueVertices[vertex] = static_cast<uint32_t>(_renderer.vertices.size());
-            _renderer.vertices.push_back(vertex);
-        }
-
-        _renderer.indices.push_back(uniqueVertices[vertex]);
-    }
-    */
-    std::cout << "PRINT AFTER DATA GIVE!!!!!!!!!!!-----------------------" << std::endl;
-    for (int i = 0; i < indexCount; i++)
-    {
-        std::cout << "  Vertex " << i << ": ("
-            << _renderer.vertices[i].pos.x << ", "
-            << _renderer.vertices[i].pos.y << ", "
-            << _renderer.vertices[i].pos.z << ")\n";
-
-        std::cout << _renderer.indices[i] << std::endl;
-
     }
 }

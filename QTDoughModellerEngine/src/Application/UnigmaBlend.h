@@ -6,8 +6,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp> // For glm::value_ptr
 
-#define MAX_VERTICES 34
-#define MAX_INDICES 34
+#define MAX_VERTICES 272
+#define MAX_INDICES 272
 
 struct Vec3 {
 	float x;

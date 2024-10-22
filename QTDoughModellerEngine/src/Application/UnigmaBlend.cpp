@@ -105,46 +105,6 @@ int GatherBlenderInfo()
     // Cast the mapped view to an array of GameObject structs
     renderObjects = static_cast<RenderObject*>(pBuf);
 
-    // Iterate over each GameObject and print the data
-    for (int i = 0; i < NUM_OBJECTS; ++i) {
-        std::cout << "Reader: GameObject Name " << renderObjects[i].name << std::endl;
-        std::cout << "Reader: GameObject[" << i << "].id = " << renderObjects[i].id << std::endl;
-
-        // Print the transformMatrix
-        std::cout << "Reader: GameObject[" << i << "].transformMatrix =\n";
-        for (int row = 0; row < 4; ++row) {
-            std::cout << "[ ";
-            for (int col = 0; col < 4; ++col) {
-                std::cout << renderObjects[i].transformMatrix[row*4 + col] << " ";
-            }
-            std::cout << "]\n";
-        }
-
-        std::cout << "Vertices" << std::endl;
-        int vertCount = renderObjects[i].vertexCount;
-        for (int j = 0; j < vertCount; j++)
-        {
-            std::cout << "(" << renderObjects[i].vertices[j].x;
-            std::cout << "," << renderObjects[i].vertices[j].y;
-            std::cout << "," << renderObjects[i].vertices[j].z << ")" << std::endl;
-        }
-
-        std::cout << "Indices TRUE VALUE" << std::endl;
-        int indicesCount = renderObjects[i].indexCount;
-        for (int j = 0; j < indicesCount; j++)
-        {
-            std::cout << " RAW " << renderObjects[i].indices[j] << std::endl;
-        }
-
-        std::cout << " Print after debug " << std::endl;
-        PrintRenderObjectRaw(renderObjects[i]);
-        for (int j = 0; j < indicesCount; j++)
-        {
-            std::cout << " RAW " << renderObjects[i].indices[j] << std::endl;
-        }
-    }
-
-
     // Signal that reading is complete
     SetEvent(hReadCompleteEvent);
     ResetEvent(hDataReadyEvent);
