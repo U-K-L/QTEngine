@@ -33,6 +33,14 @@ void PrintRenderObjectRaw(const RenderObject& obj) {
             << obj.vertices[i].z << ")\n";
     }
 
+    std::cout << "Normals:\n";
+    for (int i = 0; i < obj.vertexCount; i++) {
+        std::cout << "  Normal " << i << ": ("
+            << obj.normals[i].x << ", "
+            << obj.normals[i].y << ", "
+            << obj.normals[i].z << ")\n";
+    }
+
     std::cout << "Address of obj.indices: " << static_cast<const void*>(obj.indices) << std::endl;
     std::cout << "Indices:\n";
     for (int i = 0; i < obj.indexCount; i++) {

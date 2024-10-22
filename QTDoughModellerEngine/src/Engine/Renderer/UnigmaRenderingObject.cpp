@@ -125,7 +125,6 @@ void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, Render
 {
     //Get transform matrix.
     uRObj._transform = rObj.transformMatrix;
-    uRObj._transform.Print();
     uRObj.LoadBlenderMeshData(renderObjects[0]);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
@@ -138,6 +137,7 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
     uint32_t* indices = rObj.indices;
     Vec3* vertices = rObj.vertices;
+    Vec3* normals = rObj.normals;
     int indexCount = rObj.indexCount;
     for (int i = 0; i < indexCount; i++)
     {
@@ -146,6 +146,10 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
         vertex.pos.x = vertices[i].x;
         vertex.pos.y = vertices[i].y;
         vertex.pos.z = vertices[i].z;
+
+        vertex.normal.x = normals[i].x;
+        vertex.normal.y = normals[i].y;
+        vertex.normal.z = normals[i].z;
 
         vertex.texCoord = {
             0.0f,0.0f
@@ -159,6 +163,7 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
         _renderer.indices.push_back(indices[i]);
     }
+    PrintRenderObjectRaw(rObj);
 }
 
 void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj) {

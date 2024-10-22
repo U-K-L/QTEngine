@@ -43,6 +43,7 @@ struct RenderObject {
 	int vertexCount;
 	int indexCount;
 	Vec3 vertices[MAX_VERTICES];
+	Vec3 normals[MAX_VERTICES];
 	uint32_t indices[MAX_INDICES];
 	char _pad2[20];
 
