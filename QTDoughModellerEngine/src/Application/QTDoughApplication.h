@@ -43,6 +43,12 @@
     } while (0)
 
 //Globals.
+struct UniformBufferObject {
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+};
+
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
@@ -118,6 +124,9 @@ public:
     VkPipeline graphicsPipeline;
     VkDevice _logicalDevice = VK_NULL_HANDLE;
     std::vector<VkDescriptorSet> _descriptorSets;
+    std::vector<VkBuffer> _uniformBuffers;
+    std::vector<VkDeviceMemory> _uniformBuffersMemory;
+    std::vector<void*> _uniformBuffersMapped;
     bool framebufferResized = false;
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -222,9 +231,6 @@ private:
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
     VkPhysicalDeviceProperties properties{};
-    std::vector<VkBuffer> _uniformBuffers;
-    std::vector<VkDeviceMemory> _uniformBuffersMemory;
-    std::vector<void*> _uniformBuffersMapped;
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
     std::vector<VkFence> _inFlightFences;
@@ -237,12 +243,6 @@ private:
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    struct UniformBufferObject {
-        alignas(16) glm::mat4 model;
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
     };
 };
 

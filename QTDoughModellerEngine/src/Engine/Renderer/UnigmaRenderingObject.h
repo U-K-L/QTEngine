@@ -31,6 +31,37 @@ namespace std {
 	};
 }
 
+struct UnigmaTransform
+{
+	glm::mat4 transformMatrix;
+	UnigmaTransform() : transformMatrix(1.0f)
+	{
+
+	}
+	// Override the assignment operator to copy from RenderObject's transformMatrix
+	UnigmaTransform& operator=(float rObjTransform[16]) {
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+			{
+				transformMatrix[i][j] = rObjTransform[i * 4 + j];
+			}
+		}
+		return *this;
+	}
+
+	void Print() {
+		std::cout << "Transform Matrix:\n";
+		for (int i = 0; i < 4; i++) {
+			std::cout << "[";
+			for (int j = 0; j < 4; j++) {
+				std::cout << transformMatrix[i][j] << " ";
+			}
+			std::cout << "]\n";
+		}
+	}
+};
+
 
 struct UnigmaRenderingStruct
 {
@@ -45,6 +76,7 @@ struct UnigmaRenderingStruct
 
 class UnigmaRenderingObject {
 	public:
+		UnigmaTransform _transform;
 		UnigmaMesh _mesh;
 		UnigmaRenderingStruct _renderer;
 		UnigmaMaterial _material;
@@ -54,12 +86,12 @@ class UnigmaRenderingObject {
 		VkDeviceMemory _indexBufferMemory;
 
 		UnigmaRenderingObject()
-			: _mesh(), _material(), _renderer()
+			: _mesh(), _material(), _renderer(), _transform()
 		{
 		}
 
 		UnigmaRenderingObject(UnigmaMesh mesh, UnigmaMaterial mat = UnigmaMaterial())
-			: _mesh(mesh), _material(mat), _renderer()
+			: _mesh(mesh), _material(mat), _renderer(), _transform()
 		{
 		}
 		void Initialization(UnigmaMaterial material);
@@ -70,5 +102,6 @@ class UnigmaRenderingObject {
 		void LoadModel(UnigmaMesh& mesh);
 		void Cleanup(QTDoughApplication& app);
 		void LoadBlenderMeshData(RenderObject& rObj);
+		void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj);
 	private:
 };

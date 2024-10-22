@@ -123,6 +123,9 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
 
 void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj)
 {
+    //Get transform matrix.
+    uRObj._transform = rObj.transformMatrix;
+    uRObj._transform.Print();
     uRObj.LoadBlenderMeshData(renderObjects[0]);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
@@ -156,4 +159,19 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
         _renderer.indices.push_back(indices[i]);
     }
+}
+
+void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    UniformBufferObject ubo{};
+    ubo.model = uRObj._transform.transformMatrix;
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1;
+
+    memcpy(app._uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
