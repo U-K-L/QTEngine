@@ -3,8 +3,10 @@
 #include "stb_image.h"
 
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
+#include "../Engine/Camera/UnigmaCamera.h"
 
 UnigmaRenderingObject VikingRoom;
+UnigmaCameraStruct CameraMain;
 
 VkVertexInputBindingDescription getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
@@ -1087,7 +1089,7 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-    VikingRoom.UpdateUniformBuffer(*this, currentFrame, VikingRoom);
+    VikingRoom.UpdateUniformBuffer(*this, currentFrame, VikingRoom, CameraMain);
     VikingRoom.Render(*this, commandBuffer, imageIndex, currentFrame);
 }
 

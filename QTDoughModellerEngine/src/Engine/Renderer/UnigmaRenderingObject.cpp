@@ -182,7 +182,7 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
     }
 }
 
-void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj) {
+void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct camera) {
 
     std::cout << "Cam" << std::endl;
     static auto startTime = std::chrono::high_resolution_clock::now();
@@ -192,7 +192,7 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
 
     UniformBufferObject ubo{};
     ubo.model = uRObj._transform.transformMatrix;
-    ubo.view = glm::lookAt(app.CameraMain.position(), app.CameraMain.position() + app.CameraMain.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 

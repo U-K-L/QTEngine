@@ -30,7 +30,7 @@
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
 #include <functional>
-#include "../Engine/Camera/UnigmaCamera.h"
+
 
 
 
@@ -131,7 +131,6 @@ public:
     bool framebufferResized = false;
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    UnigmaCameraStruct CameraMain;
 
 private:
     //Methods.
