@@ -3,6 +3,11 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
+bool ContainsSubstring(const char* charArray, const char* substring) {
+    // Use strstr to check if the substring is present in charArray
+    return strstr(charArray, substring) != nullptr;
+}
+
 void UnigmaRenderingObject::Initialization(UnigmaMaterial material)
 {
     _material = material;
@@ -164,9 +169,22 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
         _renderer.indices.push_back(indices[i]);
     }
     PrintRenderObjectRaw(rObj);
+
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (ContainsSubstring(renderObjects[i].name, "Camera"))
+        {
+            std::cout << "CAMERA ------------ CAMERA" << std::endl;
+            PrintRenderObjectRaw(renderObjects[i]);
+        }
+
+    }
 }
 
 void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj) {
+
+    std::cout << "Cam" << std::endl;
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -174,9 +192,11 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
 
     UniformBufferObject ubo{};
     ubo.model = uRObj._transform.transformMatrix;
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(app.CameraMain.position(), app.CameraMain.position() + app.CameraMain.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 
     memcpy(app._uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
+    std::cout << "Camedbn" << std::endl;
 }
