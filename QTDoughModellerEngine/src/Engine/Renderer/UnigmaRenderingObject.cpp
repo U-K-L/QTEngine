@@ -126,9 +126,21 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
     vkDestroyBuffer(app._logicalDevice, _vertexBuffer, nullptr);
 }
 
-void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj)
+void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& cam)
 {
     //Get transform matrix.
+
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (ContainsSubstring(renderObjects[i].name, "Camera"))
+        {
+            PrintRenderObjectRaw(renderObjects[i]);
+            cam._transform = renderObjects[i].transformMatrix;
+            //cam._transform.transformMatrix = glm::transpose(cam._transform.transformMatrix);
+        }
+
+    }
     uRObj._transform = rObj.transformMatrix;
     uRObj.LoadBlenderMeshData(renderObjects[0]);
     uRObj.CreateVertexBuffer(app);
@@ -170,21 +182,10 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
     }
     PrintRenderObjectRaw(rObj);
 
-
-    for (int i = 0; i < 10; i++)
-    {
-        if (ContainsSubstring(renderObjects[i].name, "Camera"))
-        {
-            std::cout << "CAMERA ------------ CAMERA" << std::endl;
-            PrintRenderObjectRaw(renderObjects[i]);
-        }
-
-    }
 }
 
-void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct camera) {
+void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera) {
 
-    std::cout << "Cam" << std::endl;
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -193,10 +194,8 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     UniformBufferObject ubo{};
     ubo.model = uRObj._transform.transformMatrix;
     ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(75.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
     memcpy(app._uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-
-    std::cout << "Camedbn" << std::endl;
 }

@@ -70,10 +70,10 @@ class UnigmaRenderingObject {
 		void CreateVertexBuffer(QTDoughApplication& app);
 		void CreateIndexBuffer(QTDoughApplication& app);
 		void Render(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
-		void RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj);
+		void RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& cam);
 		void LoadModel(UnigmaMesh& mesh);
 		void Cleanup(QTDoughApplication& app);
 		void LoadBlenderMeshData(RenderObject& rObj);
-		void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct camera);
+		void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera);
 	private:
 };

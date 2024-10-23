@@ -14,7 +14,7 @@ struct UnigmaCameraStruct
 
 	glm::vec3 forward()
 	{
-		return glm::vec3(_transform.transformMatrix[0][0], _transform.transformMatrix[0][1], _transform.transformMatrix[0][2]);
+		return -glm::vec3(_transform.transformMatrix[2][0], _transform.transformMatrix[2][1], _transform.transformMatrix[2][2]);
 	};
 
 };
