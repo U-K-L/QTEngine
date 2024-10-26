@@ -5,7 +5,7 @@
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
 #include "../Engine/Camera/UnigmaCamera.h"
 
-UnigmaRenderingObject VikingRoom;
+UnigmaRenderingObject unigmaRenderingObjects[10];
 UnigmaCameraStruct CameraMain;
 
 VkVertexInputBindingDescription getBindingDescription() {
@@ -94,7 +94,7 @@ void QTDoughApplication::RunMainGameLoop()
 
     DrawFrame();
     if (GatherBlenderInfo() == 0)
-        VikingRoom.RenderObjectToUnigma(*this, renderObjects[0], VikingRoom, CameraMain);
+        unigmaRenderingObjects[0].RenderObjectToUnigma(*this, renderObjects[0], unigmaRenderingObjects[0], CameraMain);
     //Set new data.
     
     //Quit if E key is pressed.
@@ -620,7 +620,7 @@ void QTDoughApplication::InitVulkan()
     UnigmaMesh vikingModel = UnigmaMesh("Models/viking_room.obj");
 
     //Create rendering object.
-    VikingRoom = UnigmaRenderingObject(vikingModel, material);
+    unigmaRenderingObjects[0] = UnigmaRenderingObject(vikingModel, material);
 
 	CreateInstance();
     CreateWindowSurface();
@@ -649,17 +649,17 @@ void QTDoughApplication::InitVulkan()
 
 void QTDoughApplication::CreateVertexBuffer()
 {
-    VikingRoom.CreateVertexBuffer(*this);
+    unigmaRenderingObjects[0].CreateVertexBuffer(*this);
 }
 
 void QTDoughApplication::CreateIndexBuffer()
 {
-    VikingRoom.CreateIndexBuffer(*this);
+    unigmaRenderingObjects[0].CreateIndexBuffer(*this);
 }
 
 void QTDoughApplication::LoadModel()
 {
-    VikingRoom.LoadModel(VikingRoom._mesh);
+    unigmaRenderingObjects[0].LoadModel(unigmaRenderingObjects[0]._mesh);
 }
 
 void QTDoughApplication::CreateDepthResources()
@@ -825,7 +825,7 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 void QTDoughApplication::CreateTextureImage()
 {
-    std::string path = AssetsPath + VikingRoom._material.textures[0].TEXTURE_PATH;
+    std::string path = AssetsPath + unigmaRenderingObjects[0]._material.textures[0].TEXTURE_PATH;
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -1089,8 +1089,8 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-    VikingRoom.UpdateUniformBuffer(*this, currentFrame, VikingRoom, CameraMain);
-    VikingRoom.Render(*this, commandBuffer, imageIndex, currentFrame);
+    unigmaRenderingObjects[0].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[0], CameraMain);
+    unigmaRenderingObjects[0].Render(*this, commandBuffer, imageIndex, currentFrame);
 }
 
 void QTDoughApplication::CreateCommandBuffers()
