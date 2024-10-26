@@ -2,9 +2,11 @@
 // reader.cpp
 #include <windows.h>
 #include <iostream>
+#include <unordered_map>
 #include <iomanip> // For std::setprecision
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp> // For glm::value_ptr
+
 
 #define MAX_VERTICES 272
 #define MAX_INDICES 272
@@ -125,3 +127,4 @@ int GatherBlenderInfo();
 
 
 extern RenderObject* renderObjects;
+extern std::unordered_map<std::string, RenderObject*> renderObjectsMap;

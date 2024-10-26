@@ -7,3 +7,4 @@
 #include <glm/gtx/hash.hpp>
 #include "UnigmaRenderingObject.h"
 
+extern UnigmaRenderingObject unigmaRenderingObjs[10];

@@ -5,7 +5,6 @@
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
 #include "../Engine/Camera/UnigmaCamera.h"
 
-UnigmaRenderingObject VikingRoom;
 UnigmaCameraStruct CameraMain;
 
 VkVertexInputBindingDescription getBindingDescription() {
@@ -17,8 +16,8 @@ VkVertexInputBindingDescription getBindingDescription() {
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
 
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
@@ -35,10 +34,10 @@ std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
     attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
     attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
-    attributeDescriptions[2].binding = 0;
-    attributeDescriptions[2].location = 3;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[2].offset = offsetof(Vertex, normal);
+    attributeDescriptions[3].binding = 0;
+    attributeDescriptions[3].location = 3;
+    attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[3].offset = offsetof(Vertex, normal);
 
     return attributeDescriptions;
 }
@@ -93,10 +92,15 @@ void QTDoughApplication::RunMainGameLoop()
     ImGui::Render();
 
     DrawFrame();
-    if (GatherBlenderInfo() == 0)
-        VikingRoom.RenderObjectToUnigma(*this, renderObjects[0], VikingRoom, CameraMain);
+    /*
+    if (GatherBlenderInfo() == 500)
+    {
+        CameraToBlender();
+        GetMeshDataAllObjects();
+    }
+    */
     //Set new data.
-    
+    GetMeshDataAllObjects();
     //Quit if E key is pressed.
     const Uint8* state = SDL_GetKeyboardState(NULL);
     if (state[SDL_SCANCODE_E]) {
@@ -120,6 +124,35 @@ void QTDoughApplication::RunMainGameLoop()
         timeMinutePassed = currentTime;
     }
 
+}
+
+void QTDoughApplication::CameraToBlender()
+{
+    if (renderObjectsMap.count("OBCamera") > 0)
+    {
+        CameraMain._transform = renderObjectsMap["OBCamera"]->transformMatrix;
+    }
+}
+
+void QTDoughApplication::GetMeshDataAllObjects()
+{
+    //Loop over all objects
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        unigmaRenderingObjs[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjs[i], CameraMain);
+        /*
+        unigmaRenderingObjs[i].isRendering = false;
+        if (strstr(renderObjects[i].name, "Camera") != nullptr)
+            continue;
+        if (strstr(renderObjects[i].name, "Light") != nullptr)
+            continue;
+        if (strstr(renderObjects[i].name, "Cube") != nullptr)
+        {
+            //unigmaRenderingObjs[i].isRendering = true;
+            //unigmaRenderingObjs[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjs[i], CameraMain);
+        }
+        */
+    }
 }
 
 void QTDoughApplication::DrawFrame()
@@ -609,18 +642,27 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 
 void QTDoughApplication::InitVulkan()
 {
-    //Create Textures.
-    UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/viking_room.png");
-    //Create Material.
-    UnigmaMaterial material = UnigmaMaterial();
-    //Set texture for material.
-    material.textures[0] = vikText;
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        //Create Textures.
+        UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/viking_room.png");
+        //Create Material.
+        UnigmaMaterial material = UnigmaMaterial();
+        //Set texture for material.
+        material.textures[0] = vikText;
 
-    //Create Model.
-    UnigmaMesh vikingModel = UnigmaMesh("Models/viking_room.obj");
+        //Create Model.
+        UnigmaMesh vikingModel = UnigmaMesh("Models/viking_room.obj");
 
-    //Create rendering object.
-    VikingRoom = UnigmaRenderingObject(vikingModel, material);
+        //Create rendering object.
+        //unigmaRenderingObjs[i] = UnigmaRenderingObject(vikingModel, material);
+        unigmaRenderingObjs[i]._mesh = vikingModel;
+        unigmaRenderingObjs[i]._material = material;
+
+        std::cout << "Initial info" << std::endl;
+        //unigmaRenderingObjs[i].Print();
+
+    }
 
 	CreateInstance();
     CreateWindowSurface();
@@ -635,7 +677,7 @@ void QTDoughApplication::InitVulkan()
     CreateTextureImage();
     CreateTextureImageView();
     CreateTextureSampler();
-    LoadModel();
+    //LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();
@@ -649,17 +691,29 @@ void QTDoughApplication::InitVulkan()
 
 void QTDoughApplication::CreateVertexBuffer()
 {
-    VikingRoom.CreateVertexBuffer(*this);
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        //if(unigmaRenderingObjs[i].isRendering)
+            unigmaRenderingObjs[i].CreateVertexBuffer(*this);
+    }
 }
 
 void QTDoughApplication::CreateIndexBuffer()
 {
-    VikingRoom.CreateIndexBuffer(*this);
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        //if (unigmaRenderingObjs[i].isRendering)
+            unigmaRenderingObjs[i].CreateIndexBuffer(*this);
+    }
 }
 
 void QTDoughApplication::LoadModel()
 {
-    VikingRoom.LoadModel(VikingRoom._mesh);
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        //if (unigmaRenderingObjs[i].isRendering)
+            unigmaRenderingObjs[i].LoadModel(unigmaRenderingObjs[i]._mesh);
+    }
 }
 
 void QTDoughApplication::CreateDepthResources()
@@ -825,7 +879,7 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 void QTDoughApplication::CreateTextureImage()
 {
-    std::string path = AssetsPath + VikingRoom._material.textures[0].TEXTURE_PATH;
+    std::string path = AssetsPath + "Textures/viking_room.png"; //FACTOR OUT.//VikingRoom._material.textures[0].TEXTURE_PATH;
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -1079,6 +1133,8 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     //Render objects to the screen and change VBOs per object.
     RenderObjects(commandBuffer, imageIndex);
 
+    vkCmdEndRendering(commandBuffer);
+
     // Render ImGui using dynamic rendering
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
@@ -1089,8 +1145,17 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-    VikingRoom.UpdateUniformBuffer(*this, currentFrame, VikingRoom, CameraMain);
-    VikingRoom.Render(*this, commandBuffer, imageIndex, currentFrame);
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        //if (unigmaRenderingObjs[i].isRendering)
+        //{
+        unigmaRenderingObjs[i]._transform.position = glm::vec3(i, 0, 0);
+        unigmaRenderingObjs[i]._transform.UpdatePosition();
+            unigmaRenderingObjs[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjs[i], CameraMain);
+            unigmaRenderingObjs[i].Render(*this, commandBuffer, imageIndex, currentFrame);
+       // }
+    }
+
 }
 
 void QTDoughApplication::CreateCommandBuffers()

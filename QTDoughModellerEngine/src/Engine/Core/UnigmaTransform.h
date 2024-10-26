@@ -4,6 +4,7 @@
 struct UnigmaTransform
 {
 	glm::mat4 transformMatrix;
+	glm::vec3 position;
 	UnigmaTransform() : transformMatrix(1.0f)
 	{
 
@@ -18,6 +19,13 @@ struct UnigmaTransform
 			}
 		}
 		return *this;
+	}
+
+	void UpdatePosition()
+	{
+		transformMatrix[3][0] = position.x;
+		transformMatrix[3][1] = position.y;
+		transformMatrix[3][2] = position.z;
 	}
 
 	void Print() {

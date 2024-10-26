@@ -6,48 +6,13 @@
 #define SHARED_MEMORY_NAME "Local\\MySharedMemory"
 #define NUM_OBJECTS 10
 RenderObject* renderObjects = nullptr;
+std::unordered_map<std::string, RenderObject*> renderObjectsMap;
+//std::unordered_map<std::string, RenderObject*> renderObjectsMap;
 //Return types:
 // 0: Success
 // -1: Error (general)
 // 1: No File
 // 2: Data not ready.
-void PrintRenderObjectRaw(const RenderObject& obj) {
-    std::cout << "RenderObject Name: " << obj.name << "\n";
-    std::cout << "ID: " << obj.id << "\n";
-    std::cout << "Vertex Count: " << obj.vertexCount << "\n";
-    std::cout << "Index Count: " << obj.indexCount << "\n";
-
-    std::cout << "Transform Matrix:\n";
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            std::cout << std::setw(10) << obj.transformMatrix[i*4 + j] << " ";
-        }
-        std::cout << "\n";
-    }
-
-    std::cout << "Vertices:\n";
-    for (int i = 0; i < obj.vertexCount; i++) {
-        std::cout << "  Vertex " << i << ": ("
-            << obj.vertices[i].x << ", "
-            << obj.vertices[i].y << ", "
-            << obj.vertices[i].z << ")\n";
-    }
-
-    std::cout << "Normals:\n";
-    for (int i = 0; i < obj.vertexCount; i++) {
-        std::cout << "  Normal " << i << ": ("
-            << obj.normals[i].x << ", "
-            << obj.normals[i].y << ", "
-            << obj.normals[i].z << ")\n";
-    }
-
-    std::cout << "Address of obj.indices: " << static_cast<const void*>(obj.indices) << std::endl;
-    std::cout << "Indices:\n";
-    for (int i = 0; i < obj.indexCount; i++) {
-        std::cout << " RAW PRINT Index " << i << ": " << obj.indices[i] << "\n";
-    }
-}
-
 int GatherBlenderInfo()
 {
     // Attempt to open the events
@@ -109,9 +74,15 @@ int GatherBlenderInfo()
         return 1;
     }
 
-
     // Cast the mapped view to an array of GameObject structs
     renderObjects = static_cast<RenderObject*>(pBuf);
+
+    //Set that data to our hash map.
+    renderObjectsMap.clear();
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        renderObjectsMap[std::string(renderObjects[i].name)] = &renderObjects[i];
+    }
 
     // Signal that reading is complete
     SetEvent(hReadCompleteEvent);
@@ -125,4 +96,41 @@ int GatherBlenderInfo()
 
 
     return 0;
+}
+
+void PrintRenderObjectRaw(const RenderObject& obj) {
+    std::cout << "RenderObject Name: " << obj.name << "\n";
+    std::cout << "ID: " << obj.id << "\n";
+    std::cout << "Vertex Count: " << obj.vertexCount << "\n";
+    std::cout << "Index Count: " << obj.indexCount << "\n";
+
+    std::cout << "Transform Matrix:\n";
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            std::cout << std::setw(10) << obj.transformMatrix[i*4 + j] << " ";
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "Vertices:\n";
+    for (int i = 0; i < obj.vertexCount; i++) {
+        std::cout << "  Vertex " << i << ": ("
+            << obj.vertices[i].x << ", "
+            << obj.vertices[i].y << ", "
+            << obj.vertices[i].z << ")\n";
+    }
+
+    std::cout << "Normals:\n";
+    for (int i = 0; i < obj.vertexCount; i++) {
+        std::cout << "  Normal " << i << ": ("
+            << obj.normals[i].x << ", "
+            << obj.normals[i].y << ", "
+            << obj.normals[i].z << ")\n";
+    }
+
+    std::cout << "Address of obj.indices: " << static_cast<const void*>(obj.indices) << std::endl;
+    std::cout << "Indices:\n";
+    for (int i = 0; i < obj.indexCount; i++) {
+        std::cout << " RAW PRINT Index " << i << ": " << obj.indices[i] << "\n";
+    }
 }

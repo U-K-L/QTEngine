@@ -15,11 +15,27 @@ void UnigmaRenderingObject::Initialization(UnigmaMaterial material)
 
 void UnigmaRenderingObject::CreateVertexBuffer(QTDoughApplication& app)
 {
-    VkDeviceSize bufferSize = sizeof(_renderer.vertices[0]) * _renderer.vertices.size();
+    //_renderer.PrintAllInfo();
+
+    std::vector<Vertex> vertices2 = { Vertex
+
+                {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+                {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+                {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+                {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}
+    };
+
+    VkDeviceSize bufferSize = sizeof(vertices2[0]) * vertices2.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     app.CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    // Log staging buffer info
+    std::cout << "Vertex Staging Buffer Created:\n";
+    std::cout << "  Buffer Handle: " << stagingBuffer << "\n";
+    std::cout << "  Buffer Size: " << bufferSize << "\n";
+    std::cout << "  Memory Handle: " << stagingBufferMemory << "\n";
 
     void* data;
     vkMapMemory(app._logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -28,6 +44,12 @@ void UnigmaRenderingObject::CreateVertexBuffer(QTDoughApplication& app)
     app.CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vertexBuffer, _vertexBufferMemory);
 
     app.CopyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
+
+    // Log vertex buffer info
+    std::cout << "Vertex Buffer Created:\n";
+    std::cout << "  Buffer Handle: " << _vertexBuffer << "\n";
+    std::cout << "  Buffer Size: " << bufferSize << "\n";
+    std::cout << "  Memory Handle: " << _vertexBufferMemory << "\n";
 
     vkDestroyBuffer(app._logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app._logicalDevice, stagingBufferMemory, nullptr);
@@ -48,6 +70,7 @@ void UnigmaRenderingObject::LoadModel(UnigmaMesh& mesh)
     }
 
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
     for (const auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
             Vertex vertex{};
@@ -67,24 +90,37 @@ void UnigmaRenderingObject::LoadModel(UnigmaMesh& mesh)
 
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(_renderer.vertices.size());
-                _renderer.vertices.push_back(vertex);
+               // _renderer.vertices.push_back(vertex);
             }
 
             _renderer.indices.push_back(uniqueVertices[vertex]);
+            std::cout << _renderer.vertices.size() << std::endl;
         }
+        
+
     }
 
 }
 
 void UnigmaRenderingObject::CreateIndexBuffer(QTDoughApplication& app)
 {
-    VkDeviceSize bufferSize = sizeof(_renderer.indices[0]) * _renderer.indices.size();
+    //_renderer.PrintAllInfo();
+
+    std::vector<uint32_t> indices2 = { 0, 1, 2, 2, 3, 0};
+
+    VkDeviceSize bufferSize = sizeof(indices2[0]) * indices2.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     app.CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         stagingBuffer, stagingBufferMemory);
+
+    // Log staging buffer info
+    std::cout << "Index Staging Buffer Created:\n";
+    std::cout << "  Buffer Handle: " << stagingBuffer << "\n";
+    std::cout << "  Buffer Size: " << bufferSize << "\n";
+    std::cout << "  Memory Handle: " << stagingBufferMemory << "\n";
 
     void* data;
     vkMapMemory(app._logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -97,13 +133,19 @@ void UnigmaRenderingObject::CreateIndexBuffer(QTDoughApplication& app)
 
     app.CopyBuffer(stagingBuffer, _indexBuffer, bufferSize);
 
+    // Log index buffer info
+    std::cout << "Index Buffer Created:\n";
+    std::cout << "  Buffer Handle: " << _indexBuffer << "\n";
+    std::cout << "  Buffer Size: " << bufferSize << "\n";
+    std::cout << "  Memory Handle: " << _indexBufferMemory << "\n";
+
     vkDestroyBuffer(app._logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app._logicalDevice, stagingBufferMemory, nullptr);
 }
 
 void UnigmaRenderingObject::Render(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame)
 {
-
+    //_renderer.PrintAllInfo();
     VkBuffer vertexBuffers[] = { _vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -113,8 +155,6 @@ void UnigmaRenderingObject::Render(QTDoughApplication& app, VkCommandBuffer comm
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app._pipelineLayout, 0, 1, &app._descriptorSets[currentFrame], 0, nullptr);
 
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_renderer.indices.size()), 1, 0, 0, 0);
-
-    vkCmdEndRendering(commandBuffer);
 }
 
 void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
@@ -129,20 +169,8 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
 void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& cam)
 {
     //Get transform matrix.
-
-
-    for (int i = 0; i < 10; i++)
-    {
-        if (ContainsSubstring(renderObjects[i].name, "Camera"))
-        {
-            PrintRenderObjectRaw(renderObjects[i]);
-            cam._transform = renderObjects[i].transformMatrix;
-            //cam._transform.transformMatrix = glm::transpose(cam._transform.transformMatrix);
-        }
-
-    }
-    uRObj._transform = rObj.transformMatrix;
-    uRObj.LoadBlenderMeshData(renderObjects[0]);
+    //uRObj._transform = rObj.transformMatrix;
+    //uRObj.LoadBlenderMeshData(rObj);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
 }
@@ -180,7 +208,6 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
         _renderer.indices.push_back(indices[i]);
     }
-    PrintRenderObjectRaw(rObj);
 
 }
 
@@ -192,10 +219,17 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
+    //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.model = uRObj._transform.transformMatrix;
-    ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(75.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
+            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    //ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(145.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
     memcpy(app._uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+}
+
+void UnigmaRenderingObject::Print()
+{
+    _renderer.PrintAllInfo();
 }

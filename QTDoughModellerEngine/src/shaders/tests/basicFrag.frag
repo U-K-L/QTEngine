@@ -12,5 +12,5 @@ void main() {
     vec3 lightDir = normalize(vec3(0.5, 0.5, 0.0f));
     float nDotL = dot(fragNormal, lightDir)*0.5 + 0.5;
     //outColor = texture(texSampler, fragTexCoord);
-    outColor = vec4(nDotL, nDotL, nDotL, 1.0);
+    outColor = vec4(1,1,1,1);//vec4(nDotL, nDotL, nDotL, 1.0);
 }

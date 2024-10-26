@@ -1,13 +1,13 @@
 #pragma once
 #include <string>
 #include <cstdint> // For uint32_t
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 #include "UnigmaMaterial.h"
 #include "UnigmaMesh.h"
 
 
 #include "../../Application/QTDoughApplication.h"
-
-#include "UnigmaRenderingManager.h"
 
 #include "../Core/UnigmaTransform.h"
 #include "../Camera/UnigmaCamera.h"
@@ -40,9 +40,72 @@ struct UnigmaRenderingStruct
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 	UnigmaRenderingStruct()
-		: vertices({ Vertex{ {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f} } }),
-		indices({ 0 })
+		: vertices({ Vertex
+			 
+				{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+				{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+				{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+				{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}
+			}
+		),
+		indices({ 0, 1, 2, 2, 3, 0 })
 	{
+	}
+
+	// Function to print vertices
+	void PrintVertices() const
+	{
+		std::cout << "Vertices:\n";
+		for (size_t i = 0; i < vertices.size(); ++i)
+		{
+			const auto& vertex = vertices[i];
+			std::cout << "Vertex " << i << ":\n"
+				<< "  Position: ("
+				<< vertex.pos.x << ", "
+				<< vertex.pos.y << ", "
+				<< vertex.pos.z << ")\n"
+				<< "  Color: ("
+				<< vertex.color.r << ", "
+				<< vertex.color.g << ", "
+				<< vertex.color.b << ")\n"
+				<< "  TexCoords: ("
+				<< vertex.texCoord.x << ", "
+				<< vertex.texCoord.y << ")\n"
+				<< "  Normal: ("
+				<< vertex.normal.x << ", "
+				<< vertex.normal.y << ", "
+				<< vertex.normal.z << ")\n";
+		}
+	}
+
+	// Function to print indices
+	void PrintIndices() const
+	{
+		std::cout << "Indices: ";
+		for (size_t i = 0; i < indices.size(); ++i)
+		{
+			std::cout << indices[i];
+			if (i < indices.size() - 1)
+				std::cout << ", ";
+		}
+		std::cout << "\n";
+	}
+
+	// Function to print all info
+	void PrintAllInfo() const
+	{
+		    std::cout << "Total Vertices: " << vertices.size() << "\n";
+    for (size_t i = 0; i < vertices.size(); ++i)
+    {
+        std::cout << "Vertex " << i << ": Position (" << vertices[i].pos.x << ", " << vertices[i].pos.y << ", " << vertices[i].pos.z << ")\n";
+    }
+    std::cout << "Total Indices: " << indices.size() << "\n";
+    for (size_t i = 0; i < indices.size(); ++i)
+    {
+        std::cout << "Index " << i << ": " << indices[i] << "\n";
+    }
+		PrintVertices();
+		PrintIndices();
 	}
 };
 
@@ -56,6 +119,7 @@ class UnigmaRenderingObject {
 		VkDeviceMemory _vertexBufferMemory;
 		VkBuffer _indexBuffer;
 		VkDeviceMemory _indexBufferMemory;
+		bool isRendering = false;
 
 		UnigmaRenderingObject()
 			: _mesh(), _material(), _renderer(), _transform()
@@ -75,5 +139,6 @@ class UnigmaRenderingObject {
 		void Cleanup(QTDoughApplication& app);
 		void LoadBlenderMeshData(RenderObject& rObj);
 		void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera);
+		void Print();
 	private:
 };
