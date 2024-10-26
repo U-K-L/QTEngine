@@ -93,8 +93,8 @@ void QTDoughApplication::RunMainGameLoop()
     ImGui::Render();
 
     DrawFrame();
-    if (GatherBlenderInfo() == 0)
-        unigmaRenderingObjects[0].RenderObjectToUnigma(*this, renderObjects[0], unigmaRenderingObjects[0], CameraMain);
+    //if (GatherBlenderInfo() == 0)
+    //    unigmaRenderingObjects[0].RenderObjectToUnigma(*this, renderObjects[0], unigmaRenderingObjects[0], CameraMain);
     //Set new data.
     
     //Quit if E key is pressed.
@@ -609,6 +609,7 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 
 void QTDoughApplication::InitVulkan()
 {
+    /*
     //Create Textures.
     UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/viking_room.png");
     //Create Material.
@@ -621,7 +622,7 @@ void QTDoughApplication::InitVulkan()
 
     //Create rendering object.
     unigmaRenderingObjects[0] = UnigmaRenderingObject(vikingModel, material);
-
+    */
 	CreateInstance();
     CreateWindowSurface();
     PickPhysicalDevice();
@@ -649,12 +650,14 @@ void QTDoughApplication::InitVulkan()
 
 void QTDoughApplication::CreateVertexBuffer()
 {
-    unigmaRenderingObjects[0].CreateVertexBuffer(*this);
+    for(int i = 0; i < NUM_OBJECTS; i++)
+        unigmaRenderingObjects[0].CreateVertexBuffer(*this);
 }
 
 void QTDoughApplication::CreateIndexBuffer()
 {
-    unigmaRenderingObjects[0].CreateIndexBuffer(*this);
+    for (int i = 0; i < NUM_OBJECTS; i++)
+        unigmaRenderingObjects[0].CreateIndexBuffer(*this);
 }
 
 void QTDoughApplication::LoadModel()
@@ -825,7 +828,8 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 void QTDoughApplication::CreateTextureImage()
 {
-    std::string path = AssetsPath + unigmaRenderingObjects[0]._material.textures[0].TEXTURE_PATH;
+    //std::string path = AssetsPath + unigmaRenderingObjects[0]._material.textures[0].TEXTURE_PATH;
+    std::string path = AssetsPath + "Textures/viking_room.png";
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
