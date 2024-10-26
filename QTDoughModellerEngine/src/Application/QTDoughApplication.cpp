@@ -635,7 +635,7 @@ void QTDoughApplication::InitVulkan()
     CreateTextureImage();
     CreateTextureImageView();
     CreateTextureSampler();
-    LoadModel();
+    //LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();

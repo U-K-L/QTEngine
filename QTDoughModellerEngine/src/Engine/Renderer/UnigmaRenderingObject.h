@@ -40,8 +40,15 @@ struct UnigmaRenderingStruct
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 	UnigmaRenderingStruct()
-		: vertices({ Vertex{ {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f} } }),
-		indices({ 0 })
+		: vertices({ Vertex
+
+				{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+				{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+				{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+				{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}
+			}
+		),
+		indices({ 0, 1, 2, 2, 3, 0 })
 	{
 	}
 };
