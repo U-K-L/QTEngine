@@ -58,8 +58,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\tests\basicFrag.frag" />
+    <None Include="src\shaders\tests\basicFragHLSL.hlsl" />
     <None Include="src\shaders\tests\basicVertex.vert" />
     <None Include="src\shaders\Compile.bat" />
+    <None Include="src\shaders\tests\basicVertexHLSL.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

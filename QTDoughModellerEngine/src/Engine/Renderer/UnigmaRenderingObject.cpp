@@ -138,19 +138,7 @@ void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
 
 void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, RenderObject& rObj, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& cam)
 {
-    //Get transform matrix.
 
-
-    for (int i = 0; i < 10; i++)
-    {
-        if (ContainsSubstring(renderObjects[i].name, "Camera"))
-        {
-            PrintRenderObjectRaw(renderObjects[i]);
-            cam._transform = renderObjects[i].transformMatrix;
-            //cam._transform.transformMatrix = glm::transpose(cam._transform.transformMatrix);
-        }
-
-    }
     uRObj._transform = rObj.transformMatrix;
     uRObj.LoadBlenderMeshData(rObj);
     uRObj.CreateVertexBuffer(app);
@@ -190,7 +178,7 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
         _renderer.indices.push_back(indices[i]);
     }
-    PrintRenderObjectRaw(rObj);
+    //PrintRenderObjectRaw(rObj);
 
 }
 
@@ -203,8 +191,7 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
 
     UniformBufferObject ubo{};
     ubo.model = uRObj._transform.transformMatrix;
-    //ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(75.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
@@ -402,6 +389,10 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
 
     std::cout << "Viewport created" << std::endl;
 
+    VkPipelineRasterizationProvokingVertexStateCreateInfoEXT provokingVertexInfo{};
+    provokingVertexInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT;
+    provokingVertexInfo.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_FIRST_VERTEX_EXT;
+
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE;
@@ -414,6 +405,7 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional
     rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+    rasterizer.pNext = &provokingVertexInfo;
 
     std::cout << "Rasterizer created" << std::endl;
 

@@ -59,7 +59,10 @@ void QTDoughApplication::RunMainGameLoop()
 
     DrawFrame();
     if (GatherBlenderInfo() == 0)
+    {
+        CameraToBlender();
         GetMeshDataAllObjects();
+    }
     //Set new data.
     
     //Quit if E key is pressed.
@@ -208,8 +211,9 @@ VkVertexInputBindingDescription QTDoughApplication::getBindingDescription() {
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 3> QTDoughApplication::getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+std::array<VkVertexInputAttributeDescription, 4> QTDoughApplication::getAttributeDescriptions() {
+
+    std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
 
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
@@ -226,10 +230,10 @@ std::array<VkVertexInputAttributeDescription, 3> QTDoughApplication::getAttribut
     attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
     attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
-    attributeDescriptions[2].binding = 0;
-    attributeDescriptions[2].location = 3;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[2].offset = offsetof(Vertex, normal);
+    attributeDescriptions[3].binding = 0;
+    attributeDescriptions[3].location = 3;
+    attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[3].offset = offsetof(Vertex, normal);
 
     return attributeDescriptions;
 }
@@ -656,7 +660,7 @@ void QTDoughApplication::GetMeshDataAllObjects()
     {
         //unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
 
-        unigmaRenderingObjects[i].isRendering = true;
+        unigmaRenderingObjects[i].isRendering = false;
         if (strstr(renderObjects[i].name, "Camera") != nullptr)
             continue;
         if (strstr(renderObjects[i].name, "Light") != nullptr)
@@ -664,7 +668,7 @@ void QTDoughApplication::GetMeshDataAllObjects()
         if (strstr(renderObjects[i].name, "Cube") != nullptr)
         {
             unigmaRenderingObjects[i].isRendering = true;
-            //unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
+            unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
         }
 
     }
@@ -674,7 +678,7 @@ void QTDoughApplication::CreateVertexBuffer()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if (unigmaRenderingObjects[i].isRendering)
+        //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateVertexBuffer(*this);
     }
 }
@@ -683,7 +687,7 @@ void QTDoughApplication::CreateIndexBuffer()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if (unigmaRenderingObjects[i].isRendering)
+        //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateIndexBuffer(*this);
     }
 }
@@ -892,7 +896,7 @@ void QTDoughApplication::CreateDescriptorSets()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if (unigmaRenderingObjects[i].isRendering)
+        //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorSets(*this);
     }
 }
@@ -901,7 +905,7 @@ void QTDoughApplication::CreateDescriptorPool()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if (unigmaRenderingObjects[i].isRendering)
+        //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorPool(*this);
     }
 }
@@ -910,7 +914,7 @@ void QTDoughApplication::CreateUniformBuffers()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if (unigmaRenderingObjects[i].isRendering)
+        //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateUniformBuffers(*this);
     }
 }
@@ -919,7 +923,7 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if (unigmaRenderingObjects[i].isRendering)
+        //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorSetLayout(*this);
     }
 }
@@ -1034,14 +1038,23 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     }
 }
 
+void QTDoughApplication::CameraToBlender()
+{
+    if (renderObjectsMap.count("OBCamera") > 0)
+    {
+        CameraMain._transform = renderObjectsMap["OBCamera"]->transformMatrix;
+    }
+}
+
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if (unigmaRenderingObjects[i].isRendering)
         {
-            unigmaRenderingObjects[i]._transform.position = glm::vec3(i, 0, 0);
-            unigmaRenderingObjects[i]._transform.UpdatePosition();
+
+            //unigmaRenderingObjects[i]._transform.position = glm::vec3(i, 0, 0);
+            //unigmaRenderingObjects[i]._transform.UpdatePosition();
             unigmaRenderingObjects[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[i], CameraMain);
             unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
         }
@@ -1712,6 +1725,11 @@ VkExtent2D QTDoughApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
 void QTDoughApplication::Cleanup()
 {
     CleanupSwapChain();
+
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        unigmaRenderingObjects[i].Cleanup(*this);
+    }
 
     vkDestroyImageView(_logicalDevice, depthImageView, nullptr);
     vkDestroyImage(_logicalDevice, depthImage, nullptr);

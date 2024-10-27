@@ -139,7 +139,7 @@ public:
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     VkVertexInputBindingDescription getBindingDescription();
-    std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
+    std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
     const int MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<VkDynamicState> dynamicStates = {
     VK_DYNAMIC_STATE_VIEWPORT,
@@ -202,6 +202,7 @@ private:
     void LoadModel();
     void RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void GetMeshDataAllObjects();
+    void CameraToBlender();
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     VkCommandBuffer BeginSingleTimeCommands();
