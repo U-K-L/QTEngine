@@ -3,7 +3,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define NUM_OBJECTS 5
+#define NUM_OBJECTS 2
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
 #include <vector>
@@ -76,8 +76,6 @@ struct QueueFamilyIndices {
     }
 };
 
-extern std::vector<VkDynamicState> dynamicStates;
-
 
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -125,13 +123,28 @@ public:
     VkPipelineLayout _pipelineLayout;
     VkPipeline graphicsPipeline;
     VkDevice _logicalDevice = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSet> _descriptorSets;
-    std::vector<VkBuffer> _uniformBuffers;
-    std::vector<VkDeviceMemory> _uniformBuffersMemory;
-    std::vector<void*> _uniformBuffersMapped;
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
+    VkFormat _swapChainImageFormat;
     bool framebufferResized = false;
+    VkFormat FindDepthFormat();
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    VkShaderModule CreateShaderModule(const std::vector<char>& code);
+    VkVertexInputBindingDescription getBindingDescription();
+    std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
+    const int MAX_FRAMES_IN_FLIGHT = 2;
+    std::vector<VkDynamicState> dynamicStates = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR
+    };
 
 private:
     //Methods.
@@ -165,7 +178,6 @@ private:
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-    VkShaderModule CreateShaderModule(const std::vector<char>& code);
     VkRenderingAttachmentInfo AttachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
     void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -190,7 +202,6 @@ private:
     void LoadModel();
     void RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-    VkFormat FindDepthFormat();
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     VkCommandBuffer BeginSingleTimeCommands();
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
@@ -218,20 +229,8 @@ private:
     VkFenceCreateInfo fenceInfo{};
     VkSemaphoreCreateInfo semaphoreInfo{};
     VkSwapchainKHR _swapChain;
-    VkFormat _swapChainImageFormat;
-    VkDescriptorSetLayout _descriptorSetLayout;
-    VkDescriptorPool _descriptorPool;
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
     VkPhysicalDeviceProperties properties{};
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
@@ -242,10 +241,6 @@ private:
     VkCommandBuffer _immCommandBuffer;
     VkCommandPool _immCommandPool;
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
 };
 
 

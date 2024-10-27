@@ -63,6 +63,12 @@ class UnigmaRenderingObject {
 		VkDeviceMemory _vertexBufferMemory;
 		VkBuffer _indexBuffer;
 		VkDeviceMemory _indexBufferMemory;
+		std::vector<VkBuffer> _uniformBuffers;
+		std::vector<VkDeviceMemory> _uniformBuffersMemory;
+		std::vector<void*> _uniformBuffersMapped;
+		VkDescriptorSetLayout _descriptorSetLayout;
+		VkDescriptorPool _descriptorPool;
+		std::vector<VkDescriptorSet> _descriptorSets;
 
 		UnigmaRenderingObject()
 			: _mesh(), _material(), _renderer(), _transform()
@@ -82,5 +88,10 @@ class UnigmaRenderingObject {
 		void Cleanup(QTDoughApplication& app);
 		void LoadBlenderMeshData(RenderObject& rObj);
 		void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera);
+		void CreateDescriptorSets(QTDoughApplication& app);
+		void CreateDescriptorPool(QTDoughApplication& app);
+		void CreateUniformBuffers(QTDoughApplication& app);
+		void CreateDescriptorSetLayout(QTDoughApplication& app);
+		void CreateGraphicsPipeline(QTDoughApplication& app);
 	private:
 };
