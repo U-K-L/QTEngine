@@ -152,7 +152,7 @@ void UnigmaRenderingObject::RenderObjectToUnigma(QTDoughApplication& app, Render
 
     }
     uRObj._transform = rObj.transformMatrix;
-    uRObj.LoadBlenderMeshData(renderObjects[0]);
+    uRObj.LoadBlenderMeshData(rObj);
     uRObj.CreateVertexBuffer(app);
     uRObj.CreateIndexBuffer(app);
 }

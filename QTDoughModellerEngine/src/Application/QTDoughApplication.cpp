@@ -58,8 +58,8 @@ void QTDoughApplication::RunMainGameLoop()
     ImGui::Render();
 
     DrawFrame();
-    //if (GatherBlenderInfo() == 0)
-    //    unigmaRenderingObjects[0].RenderObjectToUnigma(*this, renderObjects[0], unigmaRenderingObjects[0], CameraMain);
+    if (GatherBlenderInfo() == 0)
+        GetMeshDataAllObjects();
     //Set new data.
     
     //Quit if E key is pressed.
@@ -649,17 +649,45 @@ void QTDoughApplication::InitVulkan()
 
 }
 
+void QTDoughApplication::GetMeshDataAllObjects()
+{
+    //Loop over all objects
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        //unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
+
+        unigmaRenderingObjects[i].isRendering = true;
+        if (strstr(renderObjects[i].name, "Camera") != nullptr)
+            continue;
+        if (strstr(renderObjects[i].name, "Light") != nullptr)
+            continue;
+        if (strstr(renderObjects[i].name, "Cube") != nullptr)
+        {
+            unigmaRenderingObjects[i].isRendering = true;
+            //unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
+        }
+
+    }
+}
+
 void QTDoughApplication::CreateVertexBuffer()
 {
-    for(int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateVertexBuffer(*this);
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateVertexBuffer(*this);
+    }
 }
 
 void QTDoughApplication::CreateIndexBuffer()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateIndexBuffer(*this);
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateIndexBuffer(*this);
+    }
 }
+
 
 void QTDoughApplication::LoadModel()
 {
@@ -863,25 +891,37 @@ void QTDoughApplication::CreateTextureImage()
 void QTDoughApplication::CreateDescriptorSets()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateDescriptorSets(*this);
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateDescriptorSets(*this);
+    }
 }
 
 void QTDoughApplication::CreateDescriptorPool()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateDescriptorPool(*this);
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateDescriptorPool(*this);
+    }
 }
 
 void QTDoughApplication::CreateUniformBuffers()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateUniformBuffers(*this);
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateUniformBuffers(*this);
+    }
 }
 
 void QTDoughApplication::CreateDescriptorSetLayout()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateDescriptorSetLayout(*this);
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateDescriptorSetLayout(*this);
+    }
 }
 
 void QTDoughApplication::CreateSyncObjects()
@@ -998,10 +1038,13 @@ void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t i
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        unigmaRenderingObjects[i]._transform.position = glm::vec3(i*2, 0, 0);
-        unigmaRenderingObjects[i]._transform.UpdatePosition();
-        unigmaRenderingObjects[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[i], CameraMain);
-        unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
+        if (unigmaRenderingObjects[i].isRendering)
+        {
+            unigmaRenderingObjects[i]._transform.position = glm::vec3(i, 0, 0);
+            unigmaRenderingObjects[i]._transform.UpdatePosition();
+            unigmaRenderingObjects[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[i], CameraMain);
+            unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
+        }
     }
 }
 

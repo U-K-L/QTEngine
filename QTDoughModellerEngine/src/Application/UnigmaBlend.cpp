@@ -6,6 +6,7 @@
 #define SHARED_MEMORY_NAME "Local\\MySharedMemory"
 #define NUM_OBJECTS 10
 RenderObject* renderObjects = nullptr;
+std::unordered_map<std::string, RenderObject*> renderObjectsMap;
 //Return types:
 // 0: Success
 // -1: Error (general)
@@ -112,6 +113,11 @@ int GatherBlenderInfo()
 
     // Cast the mapped view to an array of GameObject structs
     renderObjects = static_cast<RenderObject*>(pBuf);
+    renderObjectsMap.clear();
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        renderObjectsMap[std::string(renderObjects[i].name)] = &renderObjects[i];
+    }
 
     // Signal that reading is complete
     SetEvent(hReadCompleteEvent);

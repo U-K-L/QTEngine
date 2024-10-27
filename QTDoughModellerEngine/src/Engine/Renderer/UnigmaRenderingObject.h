@@ -55,6 +55,7 @@ struct UnigmaRenderingStruct
 
 class UnigmaRenderingObject {
 	public:
+		bool isRendering = true;
 		UnigmaTransform _transform;
 		UnigmaMesh _mesh;
 		UnigmaRenderingStruct _renderer;
