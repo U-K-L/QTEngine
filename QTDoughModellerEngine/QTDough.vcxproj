@@ -63,6 +63,14 @@
     <None Include="src\shaders\Compile.bat" />
     <None Include="src\shaders\tests\basicVertexHLSL.hlsl" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\Background\background_frag.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\Background\background_vert.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -182,6 +190,9 @@
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.290.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <FxCompile>
+      <ShaderModel>6.6</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

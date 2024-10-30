@@ -614,41 +614,53 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 
 void QTDoughApplication::InitVulkan()
 {
-    /*
-    //Create Textures.
-    UnigmaTexture vikText = UnigmaTexture(800, 600, "Textures/viking_room.png");
-    //Create Material.
-    UnigmaMaterial material = UnigmaMaterial();
-    //Set texture for material.
-    material.textures[0] = vikText;
 
-    //Create Model.
-    UnigmaMesh vikingModel = UnigmaMesh("Models/viking_room.obj");
-
-    //Create rendering object.
-    unigmaRenderingObjects[0] = UnigmaRenderingObject(vikingModel, material);
-    */
+    //Create the intial instances, windows, get the GPU and create the swap chain.
 	CreateInstance();
     CreateWindowSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
     CreateSwapChain();
+
+    //Create all the image views.
     CreateImageViews();
+    CreateOffscreenImages();
+
+    //The descriptor layouts.
     CreateDescriptorSetLayout();
+    CreateOffscreenDescriptorSetLayout();
+
+    //Create graphics pipelines.
     CreateGraphicsPipeline();
+    CreateBackgroundGraphicsPipeline();
+
+    //Create Depths
     CreateDepthResources();
     CreateCommandPool();
+
+    //Create the images and their samplers.
     CreateTextureImage();
     CreateTextureImageView();
     CreateTextureSampler();
+
+    //Load models and create the buffers for vertices and indicies and uniforms.
     //LoadModel();
     CreateVertexBuffer();
+    CreateQuadBuffers();
     CreateIndexBuffer();
     CreateUniformBuffers();
+
+    //Create descriptor pools and sets
     CreateDescriptorPool();
     CreateDescriptorSets();
+
+    //Create command buffers.
     CreateCommandBuffers();
+
+    //Imgui.
     InitImGui();
+
+    //Sync the buffers.
     CreateSyncObjects();
 
 }
@@ -1005,6 +1017,9 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     depthStencil.front = {}; // Optional
     depthStencil.back = {}; // Optional
 
+    RenderBackground(commandBuffer, imageIndex);
+
+    /*
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -1028,8 +1043,9 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     RenderObjects(commandBuffer, imageIndex);
 
 
-    vkCmdEndRendering(commandBuffer);
 
+    vkCmdEndRendering(commandBuffer);
+    */
     // Render ImGui using dynamic rendering
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
@@ -1721,6 +1737,645 @@ VkExtent2D QTDoughApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
     }
 
 }
+
+
+void QTDoughApplication::CreateOffscreenImages() {
+    VkFormat imageFormat = _swapChainImageFormat; // Use the same format as swap chain images
+
+    // Create background image
+    CreateImage(
+        swapChainExtent.width,
+        swapChainExtent.height,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        backgroundImage,
+        backgroundImageMemory
+    );
+    backgroundImageView = CreateImageView(backgroundImage, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    // Create albedo image
+    CreateImage(
+        swapChainExtent.width,
+        swapChainExtent.height,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        albedoImage,
+        albedoImageMemory
+    );
+    albedoImageView = CreateImageView(albedoImage, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void QTDoughApplication::CreateOffscreenDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding backgroundSamplerLayoutBinding{};
+    backgroundSamplerLayoutBinding.binding = 0;
+    backgroundSamplerLayoutBinding.descriptorCount = 1;
+    backgroundSamplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    backgroundSamplerLayoutBinding.pImmutableSamplers = nullptr;
+    backgroundSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding albedoSamplerLayoutBinding{};
+    albedoSamplerLayoutBinding.binding = 1;
+    albedoSamplerLayoutBinding.descriptorCount = 1;
+    albedoSamplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    albedoSamplerLayoutBinding.pImmutableSamplers = nullptr;
+    albedoSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { backgroundSamplerLayoutBinding, albedoSamplerLayoutBinding };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &compositionDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create composition descriptor set layout!");
+    }
+}
+
+void QTDoughApplication::CreateCompositionDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[0].descriptorCount = 1;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = 1;
+
+    if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &compositionDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create composition descriptor pool!");
+    }
+}
+
+void QTDoughApplication::CreateCompositionDescriptorSet() {
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = compositionDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &compositionDescriptorSetLayout;
+
+    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, &compositionDescriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate composition descriptor set!");
+    }
+
+    VkDescriptorImageInfo backgroundImageInfo{};
+    backgroundImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    backgroundImageInfo.imageView = backgroundImageView;
+    backgroundImageInfo.sampler = textureSampler; // Use the same sampler
+
+    VkDescriptorImageInfo albedoImageInfo{};
+    albedoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    albedoImageInfo.imageView = albedoImageView;
+    albedoImageInfo.sampler = textureSampler;
+
+    std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = compositionDescriptorSet;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pImageInfo = &backgroundImageInfo;
+
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstSet = compositionDescriptorSet;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].dstArrayElement = 0;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pImageInfo = &albedoImageInfo;
+
+    vkUpdateDescriptorSets(_logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
+VkPipeline compositionPipeline;
+VkPipelineLayout compositionPipelineLayout;
+
+void QTDoughApplication::CreateCompositionPipeline() {
+    // Load shaders
+    auto vertShaderCode = readFile("shaders/composition_vert.spv");
+    auto fragShaderCode = readFile("shaders/composition_frag.spv");
+
+    VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+
+    // Shader stage creation
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+    // Fixed-function stage configurations
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    // ... (empty, since we generate vertices in the vertex shader)
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    // ... (initialize as in your graphics pipeline)
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    // ... (initialize as in your graphics pipeline)
+
+    // Pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &compositionDescriptorSetLayout;
+
+    if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutInfo, nullptr, &compositionPipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create composition pipeline layout!");
+    }
+
+    // Pipeline creation
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    // ... (initialize as in your graphics pipeline, but use compositionPipelineLayout)
+
+    if (vkCreateGraphicsPipelines(_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &compositionPipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create composition graphics pipeline!");
+    }
+
+    // Cleanup shader modules
+    vkDestroyShaderModule(_logicalDevice, vertShaderModule, nullptr);
+    vkDestroyShaderModule(_logicalDevice, fragShaderModule, nullptr);
+}
+
+
+void QTDoughApplication::TransitionOffscreenImagesForRendering(VkCommandBuffer commandBuffer) {
+    std::array<VkImageMemoryBarrier, 2> barriers{};
+
+    // Transition backgroundImage
+    barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barriers[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[0].image = backgroundImage;
+    barriers[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barriers[0].subresourceRange.baseMipLevel = 0;
+    barriers[0].subresourceRange.levelCount = 1;
+    barriers[0].subresourceRange.baseArrayLayer = 0;
+    barriers[0].subresourceRange.layerCount = 1;
+    barriers[0].srcAccessMask = 0;
+    barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    // Transition albedoImage
+    barriers[1] = barriers[0];
+    barriers[1].image = albedoImage;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        static_cast<uint32_t>(barriers.size()), barriers.data()
+    );
+}
+
+void QTDoughApplication::TransitionOffscreenImagesForSampling(VkCommandBuffer commandBuffer) {
+    std::array<VkImageMemoryBarrier, 2> barriers{};
+
+    // Transition backgroundImage
+    barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barriers[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[0].image = backgroundImage;
+    barriers[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barriers[0].subresourceRange.baseMipLevel = 0;
+    barriers[0].subresourceRange.levelCount = 1;
+    barriers[0].subresourceRange.baseArrayLayer = 0;
+    barriers[0].subresourceRange.layerCount = 1;
+    barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    // Transition albedoImage
+    barriers[1] = barriers[0];
+    barriers[1].image = albedoImage;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        static_cast<uint32_t>(barriers.size()), barriers.data()
+    );
+}
+
+void QTDoughApplication::CreateQuadBuffers() {
+
+    std::vector<Vertex> quadVertices = {
+        {.pos = { -1.0f, -1.0f, 0.0f }, .texCoord = { 0.0f, 0.0f } },
+        {.pos = { 1.0f, -1.0f, 0.0f }, .texCoord = { 1.0f, 0.0f } },
+        {.pos = { 1.0f, 1.0f, 0.0f }, .texCoord = { 1.0f, 1.0f } },
+        {.pos = { -1.0f, 1.0f, 0.0f }, .texCoord = { 0.0f, 1.0f } }
+    };
+
+    std::vector<uint16_t> quadIndices = {
+        0, 1, 2, // First triangle
+        2, 3, 0  // Second triangle
+    };
+
+
+
+    VkDeviceSize bufferSize = sizeof(quadVertices[0]) * quadVertices.size();
+
+    // Create vertex buffer
+    CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        quadVertexBuffer,
+        quadVertexBufferMemory
+    );
+
+    // Copy vertex data
+    void* data;
+    vkMapMemory(_logicalDevice, quadVertexBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, quadVertices.data(), (size_t)bufferSize);
+    vkUnmapMemory(_logicalDevice, quadVertexBufferMemory);
+
+    // Create index buffer
+    bufferSize = sizeof(quadIndices[0]) * quadIndices.size();
+
+    CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        quadIndexBuffer,
+        quadIndexBufferMemory
+    );
+
+    // Copy index data
+    vkMapMemory(_logicalDevice, quadIndexBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, quadIndices.data(), (size_t)bufferSize);
+    vkUnmapMemory(_logicalDevice, quadIndexBufferMemory);
+}
+
+
+void QTDoughApplication::CreateBackgroundDescriptorSets()
+{
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, _backgroundDescriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = _backgroundDescriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    _backgroundDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, _backgroundDescriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo{};
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = backgroundImageView;
+        imageInfo.sampler = textureSampler;
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = _backgroundDescriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = _backgroundDescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(_logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+    }
+}
+
+void QTDoughApplication::CreateBackgroundDescriptorPool()
+{
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &_backgroundDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+
+void QTDoughApplication::CreateBackgroundGraphicsPipeline()
+{
+    printf("Start Creating Background Graphics Pipeline\n");
+    auto vertShaderCode = readFile("src/shaders/backgroundvert.spv");
+    auto fragShaderCode = readFile("src/shaders/backgroundfrag.spv");
+
+    VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+
+    std::cout << "Shader modules created and cleaned" << std::endl;
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    auto bindingDescription = getBindingDescription();
+    auto attributeDescriptions = getAttributeDescriptions();
+
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(swapChainExtent.width);
+    viewport.height = static_cast<float>(swapChainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = swapChainExtent;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+
+    std::cout << "Viewport created" << std::endl;
+
+    VkPipelineRasterizationProvokingVertexStateCreateInfoEXT provokingVertexInfo{};
+    provokingVertexInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT;
+    provokingVertexInfo.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_FIRST_VERTEX_EXT;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+    rasterizer.depthBiasClamp = 0.0f; // Optional
+    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+    rasterizer.pNext = &provokingVertexInfo;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.minSampleShading = 1.0f; // Optional
+    multisampling.pSampleMask = nullptr; // Optional
+    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
+    multisampling.alphaToOneEnable = VK_FALSE; // Optional
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_FALSE; // Set to VK_TRUE if needed
+    depthStencil.depthWriteEnable = VK_FALSE; // Set to VK_TRUE if needed
+    depthStencil.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+    depthStencil.stencilTestEnable = VK_FALSE;
+
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.blendConstants[0] = 0.0f; // Optional
+    colorBlending.blendConstants[1] = 0.0f; // Optional
+    colorBlending.blendConstants[2] = 0.0f; // Optional
+    colorBlending.blendConstants[3] = 0.0f; // Optional
+
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicState.pDynamicStates = dynamicStates.data();
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 0;
+    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+    if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutInfo, nullptr, &_pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
+
+    // Dynamic Rendering Pipeline Setup
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
+    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineRenderingInfo.colorAttachmentCount = 1;
+    pipelineRenderingInfo.pColorAttachmentFormats = &_swapChainImageFormat;
+    pipelineRenderingInfo.depthAttachmentFormat = FindDepthFormat();
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = &pipelineRenderingInfo; // Point to pipelineRenderingInfo
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = _pipelineLayout;
+    pipelineInfo.renderPass = VK_NULL_HANDLE; // Not used with dynamic rendering
+    pipelineInfo.subpass = 0;
+
+    std::cout << "Dynamic pipeline created" << std::endl;
+
+    if (vkCreateGraphicsPipelines(_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &backgroundGraphicsPipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create graphics pipeline!");
+    }
+
+
+    vkDestroyShaderModule(_logicalDevice, fragShaderModule, nullptr);
+    vkDestroyShaderModule(_logicalDevice, vertShaderModule, nullptr);
+
+    std::cout << "Graphics pipeline created" << std::endl;
+}
+
+void QTDoughApplication::RenderBackground(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    VkClearValue clearColor = { {{1.0f, 0.1f, 0.1f, 1.0f}} }; // Adjust as needed
+
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = swapChainImageViews[imageIndex]; //Where the image is rendered to.
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue = clearColor;
+
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = { 0, 0 };
+    renderingInfo.renderArea.extent = swapChainExtent;
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundGraphicsPipeline);
+    // Set viewport and scissor if dynamic
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(swapChainExtent.width);
+    viewport.height = static_cast<float>(swapChainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = swapChainExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    VkBuffer vertexBuffers[] = { quadVertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+
+    // Bind the index buffer
+    vkCmdBindIndexBuffer(commandBuffer, quadIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+    // Draw the quad using indices
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+
+    vkCmdEndRendering(commandBuffer);
+}
+
+void QTDoughApplication::CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = swapChainImageViews[imageIndex];
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+    colorAttachment.clearValue = clearColor;
+
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = { 0, 0 };
+    renderingInfo.renderArea.extent = swapChainExtent;
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipeline);
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        compositionPipelineLayout,
+        0, 1,
+        &compositionDescriptorSet,
+        0, nullptr
+    );
+
+    // Set viewport and scissor
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(swapChainExtent.width);
+    viewport.height = static_cast<float>(swapChainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = swapChainExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Draw fullscreen triangle
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    vkCmdEndRendering(commandBuffer);
+}
+
+
 
 void QTDoughApplication::Cleanup()
 {

@@ -146,6 +146,49 @@ public:
     VK_DYNAMIC_STATE_SCISSOR
     };
 
+    //Quads
+    VkBuffer quadVertexBuffer;
+    VkDeviceMemory quadVertexBufferMemory;
+    VkBuffer quadIndexBuffer;
+    VkDeviceMemory quadIndexBufferMemory;
+
+    //Renderpasses.
+    void TransitionOffscreenImagesForSampling(VkCommandBuffer commandBuffer);
+    void TransitionOffscreenImagesForRendering(VkCommandBuffer commandBuffer);
+    void CreateQuadBuffers();
+    void CreateOffscreenImages();
+    void CreateOffscreenDescriptorSetLayout();
+    void CreateCompositionDescriptorSet();
+    void CreateCompositionDescriptorPool();
+    void CreateCompositionPipeline();
+    void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
+
+    //Background pass.
+    VkImage backgroundImage;
+    VkDeviceMemory backgroundImageMemory;
+    VkImageView backgroundImageView;
+    VkPipeline backgroundGraphicsPipeline;
+    VkDescriptorSetLayout _backgroundDescriptorSetLayout;
+    VkDescriptorPool _backgroundDescriptorPool;
+    std::vector<VkDescriptorSet> _backgroundDescriptorSets;
+    void CreateBackgroundDescriptorPool();
+    void CreateBackgroundDescriptorSets();
+    void CreateBackgroundGraphicsPipeline();
+    void RenderBackground(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
+    VkImage albedoImage;
+    VkDeviceMemory albedoImageMemory;
+    VkImageView albedoImageView;
+
+    //Composite.
+    VkDescriptorSetLayout compositionDescriptorSetLayout;
+    VkDescriptorPool compositionDescriptorPool;
+    VkDescriptorSet compositionDescriptorSet;
+
+
+
+
 private:
     //Methods.
     void InitSDLWindow();
