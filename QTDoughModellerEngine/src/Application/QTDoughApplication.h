@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdexcept>
 #include <set>
+#include <stack>
 #include "UnigmaBlend.h"
 #include <array>
 #include <chrono>
@@ -104,9 +105,19 @@ const bool enableValidationLayers = true;
 //QTDough Class.
 class QTDoughApplication {
 public:
+    QTDoughApplication() {}
+
+    static void SetInstance(QTDoughApplication* app)
+    {
+        instance = app;
+    }
+    static QTDoughApplication* instance;
+    QTDoughApplication(const QTDoughApplication&) = delete;
+    QTDoughApplication& operator=(const QTDoughApplication&) = delete;
     //Methods.
     int Run();
     void Cleanup();
+    void AddPasses();
     //Fields.
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
@@ -152,30 +163,20 @@ public:
     VkBuffer quadIndexBuffer;
     VkDeviceMemory quadIndexBufferMemory;
 
-    //Renderpasses.
     void TransitionOffscreenImagesForSampling(VkCommandBuffer commandBuffer);
     void TransitionOffscreenImagesForRendering(VkCommandBuffer commandBuffer);
     void CreateQuadBuffers();
-    void CreateOffscreenImages();
+    void CreateImages();
     void CreateOffscreenDescriptorSetLayout();
     void CreateCompositionDescriptorSet();
     void CreateCompositionDescriptorPool();
     void CreateCompositionPipeline();
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 
 
-    //Background pass.
-    VkImage backgroundImage;
-    VkDeviceMemory backgroundImageMemory;
-    VkImageView backgroundImageView;
-    VkPipeline backgroundGraphicsPipeline;
-    VkDescriptorSetLayout _backgroundDescriptorSetLayout;
-    VkDescriptorPool _backgroundDescriptorPool;
-    std::vector<VkDescriptorSet> _backgroundDescriptorSets;
-    void CreateBackgroundDescriptorPool();
-    void CreateBackgroundDescriptorSets();
-    void CreateBackgroundGraphicsPipeline();
-    void RenderBackground(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
 
     VkImage albedoImage;
     VkDeviceMemory albedoImageMemory;
@@ -190,6 +191,7 @@ public:
 
 
 private:
+
     //Methods.
     void InitSDLWindow();
     void InitVulkan();
@@ -236,7 +238,6 @@ private:
     void RecreateSwapChain();
     void CleanupSwapChain();
     void InitImGui();
-    void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
     void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void CreateTextureImageView();
@@ -244,10 +245,10 @@ private:
     bool HasStencilComponent(VkFormat format);
     void LoadModel();
     void RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void RenderPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void GetMeshDataAllObjects();
     void CameraToBlender();
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-    VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     VkCommandBuffer BeginSingleTimeCommands();
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/);

@@ -12,6 +12,7 @@ int main(int argc, char* args[]) {
     //The window we'll be rendering to
     QTDoughApplication qtDoughApp;
 
+    qtDoughApp.SetInstance(&qtDoughApp);
     try {
         qtDoughApp.Run();
     }
