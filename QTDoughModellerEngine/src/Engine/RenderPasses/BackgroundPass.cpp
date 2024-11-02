@@ -30,6 +30,21 @@ void BackgroundPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+
+
+    // Bind the global descriptor set
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout,
+        0, // First set
+        1, // Number of sets
+        &app->globalDescriptorSet,
+        0, nullptr // No dynamic offsets
+    );
+
+
     // Set viewport and scissor if dynamic
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -64,6 +79,8 @@ void BackgroundPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) 
 void BackgroundPass::CreateGraphicsPipeline()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Get textures.
 
     printf("Start Creating Background Graphics Pipeline\n");
     auto vertShaderCode = readFile("src/shaders/backgroundvert.spv");
@@ -187,14 +204,22 @@ void BackgroundPass::CreateGraphicsPipeline()
     dynamicState.dynamicStateCount = static_cast<uint32_t>(app->dynamicStates.size());
     dynamicState.pDynamicStates = app->dynamicStates.data();
 
+    // Descriptor set layouts
+    std::array<VkDescriptorSetLayout, 2> setLayouts = {
+        app->globalDescriptorSetLayout, // Set 0: Global descriptor set layout
+        descriptorSetLayout             // Set 1: Per-object descriptor set layout
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = setLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    if (vkCreatePipelineLayout(app->_logicalDevice, &pipelineLayoutInfo, nullptr, &app->_pipelineLayout) != VK_SUCCESS) {
+
+
+    if (vkCreatePipelineLayout(app->_logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -218,10 +243,11 @@ void BackgroundPass::CreateGraphicsPipeline()
     pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = app->_pipelineLayout;
+    pipelineInfo.layout = pipelineLayout;
     pipelineInfo.renderPass = VK_NULL_HANDLE; // Not used with dynamic rendering
     pipelineInfo.subpass = 0;
 
+  
     std::cout << "Dynamic pipeline created" << std::endl;
 
     if (vkCreateGraphicsPipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
@@ -308,6 +334,9 @@ void BackgroundPass::CreateDescriptorSets()
 
     std::cout << "Created descriptor sets" << std::endl;
 }
+
+
+
 
 
 void BackgroundPass::CreateDescriptorSetLayout()

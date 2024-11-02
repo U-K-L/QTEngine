@@ -1,16 +1,25 @@
 #pragma once
 #include <string>
+#include <vulkan/vulkan.h>
+#include <SDL2/SDL.h>
 
+#include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL_system.h>
+#include <SDL2/SDL_syswm.h>
 struct UnigmaTexture {
-	const uint32_t WIDTH;
-	const uint32_t HEIGHT;
+	uint32_t WIDTH;
+	uint32_t HEIGHT;
 	std::string TEXTURE_PATH;
+    VkImage u_image;
+    VkDeviceMemory u_imageMemory;
+    VkImageView u_imageView;
+    VkSampler u_sampler; // Optional if samplers are separate
 
     // Constructor to initialize const members
-    UnigmaTexture(uint32_t width, uint32_t height, const std::string& texturePath)
+    UnigmaTexture(uint32_t width, uint32_t height, std::string& texturePath)
         : WIDTH(width), HEIGHT(height), TEXTURE_PATH(texturePath) {}
 
-    UnigmaTexture() : WIDTH(0), HEIGHT(0), TEXTURE_PATH("") {}
+    UnigmaTexture() : WIDTH(0), HEIGHT(0), TEXTURE_PATH(""), u_image(), u_imageMemory(), u_sampler()  {}
 
     // Overload the assignment operator
     UnigmaTexture& operator=(const UnigmaTexture& other) {

@@ -16,6 +16,7 @@ class RenderPassObject
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> descriptorSets;
+        VkPipelineLayout pipelineLayout;
 
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();

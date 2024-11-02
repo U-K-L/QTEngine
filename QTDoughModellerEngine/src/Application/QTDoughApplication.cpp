@@ -11,7 +11,7 @@ UnigmaRenderingObject unigmaRenderingObjects[10];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
-
+std::vector<UnigmaTexture> textures;
 
 bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
@@ -112,6 +112,7 @@ void QTDoughApplication::DrawFrame()
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
+    UpdateGlobalDescriptorSet();
     //UpdateUniformBuffer(currentFrame); //TODO Refactor OUT.
 
     //Set fence back to unsignled for next time.
@@ -642,6 +643,7 @@ void QTDoughApplication::InitVulkan()
 
     //The descriptor layouts.
     CreateDescriptorSetLayout();
+    CreateGlobalDescriptorSetLayout();
     //CreateOffscreenDescriptorSetLayout();
 
     //Create graphics pipelines.
@@ -666,7 +668,9 @@ void QTDoughApplication::InitVulkan()
 
     //Create descriptor pools and sets
     CreateDescriptorPool();
+    CreateGlobalDescriptorPool();
     CreateDescriptorSets();
+    CreateGlobalDescriptorSet();
 
     //Create command buffers.
     CreateCommandBuffers();
@@ -895,6 +899,7 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 void QTDoughApplication::CreateTextureImage()
 {
+
     //std::string path = AssetsPath + unigmaRenderingObjects[0]._material.textures[0].TEXTURE_PATH;
     std::string path = AssetsPath + "Textures/viking_room.png";
     int texWidth, texHeight, texChannels;
@@ -924,6 +929,8 @@ void QTDoughApplication::CreateTextureImage()
     vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
 
+
+    LoadTexture(AssetsPath + "Textures/Kanaloa_Sprite_DesignSPRITE.png");
 }
 
 void QTDoughApplication::CreateDescriptorSets()
@@ -970,6 +977,7 @@ void QTDoughApplication::CreateUniformBuffers()
 
 void QTDoughApplication::CreateDescriptorSetLayout()
 {
+
     for (int i = 0; i < renderPassStack.size(); i++)
     {
         renderPassStack[i]->CreateDescriptorSetLayout();
@@ -985,6 +993,167 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 
 
 }
+
+void QTDoughApplication::CreateGlobalDescriptorSetLayout()
+{
+    VkDescriptorSetLayoutBinding sampledImageBinding{};
+    sampledImageBinding.binding = 0;
+    sampledImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    sampledImageBinding.descriptorCount = 1000; // Or VK_REMAINING_BINDING
+    sampledImageBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    sampledImageBinding.pImmutableSamplers = nullptr;
+
+    // Binding flags for descriptor indexing
+    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
+    bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    bindingFlagsInfo.bindingCount = 1;
+    bindingFlagsInfo.pBindingFlags = &bindingFlags;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.pBindings = &sampledImageBinding;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pNext = &bindingFlagsInfo;
+
+    // Enable the update after bind flag
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+
+    if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create global descriptor set layout!");
+    }
+}
+
+
+void QTDoughApplication::CreateGlobalDescriptorPool()
+{
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    poolSize.descriptorCount = 1000; // Match the descriptor count in the layout
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = 1;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+
+    if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &globalDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create global descriptor pool!");
+    }
+}
+
+void QTDoughApplication::UpdateGlobalDescriptorSet()
+{
+    auto sizeTextures = textures.size();
+    std::vector<VkDescriptorImageInfo> imageInfos(sizeTextures);
+
+    for (size_t i = 0; i < sizeTextures; ++i) {
+        imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos[i].imageView = textures[i].u_imageView;
+        imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
+    }
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = globalDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    descriptorWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+    descriptorWrite.pImageInfo = imageInfos.data();
+
+    vkUpdateDescriptorSets(_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+}
+
+
+void QTDoughApplication::LoadTexture(const std::string& filename) {
+    UnigmaTexture texture = UnigmaTexture();
+
+    // Load image data using stb_image or another image library
+    int texWidth, texHeight, texChannels;
+    stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    if (!pixels) {
+        throw std::runtime_error("failed to load texture image!");
+    }
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    // Create a staging buffer to transfer the image data
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    CreateBuffer(
+        imageSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer,
+        stagingBufferMemory
+    );
+
+    // Copy image data to the staging buffer
+    void* data;
+    vkMapMemory(_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+    stbi_image_free(pixels);
+
+    // Create the Vulkan image
+    CreateImage(
+        texWidth, texHeight,
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        texture.u_image,
+        texture.u_imageMemory
+    );
+
+    // Transition the image layout and copy data from the staging buffer
+    TransitionImageLayout(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    CopyBufferToImage(stagingBuffer, texture.u_image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    TransitionImageLayout(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // Clean up the staging buffer
+    vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+
+    // Create an image view for the texture
+    texture.u_imageView = CreateImageView(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    // Optionally create a sampler if not using a global sampler
+    // texture.sampler = CreateTextureSampler();
+
+    // Add the texture to the textures vector
+    //textures.push_back(&texture);
+    textures.push_back(std::move(texture));
+
+}
+
+
+
+void QTDoughApplication::CreateGlobalDescriptorSet()
+{
+    uint32_t maxDescriptorCount = 1000;
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo descriptorCountAllocInfo{};
+    descriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+    descriptorCountAllocInfo.descriptorSetCount = 1;
+    descriptorCountAllocInfo.pDescriptorCounts = &maxDescriptorCount;
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = globalDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &globalDescriptorSetLayout;
+    allocInfo.pNext = &descriptorCountAllocInfo;
+
+    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, &globalDescriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate global descriptor set!");
+    }
+}
+
 
 void QTDoughApplication::CreateSyncObjects()
 {
@@ -1611,6 +1780,21 @@ void QTDoughApplication::CreateLogicalDevice()
     else {
         _createInfo.enabledLayerCount = 0;
     }
+
+
+    // Bindless Texture support.
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+    descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+
+    VkPhysicalDeviceFeatures2 deviceFeatures2{};
+    deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    deviceFeatures2.features = deviceFeatures;
+    deviceFeatures2.pNext = &descriptorIndexingFeatures;
+
+    _createInfo.pNext = &deviceFeatures2;
+
 
 
     //Finally instantiate this device.

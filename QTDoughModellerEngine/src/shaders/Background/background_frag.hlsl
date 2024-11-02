@@ -6,8 +6,12 @@ struct PSInput
     nointerpolation float3 normal : NORMAL; // Location 2, flat interpolation
 };
 
+Texture2D textures[] : register(t0, space0);
+SamplerState samplerState : register(s0);
+
 float4 main(PSInput i) : SV_Target
 {
+    float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);
     float4 _BottomColor = float4(0.5896226, 0.88767844, 1, 1);
     float4 _TopColor = float4(0.98083025, 0.8509804, 0.99215686, 1);
     float4 gradientYcolor = float4(0.9, 0.85, 0.92, 1.0);
@@ -29,6 +33,10 @@ float4 main(PSInput i) : SV_Target
                 
     //float ditherMask2 = dith + DitherMask;
 
+    float4 testTexture = textures[NonUniformResourceIndex(0)].Sample(samplerState, textureUVs);
+    
+    return testTexture;
+    
     float4 colorDither = (lerp(gradientYcolor, _TopColor, DitherMask) * 1.0);
 
     return colorDither;

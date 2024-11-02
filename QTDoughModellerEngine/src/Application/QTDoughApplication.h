@@ -25,6 +25,7 @@
 #include <set>
 #include <stack>
 #include "UnigmaBlend.h"
+#include "../Engine/Renderer/UnigmaTexture.h"
 #include <array>
 #include <chrono>
 
@@ -57,7 +58,8 @@ const std::vector<const char*> validationLayers = {
 };
 
 const std::vector<const char*> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
 };
 
 static const std::string AssetsPath = "Assets/";
@@ -157,6 +159,8 @@ public:
     VK_DYNAMIC_STATE_SCISSOR
     };
 
+    std::vector<UnigmaTexture> textures;
+
     //Quads
     VkBuffer quadVertexBuffer;
     VkDeviceMemory quadVertexBufferMemory;
@@ -171,6 +175,11 @@ public:
     void CreateCompositionDescriptorSet();
     void CreateCompositionDescriptorPool();
     void CreateCompositionPipeline();
+    void CreateGlobalDescriptorPool();
+    void CreateGlobalDescriptorSet();
+    void CreateGlobalDescriptorSetLayout();
+    void UpdateGlobalDescriptorSet();
+    void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
@@ -186,6 +195,11 @@ public:
     VkDescriptorSetLayout compositionDescriptorSetLayout;
     VkDescriptorPool compositionDescriptorPool;
     VkDescriptorSet compositionDescriptorSet;
+
+    //Bindless
+    VkDescriptorSetLayout globalDescriptorSetLayout;
+    VkDescriptorPool globalDescriptorPool;
+    VkDescriptorSet globalDescriptorSet;
 
 
 
