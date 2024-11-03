@@ -21,6 +21,8 @@ struct UnigmaTexture {
 
     UnigmaTexture() : WIDTH(0), HEIGHT(0), TEXTURE_PATH(""), u_image(), u_imageMemory(), u_sampler()  {}
 
+    UnigmaTexture(const std::string& texturePath) : WIDTH(0), HEIGHT(0), TEXTURE_PATH(texturePath), u_image(), u_imageMemory(), u_sampler(), u_imageView() {}
+
     // Overload the assignment operator
     UnigmaTexture& operator=(const UnigmaTexture& other) {
         if (this != &other) { 

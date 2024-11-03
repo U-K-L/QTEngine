@@ -16,4 +16,5 @@ public:
     void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
     void CreateImages() override;
     void CreateDescriptorSetLayout() override;
+    void CreateMaterials() override;
 };

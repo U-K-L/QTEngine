@@ -159,7 +159,7 @@ public:
     VK_DYNAMIC_STATE_SCISSOR
     };
 
-    std::vector<UnigmaTexture> textures;
+    std::unordered_map<std::string, UnigmaTexture> textures;
 
     //Quads
     VkBuffer quadVertexBuffer;
@@ -171,6 +171,7 @@ public:
     void TransitionOffscreenImagesForRendering(VkCommandBuffer commandBuffer);
     void CreateQuadBuffers();
     void CreateImages();
+    void CreateMaterials();
     void CreateOffscreenDescriptorSetLayout();
     void CreateCompositionDescriptorSet();
     void CreateCompositionDescriptorPool();

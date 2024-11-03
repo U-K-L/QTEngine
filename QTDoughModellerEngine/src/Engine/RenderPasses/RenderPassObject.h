@@ -1,5 +1,6 @@
 #pragma once
 #include "../../Application/QTDoughApplication.h"
+#include "../Renderer/UnigmaMaterial.h"
 class RenderPassObject
 {
 	public:
@@ -8,6 +9,8 @@ class RenderPassObject
 
         // Destructor
         ~RenderPassObject();
+
+        UnigmaMaterial material;
 
         VkImage image;
         VkDeviceMemory imageMemory;
@@ -24,4 +27,5 @@ class RenderPassObject
         virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex);
         virtual void CreateImages();
         virtual void CreateDescriptorSetLayout();
+        virtual void CreateMaterials();
 };

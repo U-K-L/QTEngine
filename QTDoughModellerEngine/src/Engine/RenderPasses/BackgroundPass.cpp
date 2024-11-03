@@ -386,6 +386,14 @@ void BackgroundPass::CreateDescriptorSetLayout()
 
 void BackgroundPass::CreateImages() {
 
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    for (int i = 0; i < material.textures.size(); i++)
+    {
+        app->LoadTexture(material.textures[i].TEXTURE_PATH);
+    }
+
+    /*
     std::cout << "Creating background images" << std::endl;
 
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -406,4 +414,11 @@ void BackgroundPass::CreateImages() {
     imageView = app->CreateImageView(image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
     std::cout << "Created background images" << std::endl;
+    */
+}
+
+void BackgroundPass::CreateMaterials() {
+    //Add in textures.
+    material.textures.push_back(UnigmaTexture( std::string(AssetsPath + "Textures/SkyboxBorder.png") ));
+
 }

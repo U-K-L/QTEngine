@@ -1,21 +1,18 @@
 #pragma once
 #include "UnigmaTexture.h"
+#include <vector>
 
 #define MAX_NUM_TEXTURES 8
 
 struct UnigmaMaterial
 {
-    UnigmaTexture textures[MAX_NUM_TEXTURES];
+    std::vector<UnigmaTexture> textures;
 
-    UnigmaMaterial() {
-        for (int i = 0; i < MAX_NUM_TEXTURES; ++i) {
-            textures[i] = UnigmaTexture();
-        }
-    }
+    UnigmaMaterial() {}
 
     UnigmaMaterial& operator=(const UnigmaMaterial& other) {
         if (this != &other) {
-            for (int i = 0; i < MAX_NUM_TEXTURES; ++i) {
+            for (int i = 0; i < textures.size(); ++i) {
                 textures[i] = other.textures[i];
             }
         }

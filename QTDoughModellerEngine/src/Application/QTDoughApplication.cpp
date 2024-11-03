@@ -11,7 +11,7 @@ UnigmaRenderingObject unigmaRenderingObjects[10];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
-std::vector<UnigmaTexture> textures;
+std::unordered_map<std::string, UnigmaTexture> textures;
 
 bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
@@ -638,8 +638,8 @@ void QTDoughApplication::InitVulkan()
     AddPasses();
 
     //Create all the image views.
+    CreateMaterials();
     CreateImageViews();
-    CreateImages();
 
     //The descriptor layouts.
     CreateDescriptorSetLayout();
@@ -658,6 +658,7 @@ void QTDoughApplication::InitVulkan()
     CreateTextureImage();
     CreateTextureImageView();
     CreateTextureSampler();
+    CreateImages();
 
     //Load models and create the buffers for vertices and indicies and uniforms.
     //LoadModel();
@@ -928,9 +929,6 @@ void QTDoughApplication::CreateTextureImage()
 
     vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
-
-
-    LoadTexture(AssetsPath + "Textures/Kanaloa_Sprite_DesignSPRITE.png");
 }
 
 void QTDoughApplication::CreateDescriptorSets()
@@ -1046,12 +1044,21 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
 
 void QTDoughApplication::UpdateGlobalDescriptorSet()
 {
-    auto sizeTextures = textures.size();
+    std::vector<UnigmaTexture> keys;
+    for (const auto& pair : textures) {
+        keys.push_back(pair.second);
+    }
+
+
+    auto sizeTextures = keys.size();
     std::vector<VkDescriptorImageInfo> imageInfos(sizeTextures);
+
+
+
 
     for (size_t i = 0; i < sizeTextures; ++i) {
         imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfos[i].imageView = textures[i].u_imageView;
+        imageInfos[i].imageView = keys[i].u_imageView;
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
     }
 
@@ -1069,6 +1076,12 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
 
 void QTDoughApplication::LoadTexture(const std::string& filename) {
+
+    if (textures.count(filename) > 0)
+    {
+        return;
+    }
+
     UnigmaTexture texture = UnigmaTexture();
 
     // Load image data using stb_image or another image library
@@ -1127,7 +1140,7 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
 
     // Add the texture to the textures vector
     //textures.push_back(&texture);
-    textures.push_back(std::move(texture));
+    textures.insert({ filename, texture } );
 
 }
 
@@ -1487,6 +1500,18 @@ void QTDoughApplication::CreateImageViews() {
     for (uint32_t i = 0; i < swapChainImages.size(); i++) {
         swapChainImageViews[i] = CreateImageView(swapChainImages[i], _swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
     }
+}
+
+void QTDoughApplication::CreateMaterials() {
+    for (int i = 0; i < renderPassStack.size(); i++)
+    {
+        renderPassStack[i]->CreateMaterials();
+    }
+
+    /*
+    for (int i = 0; i < NUM_OBJECTS; i++)
+        unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
+        */
 }
 
 void QTDoughApplication::CreateSwapChain() {
