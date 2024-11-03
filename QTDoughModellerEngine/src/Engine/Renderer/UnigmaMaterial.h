@@ -1,5 +1,6 @@
 #pragma once
 #include "UnigmaTexture.h"
+#include "UnigmaShader.h"
 #include <vector>
 
 #define MAX_NUM_TEXTURES 8
@@ -7,6 +8,7 @@
 struct UnigmaMaterial
 {
     std::vector<UnigmaTexture> textures;
+    UnigmaShader shader;
 
     UnigmaMaterial() {}
 

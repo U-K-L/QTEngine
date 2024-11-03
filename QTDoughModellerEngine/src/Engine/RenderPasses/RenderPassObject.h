@@ -20,11 +20,12 @@ class RenderPassObject
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> descriptorSets;
         VkPipelineLayout pipelineLayout;
+        VkFramebuffer offscreenFramebuffer;
 
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();
         virtual void CreateGraphicsPipeline();
-        virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+        virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkImageView* targetImage = nullptr);
         virtual void CreateImages();
         virtual void CreateDescriptorSetLayout();
         virtual void CreateMaterials();

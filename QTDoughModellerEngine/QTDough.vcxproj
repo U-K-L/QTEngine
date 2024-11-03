@@ -33,6 +33,7 @@
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingManager.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingObject.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\BackgroundPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\CompositionPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Application\UnigmaBlend.cpp" />
@@ -56,8 +57,10 @@
     <ClInclude Include="src\Engine\Renderer\UnigmaMesh.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaRenderingManager.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaRenderingObject.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaShader.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaTexture.h" />
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
   </ItemGroup>
   <ItemGroup>

@@ -6,6 +6,7 @@
 #include "../Engine/Camera/UnigmaCamera.h"
 #include "../Engine/RenderPasses/RenderPassObject.h"
 #include "../Engine/RenderPasses/BackgroundPass.h"
+#include "../Engine/RenderPasses/CompositionPass.h"
 
 UnigmaRenderingObject unigmaRenderingObjects[10];
 UnigmaCameraStruct CameraMain;
@@ -620,7 +621,10 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 void QTDoughApplication::AddPasses()
 {
     BackgroundPass* bgPass = new BackgroundPass();
-    renderPassStack.push_back(bgPass);
+    //renderPassStack.push_back(bgPass);
+
+    CompositionPass* compPass = new CompositionPass();
+    renderPassStack.push_back(compPass);
 
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;
 }
