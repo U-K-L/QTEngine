@@ -31,4 +31,5 @@ class RenderPassObject
         virtual void CreateImages();
         virtual void CreateDescriptorSetLayout();
         virtual void CreateMaterials();
+        virtual void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage);
 };

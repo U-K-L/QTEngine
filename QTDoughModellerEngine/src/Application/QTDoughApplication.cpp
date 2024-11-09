@@ -1308,6 +1308,11 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
+    for (int i = 0; i < renderPassStack.size(); i++)
+    {
+        renderPassStack[i]->UpdateUniformBuffer(*this, imageIndex);
+    }
+    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if (unigmaRenderingObjects[i].isRendering)
@@ -1319,6 +1324,7 @@ void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t i
             unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
         }
     }
+    */
 }
 
 void QTDoughApplication::CreateCommandBuffers()

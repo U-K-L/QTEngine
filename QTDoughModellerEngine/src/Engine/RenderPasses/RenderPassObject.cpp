@@ -465,4 +465,11 @@ void RenderPassObject::CreateImages() {
     app->textures.insert({ textureKey, offscreenTexture });
 }
 
+void RenderPassObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage) {
+
+    //Update int array assignments.
+
+
+}
+
 void RenderPassObject::CreateMaterials() {}
