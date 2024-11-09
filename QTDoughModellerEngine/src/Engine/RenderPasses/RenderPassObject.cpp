@@ -370,14 +370,15 @@ void RenderPassObject::CreateDescriptorSets()
     }
 
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo bufferInfo{};
+        VkDescriptorBufferInfo uniformBufferInfo{};
+        // Initialize uniformBufferInfo as needed
 
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = imageView;
-        imageInfo.sampler = app->textureSampler;
+        VkDescriptorBufferInfo intArrayBufferInfo{};
+        intArrayBufferInfo.buffer = intArrayBuffer;
+        intArrayBufferInfo.offset = 0;
+        intArrayBufferInfo.range = VK_WHOLE_SIZE; // Use the entire buffer
 
-        std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
@@ -385,17 +386,16 @@ void RenderPassObject::CreateDescriptorSets()
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
 
-        /*
+        // Write for unsigned int array buffer (accessible in all shader stages)
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstBinding = 1; // Match binding in shader
         descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
-        */
+        descriptorWrites[1].pBufferInfo = &intArrayBufferInfo;
 
         vkUpdateDescriptorSets(app->_logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
