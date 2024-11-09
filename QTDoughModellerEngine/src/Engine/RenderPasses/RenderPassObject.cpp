@@ -335,7 +335,7 @@ void RenderPassObject::CreateDescriptorPool()
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -443,6 +443,18 @@ void RenderPassObject::CreateImages() {
         throw std::runtime_error("Failed to create offscreen framebuffer!");
     }
 
+    //Create Texture IDs
+
+    app->CreateBuffer(
+        MAX_NUM_TEXTURES,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        intArrayBuffer,
+        intArrayBufferMemory
+    );
+
+    // CREATE THE PASS IMAGE FOR FUTURE OBJECTS TO REFERENCE.
+    // 
     // Create an UnigmaTexture object for the offscreen image
     UnigmaTexture offscreenTexture;
     offscreenTexture.u_image = image;

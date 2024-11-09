@@ -21,6 +21,8 @@ class RenderPassObject
         std::vector<VkDescriptorSet> descriptorSets;
         VkPipelineLayout pipelineLayout;
         VkFramebuffer offscreenFramebuffer;
+        VkBuffer intArrayBuffer;
+        VkDeviceMemory intArrayBufferMemory;
 
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();
