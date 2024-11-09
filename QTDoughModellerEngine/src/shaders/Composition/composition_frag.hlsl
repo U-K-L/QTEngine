@@ -2,8 +2,26 @@
 
 // Define an unbounded array of textures and samplers
 // Using register space0 to match Vulkan descriptor set 0
-Texture2D textures[] : register(t0, space0);
-SamplerState samplers[] : register(s0, space0);
+Texture2D textures[] : register(t0, space0); //Global
+SamplerState samplers[] : register(s0, space0); //Global
+
+// Define a structured buffer for unsigned int array
+// Binding slot t1, space0 to match Vulkan descriptor set 0, binding 1
+StructuredBuffer<uint> intArray : register(t1, space0);
+
+struct Images
+{
+    uint BackgroundImage;
+};
+
+Images InitImages()
+{
+    Images image;
+    
+    image.BackgroundImage = 0;
+    
+    return image;
+}
 
 // Define any constants or uniforms you need
 cbuffer Constants : register(b0, space0)
@@ -22,10 +40,11 @@ struct VSOutput
 // Main pixel shader function
 float4 main(VSOutput i) : SV_Target
 {
+    Images images = InitImages();
     float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);
-
-    // Sample the texture using the bindless array
-    float4 color = textures[0].Sample(samplers[0], textureUVs);
+    float4 backgroundImage = textures[images.BackgroundImage].Sample(samplers[0], textureUVs);
+    
+    float4 color = backgroundImage;
 
     return color;
 }
