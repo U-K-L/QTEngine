@@ -620,11 +620,12 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 
 void QTDoughApplication::AddPasses()
 {
-    BackgroundPass* bgPass = new BackgroundPass();
-    //renderPassStack.push_back(bgPass);
 
     CompositionPass* compPass = new CompositionPass();
     renderPassStack.push_back(compPass);
+
+    BackgroundPass* bgPass = new BackgroundPass();
+    renderPassStack.push_back(bgPass);
 
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;
 }
@@ -1064,6 +1065,9 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfos[i].imageView = keys[i].u_imageView;
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
+        
+        //Set the ID of the texture.
+        keys[i].ID = i;
     }
 
     VkWriteDescriptorSet descriptorWrite{};

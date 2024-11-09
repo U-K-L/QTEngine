@@ -15,6 +15,6 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
 void CompositionPass::CreateMaterials() {
     //Add in textures.
     material.textures.push_back(UnigmaTexture(std::string(AssetsPath + "Textures/SkyboxBorder.png")));
-    material.shader = UnigmaShader("background");
+    material.shader = UnigmaShader("composition");
 
 }

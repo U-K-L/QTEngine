@@ -10,4 +10,5 @@ public:
     ~BackgroundPass();
 
     void CreateMaterials() override;
+    void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkImageView* targetImage) override;
 };

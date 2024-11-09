@@ -13,7 +13,8 @@ struct UnigmaTexture {
     VkImage u_image;
     VkDeviceMemory u_imageMemory;
     VkImageView u_imageView;
-    VkSampler u_sampler; // Optional if samplers are separate
+    VkSampler u_sampler;
+    uint32_t ID;
 
     // Constructor to initialize const members
     UnigmaTexture(uint32_t width, uint32_t height, std::string& texturePath)
@@ -21,7 +22,7 @@ struct UnigmaTexture {
 
     UnigmaTexture() : WIDTH(0), HEIGHT(0), TEXTURE_PATH(""), u_image(), u_imageMemory(), u_sampler()  {}
 
-    UnigmaTexture(const std::string& texturePath) : WIDTH(0), HEIGHT(0), TEXTURE_PATH(texturePath), u_image(), u_imageMemory(), u_sampler(), u_imageView() {}
+    UnigmaTexture(const std::string& texturePath) : WIDTH(0), HEIGHT(0), TEXTURE_PATH(texturePath), u_image(), u_imageMemory(), u_sampler(), u_imageView(), ID() {}
 
     // Overload the assignment operator
     UnigmaTexture& operator=(const UnigmaTexture& other) {

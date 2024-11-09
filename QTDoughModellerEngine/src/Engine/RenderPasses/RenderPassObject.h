@@ -11,7 +11,7 @@ class RenderPassObject
         ~RenderPassObject();
 
         UnigmaMaterial material;
-
+        std::string PassName = "DefaultPass";
         VkImage image;
         VkDeviceMemory imageMemory;
         VkImageView imageView;
