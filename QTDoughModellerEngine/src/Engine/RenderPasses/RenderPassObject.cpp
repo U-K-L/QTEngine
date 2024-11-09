@@ -278,36 +278,40 @@ void RenderPassObject::CreateGraphicsPipeline()
 /*
 * First Layout must be created which gives us what buffers are going to be sent per this object to the GPU.
 */
-
 void RenderPassObject::CreateDescriptorSetLayout()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    //Bindings for our uniform buffer. Which is things like transform information.
+    //Create the actual buffers.
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboLayoutBinding.descriptorCount = 1;
-
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
     uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+    VkDescriptorSetLayoutBinding intArrayLayoutBinding{};
+    intArrayLayoutBinding.binding = 1; // Binding number in the shader
+    intArrayLayoutBinding.descriptorCount = 1; // Only one buffer bound here
+    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Use storage buffer for an array
+    intArrayLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+    intArrayLayoutBinding.pImmutableSamplers = nullptr; // Not used for buffer bindings
+
+    //Bind the buffers we specified.
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, intArrayLayoutBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
 
+
+    //Create the pools and its information.
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -373,7 +377,7 @@ void RenderPassObject::CreateDescriptorSets()
         imageInfo.imageView = imageView;
         imageInfo.sampler = app->textureSampler;
 
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
 
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];

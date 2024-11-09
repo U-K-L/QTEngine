@@ -10,6 +10,8 @@ struct UnigmaMaterial
     std::vector<UnigmaTexture> textures;
     UnigmaShader shader;
 
+    uint32_t textureIDs[MAX_NUM_TEXTURES];
+
     UnigmaMaterial() {}
 
     UnigmaMaterial& operator=(const UnigmaMaterial& other) {
