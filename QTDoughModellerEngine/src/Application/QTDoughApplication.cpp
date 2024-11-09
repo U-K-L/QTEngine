@@ -1310,7 +1310,7 @@ void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t i
 {
     for (int i = 0; i < renderPassStack.size(); i++)
     {
-        renderPassStack[i]->UpdateUniformBuffer(*this, imageIndex);
+        renderPassStack[i]->UpdateUniformBuffer(imageIndex);
     }
     /*
     for (int i = 0; i < NUM_OBJECTS; i++)

@@ -24,6 +24,7 @@ class RenderPassObject
         VkBuffer intArrayBuffer;
         VkDeviceMemory intArrayBufferMemory;
 
+
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();
         virtual void CreateGraphicsPipeline();
@@ -31,5 +32,5 @@ class RenderPassObject
         virtual void CreateImages();
         virtual void CreateDescriptorSetLayout();
         virtual void CreateMaterials();
-        virtual void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage);
+        virtual void UpdateUniformBuffer(uint32_t currentImage);
 };

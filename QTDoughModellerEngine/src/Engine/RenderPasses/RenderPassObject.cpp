@@ -465,10 +465,19 @@ void RenderPassObject::CreateImages() {
     app->textures.insert({ textureKey, offscreenTexture });
 }
 
-void RenderPassObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage) {
+void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage) {
+
+    QTDoughApplication* app = QTDoughApplication::instance;
 
     //Update int array assignments.
+    
+    // Determine the size of the array (should be the same as used during buffer creation)
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
 
+    void* data;
+    vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
+    vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
 }
 
