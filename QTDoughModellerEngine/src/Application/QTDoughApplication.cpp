@@ -23,14 +23,22 @@ int QTDoughApplication::Run() {
 	InitVulkan();
 
     SDL_Event e; 
-    
     while (PROGRAMEND == false) {
-        SDL_PollEvent(&e);
-        if (e.type == SDL_QUIT) PROGRAMEND = true;
-        ImGui_ImplSDL2_ProcessEvent(&e);
-        //Main Game Loop.
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                PROGRAMEND = true;
+            }
+            else if (e.type == SDL_WINDOWEVENT) {
+                if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || e.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    framebufferResized = true;
+                }
+            }
+            ImGui_ImplSDL2_ProcessEvent(&e);
+        }
+        // Main Game Loop.
         RunMainGameLoop();
     }
+
     vkDeviceWaitIdle(_logicalDevice);
 	return 0;
 }
