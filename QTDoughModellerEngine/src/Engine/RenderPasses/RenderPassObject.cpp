@@ -498,12 +498,38 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
 
 void RenderPassObject::CleanupPipeline() {
     VkDevice device = QTDoughApplication::instance->_logicalDevice;
+
+    if (offscreenFramebuffer != VK_NULL_HANDLE) {
+        vkDestroyFramebuffer(device, offscreenFramebuffer, nullptr);
+        offscreenFramebuffer = VK_NULL_HANDLE;
+    }
+
+    if (imageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, imageView, nullptr);
+        imageView = VK_NULL_HANDLE;
+    }
+
+    if (image != VK_NULL_HANDLE) {
+        vkDestroyImage(device, image, nullptr);
+        image = VK_NULL_HANDLE;
+    }
+
+    if (imageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, imageMemory, nullptr);
+        imageMemory = VK_NULL_HANDLE;
+    }
+
     if (graphicsPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
     }
     if (pipelineLayout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     }
+
+
+    QTDoughApplication::instance->textures.clear();
+
+    CreateMaterials();
 }
 
 

@@ -1888,6 +1888,7 @@ void QTDoughApplication::RecreateSwapChain()
     // Recreate graphics pipelines for each render pass
     for (auto& renderPass : renderPassStack) {
         renderPass->CleanupPipeline(); // Implement this method to destroy old pipeline and layout
+        renderPass->CreateImages();
         renderPass->CreateGraphicsPipeline();
     }
 }
