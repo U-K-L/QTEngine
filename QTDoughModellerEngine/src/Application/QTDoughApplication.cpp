@@ -1878,11 +1878,20 @@ void QTDoughApplication::RecreateSwapChain()
     vkDeviceWaitIdle(_logicalDevice);
 
     CleanupSwapChain();
+
+    // Recreate swapchain and dependent resources
     CreateSwapChain();
     CreateImageViews();
     CreateDepthResources();
     CreateFramebuffers();
+
+    // Recreate graphics pipelines for each render pass
+    for (auto& renderPass : renderPassStack) {
+        renderPass->CleanupPipeline(); // Implement this method to destroy old pipeline and layout
+        renderPass->CreateGraphicsPipeline();
+    }
 }
+
 
 void QTDoughApplication::CreateWindowSurface()
 {

@@ -33,4 +33,5 @@ class RenderPassObject
         virtual void CreateDescriptorSetLayout();
         virtual void CreateMaterials();
         virtual void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame);
+        virtual void CleanupPipeline();
 };

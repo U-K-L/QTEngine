@@ -496,4 +496,15 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
 
 }
 
+void RenderPassObject::CleanupPipeline() {
+    VkDevice device = QTDoughApplication::instance->_logicalDevice;
+    if (graphicsPipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+    }
+    if (pipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    }
+}
+
+
 void RenderPassObject::CreateMaterials() {}
