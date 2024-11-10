@@ -5,7 +5,7 @@ RenderPassObject::~RenderPassObject() {
 
 RenderPassObject::RenderPassObject() {}
 
-void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkImageView* targetImage) {
+void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -35,15 +35,20 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 
+    // Combine both global and per-object descriptor sets
+    VkDescriptorSet descriptorSetsToBind[] = {
+        app->globalDescriptorSet,       // Set 0: Global descriptor set
+        descriptorSets[currentFrame]    // Set 1: Per-object descriptor set
+    };
 
-    // Bind the global descriptor set
+    // Bind both descriptor sets in one call
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         pipelineLayout,
-        0, // First set
-        1, // Number of sets
-        &app->globalDescriptorSet,
+        0, // Start at set 0
+        2, // Number of sets to bind (global and per-object)
+        descriptorSetsToBind,
         0, nullptr // No dynamic offsets
     );
 
@@ -444,14 +449,15 @@ void RenderPassObject::CreateImages() {
     }
 
     //Create Texture IDs
-
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
     app->CreateBuffer(
-        MAX_NUM_TEXTURES,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         intArrayBuffer,
         intArrayBufferMemory
     );
+
 
     // CREATE THE PASS IMAGE FOR FUTURE OBJECTS TO REFERENCE.
     // 
@@ -461,11 +467,11 @@ void RenderPassObject::CreateImages() {
     offscreenTexture.u_imageView = imageView;
 
     // Use a unique key for the offscreen image
-    std::string textureKey = PassName + std::to_string(reinterpret_cast<uintptr_t>(this));
+    std::string textureKey = PassName;
     app->textures.insert({ textureKey, offscreenTexture });
 }
 
-void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage) {
+void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -473,6 +479,14 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage) {
     
     // Determine the size of the array (should be the same as used during buffer creation)
     VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+
+    for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+    {
+        if(app->textures.count(material.textureNames[i]) > 0)
+            material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
+        else
+            material.textureIDs[i] = 0;
+    }
 
     void* data;
     vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);

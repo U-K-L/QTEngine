@@ -125,6 +125,7 @@ public:
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
     std::chrono::high_resolution_clock::time_point timeMinutePassed;
     std::chrono::high_resolution_clock::time_point currentTime;
+    uint32_t currentFrame;
     float FPS;
     SDL_Window* QTSDLWindow;
     int SCREEN_WIDTH = 640;

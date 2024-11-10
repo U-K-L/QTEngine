@@ -1050,24 +1050,20 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
 void QTDoughApplication::UpdateGlobalDescriptorSet()
 {
     std::vector<UnigmaTexture> keys;
-    for (const auto& pair : textures) {
+    int index = 0;
+    for (auto& pair : textures) {
+        pair.second.ID = index;
         keys.push_back(pair.second);
+        index++;
     }
-
 
     auto sizeTextures = keys.size();
     std::vector<VkDescriptorImageInfo> imageInfos(sizeTextures);
-
-
-
 
     for (size_t i = 0; i < sizeTextures; ++i) {
         imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfos[i].imageView = keys[i].u_imageView;
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
-        
-        //Set the ID of the texture.
-        keys[i].ID = i;
     }
 
     VkWriteDescriptorSet descriptorWrite{};
@@ -1302,16 +1298,18 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
 {
     for (int i = 0; i < renderPassStack.size(); i++)
     {
-        renderPassStack[i]->Render(commandBuffer, imageIndex);
+        renderPassStack[i]->UpdateUniformBuffer(imageIndex, currentFrame);
+    }
+
+    for (int i = 0; i < renderPassStack.size(); i++)
+    {
+        renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame);
     }
 }
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-    for (int i = 0; i < renderPassStack.size(); i++)
-    {
-        renderPassStack[i]->UpdateUniformBuffer(imageIndex);
-    }
+
     /*
     for (int i = 0; i < NUM_OBJECTS; i++)
     {

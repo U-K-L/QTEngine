@@ -1,18 +1,21 @@
 #include "BackgroundPass.h"
 
 BackgroundPass::~BackgroundPass() {
+    PassName = "BackgroundPass";
 }
 
-BackgroundPass::BackgroundPass() {}
+BackgroundPass::BackgroundPass() {
+    PassName = "BackgroundPass";
+}
 
 void BackgroundPass::CreateMaterials() {
     //Add in textures.
-    material.textures.push_back(UnigmaTexture( std::string(AssetsPath + "Textures/SkyboxBorder.png") ));
+    material.push_back_texture(UnigmaTexture( std::string(AssetsPath + "Textures/SkyboxBorder.png") ), std::string(AssetsPath + "Textures/SkyboxBorder.png"));
     material.shader = UnigmaShader("background");
 
 }
 
-void BackgroundPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkImageView* targetImage) {
+void BackgroundPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 

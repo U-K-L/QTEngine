@@ -6,8 +6,8 @@ Texture2D textures[] : register(t0, space0); //Global
 SamplerState samplers[] : register(s0, space0); //Global
 
 // Define a structured buffer for unsigned int array
-// Binding slot t1, space0 to match Vulkan descriptor set 0, binding 1
-StructuredBuffer<uint> intArray : register(t1, space0);
+// Binding slot t1, space0 to match Vulkan descriptor set 1, binding 1
+StructuredBuffer<uint> intArray : register(t1, space1);
 
 struct Images
 {
@@ -18,7 +18,7 @@ Images InitImages()
 {
     Images image;
     
-    image.BackgroundImage = 0;
+    image.BackgroundImage = intArray[0];
     
     return image;
 }

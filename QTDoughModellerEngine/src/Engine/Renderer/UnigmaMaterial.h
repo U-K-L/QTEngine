@@ -12,6 +12,8 @@ struct UnigmaMaterial
 
     uint32_t textureIDs[MAX_NUM_TEXTURES];
 
+    std::string textureNames[MAX_NUM_TEXTURES];
+
     UnigmaMaterial() {}
 
     UnigmaMaterial& operator=(const UnigmaMaterial& other) {
@@ -21,5 +23,14 @@ struct UnigmaMaterial
             }
         }
         return *this;
+    }
+
+    void push_back_texture(UnigmaTexture texture, std::string path) {
+        if (textures.size() >= MAX_NUM_TEXTURES - 1)
+        {
+            return;
+        }
+        textures.push_back(texture);
+        textureNames[textures.size()] = path;
     }
 };
