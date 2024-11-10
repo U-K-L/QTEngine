@@ -33,4 +33,15 @@ struct UnigmaMaterial
         textures.push_back(texture);
         textureNames[textures.size()] = path;
     }
+
+    void Clean()
+    {
+        textures.clear();
+
+        for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+        {
+            textureIDs[i] = 0;
+            textureNames[i] = "Default";
+        }
+    }
 };

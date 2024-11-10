@@ -13,6 +13,7 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
 }
 
 void CompositionPass::CreateMaterials() {
+    material.Clean();
     //Add in textures.
     material.shader = UnigmaShader("composition");
 

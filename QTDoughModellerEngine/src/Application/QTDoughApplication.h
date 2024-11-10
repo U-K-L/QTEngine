@@ -151,6 +151,7 @@ public:
     VkFormat FindDepthFormat();
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     VkVertexInputBindingDescription getBindingDescription();
     std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
@@ -255,7 +256,6 @@ private:
     void CleanupSwapChain();
     void InitImGui();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
-    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void CreateTextureImageView();
     void CreateDepthResources();
     bool HasStencilComponent(VkFormat format);

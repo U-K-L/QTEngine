@@ -9,6 +9,7 @@ BackgroundPass::BackgroundPass() {
 }
 
 void BackgroundPass::CreateMaterials() {
+    material.Clean();
     //Add in textures.
     material.push_back_texture(UnigmaTexture( std::string(AssetsPath + "Textures/SkyboxBorder.png") ), std::string(AssetsPath + "Textures/SkyboxBorder.png"));
     material.shader = UnigmaShader("background");

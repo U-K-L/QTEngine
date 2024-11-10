@@ -122,7 +122,6 @@ void QTDoughApplication::DrawFrame()
     }
 
     UpdateGlobalDescriptorSet();
-    //UpdateUniformBuffer(currentFrame); //TODO Refactor OUT.
 
     //Set fence back to unsignled for next time.
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
@@ -171,6 +170,7 @@ void QTDoughApplication::DrawFrame()
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
         framebufferResized = false;
         RecreateSwapChain();
+        UpdateGlobalDescriptorSet();
     }
     else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
@@ -651,7 +651,6 @@ void QTDoughApplication::InitVulkan()
     AddPasses();
 
     //Create all the image views.
-    CreateMaterials();
     CreateImageViews();
 
     //The descriptor layouts.
@@ -660,6 +659,7 @@ void QTDoughApplication::InitVulkan()
     //CreateOffscreenDescriptorSetLayout();
 
     //Create graphics pipelines.
+    CreateMaterials();
     CreateGraphicsPipeline();
     //CreateBackgroundGraphicsPipeline();
 
@@ -1061,6 +1061,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     int index = 0;
     for (auto& pair : textures) {
         pair.second.ID = index;
+        //std::cout << "Texture ID: " << index << " " << pair.first << std::endl;
         keys.push_back(pair.second);
         index++;
     }
@@ -1342,6 +1343,7 @@ void QTDoughApplication::CreateCommandBuffers()
     allocInfo.commandPool = _commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)_commandBuffers.size();
+
 
     if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, _commandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers!");
@@ -1878,19 +1880,26 @@ void QTDoughApplication::RecreateSwapChain()
     vkDeviceWaitIdle(_logicalDevice);
 
     CleanupSwapChain();
+    QTDoughApplication::instance->textures.clear();
 
     // Recreate swapchain and dependent resources
     CreateSwapChain();
     CreateImageViews();
     CreateDepthResources();
-    CreateFramebuffers();
+
 
     // Recreate graphics pipelines for each render pass
     for (auto& renderPass : renderPassStack) {
-        renderPass->CleanupPipeline(); // Implement this method to destroy old pipeline and layout
-        renderPass->CreateImages();
+        renderPass->CleanupPipeline();
+        renderPass->CreateMaterials();
         renderPass->CreateGraphicsPipeline();
+        renderPass->CreateImages();
+
     }
+
+    UpdateGlobalDescriptorSet();
+
+    CreateCommandBuffers();
 }
 
 
@@ -2088,6 +2097,7 @@ void QTDoughApplication::CreateQuadBuffers() {
     memcpy(data, quadIndices.data(), (size_t)bufferSize);
     vkUnmapMemory(_logicalDevice, quadIndexBufferMemory);
 }
+
 
 
 void QTDoughApplication::Cleanup()

@@ -287,6 +287,18 @@ void RenderPassObject::CreateDescriptorSetLayout()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    //Create required buffers.
+    //Create Texture IDs
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+    app->CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        intArrayBuffer,
+        intArrayBufferMemory
+    );
+
+
     //Bindings for our uniform buffer. Which is things like transform information.
     //Create the actual buffers.
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
@@ -431,6 +443,12 @@ void RenderPassObject::CreateImages() {
         imageMemory
     );
 
+    app->TransitionImageLayout(
+        image,
+        imageFormat,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    );
+
     // Create the image view for the offscreen image
     imageView = app->CreateImageView(image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -447,17 +465,6 @@ void RenderPassObject::CreateImages() {
     if (vkCreateFramebuffer(app->_logicalDevice, &framebufferInfo, nullptr, &offscreenFramebuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create offscreen framebuffer!");
     }
-
-    //Create Texture IDs
-    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
-    app->CreateBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        intArrayBuffer,
-        intArrayBufferMemory
-    );
-
 
     // CREATE THE PASS IMAGE FOR FUTURE OBJECTS TO REFERENCE.
     // 
@@ -526,11 +533,9 @@ void RenderPassObject::CleanupPipeline() {
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     }
 
-
-    QTDoughApplication::instance->textures.clear();
-
-    CreateMaterials();
 }
 
 
-void RenderPassObject::CreateMaterials() {}
+void RenderPassObject::CreateMaterials() {
+    material.Clean();
+}
