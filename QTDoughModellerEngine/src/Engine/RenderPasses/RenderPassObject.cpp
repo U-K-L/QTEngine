@@ -466,6 +466,7 @@ void RenderPassObject::CreateImages() {
     offscreenTexture.u_image = image;
     offscreenTexture.u_imageView = imageView;
 
+
     // Use a unique key for the offscreen image
     std::string textureKey = PassName;
     app->textures.insert({ textureKey, offscreenTexture });
