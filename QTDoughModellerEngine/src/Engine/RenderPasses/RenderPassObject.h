@@ -1,6 +1,8 @@
 #pragma once
 #include "../../Application/QTDoughApplication.h"
 #include "../Renderer/UnigmaMaterial.h"
+#include "../Renderer/UnigmaRenderingManager.h"
+
 class RenderPassObject
 {
 	public:
@@ -23,6 +25,8 @@ class RenderPassObject
         VkFramebuffer offscreenFramebuffer;
         VkBuffer intArrayBuffer;
         VkDeviceMemory intArrayBufferMemory;
+
+        std::vector<UnigmaRenderingObject*> GameObjects;
 
 
         virtual void CreateDescriptorPool();

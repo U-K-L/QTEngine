@@ -28,8 +28,10 @@
     <ClCompile Include="..\ExternalLibs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Application\QTDoughApplication.cpp" />
     <ClCompile Include="src\Engine\Camera\UnigmaCamera.cpp" />
+    <ClCompile Include="src\Engine\Core\UnigmaGameManager.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaGameObject.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaGameObjectManager.cpp" />
+    <ClCompile Include="src\Engine\Core\UnigmaScenes.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingManager.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingObject.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\BackgroundPass.cpp" />
@@ -52,6 +54,7 @@
     <ClInclude Include="src\Engine\Camera\UnigmaCamera.h" />
     <ClInclude Include="src\Engine\Core\UnigmaGameObject.h" />
     <ClInclude Include="src\Engine\Core\UnigmaGameObjectManager.h" />
+    <ClInclude Include="src\Engine\Core\UnigmaScenes.h" />
     <ClInclude Include="src\Engine\Core\UnigmaTransform.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMaterial.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMesh.h" />
