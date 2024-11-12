@@ -8,21 +8,32 @@
 #include "Application/QTDoughApplication.h"
 #include "Loader.h"
 #include "UnigmaNative/UnigmaNative.h"
+#include <mutex> 
+
+UnigmaThread* QTDoughEngine;
+QTDoughApplication qtDoughApp;
+
+void RunQTDough()
+{
+    std::cout << "Houston we're running the renderer!!!" << std::endl;
+    qtDoughApp.Run();
+}
 
 int main(int argc, char* args[]) {
 
-    //The window we'll be rendering to
-    QTDoughApplication qtDoughApp;
 
     unigmaNative = LoadDLL(L"Unigma/UnigmaNative.dll");
     LoadUnigmaNativeFunctions();
 
     UNStartProgram();
-    UNEndProgram();
 
     qtDoughApp.SetInstance(&qtDoughApp);
     try {
-        qtDoughApp.Run();
+        QTDoughEngine = new UnigmaThread(RunQTDough); //Begin calculation of physics forces.
+        while (true)
+        {
+
+        }
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

@@ -115,7 +115,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>ClangCL</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -201,8 +201,9 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\tinyObj;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\stb-master;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;C:\VulkanSDK\1.3.290.0;C:\VulkanSDK\1.3.290.0\Include;$(ProjectDir)\QTDough\src\Application;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\tinyObj;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\stb-master;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;C:\VulkanSDK\1.3.290.0;C:\VulkanSDK\1.3.290.0\Include;$(ProjectDir)\QTDough\src\Application;$(VC_IncludePath);$(WindowsSDK_IncludePath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
