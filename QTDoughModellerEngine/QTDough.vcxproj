@@ -65,6 +65,8 @@
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
+    <ClInclude Include="src\Loader.h" />
+    <ClInclude Include="src\UnigmaNative\UnigmaNative.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\tests\basicFrag.frag" />

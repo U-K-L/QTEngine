@@ -6,11 +6,19 @@
 #include <iostream>
 #include <vulkan/vulkan.h>
 #include "Application/QTDoughApplication.h"
-
+#include "Loader.h"
+#include "UnigmaNative/UnigmaNative.h"
 
 int main(int argc, char* args[]) {
+
     //The window we'll be rendering to
     QTDoughApplication qtDoughApp;
+
+    unigmaNative = LoadDLL(L"Unigma/UnigmaNative.dll");
+    LoadUnigmaNativeFunctions();
+
+    UNStartProgram();
+    UNEndProgram();
 
     qtDoughApp.SetInstance(&qtDoughApp);
     try {
