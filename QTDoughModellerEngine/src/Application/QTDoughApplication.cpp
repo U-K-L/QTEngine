@@ -18,6 +18,7 @@ bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
 //extern SDL_Window *SDLWindow;
 int QTDoughApplication::Run() {
+
     CameraMain = UnigmaCameraStruct();
     InitSDLWindow();
 	InitVulkan();

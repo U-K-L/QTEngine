@@ -40,6 +40,8 @@ int main(int argc, char* args[]) {
         return EXIT_FAILURE;
     }
 
+    //Clean up and delete threads.
     qtDoughApp.Cleanup();
+    delete QTDoughEngine;
     return EXIT_SUCCESS;
 }
