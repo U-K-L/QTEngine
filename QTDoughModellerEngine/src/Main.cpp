@@ -27,6 +27,10 @@ int main(int argc, char* args[]) {
 
     UNStartProgram();
 
+    UnigmaGameObject* gObj = UNGetGameObject(0);
+
+    std::cout << "GameObject Name: " << gObj->name << std::endl;
+
     qtDoughApp.SetInstance(&qtDoughApp);
     try {
         QTDoughEngine = new UnigmaThread(RunQTDough); //Begin calculation of physics forces.

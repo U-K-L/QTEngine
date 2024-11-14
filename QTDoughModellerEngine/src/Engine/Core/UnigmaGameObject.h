@@ -1,10 +1,17 @@
 #pragma once
-#include <glm/glm.hpp>
+#include <iostream>
+#include <vector>
+#include "../Core/UnigmaTransform.h"
 
-class UnigmaGameObject
+#define MAX_NUM_COMPONENTS 32
+
+struct UnigmaGameObject
 {
-	public:
-		void virtual Start();
-		void virtual Update();
-
+	UnigmaTransform transform;
+	char name[32];
+	uint32_t ID;
+	uint32_t RenderID;
+	bool isActive;
+	bool isCreated;
+	uint16_t components[MAX_NUM_COMPONENTS];
 };
