@@ -29,14 +29,14 @@ int main(int argc, char* args[]) {
 
     UnigmaGameObject* gObj = UNGetGameObject(0);
 
-    std::cout << "GameObject Name: " << gObj->name << std::endl;
+
 
     qtDoughApp.SetInstance(&qtDoughApp);
     try {
-        QTDoughEngine = new UnigmaThread(RunQTDough); //Begin calculation of physics forces.
+        QTDoughEngine = new UnigmaThread(RunQTDough);
         while (true)
         {
-
+            std::cout << "GameObject Name: " << gObj->name << std::endl;
         }
     }
     catch (const std::exception& e) {
