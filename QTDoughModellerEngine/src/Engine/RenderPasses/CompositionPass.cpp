@@ -5,7 +5,7 @@ CompositionPass::~CompositionPass() {
 
 CompositionPass::CompositionPass() {}
 
-void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage)
+void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 

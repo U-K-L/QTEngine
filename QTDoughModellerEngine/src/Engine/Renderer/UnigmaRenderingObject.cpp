@@ -106,6 +106,7 @@ void UnigmaRenderingObject::Render(QTDoughApplication& app, VkCommandBuffer comm
 
     VkBuffer vertexBuffers[] = { _vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app.graphicsPipeline);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);

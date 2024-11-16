@@ -36,7 +36,7 @@ int main(int argc, char* args[]) {
         QTDoughEngine = new UnigmaThread(RunQTDough);
         while (true)
         {
-            std::cout << "GameObject Name: " << gObj->name << std::endl;
+
         }
     }
     catch (const std::exception& e) {

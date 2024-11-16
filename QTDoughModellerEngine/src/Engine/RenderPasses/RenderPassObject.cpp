@@ -1,11 +1,12 @@
 #include "RenderPassObject.h"
 
+std::vector<UnigmaRenderingObject*> renderingObjects;
 RenderPassObject::~RenderPassObject() {
 }
 
 RenderPassObject::RenderPassObject() {}
 
-void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage) {
+void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -79,6 +80,9 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
     // Draw the quad using indices
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
+    //Draw the objects.
+    RenderObjects(commandBuffer, imageIndex, currentFrame, targetImage, CameraMain);
+
     vkCmdEndRendering(commandBuffer);
 
     /*
@@ -91,7 +95,28 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
     */
 }
 
+void RenderPassObject::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    for (int i = 0; i < renderingObjects.size(); i++)
+	{
+		if (renderingObjects[i]->isRendering)
+		{
+            //renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain);
+			renderingObjects[i]->Render(*app, commandBuffer, imageIndex, currentFrame);
+		}
+	}
+}
 
+
+void RenderPassObject::UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+        renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain);
+    }
+}
 
 void RenderPassObject::CreateGraphicsPipeline()
 {

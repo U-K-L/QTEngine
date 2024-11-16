@@ -102,6 +102,7 @@ void QTDoughApplication::RunMainGameLoop()
         timeMinutePassed = currentTime;
     }
 
+    //RecreateResources();
 }
 
 void QTDoughApplication::DrawFrame()
@@ -630,10 +631,15 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 void QTDoughApplication::AddPasses()
 {
 
-    CompositionPass* compPass = new CompositionPass();
-    renderPassStack.push_back(compPass);
+    //CompositionPass* compPass = new CompositionPass();
+    //renderPassStack.push_back(compPass);
 
     BackgroundPass* bgPass = new BackgroundPass();
+    //Add objects.
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        bgPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
+    }
     renderPassStack.push_back(bgPass);
 
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;
@@ -951,13 +957,12 @@ void QTDoughApplication::CreateDescriptorSets()
     {
         renderPassStack[i]->CreateDescriptorSets();
     }
-    /*
+
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorSets(*this);
     }
-    */
 }
 
 void QTDoughApplication::CreateDescriptorPool()
@@ -966,25 +971,21 @@ void QTDoughApplication::CreateDescriptorPool()
     {
         renderPassStack[i]->CreateDescriptorPool();
     }
-    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorPool(*this);
     }
-    */
 }
 
 void QTDoughApplication::CreateUniformBuffers()
 {
 
-    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateUniformBuffers(*this);
     }
-    */
 }
 
 void QTDoughApplication::CreateDescriptorSetLayout()
@@ -995,15 +996,11 @@ void QTDoughApplication::CreateDescriptorSetLayout()
         renderPassStack[i]->CreateDescriptorSetLayout();
     }
 
-    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         //if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorSetLayout(*this);
     }
-    */
-
-
 }
 
 void QTDoughApplication::CreateGlobalDescriptorSetLayout()
@@ -1216,55 +1213,11 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
-    // **Dynamic Rendering Setup**
-    VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
-    VkClearValue depthClear = { {1.0f, 0} };
-
-    VkRenderingAttachmentInfo colorAttachment{};
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = swapChainImageViews[imageIndex];
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue = clearColor;
-
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = depthImageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.clearValue = depthClear;
-
-    VkRenderingInfo renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderingInfo.renderArea.offset = { 0, 0 };
-    renderingInfo.renderArea.extent = swapChainExtent;
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = &depthAttachment;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.minDepthBounds = 0.0f; // Optional
-    depthStencil.maxDepthBounds = 1.0f; // Optional
-
-    depthStencil.stencilTestEnable = VK_FALSE;
-    depthStencil.front = {}; // Optional
-    depthStencil.back = {}; // Optional
-
+    
     RenderPasses(commandBuffer, imageIndex);
-
+    //RenderObjects(commandBuffer, imageIndex);
     /*
-    vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     // Set dynamic viewport and scissor
     VkViewport viewport{};
@@ -1289,6 +1242,7 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     vkCmdEndRendering(commandBuffer);
     */
     // Render ImGui using dynamic rendering
+    // vkCmdEndRendering(commandBuffer);
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -1309,30 +1263,27 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
     for (int i = 0; i < renderPassStack.size(); i++)
     {
         renderPassStack[i]->UpdateUniformBuffer(imageIndex, currentFrame);
+        renderPassStack[i]->UpdateUniformBufferObjects(commandBuffer, imageIndex, currentFrame, nullptr, &CameraMain);
     }
 
     for (int i = 0; i < renderPassStack.size(); i++)
     {
-        renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame);
+        renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame, nullptr, &CameraMain);
     }
 }
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-
-    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if (unigmaRenderingObjects[i].isRendering)
         {
-
-            //unigmaRenderingObjects[i]._transform.position = glm::vec3(i, 0, 0);
-            //unigmaRenderingObjects[i]._transform.UpdatePosition();
+            //print out is rendering.
+            std::cout << "Rendering Object: " << unigmaRenderingObjects[i].isRendering << std::endl;
             unigmaRenderingObjects[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[i], CameraMain);
             unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
         }
     }
-    */
 }
 
 void QTDoughApplication::CreateCommandBuffers()
@@ -1472,10 +1423,8 @@ void QTDoughApplication::CreateGraphicsPipeline()
         renderPassStack[i]->CreateGraphicsPipeline();
     }
 
-    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
         unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
-        */
 }
 
 VkShaderModule QTDoughApplication::CreateShaderModule(const std::vector<char>& code)
@@ -1531,10 +1480,8 @@ void QTDoughApplication::CreateMaterials() {
         renderPassStack[i]->CreateMaterials();
     }
 
-    /*
     for (int i = 0; i < NUM_OBJECTS; i++)
         unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
-        */
 }
 
 void QTDoughApplication::CreateSwapChain() {
@@ -1881,14 +1828,21 @@ void QTDoughApplication::RecreateSwapChain()
     vkDeviceWaitIdle(_logicalDevice);
 
     CleanupSwapChain();
-    QTDoughApplication::instance->textures.clear();
+
 
     // Recreate swapchain and dependent resources
     CreateSwapChain();
     CreateImageViews();
     CreateDepthResources();
 
+    RecreateResources();
 
+    CreateCommandBuffers();
+}
+
+void QTDoughApplication::RecreateResources()
+{
+    QTDoughApplication::instance->textures.clear();
     // Recreate graphics pipelines for each render pass
     for (auto& renderPass : renderPassStack) {
         renderPass->CleanupPipeline();
@@ -1899,8 +1853,6 @@ void QTDoughApplication::RecreateSwapChain()
     }
 
     UpdateGlobalDescriptorSet();
-
-    CreateCommandBuffers();
 }
 
 

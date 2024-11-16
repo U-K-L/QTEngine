@@ -37,6 +37,7 @@
 
 
 
+
 #define VK_CHECK(x)                                                         \
     do {                                                                    \
         VkResult err = x;                                                   \
@@ -160,7 +161,6 @@ public:
     VK_DYNAMIC_STATE_VIEWPORT,
     VK_DYNAMIC_STATE_SCISSOR
     };
-
     std::unordered_map<std::string, UnigmaTexture> textures;
 
     //Quads
@@ -186,7 +186,7 @@ public:
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-
+    void RecreateResources();
 
 
 
