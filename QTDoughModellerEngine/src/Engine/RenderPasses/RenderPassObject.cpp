@@ -102,6 +102,9 @@ void RenderPassObject::RenderObjects(VkCommandBuffer commandBuffer, uint32_t ima
 	{
 		if (renderingObjects[i]->isRendering)
 		{
+            renderingObjects[i]->_transform.Print();
+            //renderingObjects[i]->_renderer.Print();
+            //std::cout << "Rendering object: " << i << std::endl;
             //renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain);
 			renderingObjects[i]->Render(*app, commandBuffer, imageIndex, currentFrame);
 		}

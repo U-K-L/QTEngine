@@ -60,6 +60,7 @@
     <ClInclude Include="src\Engine\Renderer\UnigmaMesh.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaRenderingManager.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaRenderingObject.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaRenderingStruct.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaShader.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaTexture.h" />
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />

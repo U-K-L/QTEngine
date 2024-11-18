@@ -29,11 +29,20 @@ int main(int argc, char* args[]) {
 
     UnigmaGameObject* gObj = UNGetGameObject(0);
 
+    uint32_t sizeOFObjts = UNGetRenderObjectsSize();
 
+    std::cout << "\nSize of objects: " << sizeOFObjts << std::endl;
 
     qtDoughApp.SetInstance(&qtDoughApp);
+    //Feed RenderObjects to QTDoughEngine.
+    for (uint32_t i = 0; i < 10; i++)
+    {
+        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
+        qtDoughApp.AddRenderObject(renderObj, i);
+    }
     try {
         QTDoughEngine = new UnigmaThread(RunQTDough);
+
         while (true)
         {
 

@@ -17,6 +17,17 @@ std::unordered_map<std::string, UnigmaTexture> textures;
 bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
 //extern SDL_Window *SDLWindow;
+
+void QTDoughApplication::AddRenderObject(UnigmaRenderingStruct* renderObject, uint32_t index)
+{
+    UnigmaRenderingObject newObject = UnigmaRenderingObject();
+    //newObject._renderer = *renderObject;
+    newObject.isRendering = true;
+    newObject._transform = glm::vec3(0, 0, index);
+    unigmaRenderingObjects[index] = newObject;
+    unigmaRenderingObjects[index].isRendering = true;
+}
+
 int QTDoughApplication::Run() {
 
     CameraMain = UnigmaCameraStruct();
@@ -631,8 +642,8 @@ void QTDoughApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint3
 void QTDoughApplication::AddPasses()
 {
 
-    //CompositionPass* compPass = new CompositionPass();
-    //renderPassStack.push_back(compPass);
+    CompositionPass* compPass = new CompositionPass();
+    renderPassStack.push_back(compPass);
 
     BackgroundPass* bgPass = new BackgroundPass();
     //Add objects.
@@ -719,7 +730,7 @@ void QTDoughApplication::GetMeshDataAllObjects()
     {
         //unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
 
-        unigmaRenderingObjects[i].isRendering = false;
+        //unigmaRenderingObjects[i].isRendering = false;
         if (strstr(renderObjects[i].name, "Camera") != nullptr)
             continue;
         if (strstr(renderObjects[i].name, "Light") != nullptr)
