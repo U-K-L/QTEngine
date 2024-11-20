@@ -37,28 +37,18 @@ int main(int argc, char* args[]) {
     for (uint32_t i = 0; i < sizeOFObjts; i++)
     {
         UnigmaGameObject* gObj = UNGetGameObject(i);
-        gObj->RenderID = 100;//gObj->RenderID;
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-        //print object Gobj renderID
-
         qtDoughApp.AddRenderObject(renderObj, gObj, i);
-        std::cout << "Object: " << gObj->name << " RenderID: " << gObj->RenderID << " Address: " << gObj << std::endl;
-
-        //print size of unigmaGameObject.
-        std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObjectDummy) << std::endl;
-        std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObject) << std::endl;
-
-    
     }
     try {
-        //QTDoughEngine = new UnigmaThread(RunQTDough);
+        QTDoughEngine = new UnigmaThread(RunQTDough);
         while (true)
         {
             for (uint32_t i = 0; i < sizeOFObjts; i++)
             {
                 UnigmaGameObject* gObj = UNGetGameObject(i);
                 UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-                //qtDoughApp.UpdateObjects(renderObj, gObj, i);
+                qtDoughApp.UpdateObjects(renderObj, gObj, i);
 
 
             }

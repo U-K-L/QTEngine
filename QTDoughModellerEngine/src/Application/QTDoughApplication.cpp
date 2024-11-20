@@ -20,16 +20,11 @@ uint32_t currentFrame = 0;
 
 void QTDoughApplication::AddRenderObject(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
-        std::cout << "Object2: " << gObj->name << " RenderID: " << gObj->RenderID << " Address: " << gObj << std::endl;
-/*
     UnigmaRenderingObject newObject = UnigmaRenderingObject();
     newObject.isRendering = true;
     newObject._transform = gObj->transform.position;
     unigmaRenderingObjects[gObj->RenderID] = newObject;
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
-    */
-    std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObjectDummy) << std::endl;
-    std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObject) << std::endl;
 
 }
 
