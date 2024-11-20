@@ -1,11 +1,15 @@
 #pragma once
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <iostream>
 struct UnigmaTransform
 {
 	glm::mat4 transformMatrix;
 	glm::vec3 position;
-	UnigmaTransform() : transformMatrix(1.0f), position(0.0f)
+	int pad;
+	glm::vec3 rotation;
+	int pad2;
+	UnigmaTransform() : transformMatrix(1.0f), position(0.0f), rotation(0.0f)
 	{
 		UpdatePosition();
 	}
@@ -30,7 +34,6 @@ struct UnigmaTransform
 
 	void UpdatePosition()
 	{
-		std::cout << "Updating position" << position.z << std::endl;
 		transformMatrix[3][0] = position.x;
 		transformMatrix[3][1] = position.y;
 		transformMatrix[3][2] = position.z;

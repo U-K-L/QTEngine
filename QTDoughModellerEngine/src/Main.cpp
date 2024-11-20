@@ -1,3 +1,4 @@
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include "glm/vec4.hpp"
 #include "glm/mat4x4.hpp"
 #include <SDL2/SDL.h>
@@ -27,25 +28,44 @@ int main(int argc, char* args[]) {
 
     UNStartProgram();
 
-    UnigmaGameObject* gObj = UNGetGameObject(0);
-
     uint32_t sizeOFObjts = UNGetRenderObjectsSize();
 
     std::cout << "\nSize of objects: " << sizeOFObjts << std::endl;
 
     qtDoughApp.SetInstance(&qtDoughApp);
     //Feed RenderObjects to QTDoughEngine.
-    for (uint32_t i = 0; i < 10; i++)
+    for (uint32_t i = 0; i < sizeOFObjts; i++)
     {
-        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
-        qtDoughApp.AddRenderObject(renderObj, i);
+        UnigmaGameObject* gObj = UNGetGameObject(i);
+        gObj->RenderID = 100;//gObj->RenderID;
+        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
+        //print object Gobj renderID
+
+        qtDoughApp.AddRenderObject(renderObj, gObj, i);
+        std::cout << "Object: " << gObj->name << " RenderID: " << gObj->RenderID << " Address: " << gObj << std::endl;
+
+        //print size of unigmaGameObject.
+        std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObjectDummy) << std::endl;
+        std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObject) << std::endl;
+
+    
     }
     try {
-        QTDoughEngine = new UnigmaThread(RunQTDough);
-
+        //QTDoughEngine = new UnigmaThread(RunQTDough);
         while (true)
         {
+            for (uint32_t i = 0; i < sizeOFObjts; i++)
+            {
+                UnigmaGameObject* gObj = UNGetGameObject(i);
+                UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
+                //qtDoughApp.UpdateObjects(renderObj, gObj, i);
 
+
+            }
+            //Update native plugin.
+            UNUpdateProgram();
+            //Wait 33ms before updating again.
+            std::this_thread::sleep_for(std::chrono::milliseconds(33));
         }
     }
     catch (const std::exception& e) {

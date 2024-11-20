@@ -39,6 +39,7 @@
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Application\UnigmaBlend.cpp" />
+    <ClCompile Include="src\UnigmaNative\UnigmaNative.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ExternalLibs\imgui\backends\imgui_impl_sdl2.h" />

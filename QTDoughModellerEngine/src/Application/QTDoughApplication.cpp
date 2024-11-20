@@ -7,7 +7,7 @@
 #include "../Engine/RenderPasses/RenderPassObject.h"
 #include "../Engine/RenderPasses/BackgroundPass.h"
 #include "../Engine/RenderPasses/CompositionPass.h"
-
+#include "../UnigmaNative/UnigmaNative.h"
 UnigmaRenderingObject unigmaRenderingObjects[10];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
@@ -18,14 +18,25 @@ bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
 //extern SDL_Window *SDLWindow;
 
-void QTDoughApplication::AddRenderObject(UnigmaRenderingStruct* renderObject, uint32_t index)
+void QTDoughApplication::AddRenderObject(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
+        std::cout << "Object2: " << gObj->name << " RenderID: " << gObj->RenderID << " Address: " << gObj << std::endl;
+/*
     UnigmaRenderingObject newObject = UnigmaRenderingObject();
-    //newObject._renderer = *renderObject;
     newObject.isRendering = true;
-    newObject._transform = glm::vec3(0, 0, index);
-    unigmaRenderingObjects[index] = newObject;
-    unigmaRenderingObjects[index].isRendering = true;
+    newObject._transform = gObj->transform.position;
+    unigmaRenderingObjects[gObj->RenderID] = newObject;
+    unigmaRenderingObjects[gObj->RenderID].isRendering = true;
+    */
+    std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObjectDummy) << std::endl;
+    std::cout << "Size of UnigmaGameObject: " << sizeof(UnigmaGameObject) << std::endl;
+
+}
+
+void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
+{
+    unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
+    unigmaRenderingObjects[gObj->RenderID].isRendering = true;
 }
 
 int QTDoughApplication::Run() {
@@ -1224,36 +1235,8 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
-    
     RenderPasses(commandBuffer, imageIndex);
-    //RenderObjects(commandBuffer, imageIndex);
-    /*
 
-
-    // Set dynamic viewport and scissor
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChainExtent.width);
-    viewport.height = static_cast<float>(swapChainExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = swapChainExtent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    //Render objects to the screen and change VBOs per object.
-    RenderObjects(commandBuffer, imageIndex);
-
-
-
-    vkCmdEndRendering(commandBuffer);
-    */
-    // Render ImGui using dynamic rendering
-    // vkCmdEndRendering(commandBuffer);
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {

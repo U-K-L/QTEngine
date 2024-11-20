@@ -27,6 +27,8 @@
 #include "UnigmaBlend.h"
 #include "../Engine/Renderer/UnigmaTexture.h"
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
+#include "../Engine/Core/UnigmaGameObject.h"
+
 #include <array>
 #include <chrono>
 
@@ -122,7 +124,8 @@ public:
     int Run();
     void Cleanup();
     void AddPasses();
-    void AddRenderObject(UnigmaRenderingStruct* renderObj, uint32_t index);
+    void UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index);
+    void AddRenderObject(UnigmaRenderingStruct* renderObj, UnigmaGameObject* gObj, uint32_t index);
     //Fields.
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
