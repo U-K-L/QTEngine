@@ -49,8 +49,6 @@ int main(int argc, char* args[]) {
                 UnigmaGameObject* gObj = UNGetGameObject(i);
                 UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
                 qtDoughApp.UpdateObjects(renderObj, gObj, i);
-
-
             }
             //Update native plugin.
             UNUpdateProgram();

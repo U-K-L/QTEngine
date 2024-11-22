@@ -1,0 +1,165 @@
+{
+  "SceneName": "Wave Scene",
+  "GameObjects": [
+    {
+      "name": "Object_0",
+      "position": {
+        "x": 0,
+        "y": 0.0,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_1",
+      "position": {
+        "x": 1,
+        "y": 0.84,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_2",
+      "position": {
+        "x": 2,
+        "y": 0.91,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_3",
+      "position": {
+        "x": 3,
+        "y": 0.14,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_4",
+      "position": {
+        "x": 4,
+        "y": -0.76,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_5",
+      "position": {
+        "x": 5,
+        "y": -0.99,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_6",
+      "position": {
+        "x": 6,
+        "y": -0.28,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_7",
+      "position": {
+        "x": 7,
+        "y": 0.66,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_8",
+      "position": {
+        "x": 8,
+        "y": 0.99,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_9",
+      "position": {
+        "x": 9,
+        "y": 0.41,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_10",
+      "position": {
+        "x": 10,
+        "y": -0.54,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_11",
+      "position": {
+        "x": 11,
+        "y": -0.96,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_12",
+      "position": {
+        "x": 12,
+        "y": -0.54,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_13",
+      "position": {
+        "x": 13,
+        "y": 0.41,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_14",
+      "position": {
+        "x": 14,
+        "y": 0.99,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_15",
+      "position": {
+        "x": 15,
+        "y": 0.66,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_16",
+      "position": {
+        "x": 16,
+        "y": -0.28,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_17",
+      "position": {
+        "x": 17,
+        "y": -0.99,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_18",
+      "position": {
+        "x": 18,
+        "y": -0.76,
+        "z": 0
+      }
+    },
+    {
+      "name": "Object_19",
+      "position": {
+        "x": 19,
+        "y": 0.14,
+        "z": 0
+      }
+    }
+  ]
+}

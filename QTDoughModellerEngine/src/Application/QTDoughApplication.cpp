@@ -8,7 +8,7 @@
 #include "../Engine/RenderPasses/BackgroundPass.h"
 #include "../Engine/RenderPasses/CompositionPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
-UnigmaRenderingObject unigmaRenderingObjects[10];
+UnigmaRenderingObject unigmaRenderingObjects[20];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;

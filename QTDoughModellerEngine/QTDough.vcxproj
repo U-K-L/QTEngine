@@ -71,6 +71,8 @@
     <ClInclude Include="src\UnigmaNative\UnigmaNative.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Assets\Scenes\DefaultScene.json" />
+    <None Include="Assets\Scenes\WaveTestScene.json" />
     <None Include="src\shaders\tests\basicFrag.frag" />
     <None Include="src\shaders\tests\basicFragHLSL.hlsl" />
     <None Include="src\shaders\tests\basicVertex.vert" />

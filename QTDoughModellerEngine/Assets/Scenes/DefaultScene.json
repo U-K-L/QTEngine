@@ -1,0 +1,21 @@
+{
+  "SceneName": "Default Scene",
+  "GameObjects": [
+    {
+      "name": "Kanaloa",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "name": "Sunny",
+      "position": {
+        "x": 1,
+        "y": 2,
+        "z": 1
+      }
+    }
+  ]
+}
