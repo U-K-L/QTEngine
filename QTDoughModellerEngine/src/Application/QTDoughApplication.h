@@ -3,7 +3,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define NUM_OBJECTS 20
+#define NUM_OBJECTS 16384
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
 #include <vector>

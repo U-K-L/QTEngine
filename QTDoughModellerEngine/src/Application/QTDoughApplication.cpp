@@ -1,6 +1,4 @@
 #include "QTDoughApplication.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
 #include "../Engine/Camera/UnigmaCamera.h"
@@ -8,7 +6,7 @@
 #include "../Engine/RenderPasses/BackgroundPass.h"
 #include "../Engine/RenderPasses/CompositionPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
-UnigmaRenderingObject unigmaRenderingObjects[20];
+UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
@@ -655,7 +653,8 @@ void QTDoughApplication::AddPasses()
     //Add objects.
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        bgPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
+        if(unigmaRenderingObjects[i].isRendering)
+            bgPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
     }
     renderPassStack.push_back(bgPass);
 
@@ -736,7 +735,7 @@ void QTDoughApplication::GetMeshDataAllObjects()
     {
         //unigmaRenderingObjects[i].RenderObjectToUnigma(*this, renderObjects[i], unigmaRenderingObjects[i], CameraMain);
 
-        //unigmaRenderingObjects[i].isRendering = false;
+        unigmaRenderingObjects[i].isRendering = false;
         if (strstr(renderObjects[i].name, "Camera") != nullptr)
             continue;
         if (strstr(renderObjects[i].name, "Light") != nullptr)
@@ -754,7 +753,7 @@ void QTDoughApplication::CreateVertexBuffer()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        //if (unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateVertexBuffer(*this);
     }
 }
@@ -763,7 +762,7 @@ void QTDoughApplication::CreateIndexBuffer()
 {
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        //if (unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateIndexBuffer(*this);
     }
 }
@@ -937,7 +936,7 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 void QTDoughApplication::CreateTextureImage()
 {
-
+    /*
     //std::string path = AssetsPath + unigmaRenderingObjects[0]._material.textures[0].TEXTURE_PATH;
     std::string path = AssetsPath + "Textures/viking_room.png";
     int texWidth, texHeight, texChannels;
@@ -966,6 +965,7 @@ void QTDoughApplication::CreateTextureImage()
 
     vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+    */
 }
 
 void QTDoughApplication::CreateDescriptorSets()
@@ -977,7 +977,7 @@ void QTDoughApplication::CreateDescriptorSets()
 
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        //if (unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorSets(*this);
     }
 }
@@ -990,7 +990,7 @@ void QTDoughApplication::CreateDescriptorPool()
     }
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        //if (unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorPool(*this);
     }
 }
@@ -1000,7 +1000,7 @@ void QTDoughApplication::CreateUniformBuffers()
 
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        //if (unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateUniformBuffers(*this);
     }
 }
@@ -1015,7 +1015,7 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        //if (unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateDescriptorSetLayout(*this);
     }
 }
@@ -1105,6 +1105,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
 void QTDoughApplication::LoadTexture(const std::string& filename) {
 
+    /*
     if (textures.count(filename) > 0)
     {
         return;
@@ -1169,7 +1170,7 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
     // Add the texture to the textures vector
     //textures.push_back(&texture);
     textures.insert({ filename, texture } );
-
+    */
 }
 
 
@@ -1413,7 +1414,10 @@ void QTDoughApplication::CreateGraphicsPipeline()
     }
 
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
+    {
+        if(unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
+    }
 }
 
 VkShaderModule QTDoughApplication::CreateShaderModule(const std::vector<char>& code)
@@ -1470,7 +1474,10 @@ void QTDoughApplication::CreateMaterials() {
     }
 
     for (int i = 0; i < NUM_OBJECTS; i++)
-        unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
+    {
+        if(unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateGraphicsPipeline(*this);
+    }
 }
 
 void QTDoughApplication::CreateSwapChain() {
