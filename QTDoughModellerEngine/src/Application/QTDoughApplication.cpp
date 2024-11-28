@@ -691,8 +691,8 @@ void QTDoughApplication::InitVulkan()
     CreateCommandPool();
 
     //Create the images and their samplers.
-    CreateTextureImage();
-    CreateTextureImageView();
+    //CreateTextureImage();
+    //CreateTextureImageView();
     CreateTextureSampler();
     CreateImages();
 

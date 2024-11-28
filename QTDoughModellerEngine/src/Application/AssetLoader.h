@@ -7,4 +7,5 @@ class AssetLoader
 		AssetLoader();
 
 		int LoadGLTF(std::string filePath);
+		int LoadGLB(std::string filePath);
 };

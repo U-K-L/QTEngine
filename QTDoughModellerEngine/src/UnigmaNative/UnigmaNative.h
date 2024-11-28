@@ -6,6 +6,11 @@
 #include "../Engine/Core/UnigmaGameObject.h"
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
 
+
+
+// Define a callback function signature
+typedef void (*AppFunctionType)(const char*);
+
 // Function pointer types for the functions exported from the DLL
 typedef int (*FnUnigmaNative)();
 typedef void (*FnStartProgram)();
@@ -14,6 +19,7 @@ typedef void (*FnUpdateProgram)();
 typedef UnigmaGameObject* (*FnGetGameObject)(uint32_t ID);
 typedef UnigmaRenderingStruct* (*FnGetRenderObjectAt)(uint32_t ID);
 typedef uint32_t (*FnGetRenderObjectsSize)();
+typedef void (*FnRegisterCallback)(AppFunctionType);
 
 // Function pointers for the functions exported from the DLL
 extern FnStartProgram UNStartProgram;
@@ -22,6 +28,11 @@ extern FnUpdateProgram UNUpdateProgram;
 extern FnGetGameObject UNGetGameObject;
 extern FnGetRenderObjectAt UNGetRenderObjectAt;
 extern FnGetRenderObjectsSize UNGetRenderObjectsSize;
+extern FnRegisterCallback UNRegisterCallback;
+
+
+void ApplicationFunction(const char* message);
+
 extern HMODULE unigmaNative;
 
 using namespace std;

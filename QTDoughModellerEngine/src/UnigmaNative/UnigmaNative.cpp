@@ -8,6 +8,7 @@ FnUpdateProgram UNUpdateProgram;
 FnGetGameObject UNGetGameObject;
 FnGetRenderObjectAt UNGetRenderObjectAt;
 FnGetRenderObjectsSize UNGetRenderObjectsSize;
+FnRegisterCallback UNRegisterCallback;
 HMODULE unigmaNative;
 
 
@@ -19,6 +20,12 @@ void LoadUnigmaNativeFunctions()
     UNGetGameObject = (FnGetGameObject)GetProcAddress(unigmaNative, "GetGameObject");
     UNGetRenderObjectAt = (FnGetRenderObjectAt)GetProcAddress(unigmaNative, "GetRenderObjectAt");
     UNGetRenderObjectsSize = (FnGetRenderObjectsSize)GetProcAddress(unigmaNative, "GetRenderObjectsSize");
+    UNRegisterCallback = (FnRegisterCallback)GetProcAddress(unigmaNative, "RegisterCallback");
 
+    //Register the callback function
 
+}
+
+void ApplicationFunction(const char* message) {
+    std::cout << "Application received message: " << message << std::endl;
 }

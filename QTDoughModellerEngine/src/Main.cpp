@@ -30,11 +30,17 @@ int main(int argc, char* args[]) {
 
     UNStartProgram();
 
+    UNRegisterCallback(ApplicationFunction);
+
+    //AppFunctionType appFunc = ApplicationFunction;
+
+    //appFunc("hello from main");
+
     uint32_t sizeOFObjts = UNGetRenderObjectsSize();
 
     std::cout << "\nSize of objects: " << sizeOFObjts << std::endl;
 
-    assetLoader.LoadGLTF(AssetsPath + "Scenes/TestExportor.gltf");
+    assetLoader.LoadGLB(AssetsPath + "Scenes/TestExport.glb");
 
     qtDoughApp.SetInstance(&qtDoughApp);
     //Feed RenderObjects to QTDoughEngine.
