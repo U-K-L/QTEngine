@@ -8,13 +8,11 @@
 #include <vulkan/vulkan.h>
 #include "Application/QTDoughApplication.h"
 #include "Loader.h"
-#include "Application/AssetLoader.h"
 #include "UnigmaNative/UnigmaNative.h"
 #include <mutex>
 
 UnigmaThread* QTDoughEngine;
 QTDoughApplication qtDoughApp;
-AssetLoader assetLoader;
 
 void RunQTDough()
 {
@@ -37,8 +35,6 @@ int main(int argc, char* args[]) {
     uint32_t sizeOFObjts = UNGetRenderObjectsSize();
 
     std::cout << "\nSize of objects: " << sizeOFObjts << std::endl;
-
-    assetLoader.LoadGLB(AssetsPath + "Scenes/TestExport.glb");
 
     qtDoughApp.SetInstance(&qtDoughApp);
     //Feed RenderObjects to QTDoughEngine.

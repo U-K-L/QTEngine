@@ -1,5 +1,7 @@
 #include "UnigmaNative.h"
+#include "../Application/AssetLoader.h"
 
+AssetLoader assetLoader;
 
 // Define the global variables here
 FnStartProgram UNStartProgram;
@@ -34,5 +36,6 @@ void ApplicationFunction(const char* message) {
 }
 
 void LoadScene(const char* sceneName) {
-	std::cout << "Loading scene QT: " << sceneName << std::endl;
+	std::cout << "Renderer is loading the following Scene: " << sceneName << std::endl;
+    assetLoader.LoadGLB(sceneName);
 }
