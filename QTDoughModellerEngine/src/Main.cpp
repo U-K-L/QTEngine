@@ -30,8 +30,6 @@ int main(int argc, char* args[]) {
 
     UNStartProgram();
 
-    UNRegisterCallback(ApplicationFunction);
-
     //AppFunctionType appFunc = ApplicationFunction;
 
     //appFunc("hello from main");

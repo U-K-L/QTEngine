@@ -10,6 +10,7 @@
 
 // Define a callback function signature
 typedef void (*AppFunctionType)(const char*);
+typedef void (*LoadSceneCallbackType)(const char* sceneName);
 
 // Function pointer types for the functions exported from the DLL
 typedef int (*FnUnigmaNative)();
@@ -19,7 +20,9 @@ typedef void (*FnUpdateProgram)();
 typedef UnigmaGameObject* (*FnGetGameObject)(uint32_t ID);
 typedef UnigmaRenderingStruct* (*FnGetRenderObjectAt)(uint32_t ID);
 typedef uint32_t (*FnGetRenderObjectsSize)();
-typedef void (*FnRegisterCallback)(AppFunctionType);
+typedef void (*FnRegisterCallback)(AppFunctionType); //Generic function pointer type for registering a callback function
+typedef void (*FnRegisterLoadSceneCallback)(LoadSceneCallbackType); //Generic function pointer type for registering a callback function
+
 
 // Function pointers for the functions exported from the DLL
 extern FnStartProgram UNStartProgram;
@@ -29,9 +32,11 @@ extern FnGetGameObject UNGetGameObject;
 extern FnGetRenderObjectAt UNGetRenderObjectAt;
 extern FnGetRenderObjectsSize UNGetRenderObjectsSize;
 extern FnRegisterCallback UNRegisterCallback;
+extern FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 
 
 void ApplicationFunction(const char* message);
+void LoadScene(const char* sceneName);
 
 extern HMODULE unigmaNative;
 

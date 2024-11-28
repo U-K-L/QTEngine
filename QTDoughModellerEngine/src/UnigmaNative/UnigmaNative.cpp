@@ -9,6 +9,7 @@ FnGetGameObject UNGetGameObject;
 FnGetRenderObjectAt UNGetRenderObjectAt;
 FnGetRenderObjectsSize UNGetRenderObjectsSize;
 FnRegisterCallback UNRegisterCallback;
+FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 HMODULE unigmaNative;
 
 
@@ -21,11 +22,17 @@ void LoadUnigmaNativeFunctions()
     UNGetRenderObjectAt = (FnGetRenderObjectAt)GetProcAddress(unigmaNative, "GetRenderObjectAt");
     UNGetRenderObjectsSize = (FnGetRenderObjectsSize)GetProcAddress(unigmaNative, "GetRenderObjectsSize");
     UNRegisterCallback = (FnRegisterCallback)GetProcAddress(unigmaNative, "RegisterCallback");
+    UNRegisterLoadSceneCallback = (FnRegisterLoadSceneCallback)GetProcAddress(unigmaNative, "RegisterLoadSceneCallback");
 
     //Register the callback function
-
+    UNRegisterCallback(ApplicationFunction);
+    UNRegisterLoadSceneCallback(LoadScene);
 }
 
 void ApplicationFunction(const char* message) {
     std::cout << "Application received message: " << message << std::endl;
+}
+
+void LoadScene(const char* sceneName) {
+	std::cout << "Loading scene QT: " << sceneName << std::endl;
 }
