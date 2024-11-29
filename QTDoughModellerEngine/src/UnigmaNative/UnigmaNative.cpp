@@ -2,6 +2,7 @@
 #include "../Application/AssetLoader.h"
 #include "../Application/QTDoughApplication.h"
 #include "tiny_gltf.h"
+#include "json.hpp"
 AssetLoader assetLoader;
 
 // Define the global variables here
@@ -14,7 +15,6 @@ FnGetRenderObjectsSize UNGetRenderObjectsSize;
 FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 HMODULE unigmaNative;
-
 
 void LoadUnigmaNativeFunctions()
 {
@@ -36,18 +36,41 @@ void ApplicationFunction(const char* message) {
     std::cout << "Application received message: " << message << std::endl;
 }
 
+//Loads the scene and all its initial models. This may or may not include the player.
 void LoadScene(const char* sceneName) {
+
+    //First get the model from tinygltf. We need it to load all the arrays associated with the scene.
     tinygltf::Model model;
-	std::cout << "Renderer is loading the following Scene: " << sceneName << std::endl;
-    assetLoader.LoadGLB(AssetsPath + "Scenes/" + sceneName + ".glb", model);
+    assetLoader.LoadGLTF(AssetsPath + "Scenes/" + sceneName + ".gltf", model);
 
+    //We now have a binary loaded as the Model. And also a JSON describing the hiearchy of the scene. Load the JSON.
+    std::ifstream inputFile(AssetsPath + "Scenes/" + sceneName + ".gltf");
+    if (!inputFile.is_open()) {
+        std::cerr << "Error: Unable to open file!" << std::endl;
+    }
 
+    nlohmann::json jsonData;
+    inputFile >> jsonData;
+    inputFile.close();
+
+    //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
-
     //Feed RenderObjects to QTDoughEngine.
     for (uint32_t i = 0; i < sizeOfGameObjs; i++)
     {
         UnigmaGameObject* gObj = UNGetGameObject(i);
+
+
+        //We have both the game object and rendering object associated with it, now get the gltf data.
+         
+        //Node
+        const auto node = jsonData["nodes"][gObj->ID];
+
+        //Get the ID of this mesh.
+        const auto ID = node["name"];
+
+        std::cout << gObj->name << std::endl;
+
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
         QTDoughApplication::instance->AddRenderObject(renderObj, gObj, i);
 
