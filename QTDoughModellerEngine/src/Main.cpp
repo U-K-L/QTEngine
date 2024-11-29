@@ -22,42 +22,41 @@ void RunQTDough()
 
 int main(int argc, char* args[]) {
 
+    QTDoughApplication::SetInstance(&qtDoughApp);
 
     unigmaNative = LoadDLL(L"Unigma/UnigmaNative.dll");
     LoadUnigmaNativeFunctions();
 
     UNStartProgram();
 
-    //AppFunctionType appFunc = ApplicationFunction;
-
-    //appFunc("hello from main");
-
-    uint32_t sizeOFObjts = UNGetRenderObjectsSize();
-
-    std::cout << "\nSize of objects: " << sizeOFObjts << std::endl;
-
-    qtDoughApp.SetInstance(&qtDoughApp);
-    //Feed RenderObjects to QTDoughEngine.
-    for (uint32_t i = 0; i < sizeOFObjts; i++)
-    {
-        UnigmaGameObject* gObj = UNGetGameObject(i);
-        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-        qtDoughApp.AddRenderObject(renderObj, gObj, i);
-    }
     try {
         QTDoughEngine = new UnigmaThread(RunQTDough);
+        //initial time.
+        auto start = std::chrono::high_resolution_clock::now();
         while (true)
         {
-            for (uint32_t i = 0; i < sizeOFObjts; i++)
+            //check if 33ms has elasped.
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> elapsed = end - start;
+            if (elapsed.count() >= 33)
+			{
+
+                //Update native plugin.
+                UNUpdateProgram();
+
+                //Reset timer.
+                start = std::chrono::high_resolution_clock::now();
+			}
+
+            //Check synchronization point for QTDoughApplication.
+            uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
+            for (uint32_t i = 0; i < sizeOfGameObjs; i++)
             {
                 UnigmaGameObject* gObj = UNGetGameObject(i);
                 UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-                qtDoughApp.UpdateObjects(renderObj, gObj, i);
+                QTDoughApplication::instance->UpdateObjects(renderObj, gObj, i);
             }
-            //Update native plugin.
-            UNUpdateProgram();
-            //Wait 33ms before updating again.
-            std::this_thread::sleep_for(std::chrono::milliseconds(33));
+
         }
     }
     catch (const std::exception& e) {

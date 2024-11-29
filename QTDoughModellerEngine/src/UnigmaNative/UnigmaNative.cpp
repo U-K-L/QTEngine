@@ -1,6 +1,6 @@
 #include "UnigmaNative.h"
 #include "../Application/AssetLoader.h"
-
+#include "../Application/QTDoughApplication.h"
 AssetLoader assetLoader;
 
 // Define the global variables here
@@ -37,5 +37,19 @@ void ApplicationFunction(const char* message) {
 
 void LoadScene(const char* sceneName) {
 	std::cout << "Renderer is loading the following Scene: " << sceneName << std::endl;
-    assetLoader.LoadGLB(sceneName);
+    //assetLoader.LoadGLB(sceneName);
+
+
+    uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
+
+    //Feed RenderObjects to QTDoughEngine.
+    for (uint32_t i = 0; i < sizeOfGameObjs; i++)
+    {
+        UnigmaGameObject* gObj = UNGetGameObject(i);
+        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
+        QTDoughApplication::instance->AddRenderObject(renderObj, gObj, i);
+
+    }
+
+    std::cout << "Scene Loaded!" << std::endl;
 }
