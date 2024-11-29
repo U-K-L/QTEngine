@@ -3,6 +3,8 @@
 #include "../Application/QTDoughApplication.h"
 #include "tiny_gltf.h"
 #include "json.hpp"
+#include "../Engine/Renderer/UnigmaRenderingObject.h"
+
 AssetLoader assetLoader;
 
 // Define the global variables here
@@ -59,7 +61,7 @@ void LoadScene(const char* sceneName) {
     for (uint32_t i = 0; i < sizeOfGameObjs; i++)
     {
         UnigmaGameObject* gObj = UNGetGameObject(i);
-
+        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
 
         //We have both the game object and rendering object associated with it, now get the gltf data.
          
@@ -69,10 +71,13 @@ void LoadScene(const char* sceneName) {
         //Get the ID of this mesh.
         const auto ID = node["name"];
 
-        std::cout << gObj->name << std::endl;
+        UnigmaRenderingStructCopyableAttributes renderCopy = UnigmaRenderingStructCopyableAttributes();
+        renderCopy._transform = gObj->transform;
 
-        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-        QTDoughApplication::instance->AddRenderObject(renderObj, gObj, i);
+
+        gObj->transform.Print();
+
+        QTDoughApplication::instance->AddRenderObject(&renderCopy, gObj, i);
 
     }
 

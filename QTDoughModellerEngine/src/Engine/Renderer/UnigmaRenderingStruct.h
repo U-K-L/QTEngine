@@ -9,6 +9,9 @@
 #include <limits> 
 #include <iostream>
 
+#include "UnigmaMaterial.h"
+#include "../Core/UnigmaTransform.h"
+
 struct Vertex {
 	glm::vec3 pos = glm::vec3(0.0f);
 	glm::vec3 color = glm::vec3(1.0f);              // Default color (white)
@@ -115,4 +118,28 @@ struct UnigmaRenderingStruct
 			std::cout << "Normal: " << vertices[i].normal.x << " " << vertices[i].normal.y << " " << vertices[i].normal.z << "\n";
 		}
 	}
+};
+
+struct UnigmaRenderingStructCopyableAttributes
+{
+    bool isRendering = false;
+    UnigmaMaterial _material;
+    UnigmaRenderingStruct _renderer;
+    UnigmaTransform _transform;
+
+    VkBuffer _vertexBuffer;
+    VkDeviceMemory _vertexBufferMemory;
+    VkBuffer _indexBuffer;
+    VkDeviceMemory _indexBufferMemory;
+    std::vector<VkBuffer> _uniformBuffers;
+    std::vector<VkDeviceMemory> _uniformBuffersMemory;
+    std::vector<void*> _uniformBuffersMapped;
+    VkDescriptorSetLayout _descriptorSetLayout;
+    VkDescriptorPool _descriptorPool;
+    std::vector<VkDescriptorSet> _descriptorSets;
+
+    UnigmaRenderingStructCopyableAttributes()
+        : _material(), _renderer(), _transform()
+    {
+    }
 };

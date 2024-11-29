@@ -16,19 +16,16 @@ bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
 //extern SDL_Window *SDLWindow;
 
-void QTDoughApplication::AddRenderObject(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
+void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
-    UnigmaRenderingObject newObject = UnigmaRenderingObject();
-    newObject.isRendering = true;
-    newObject._transform = gObj->transform.position;
-    unigmaRenderingObjects[gObj->RenderID] = newObject;
+    unigmaRenderingObjects[gObj->RenderID] = *renderObject;
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
 
 }
 
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
-    unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
+    //unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
 }
 

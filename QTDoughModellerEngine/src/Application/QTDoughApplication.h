@@ -125,7 +125,7 @@ public:
     void Cleanup();
     void AddPasses();
     void UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index);
-    void AddRenderObject(UnigmaRenderingStruct* renderObj, UnigmaGameObject* gObj, uint32_t index);
+    void AddRenderObject(UnigmaRenderingStructCopyableAttributes* renderObject, UnigmaGameObject* gObj, uint32_t index);
     //Fields.
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;

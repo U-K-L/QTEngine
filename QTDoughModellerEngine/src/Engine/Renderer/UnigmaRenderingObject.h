@@ -41,6 +41,14 @@ class UnigmaRenderingObject {
 			: _mesh(mesh), _material(mat), _renderer(), _transform()
 		{
 		}
+
+		// Copy assignment operator
+		UnigmaRenderingObject& operator=(const UnigmaRenderingStructCopyableAttributes& other) {
+			this->_transform = other._transform;
+			this->_renderer = other._renderer;
+			return *this;
+		}
+
 		void Initialization(UnigmaMaterial material);
 		void CreateVertexBuffer(QTDoughApplication& app);
 		void CreateIndexBuffer(QTDoughApplication& app);
