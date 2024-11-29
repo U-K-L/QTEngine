@@ -8,8 +8,6 @@
 #include "tiny_gltf.h"
 
 using namespace tinygltf;
-
-Model model;
 TinyGLTF loader;
 std::string err;
 std::string warn;
@@ -18,7 +16,7 @@ AssetLoader::AssetLoader()
 {
 }
 
-int AssetLoader::LoadGLTF(std::string filePath)
+int AssetLoader::LoadGLTF(std::string filePath, Model &model)
 {
 	bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filePath);
 
@@ -40,7 +38,7 @@ int AssetLoader::LoadGLTF(std::string filePath)
 	return 0;
 }
 
-int AssetLoader::LoadGLB(std::string filePath)
+int AssetLoader::LoadGLB(std::string filePath, Model& model)
 {
 	// Load binary blob.
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
@@ -76,8 +74,6 @@ int AssetLoader::LoadGLB(std::string filePath)
 		printf("Failed to parse glTF\n");
 		return -1;
 	}
-
-	std::cout << model.materials.size() << std::endl;
 
 	return 0;
 }

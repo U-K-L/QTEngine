@@ -1,6 +1,7 @@
 #include "UnigmaNative.h"
 #include "../Application/AssetLoader.h"
 #include "../Application/QTDoughApplication.h"
+#include "tiny_gltf.h"
 AssetLoader assetLoader;
 
 // Define the global variables here
@@ -36,8 +37,9 @@ void ApplicationFunction(const char* message) {
 }
 
 void LoadScene(const char* sceneName) {
+    tinygltf::Model model;
 	std::cout << "Renderer is loading the following Scene: " << sceneName << std::endl;
-    //assetLoader.LoadGLB(sceneName);
+    assetLoader.LoadGLB(AssetsPath + "Scenes/" + sceneName + ".glb", model);
 
 
     uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
@@ -52,4 +54,6 @@ void LoadScene(const char* sceneName) {
     }
 
     std::cout << "Scene Loaded!" << std::endl;
+
+    std::cout << "Model Information and Material Size: " << model.materials.size() << std::endl;
 }
