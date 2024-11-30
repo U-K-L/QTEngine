@@ -36,6 +36,7 @@ namespace std {
 
 struct UnigmaRenderingStruct
 {
+    uint32_t GID;
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 	UnigmaRenderingStruct()

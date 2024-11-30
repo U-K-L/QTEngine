@@ -56,17 +56,17 @@ void LoadScene(const char* sceneName) {
     inputFile.close();
 
     //Now loop through game objects getting the associated node for each one.
-    uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
+    uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
     //Feed RenderObjects to QTDoughEngine.
-    for (uint32_t i = 0; i < sizeOfGameObjs; i++)
+    for (uint32_t i = 0; i < sizeOfRenderObjs; i++)
     {
-        UnigmaGameObject* gObj = UNGetGameObject(i);
-        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-
+        
+        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
+        UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
         //We have both the game object and rendering object associated with it, now get the gltf data.
          
         //Node
-        const auto node = jsonData["nodes"][gObj->ID];
+        const auto node = jsonData["nodes"][gObj->RenderID];
 
         //Get the ID of this mesh.
         const auto ID = node["name"];
@@ -74,11 +74,23 @@ void LoadScene(const char* sceneName) {
         UnigmaRenderingStructCopyableAttributes renderCopy = UnigmaRenderingStructCopyableAttributes();
         renderCopy._transform = gObj->transform;
 
+        /*
+        //Get the relevant information from the buffers.
+        const auto& accessors = model.accessors;
+        const auto& bufferViews = model.bufferViews;
+        const auto& buffers = model.buffers;
 
-        gObj->transform.Print();
+        //Our vertex information.
+        std::vector<std::array<float, 3>> vertices;
+        std::vector<std::array<float, 3>> normals;
+        std::vector<std::array<float, 2>> texcoords;
+        std::vector<uint32_t> indices;
+        */
+
+
 
         QTDoughApplication::instance->AddRenderObject(&renderCopy, gObj, i);
-
+        std::cout << "Loading Model: " << ID << std::endl;
     }
 
     std::cout << "Scene Loaded!" << std::endl;
