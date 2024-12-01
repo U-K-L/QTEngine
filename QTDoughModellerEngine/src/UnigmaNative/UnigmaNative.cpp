@@ -63,16 +63,29 @@ void LoadScene(const char* sceneName) {
         
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
-        //We have both the game object and rendering object associated with it, now get the gltf data.
-         
+
+        // Ensure both objects are valid
+        if (!renderObj || !gObj) {
+            std::cerr << "Invalid render object or game object at index: " << i << std::endl;
+            continue;
+        }
         //Node
         const auto node = jsonData["nodes"][gObj->RenderID];
 
         //Get the name of this mesh.
         const auto name = node["name"];
 
-        //Get the ID of the mesh.
-        const auto meshID = node["mesh"];
+        //print name.
+        std::cout << "Name: " << name << std::endl;
+        int meshID = 0;
+        // Check if the node contains a mesh
+        if (node.contains("mesh")) {
+            // Get the mesh ID
+            meshID = node["mesh"];
+        }
+        else {
+            continue;
+        }
 
         UnigmaRenderingStructCopyableAttributes renderCopy = UnigmaRenderingStructCopyableAttributes();
         renderCopy._transform = gObj->transform;

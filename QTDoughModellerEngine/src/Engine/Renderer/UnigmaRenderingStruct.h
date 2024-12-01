@@ -39,6 +39,7 @@ struct UnigmaRenderingStruct
     uint32_t GID;
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
+    /*
 	UnigmaRenderingStruct()
 		: vertices({ Vertex
             // Front face
@@ -93,7 +94,7 @@ struct UnigmaRenderingStruct
             })
     {
     }
-
+    */
 	// Copy assignment operator
 	UnigmaRenderingStruct& operator=(const UnigmaRenderingStruct& other) {
 		if (this == &other) {
