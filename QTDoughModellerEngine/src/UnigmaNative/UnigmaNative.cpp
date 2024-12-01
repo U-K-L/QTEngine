@@ -68,29 +68,92 @@ void LoadScene(const char* sceneName) {
         //Node
         const auto node = jsonData["nodes"][gObj->RenderID];
 
-        //Get the ID of this mesh.
-        const auto ID = node["name"];
+        //Get the name of this mesh.
+        const auto name = node["name"];
+
+        //Get the ID of the mesh.
+        const auto meshID = node["mesh"];
 
         UnigmaRenderingStructCopyableAttributes renderCopy = UnigmaRenderingStructCopyableAttributes();
         renderCopy._transform = gObj->transform;
 
-        /*
         //Get the relevant information from the buffers.
         const auto& accessors = model.accessors;
         const auto& bufferViews = model.bufferViews;
         const auto& buffers = model.buffers;
 
         //Our vertex information.
-        std::vector<std::array<float, 3>> vertices;
+        std::vector<std::array<float, 3>> positions;
         std::vector<std::array<float, 3>> normals;
         std::vector<std::array<float, 2>> texcoords;
         std::vector<uint32_t> indices;
-        */
+
+        //Get vertices positions
+        const auto& positionAccessor = accessors[model.meshes[meshID].primitives[0].attributes["POSITION"]];
+        const auto& positionBufferView = bufferViews[positionAccessor.bufferView];
+        const auto& positionBuffer = buffers[positionBufferView.buffer];
+        const auto positionBufferStart = positionBuffer.data.data() + positionBufferView.byteOffset + positionAccessor.byteOffset;
+        const auto positionBufferEnd = positionBufferStart + positionAccessor.count * 3 * sizeof(float);
+        positions.resize(positionAccessor.count);
+        std::memcpy(positions.data(), positionBufferStart, positionAccessor.count * 3 * sizeof(float));
+
+        //Get normals
+        const auto& normalAccessor = accessors[model.meshes[meshID].primitives[0].attributes["NORMAL"]];
+        const auto& normalBufferView = bufferViews[normalAccessor.bufferView];
+        const auto& normalBuffer = buffers[normalBufferView.buffer];
+        const auto normalBufferStart = normalBuffer.data.data() + normalBufferView.byteOffset + normalAccessor.byteOffset;
+        const auto normalBufferEnd = normalBufferStart + normalAccessor.count * 3 * sizeof(float);
+        normals.resize(normalAccessor.count);
+        std::memcpy(normals.data(), normalBufferStart, normalAccessor.count * 3 * sizeof(float));
+
+        //Get texcoords
+        const auto& texcoordAccessor = accessors[model.meshes[meshID].primitives[0].attributes["TEXCOORD_0"]];
+        const auto& texcoordBufferView = bufferViews[texcoordAccessor.bufferView];
+        const auto& texcoordBuffer = buffers[texcoordBufferView.buffer];
+        const auto texcoordBufferStart = texcoordBuffer.data.data() + texcoordBufferView.byteOffset + texcoordAccessor.byteOffset;
+        const auto texcoordBufferEnd = texcoordBufferStart + texcoordAccessor.count * 2 * sizeof(float);
+        texcoords.resize(texcoordAccessor.count);
+        std::memcpy(texcoords.data(), texcoordBufferStart, texcoordAccessor.count * 2 * sizeof(float));
 
 
+        std::vector<Vertex> vertices;
+        for (size_t i = 0; i < positions.size(); i++)
+		{
+            Vertex vertex = { .pos = { positions[i][0], positions[i][1], positions[i][2] } };
+			vertices.push_back(vertex);
+		}
+
+        for(size_t i = 0; i < normals.size(); i++)
+		{
+			vertices[i].normal = { normals[i][0], normals[i][1], normals[i][2] };
+		}
+
+        for(size_t i = 0; i < texcoords.size(); i++)
+        {
+            vertices[i].texCoord = { texcoords[i][0], texcoords[i][1] };
+		}
+
+        //Get indices
+        const auto& indexAccessor = accessors[model.meshes[meshID].primitives[0].indices];
+        const auto& indexBufferView = bufferViews[indexAccessor.bufferView];
+        const auto& indexBuffer = buffers[indexBufferView.buffer];
+        const auto indexBufferStart = indexBuffer.data.data() + indexBufferView.byteOffset + indexAccessor.byteOffset;
+        const auto indexBufferEnd = indexBufferStart + indexAccessor.count * sizeof(uint16_t);
+
+        // Copy and convert uint16_t -> uint32_t
+        const auto* indexBufferData = reinterpret_cast<const uint16_t*>(indexBufferStart);
+        indices.resize(indexAccessor.count);
+        for (size_t i = 0; i < indexAccessor.count; i++) {
+            indices[i] = static_cast<uint32_t>(indexBufferData[i]);
+        }
+
+        UnigmaRenderingStruct renderStruct = UnigmaRenderingStruct();
+        renderStruct.vertices = vertices;
+        renderStruct.indices = indices;
+
+        renderCopy._renderer = renderStruct;
 
         QTDoughApplication::instance->AddRenderObject(&renderCopy, gObj, i);
-        std::cout << "Loading Model: " << ID << std::endl;
     }
 
     std::cout << "Scene Loaded!" << std::endl;

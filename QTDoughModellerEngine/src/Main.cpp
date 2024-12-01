@@ -32,30 +32,46 @@ int main(int argc, char* args[]) {
     try {
         QTDoughEngine = new UnigmaThread(RunQTDough);
         //initial time.
-        auto start = std::chrono::high_resolution_clock::now();
+        auto fixedUpdateStart = std::chrono::high_resolution_clock::now();
+        auto renderUpdateStart = std::chrono::high_resolution_clock::now();
         while (true)
         {
             //check if 33ms has elasped.
-            auto end = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double, std::milli> elapsed = end - start;
-            if (elapsed.count() >= 33)
+            auto fixedUpdateEnd = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> fixedElapsed = fixedUpdateEnd - fixedUpdateStart;
+
+            if (fixedElapsed.count() >= 33)
 			{
 
                 //Update native plugin.
                 UNUpdateProgram();
 
                 //Reset timer.
-                start = std::chrono::high_resolution_clock::now();
+                fixedUpdateStart = std::chrono::high_resolution_clock::now();
+
+
+			}
+            
+			//check if 3ms has elapsed.
+			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
+
+			if (renderElapsed.count() >= 4)
+			{
+				//Render the scene.
+                //Check synchronization point for QTDoughApplication.
+                uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
+                for (uint32_t i = 0; i < sizeOfGameObjs; i++)
+                {
+                    UnigmaGameObject* gObj = UNGetGameObject(i);
+                    UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
+                    QTDoughApplication::instance->UpdateObjects(renderObj, gObj, i);
+                }
+
+                renderUpdateStart = std::chrono::high_resolution_clock::now();
 			}
 
-            //Check synchronization point for QTDoughApplication.
-            uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
-            for (uint32_t i = 0; i < sizeOfGameObjs; i++)
-            {
-                UnigmaGameObject* gObj = UNGetGameObject(i);
-                UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
-                QTDoughApplication::instance->UpdateObjects(renderObj, gObj, i);
-            }
+
 
         }
     }

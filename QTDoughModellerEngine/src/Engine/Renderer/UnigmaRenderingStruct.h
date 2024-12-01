@@ -128,10 +128,6 @@ struct UnigmaRenderingStructCopyableAttributes
     UnigmaRenderingStruct _renderer;
     UnigmaTransform _transform;
 
-    VkBuffer _vertexBuffer;
-    VkDeviceMemory _vertexBufferMemory;
-    VkBuffer _indexBuffer;
-    VkDeviceMemory _indexBufferMemory;
     std::vector<VkBuffer> _uniformBuffers;
     std::vector<VkDeviceMemory> _uniformBuffersMemory;
     std::vector<void*> _uniformBuffersMapped;

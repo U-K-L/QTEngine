@@ -25,7 +25,7 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
-    //unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
+    unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
 }
 
 int QTDoughApplication::Run() {
