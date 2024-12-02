@@ -5,6 +5,7 @@
 #include "../Engine/RenderPasses/RenderPassObject.h"
 #include "../Engine/RenderPasses/BackgroundPass.h"
 #include "../Engine/RenderPasses/CompositionPass.h"
+#include "../Engine/RenderPasses/AlbedoPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
@@ -643,15 +644,15 @@ void QTDoughApplication::AddPasses()
 {
 
     CompositionPass* compPass = new CompositionPass();
-    renderPassStack.push_back(compPass);
-
-    BackgroundPass* bgPass = new BackgroundPass();
+    AlbedoPass* bgPass = new AlbedoPass();
     //Add objects.
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if(unigmaRenderingObjects[i].isRendering)
             bgPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
     }
+
+    renderPassStack.push_back(compPass);
     renderPassStack.push_back(bgPass);
 
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;

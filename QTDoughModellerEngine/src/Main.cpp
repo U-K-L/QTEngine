@@ -63,8 +63,8 @@ int main(int argc, char* args[]) {
                 uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
                 for (uint32_t i = 0; i < sizeOfGameObjs; i++)
                 {
-                    UnigmaGameObject* gObj = UNGetGameObject(i);
-                    UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(gObj->RenderID);
+                    UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
+                    UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
                     QTDoughApplication::instance->UpdateObjects(renderObj, gObj, i);
                 }
 

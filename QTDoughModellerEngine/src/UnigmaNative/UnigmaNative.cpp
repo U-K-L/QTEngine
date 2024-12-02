@@ -57,12 +57,17 @@ void LoadScene(const char* sceneName) {
 
     //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
+
+    std::cout << "Size of Render Objects: " << sizeOfRenderObjs << std::endl;
+
     //Feed RenderObjects to QTDoughEngine.
     for (uint32_t i = 0; i < sizeOfRenderObjs; i++)
     {
         
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
+
+        std::cout << "GameObject ID: " << gObj->ID << std::endl;
 
         // Ensure both objects are valid
         if (!renderObj || !gObj) {
