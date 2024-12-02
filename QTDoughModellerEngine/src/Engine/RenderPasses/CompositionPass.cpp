@@ -18,5 +18,6 @@ void CompositionPass::CreateMaterials() {
     material.shader = UnigmaShader("composition");
 
     material.textureNames[0] = "BackgroundPass";
+    material.textureNames[1] = "AlbedoPass";
 
 }

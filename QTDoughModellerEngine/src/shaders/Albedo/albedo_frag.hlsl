@@ -11,5 +11,5 @@ SamplerState samplerState : register(s0);
 
 float4 main(PSInput i) : SV_Target
 {
-    return 0;
+    return float4(1, 1, 0, 1);
 }

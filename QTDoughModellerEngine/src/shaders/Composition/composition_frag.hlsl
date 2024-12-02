@@ -12,6 +12,7 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 struct Images
 {
     uint BackgroundImage;
+    uint AlbedoImage;
 };
 
 Images InitImages()
@@ -19,6 +20,7 @@ Images InitImages()
     Images image;
     
     image.BackgroundImage = intArray[0];
+    image.AlbedoImage = intArray[1];
     
     return image;
 }
@@ -43,8 +45,9 @@ float4 main(VSOutput i) : SV_Target
     Images images = InitImages();
     float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);
     float4 backgroundImage = textures[images.BackgroundImage].Sample(samplers[0], textureUVs);
+    float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[0], textureUVs);
     
-    float4 color = backgroundImage;
+    float4 color = albedoImage;
 
     return color;
 }
