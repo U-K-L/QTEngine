@@ -644,15 +644,17 @@ void QTDoughApplication::AddPasses()
 {
 
     CompositionPass* compPass = new CompositionPass();
-    AlbedoPass* bgPass = new AlbedoPass();
+    AlbedoPass* albedoPass = new AlbedoPass();
+    BackgroundPass* bgPass = new BackgroundPass();
     //Add objects.
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if(unigmaRenderingObjects[i].isRendering)
-            bgPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
+            albedoPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
     }
 
     renderPassStack.push_back(compPass);
+    renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(bgPass);
 
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;

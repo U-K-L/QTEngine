@@ -1,18 +1,18 @@
 #include "AlbedoPass.h"
 
 AlbedoPass::~AlbedoPass() {
-    PassName = "BackgroundPass";
+    PassName = "AlbedoPass";
 }
 
 AlbedoPass::AlbedoPass() {
-    PassName = "BackgroundPass";
+    PassName = "AlbedoPass";
 }
 
 void AlbedoPass::CreateMaterials() {
     material.Clean();
     //Add in textures.
     material.push_back_texture(UnigmaTexture(std::string(AssetsPath + "Textures/SkyboxBorder.png")), std::string(AssetsPath + "Textures/SkyboxBorder.png"));
-    material.shader = UnigmaShader("background");
+    material.shader = UnigmaShader("albedo");
 
 }
 
@@ -107,9 +107,6 @@ void AlbedoPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint
 
     // Bind the index buffer
     vkCmdBindIndexBuffer(commandBuffer, app->quadIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-    // Draw the quad using indices
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
     RenderObjects(commandBuffer, imageIndex, currentFrame, targetImage, CameraMain);
 

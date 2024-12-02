@@ -99,6 +99,14 @@
       <FileType>Document</FileType>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\Albedo\albedo_frag.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\Albedo\albedo_vert.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

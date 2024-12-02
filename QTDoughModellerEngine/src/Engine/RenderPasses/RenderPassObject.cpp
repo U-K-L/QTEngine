@@ -127,7 +127,7 @@ void RenderPassObject::CreateGraphicsPipeline()
 
     //Get textures.
 
-    printf("Start Creating Background Graphics Pipeline\n");
+    std::cout << "Creating graphics pipeline background for: " << PassName << std::endl;
     auto vertShaderCode = readFile(material.shader.vert_path);
     auto fragShaderCode = readFile(material.shader.frag_path);
 
