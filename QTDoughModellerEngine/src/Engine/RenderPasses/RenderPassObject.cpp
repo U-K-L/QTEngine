@@ -106,9 +106,28 @@ void RenderPassObject::RenderObjects(VkCommandBuffer commandBuffer, uint32_t ima
             //renderingObjects[i]->_renderer.Print();
             //std::cout << "Rendering object: " << i << std::endl;
             //renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain);
-			renderingObjects[i]->Render(*app, commandBuffer, imageIndex, currentFrame);
+			renderingObjects[i]->RenderPass(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame]);
 		}
 	}
+}
+
+void RenderPassObject::CreateUniformBuffers()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    _uniformBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    _uniformBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    _uniformBuffersMapped.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _uniformBuffers[i], _uniformBuffersMemory[i]);
+
+        vkMapMemory(app->_logicalDevice, _uniformBuffersMemory[i], 0, bufferSize, 0, &_uniformBuffersMapped[i]);
+    }
+
 }
 
 
@@ -117,7 +136,7 @@ void RenderPassObject::UpdateUniformBufferObjects(VkCommandBuffer commandBuffer,
     QTDoughApplication* app = QTDoughApplication::instance;
     for (int i = 0; i < renderingObjects.size(); i++)
     {
-        renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain);
+        renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain, _uniformBuffersMapped[currentFrame]);
     }
 }
 
@@ -416,7 +435,9 @@ void RenderPassObject::CreateDescriptorSets()
 
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo uniformBufferInfo{};
-        // Initialize uniformBufferInfo as needed
+        uniformBufferInfo.buffer = _uniformBuffers[i];
+        uniformBufferInfo.offset = 0;
+        uniformBufferInfo.range = sizeof(UniformBufferObject);
 
         VkDescriptorBufferInfo intArrayBufferInfo{};
         intArrayBufferInfo.buffer = intArrayBuffer;

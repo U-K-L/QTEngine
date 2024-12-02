@@ -117,6 +117,22 @@ void UnigmaRenderingObject::Render(QTDoughApplication& app, VkCommandBuffer comm
 
 }
 
+void UnigmaRenderingObject::RenderPass(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet)
+{
+
+    VkBuffer vertexBuffers[] = { _vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,  pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_renderer.indices.size()), 1, 0, 0, 0);
+
+}
+
 void UnigmaRenderingObject::Cleanup(QTDoughApplication& app)
 {
     for (size_t i = 0; i < app.MAX_FRAMES_IN_FLIGHT; i++) {
@@ -183,7 +199,7 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
 }
 
-void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera) {
+void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera, void* uniformMem) {
 
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -197,7 +213,7 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
-    memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    memcpy(uniformMem, &ubo, sizeof(ubo));
 }
 
 void UnigmaRenderingObject::CreateDescriptorSets(QTDoughApplication& app)

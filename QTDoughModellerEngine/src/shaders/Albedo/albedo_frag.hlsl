@@ -9,7 +9,28 @@ struct PSInput
 Texture2D textures[] : register(t0, space0);
 SamplerState samplerState : register(s0);
 
-float4 main(PSInput i) : SV_Target
+cbuffer LightBuffer : register(b0)
 {
-    return float4(1, 1, 0, 1);
+    float3 lightDir; // Add this if lightDir needs to be adjustable via a uniform
+};
+
+float4 main(PSInput input) : SV_TARGET
+{
+    // Normalize light direction
+    float3 normLightDir = normalize(float3(0.5, 0.5, 0.0));
+
+    // Dot product for lighting intensity, adjusted for [-1, 1] to [0, 1] range
+    float nDotL = dot(input.normal, normLightDir) * 0.5 + 0.5;
+
+    // Output color based on the lighting intensity
+    float4 outColor = float4(nDotL, nDotL, nDotL, 1.0);
+
+    // Uncomment to use texture sampling
+    // outColor = texSampler.Sample(samplerState, input.fragTexCoord);
+
+    // Uncomment to visualize normals in world space
+    // float3 normalsFrag = input.fragNormal * 0.5 + 0.5;
+    // outColor = float4(normalsFrag, 1.0);
+
+    return float4(1, 1, 1, 1);
 }

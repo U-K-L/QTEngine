@@ -22,6 +22,9 @@ class RenderPassObject
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> descriptorSets;
+        std::vector<VkBuffer> _uniformBuffers;
+        std::vector<VkDeviceMemory> _uniformBuffersMemory;
+        std::vector<void*> _uniformBuffersMapped;
         VkPipelineLayout pipelineLayout;
         VkFramebuffer offscreenFramebuffer;
         VkBuffer intArrayBuffer;
@@ -29,7 +32,7 @@ class RenderPassObject
 
         std::vector<UnigmaRenderingObject*> GameObjects;
 
-
+        virtual void CreateUniformBuffers();
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();
         virtual void CreateGraphicsPipeline();

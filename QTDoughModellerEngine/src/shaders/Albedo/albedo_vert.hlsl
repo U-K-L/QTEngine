@@ -1,3 +1,10 @@
+cbuffer UniformBufferObject : register(b0)
+{
+    float4x4 model; // Model matrix
+    float4x4 view; // View matrix
+    float4x4 proj; // Projection matrix
+}
+
 struct VSInput
 {
     float3 position : POSITION; // Location 0 in Vulkan
@@ -18,11 +25,21 @@ VSOutput main(VSInput input)
 {
     VSOutput output;
 
-    // Pass position to output
-    output.position = float4(input.position, 1);
+    // Identity matrix (not needed in HLSL, but shown here for reference)
+    float4x4 identityMatrix = float4x4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
 
-    // Pass UV coordinates to output
+    // Compute position in clip space
+    output.position = mul(proj, mul(view, mul(model, float4(input.position, 1.0))));
+
+    // Pass through color, texture coordinate, and flat normal
+    output.color = input.color;
     output.uv = input.uv;
+    output.normal = input.normal;
 
     return output;
 }

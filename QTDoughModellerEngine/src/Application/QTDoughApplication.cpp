@@ -996,6 +996,10 @@ void QTDoughApplication::CreateDescriptorPool()
 
 void QTDoughApplication::CreateUniformBuffers()
 {
+    for (int i = 0; i < renderPassStack.size(); i++)
+    {
+        renderPassStack[i]->CreateUniformBuffers();
+    }
 
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
@@ -1269,8 +1273,8 @@ void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t i
         {
             //print out is rendering.
             std::cout << "Rendering Object: " << unigmaRenderingObjects[i].isRendering << std::endl;
-            unigmaRenderingObjects[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[i], CameraMain);
-            unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
+            //unigmaRenderingObjects[i].UpdateUniformBuffer(*this, currentFrame, unigmaRenderingObjects[i], CameraMain);
+            //unigmaRenderingObjects[i].Render(*this, commandBuffer, imageIndex, currentFrame);
         }
     }
 }
