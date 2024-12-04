@@ -32,5 +32,5 @@ float4 main(PSInput input) : SV_TARGET
     // float3 normalsFrag = input.fragNormal * 0.5 + 0.5;
     // outColor = float4(normalsFrag, 1.0);
 
-    return float4(1, 1, 1, 1);
+    return float4(1, 1, 0, 1);
 }

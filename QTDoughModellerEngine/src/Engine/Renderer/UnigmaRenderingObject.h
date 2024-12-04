@@ -31,6 +31,8 @@ class UnigmaRenderingObject {
 		VkDescriptorSetLayout _descriptorSetLayout;
 		VkDescriptorPool _descriptorPool;
 		std::vector<VkDescriptorSet> _descriptorSets;
+		VkBuffer intArrayBuffer;
+		VkDeviceMemory intArrayBufferMemory;
 
 		UnigmaRenderingObject()
 			: _mesh(), _material(), _renderer(), _transform()

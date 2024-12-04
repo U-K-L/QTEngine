@@ -122,12 +122,30 @@ void UnigmaRenderingObject::RenderPass(QTDoughApplication& app, VkCommandBuffer 
 
     VkBuffer vertexBuffers[] = { _vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+    // Combine both global and per-object descriptor sets
+    VkDescriptorSet descriptorSetsToBind[] = {
+        app.globalDescriptorSet,       // Set 0: Global descriptor set
+        _descriptorSets[currentFrame]    // Set 1: Per-object descriptor set
+    };
+
+
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,  pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    // Bind the global descriptor set
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout,
+        0, // First set
+        2, // Number of sets
+        descriptorSetsToBind,
+        0, nullptr // No dynamic offsets
+    );
 
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_renderer.indices.size()), 1, 0, 0, 0);
 
@@ -213,11 +231,31 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
-    memcpy(uniformMem, &ubo, sizeof(ubo));
+    memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
+
+    //Update int array assignments.
+
+// Determine the size of the array (should be the same as used during buffer creation)
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+
+    for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+    {
+        if (app.textures.count(_material.textureNames[i]) > 0)
+            _material.textureIDs[i] = app.textures[_material.textureNames[i]].ID;
+        else
+            _material.textureIDs[i] = 0;
+    }
+
+    void* data;
+    vkMapMemory(app._logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, _material.textureIDs, bufferSize); // Copy your unsigned int array
+    vkUnmapMemory(app._logicalDevice, intArrayBufferMemory);
 }
 
 void UnigmaRenderingObject::CreateDescriptorSets(QTDoughApplication& app)
 {
+
     std::vector<VkDescriptorSetLayout> layouts(app.MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -231,15 +269,15 @@ void UnigmaRenderingObject::CreateDescriptorSets(QTDoughApplication& app)
     }
 
     for (size_t i = 0; i < app.MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = _uniformBuffers[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
+        VkDescriptorBufferInfo uniformBufferInfo{};
+        uniformBufferInfo.buffer = _uniformBuffers[i];
+        uniformBufferInfo.offset = 0;
+        uniformBufferInfo.range = sizeof(UniformBufferObject);
 
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = app.textureImageView;
-        imageInfo.sampler = app.textureSampler;
+        VkDescriptorBufferInfo intArrayBufferInfo{};
+        intArrayBufferInfo.buffer = intArrayBuffer;
+        intArrayBufferInfo.offset = 0;
+        intArrayBufferInfo.range = VK_WHOLE_SIZE; // Use the entire buffer
 
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -249,18 +287,21 @@ void UnigmaRenderingObject::CreateDescriptorSets(QTDoughApplication& app)
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
 
+        // Write for unsigned int array buffer (accessible in all shader stages)
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = _descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstBinding = 1; // Match binding in shader
         descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
+        descriptorWrites[1].pBufferInfo = &intArrayBufferInfo;
 
         vkUpdateDescriptorSets(app._logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
+
+    std::cout << "Created descriptor sets" << std::endl;
 }
 
 void UnigmaRenderingObject::CreateDescriptorPool(QTDoughApplication& app)
@@ -268,7 +309,7 @@ void UnigmaRenderingObject::CreateDescriptorPool(QTDoughApplication& app)
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(app.MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(app.MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -280,6 +321,8 @@ void UnigmaRenderingObject::CreateDescriptorPool(QTDoughApplication& app)
     if (vkCreateDescriptorPool(app._logicalDevice, &poolInfo, nullptr, &_descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
+
+    std::cout << "Created descriptor pools" << std::endl;
 }
 
 void UnigmaRenderingObject::CreateUniformBuffers(QTDoughApplication& app)
@@ -301,31 +344,48 @@ void UnigmaRenderingObject::CreateUniformBuffers(QTDoughApplication& app)
 
 void UnigmaRenderingObject::CreateDescriptorSetLayout(QTDoughApplication& app)
 {
+    //Create required buffers.
+    //Create Texture IDs
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+    app.CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        intArrayBuffer,
+        intArrayBufferMemory
+    );
+
+
+    //Bindings for our uniform buffer. Which is things like transform information.
+    //Create the actual buffers.
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboLayoutBinding.descriptorCount = 1;
-
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
     uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+    VkDescriptorSetLayoutBinding intArrayLayoutBinding{};
+    intArrayLayoutBinding.binding = 1; // Binding number in the shader
+    intArrayLayoutBinding.descriptorCount = 1; // Only one buffer bound here
+    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Use storage buffer for an array
+    intArrayLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+    intArrayLayoutBinding.pImmutableSamplers = nullptr; // Not used for buffer bindings
+
+    //Bind the buffers we specified.
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, intArrayLayoutBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
 
+
+    //Create the pools and its information.
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(app.MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(app.MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
