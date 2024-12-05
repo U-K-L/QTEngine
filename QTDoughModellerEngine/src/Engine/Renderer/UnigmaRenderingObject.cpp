@@ -123,8 +123,6 @@ void UnigmaRenderingObject::RenderPass(QTDoughApplication& app, VkCommandBuffer 
     VkBuffer vertexBuffers[] = { _vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
 
-    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
     // Combine both global and per-object descriptor sets
     VkDescriptorSet descriptorSetsToBind[] = {
         app.globalDescriptorSet,       // Set 0: Global descriptor set

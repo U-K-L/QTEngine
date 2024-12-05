@@ -24,21 +24,24 @@ cbuffer LightBuffer : register(b0)
 
 float4 main(PSInput input) : SV_TARGET
 {
+    float thresholdX = 0.2;
+    float thresholdY = 0.6;
+    float thresholdZ = 0.8;
     // Normalize light direction
     float3 normLightDir = normalize(float3(0.5, 0.5, 0.0));
 
     // Dot product for lighting intensity, adjusted for [-1, 1] to [0, 1] range
-    float nDotL = dot(input.normal, normLightDir) * 0.5 + 0.5;
+    float NdotL = dot(input.normal, normLightDir) * 0.5 + 0.5;
+    
+    
+    float4 midTones = baseAlbedo * step(thresholdX, NdotL);
+    float4 shadows = (baseAlbedo * 0.5) * step(NdotL, thresholdY);
+    float4 highlights = (baseAlbedo* 2.0) * step(thresholdZ, NdotL);
 
-    // Output color based on the lighting intensity
-    float4 outColor = float4(nDotL, nDotL, nDotL, 1.0);
+    float4 finalColor = max(midTones, shadows);
+    finalColor = max(finalColor, highlights);
+    
+    finalColor = float4(finalColor.rgb, 1.0);
 
-    // Uncomment to use texture sampling
-    // outColor = texSampler.Sample(samplerState, input.fragTexCoord);
-
-    // Uncomment to visualize normals in world space
-    // float3 normalsFrag = input.fragNormal * 0.5 + 0.5;
-    // outColor = float4(normalsFrag, 1.0);
-
-    return baseAlbedo;
+    return finalColor;
 }

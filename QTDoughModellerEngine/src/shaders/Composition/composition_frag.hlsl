@@ -49,5 +49,5 @@ float4 main(VSOutput i) : SV_Target
 
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
-    return albedoImage;
+    return color;
 }
