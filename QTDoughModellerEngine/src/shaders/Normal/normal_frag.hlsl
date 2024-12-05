@@ -1,3 +1,6 @@
+#include "../ShaderHelpers.hlsl"
+
+
 cbuffer UniformBufferObject : register(b0, space1)
 {
     float4x4 model; // Model matrix
@@ -26,7 +29,11 @@ float4 main(PSInput input) : SV_TARGET
 {
     //Create normal as float4 and set to final color.
     //multiply normal by model matrix to get world normal.
-    float4 finalColor = float4(mul(float4(input.normal, 1.0), model).xyz, 1.0);
+    float3 worldNormal = mul((float3x3) transpose(inverse(model)), input.normal);
+    worldNormal = normalize(worldNormal);
+
+
+    float4 finalColor = float4(worldNormal, 1.0);
 
     return finalColor;
 }
