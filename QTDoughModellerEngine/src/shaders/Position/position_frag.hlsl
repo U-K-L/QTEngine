@@ -15,6 +15,7 @@ struct PSInput
     float3 color : COLOR0; // Location 0 output
     float2 uv : TEXCOORD0; // Location 1 output
     float3 normal : NORMAL; // Location 2,
+    float3 worldPosition : TEXCOORD1; // Interpolated world position
 };
 
 Texture2D textures[] : register(t0, space0);
@@ -27,13 +28,8 @@ cbuffer LightBuffer : register(b0)
 
 float4 main(PSInput input) : SV_TARGET
 {
-    //Create normal as float4 and set to final color.
-    //multiply normal by model matrix to get world normal.
-    float3 worldNormal = mul((float3x3) transpose(inverse(model)), input.normal);
-    worldNormal = normalize(worldNormal);
-
-
-    float4 finalColor = float4(worldNormal, 1.0);
+    
+    float4 finalColor = float4(input.worldPosition.xyz, 1.0);
 
     return finalColor;
 }

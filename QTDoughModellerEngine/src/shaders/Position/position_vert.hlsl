@@ -20,6 +20,7 @@ struct VSOutput
     float3 color : COLOR0; // Location 0 output
     float2 uv : TEXCOORD0; // Location 1 output
     float3 normal : NORMAL; // Location 2, flat interpolation
+    float3 worldPosition : TEXCOORD1; // world position
 };
 
 VSOutput main(VSInput input)
@@ -34,6 +35,8 @@ VSOutput main(VSInput input)
         0.0, 0.0, 0.0, 1.0
     );
 
+    float4 worldPos = mul(model, float4(input.position, 1.0));
+    output.worldPosition = worldPos.xyz;
     // Compute position in clip space
     output.position = mul(proj, mul(view, mul(model, float4(input.position, 1.0))));
 
