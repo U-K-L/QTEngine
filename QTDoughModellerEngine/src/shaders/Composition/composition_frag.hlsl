@@ -13,6 +13,7 @@ struct Images
 {
     uint BackgroundImage;
     uint AlbedoImage;
+    uint NormalImage;
 };
 
 Images InitImages()
@@ -21,6 +22,7 @@ Images InitImages()
     
     image.BackgroundImage = intArray[0];
     image.AlbedoImage = intArray[1];
+    image.NormalImage = intArray[2];
     
     return image;
 }
@@ -46,8 +48,9 @@ float4 main(VSOutput i) : SV_Target
     float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);
     float4 backgroundImage = textures[images.BackgroundImage].Sample(samplers[0], textureUVs);
     float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[0], textureUVs);
+    float4 normalImage = textures[images.NormalImage].Sample(samplers[0], textureUVs);
 
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
-    return color;
+    return normalImage;
 }

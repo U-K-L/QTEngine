@@ -6,6 +6,7 @@
 #include "../Engine/RenderPasses/BackgroundPass.h"
 #include "../Engine/RenderPasses/CompositionPass.h"
 #include "../Engine/RenderPasses/AlbedoPass.h"
+#include "../Engine/RenderPasses/NormalPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
@@ -650,16 +651,21 @@ void QTDoughApplication::AddPasses()
 {
 
     CompositionPass* compPass = new CompositionPass();
+    NormalPass* normalPass = new NormalPass();
     AlbedoPass* albedoPass = new AlbedoPass();
     BackgroundPass* bgPass = new BackgroundPass();
     //Add objects.
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
-        if(unigmaRenderingObjects[i].isRendering)
+        if (unigmaRenderingObjects[i].isRendering)
+        {
             albedoPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
+            normalPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
+        }
     }
 
     renderPassStack.push_back(compPass);
+    renderPassStack.push_back(normalPass);
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(bgPass);
 

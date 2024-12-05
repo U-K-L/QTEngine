@@ -38,6 +38,7 @@
     <ClCompile Include="src\Engine\RenderPasses\AlbedoPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\BackgroundPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\CompositionPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\NormalPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Application\UnigmaBlend.cpp" />
@@ -70,6 +71,7 @@
     <ClInclude Include="src\Engine\RenderPasses\AlbedoPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\NormalPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
     <ClInclude Include="src\Loader.h" />
     <ClInclude Include="src\UnigmaNative\UnigmaNative.h" />
@@ -104,6 +106,14 @@
       <FileType>Document</FileType>
     </None>
     <None Include="src\shaders\Albedo\albedo_vert.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\Normal\normal_frag.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\Normal\normal_vert.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

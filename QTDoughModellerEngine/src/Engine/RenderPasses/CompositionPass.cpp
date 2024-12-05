@@ -19,5 +19,6 @@ void CompositionPass::CreateMaterials() {
 
     material.textureNames[0] = "BackgroundPass";
     material.textureNames[1] = "AlbedoPass";
+    material.textureNames[2] = "NormalPass";
 
 }
