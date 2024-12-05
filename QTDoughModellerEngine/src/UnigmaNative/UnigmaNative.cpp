@@ -51,12 +51,23 @@ void LoadScene(const char* sceneName) {
         std::cerr << "Error: Unable to open file!" << std::endl;
     }
 
-    nlohmann::json jsonData;
-    inputFile >> jsonData;
+    nlohmann::json glfJson;
+    inputFile >> glfJson;
     inputFile.close();
+
+    //open normal json file.
+    std::ifstream inputFile2(AssetsPath + "Scenes/" + sceneName + ".json");
+    if (!inputFile2.is_open()) {
+		std::cerr << "Error: Unable to open file!" << std::endl;
+	}
+
+    nlohmann::json sceneJson;
+    inputFile2 >> sceneJson;
+    inputFile2.close();
 
     //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
+
 
     std::cout << "Size of Render Objects: " << sizeOfRenderObjs << std::endl;
 
@@ -66,6 +77,7 @@ void LoadScene(const char* sceneName) {
         
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
+        const auto GameObjectJson = sceneJson["GameObjects"][gObj->ID];
 
         std::cout << "GameObject ID: " << gObj->ID << std::endl;
 
@@ -75,7 +87,7 @@ void LoadScene(const char* sceneName) {
             continue;
         }
         //Node
-        const auto node = jsonData["nodes"][gObj->RenderID];
+        const auto node = glfJson["nodes"][gObj->RenderID];
 
         //Get the name of this mesh.
         const auto name = node["name"];
@@ -94,6 +106,26 @@ void LoadScene(const char* sceneName) {
 
         UnigmaRenderingStructCopyableAttributes renderCopy = UnigmaRenderingStructCopyableAttributes();
         renderCopy._transform = gObj->transform;
+
+        // Access CustomProperties
+        if (GameObjectJson.contains("CustomProperties")) {
+
+            //Assign material properties
+            auto customProperties = sceneJson["GameObjects"][gObj->ID]["customProperties"];
+
+            //Loop through all custom properties as a hashmap.
+            for (const auto& [propName, propValue] : GameObjectJson["CustomProperties"].items()) {
+                if (propValue.is_object()) {
+                    // Handle nested properties (e.g., BaseAlbedo)
+                    renderCopy._material.vectorProperties[propName] = glm::vec4(propValue["r"], propValue["g"], propValue["b"], propValue["a"]);
+                }
+                else {
+                    // Handle single properties (e.g., TextureName)
+					renderCopy._material.vectorProperties[propName] = glm::vec4(propValue, 0.0f, 0.0f, 0.0f);
+				
+                }
+            }
+        }
 
         //Get the relevant information from the buffers.
         const auto& accessors = model.accessors;
@@ -165,11 +197,13 @@ void LoadScene(const char* sceneName) {
             indices[i] = static_cast<uint32_t>(indexBufferData[i]);
         }
 
+
         UnigmaRenderingStruct renderStruct = UnigmaRenderingStruct();
         renderStruct.vertices = vertices;
         renderStruct.indices = indices;
 
         renderCopy._renderer = renderStruct;
+
 
         QTDoughApplication::instance->AddRenderObject(&renderCopy, gObj, i);
     }

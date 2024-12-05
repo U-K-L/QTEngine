@@ -1,3 +1,11 @@
+cbuffer UniformBufferObject : register(b0, space1)
+{
+    float4x4 model; // Model matrix
+    float4x4 view; // View matrix
+    float4x4 proj; // Projection matrix
+    float4 baseAlbedo;
+}
+
 struct PSInput
 {
     float4 position : SV_Position; // Output to fragment shader
@@ -32,5 +40,5 @@ float4 main(PSInput input) : SV_TARGET
     // float3 normalsFrag = input.fragNormal * 0.5 + 0.5;
     // outColor = float4(normalsFrag, 1.0);
 
-    return float4(1, 1, 0, 1);
+    return baseAlbedo;
 }

@@ -21,6 +21,12 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 {
     unigmaRenderingObjects[gObj->RenderID] = *renderObject;
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
+    unigmaRenderingObjects[gObj->RenderID]._material = renderObject->_material;
+
+
+    for (auto& [key, value] : unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties) {
+        std::cout << key << " : " << value.x << " " << value.y << " " << value.z << " " << value.w << std::endl;
+    }
 
 }
 

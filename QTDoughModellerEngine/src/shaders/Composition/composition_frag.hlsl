@@ -46,8 +46,8 @@ float4 main(VSOutput i) : SV_Target
     float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);
     float4 backgroundImage = textures[images.BackgroundImage].Sample(samplers[0], textureUVs);
     float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[0], textureUVs);
-    
-    float4 color = albedoImage;
 
-    return color;
+    float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
+
+    return albedoImage;
 }

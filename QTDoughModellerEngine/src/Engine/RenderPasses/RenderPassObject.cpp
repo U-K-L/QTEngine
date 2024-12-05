@@ -13,7 +13,7 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
     if (targetImage == nullptr)
         targetImage = &imageView;
 
-    VkClearValue clearColor = { {{1.0f, 0.1f, 0.1f, 1.0f}} }; // Adjust as needed
+    VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 0.0f}} };
 
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;

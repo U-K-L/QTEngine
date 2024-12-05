@@ -25,7 +25,7 @@ void AlbedoPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint
 
 
     // **Dynamic Rendering Setup**
-    VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+    VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 0.0f}} };
     VkClearValue depthClear = { {1.0f, 0} };
 
     VkRenderingAttachmentInfo colorAttachment{};

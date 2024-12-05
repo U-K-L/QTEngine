@@ -230,6 +230,10 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), camera.up);
     ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
+    ubo.baseAlbedo = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    if(_material.vectorProperties.count("BaseAlbedo") > 0)
+		ubo.baseAlbedo = _material.vectorProperties["BaseAlbedo"];
 
     memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 

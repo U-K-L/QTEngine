@@ -18,24 +18,6 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Cube",
-			"translation":[
-				0,
-				4,
-				0
-			]
-		},
-		{
-			"mesh":1,
-			"name":"Cube.001",
-			"translation":[
-				0,
-				-1,
-				0
-			]
-		},
-		{
-			"mesh":2,
 			"name":"Cube.002",
 			"translation":[
 				4,
@@ -44,8 +26,26 @@
 			]
 		},
 		{
-			"mesh":3,
+			"mesh":1,
+			"name":"Cube.001",
+			"translation":[
+				-1,
+				4,
+				0
+			]
+		},
+		{
+			"mesh":2,
 			"name":"Cube.003",
+			"translation":[
+				-1,
+				-1,
+				0
+			]
+		},
+		{
+			"mesh":3,
+			"name":"Cube.004",
 			"translation":[
 				4,
 				-1,
@@ -56,64 +56,13 @@
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"Material",
-			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.800000011920929,
-					0.800000011920929,
-					0.800000011920929,
-					1
-				],
-				"metallicFactor":0,
-				"roughnessFactor":0.5
-			}
-		},
-		{
-			"doubleSided":true,
-			"name":"Material.003",
-			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.800000011920929,
-					0.800000011920929,
-					0.800000011920929,
-					1
-				],
-				"metallicFactor":0,
-				"roughnessFactor":0.5
-			}
-		},
-		{
-			"doubleSided":true,
-			"name":"Material.004",
-			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.800000011920929,
-					0.800000011920929,
-					0.800000011920929,
-					1
-				],
-				"metallicFactor":0,
-				"roughnessFactor":0.5
-			}
-		},
-		{
-			"doubleSided":true,
-			"name":"Material.005",
-			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.800000011920929,
-					0.800000011920929,
-					0.800000011920929,
-					1
-				],
-				"metallicFactor":0,
-				"roughnessFactor":0.5
-			}
+			"name":"UnigmaBaseShader",
+			"pbrMetallicRoughness":{}
 		}
 	],
 	"meshes":[
 		{
-			"name":"Cube",
+			"name":"Cube.004",
 			"primitives":[
 				{
 					"attributes":{
@@ -127,7 +76,7 @@
 			]
 		},
 		{
-			"name":"Cube.003",
+			"name":"Cube.006",
 			"primitives":[
 				{
 					"attributes":{
@@ -136,12 +85,12 @@
 						"TEXCOORD_0":6
 					},
 					"indices":3,
-					"material":1
+					"material":0
 				}
 			]
 		},
 		{
-			"name":"Cube.004",
+			"name":"Cube.007",
 			"primitives":[
 				{
 					"attributes":{
@@ -150,12 +99,12 @@
 						"TEXCOORD_0":9
 					},
 					"indices":3,
-					"material":2
+					"material":0
 				}
 			]
 		},
 		{
-			"name":"Cube.005",
+			"name":"Cube.008",
 			"primitives":[
 				{
 					"attributes":{
@@ -164,7 +113,7 @@
 						"TEXCOORD_0":12
 					},
 					"indices":3,
-					"material":3
+					"material":0
 				}
 			]
 		}
