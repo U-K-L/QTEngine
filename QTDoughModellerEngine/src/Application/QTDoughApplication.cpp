@@ -7,6 +7,7 @@
 #include "../Engine/RenderPasses/CompositionPass.h"
 #include "../Engine/RenderPasses/AlbedoPass.h"
 #include "../Engine/RenderPasses/NormalPass.h"
+#include "../Engine/RenderPasses/PositionPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
@@ -267,7 +268,7 @@ std::array<VkVertexInputAttributeDescription, 4> QTDoughApplication::getAttribut
 
     attributeDescriptions[3].binding = 0;
     attributeDescriptions[3].location = 3;
-    attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[3].offset = offsetof(Vertex, normal);
 
     return attributeDescriptions;
@@ -651,6 +652,7 @@ void QTDoughApplication::AddPasses()
 {
 
     CompositionPass* compPass = new CompositionPass();
+    PositionPass* positionPass = new PositionPass();
     NormalPass* normalPass = new NormalPass();
     AlbedoPass* albedoPass = new AlbedoPass();
     BackgroundPass* bgPass = new BackgroundPass();
@@ -661,10 +663,12 @@ void QTDoughApplication::AddPasses()
         {
             albedoPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
             normalPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
+            positionPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
         }
     }
 
     renderPassStack.push_back(compPass);
+    renderPassStack.push_back(positionPass);
     renderPassStack.push_back(normalPass);
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(bgPass);

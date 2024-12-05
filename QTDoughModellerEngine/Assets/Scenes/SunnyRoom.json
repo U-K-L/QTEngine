@@ -18,7 +18,8 @@
                 "y": 0.4873216152191162,
                 "z": 0.48732149600982666
             },
-            "type": "Light"
+            "type": "Light",
+            "CustomProperties": {}
         },
         {
             "name": "Camera",
@@ -37,7 +38,8 @@
                 "y": 1.0,
                 "z": 1.0
             },
-            "type": "Camera"
+            "type": "Camera",
+            "CustomProperties": {}
         },
         {
             "name": "SunnyWall",
@@ -56,7 +58,8 @@
                 "y": 1.8870532512664795,
                 "z": 1.4287291765213013
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor",
@@ -75,7 +78,8 @@
                 "y": 1.8605042695999146,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.001",
@@ -94,7 +98,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.002",
@@ -113,7 +118,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.004",
@@ -132,7 +138,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.006",
@@ -151,7 +158,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.005",
@@ -170,7 +178,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.008",
@@ -189,7 +198,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.007",
@@ -208,7 +218,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.018",
@@ -227,7 +238,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.017",
@@ -246,7 +258,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.014",
@@ -265,7 +278,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.013",
@@ -284,7 +298,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.020",
@@ -303,7 +318,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.019",
@@ -322,7 +338,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.011",
@@ -341,7 +358,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.010",
@@ -360,7 +378,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.009",
@@ -379,7 +398,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.012",
@@ -398,7 +418,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.021",
@@ -417,7 +438,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.016",
@@ -436,7 +458,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.015",
@@ -455,7 +478,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.024",
@@ -474,7 +498,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.023",
@@ -493,7 +518,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Floor.022",
@@ -512,7 +538,8 @@
                 "y": 0.18605045974254608,
                 "z": 0.19049984216690063
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cylinder",
@@ -531,7 +558,8 @@
                 "y": -0.04841841757297516,
                 "z": -0.5611883401870728
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cylinder.001",
@@ -550,7 +578,8 @@
                 "y": 0.03607190400362015,
                 "z": 0.2717230021953583
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cylinder.002",
@@ -569,7 +598,8 @@
                 "y": 0.03607190400362015,
                 "z": 0.2717230021953583
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cylinder.003",
@@ -588,7 +618,8 @@
                 "y": 0.03607190400362015,
                 "z": 0.2717230021953583
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cylinder.004",
@@ -607,7 +638,8 @@
                 "y": 0.03607190400362015,
                 "z": 0.2717230021953583
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "SunnyWall.002",
@@ -626,7 +658,8 @@
                 "y": 1.8870532512664795,
                 "z": 1.4287291765213013
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.163",
@@ -645,7 +678,8 @@
                 "y": 0.9018949270248413,
                 "z": 0.02562684379518032
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.166",
@@ -664,7 +698,8 @@
                 "y": 0.2871113121509552,
                 "z": 0.02459261380136013
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.165",
@@ -683,7 +718,8 @@
                 "y": 0.2871113121509552,
                 "z": 0.02459261380136013
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.123",
@@ -702,7 +738,8 @@
                 "y": 0.2315942645072937,
                 "z": 0.8568987846374512
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.124",
@@ -721,7 +758,8 @@
                 "y": 0.2084348201751709,
                 "z": 0.8568987846374512
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.125",
@@ -740,7 +778,8 @@
                 "y": 0.2084348201751709,
                 "z": 0.8568987846374512
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.126",
@@ -759,7 +798,8 @@
                 "y": 0.2084348201751709,
                 "z": 0.8568987846374512
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "Cube.127",
@@ -778,7 +818,8 @@
                 "y": 0.2084348201751709,
                 "z": 0.8568987846374512
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book",
@@ -797,7 +838,8 @@
                 "y": 0.13401605188846588,
                 "z": 0.034727562218904495
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.001",
@@ -816,7 +858,8 @@
                 "y": 0.1160694807767868,
                 "z": 0.028632735833525658
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.002",
@@ -835,7 +878,8 @@
                 "y": 0.11606946587562561,
                 "z": 0.02863273210823536
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.003",
@@ -854,7 +898,8 @@
                 "y": 0.13401606678962708,
                 "z": 0.0347275584936142
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.004",
@@ -873,7 +918,8 @@
                 "y": 0.13401606678962708,
                 "z": 0.0347275584936142
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.005",
@@ -892,7 +938,8 @@
                 "y": 0.13401606678962708,
                 "z": 0.0347275584936142
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.006",
@@ -911,7 +958,8 @@
                 "y": 0.13401605188846588,
                 "z": 0.034727562218904495
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         },
         {
             "name": "book.007",
@@ -930,7 +978,8 @@
                 "y": 0.13401606678962708,
                 "z": 0.0347275547683239
             },
-            "type": "Mesh"
+            "type": "Mesh",
+            "CustomProperties": {}
         }
     ]
 }
