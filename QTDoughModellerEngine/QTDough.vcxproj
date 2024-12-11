@@ -120,7 +120,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\ShaderHelpers.hlsl">
+    <None Include="src\shaders\Helpers\ShaderHelpers.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>
@@ -129,6 +129,11 @@
       <FileType>Document</FileType>
     </None>
     <None Include="src\shaders\Position\position_vert.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\Helpers\UniformBuffers.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

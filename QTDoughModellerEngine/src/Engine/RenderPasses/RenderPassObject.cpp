@@ -472,15 +472,13 @@ void RenderPassObject::CreateDescriptorSets()
     std::cout << "Created descriptor sets" << std::endl;
 }
 
-
 void RenderPassObject::CreateImages() {
-
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    for (int i = 0; i < material.textures.size(); i++)
-    {
+    for (int i = 0; i < material.textures.size(); i++) {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);
     }
+
     VkFormat imageFormat = app->_swapChainImageFormat; // Use the same format as swap chain images
 
     // Create the offscreen image
@@ -495,16 +493,40 @@ void RenderPassObject::CreateImages() {
         imageMemory
     );
 
-    app->TransitionImageLayout(
-        image,
-        imageFormat,
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    // Transition the image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0; // No access before this
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Ready for transfer
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,   // Earliest possible pipeline stage
+        VK_PIPELINE_STAGE_TRANSFER_BIT,     // Transition happens before transfer
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
     );
+
+    app->EndSingleTimeCommands(commandBuffer);
 
     // Create the image view for the offscreen image
     imageView = app->CreateImageView(image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    // Create the framebuffer for the offscreen rendering
+    // Create the framebuffer for offscreen rendering
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.renderPass = VK_NULL_HANDLE; // We'll use dynamic rendering
@@ -518,18 +540,38 @@ void RenderPassObject::CreateImages() {
         throw std::runtime_error("Failed to create offscreen framebuffer!");
     }
 
-    // CREATE THE PASS IMAGE FOR FUTURE OBJECTS TO REFERENCE.
-    // 
-    // Create an UnigmaTexture object for the offscreen image
+    // After rendering, transition the image to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    commandBuffer = app->BeginSingleTimeCommands();
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Written by transfer
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;    // Ready for shader read
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,           // After transfer completes
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,    // Before shader reads
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    // Store the offscreen texture for future references
     UnigmaTexture offscreenTexture;
     offscreenTexture.u_image = image;
     offscreenTexture.u_imageView = imageView;
-
+    offscreenTexture.u_imageMemory = imageMemory;
+    offscreenTexture.TEXTURE_PATH = PassName;
 
     // Use a unique key for the offscreen image
     std::string textureKey = PassName;
     app->textures.insert({ textureKey, offscreenTexture });
 }
+
 
 void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame) {
 
@@ -542,8 +584,12 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
 
     for (int i = 0; i < MAX_NUM_TEXTURES; i++)
     {
-        if(app->textures.count(material.textureNames[i]) > 0)
+        if (app->textures.count(material.textureNames[i]) > 0)
+        {
             material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
+            //print id and name.
+            std::cout << "Unifom Texture ID: " << material.textureIDs[i] << " Texture Name: " << material.textureNames[i] << std::endl;
+        }
         else
             material.textureIDs[i] = 0;
     }
@@ -558,24 +604,11 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
 void RenderPassObject::CleanupPipeline() {
     VkDevice device = QTDoughApplication::instance->_logicalDevice;
 
+    std::cout << "Cleaning up pipeline" << std::endl;
+
     if (offscreenFramebuffer != VK_NULL_HANDLE) {
         vkDestroyFramebuffer(device, offscreenFramebuffer, nullptr);
         offscreenFramebuffer = VK_NULL_HANDLE;
-    }
-
-    if (imageView != VK_NULL_HANDLE) {
-        vkDestroyImageView(device, imageView, nullptr);
-        imageView = VK_NULL_HANDLE;
-    }
-
-    if (image != VK_NULL_HANDLE) {
-        vkDestroyImage(device, image, nullptr);
-        image = VK_NULL_HANDLE;
-    }
-
-    if (imageMemory != VK_NULL_HANDLE) {
-        vkFreeMemory(device, imageMemory, nullptr);
-        imageMemory = VK_NULL_HANDLE;
     }
 
     if (graphicsPipeline != VK_NULL_HANDLE) {
@@ -584,6 +617,18 @@ void RenderPassObject::CleanupPipeline() {
     if (pipelineLayout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     }
+
+    //delete images
+    if (image != VK_NULL_HANDLE) {
+		vkDestroyImage(device, image, nullptr);
+	}
+    if (imageMemory != VK_NULL_HANDLE) {
+		vkFreeMemory(device, imageMemory, nullptr);
+	}
+    //image view
+    if (imageView != VK_NULL_HANDLE)
+        vkDestroyImageView(device, imageView, nullptr);
+
 
 }
 

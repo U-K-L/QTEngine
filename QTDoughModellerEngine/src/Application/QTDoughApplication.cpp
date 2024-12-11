@@ -667,11 +667,15 @@ void QTDoughApplication::AddPasses()
         }
     }
 
-    renderPassStack.push_back(compPass);
-    renderPassStack.push_back(positionPass);
-    renderPassStack.push_back(normalPass);
-    renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(bgPass);
+    renderPassStack.push_back(albedoPass);
+    renderPassStack.push_back(normalPass);
+    renderPassStack.push_back(positionPass);
+    renderPassStack.push_back(compPass);
+
+
+
+
 
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;
 }
@@ -737,10 +741,22 @@ void QTDoughApplication::InitVulkan()
 
 void QTDoughApplication::CreateImages()
 {
+
     for (int i = 0; i < renderPassStack.size(); i++)
     {
         renderPassStack[i]->CreateImages();
     }
+
+    //Add depth to textures.
+    UnigmaTexture offscreenDepthTexture;
+    offscreenDepthTexture.u_image = depthImage;
+    offscreenDepthTexture.u_imageView = depthImageView;
+    offscreenDepthTexture.u_imageMemory = depthImageMemory;
+    offscreenDepthTexture.TEXTURE_PATH = "DepthPass";
+
+    // Use a unique key for the offscreen image
+    std::string textureKey = "DepthPass";
+    textures.insert({ textureKey, offscreenDepthTexture });
 }
 
 void QTDoughApplication::GetMeshDataAllObjects()
@@ -792,7 +808,7 @@ void QTDoughApplication::CreateDepthResources()
 {
     VkFormat depthFormat = FindDepthFormat();
 
-    CreateImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
+    CreateImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
     depthImageView = CreateImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 
@@ -1095,6 +1111,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     int index = 0;
     for (auto& pair : textures) {
         pair.second.ID = index;
+        //pair.second.TEXTURE_PATH = pair.first;
         //std::cout << "Texture ID: " << index << " " << pair.first << std::endl;
         keys.push_back(pair.second);
         index++;
@@ -1107,6 +1124,15 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfos[i].imageView = keys[i].u_imageView;
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
+
+        //print name and id
+        std::cout << "Texture ID: " << i << " " << keys[i].TEXTURE_PATH << std::endl;
+    }
+
+    for (size_t i = 0; i < imageInfos.size(); ++i) {
+        std::cout << "ImageInfo[" << i << "] ImageView: " << imageInfos[i].imageView
+            << " Layout: " << imageInfos[i].imageLayout
+            << " Sampler: " << imageInfos[i].sampler << std::endl;
     }
 
     VkWriteDescriptorSet descriptorWrite{};
@@ -1250,7 +1276,37 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
+    // Render all your passes
     RenderPasses(commandBuffer, imageIndex);
+
+    // Now transition the depth image from DEPTH_STENCIL_ATTACHMENT_OPTIMAL to SHADER_READ_ONLY_OPTIMAL
+    {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = depthImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+    }
+
 
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
@@ -1857,15 +1913,42 @@ void QTDoughApplication::RecreateSwapChain()
 
 void QTDoughApplication::RecreateResources()
 {
+    /*
+    vkDeviceWaitIdle(_logicalDevice);
+
+    vkDestroyDescriptorPool(_logicalDevice, globalDescriptorPool, nullptr);
+
+    // Recreate pool
+    CreateGlobalDescriptorPool();
+
+    // Allocate sets again
+    CreateGlobalDescriptorSet(); // Or call vkAllocateDescriptorSets again
+    */
+    /*
+    // Destroy all textures and associated memory
+    for (auto& pair : textures) {
+        UnigmaTexture& tex = pair.second;
+        vkDestroyImageView(_logicalDevice, tex.u_imageView, nullptr);
+        vkDestroyImage(_logicalDevice, tex.u_image, nullptr);
+        vkFreeMemory(_logicalDevice, tex.u_imageMemory, nullptr);
+    }
+    */
     QTDoughApplication::instance->textures.clear();
+
+
+    //CreateSwapChain();
+    //CreateImageViews();
+
+    //UpdateGlobalDescriptorSet(); // Update descriptors with the newly loaded textures
+
     // Recreate graphics pipelines for each render pass
     for (auto& renderPass : renderPassStack) {
         renderPass->CleanupPipeline();
         renderPass->CreateMaterials();
         renderPass->CreateGraphicsPipeline();
-        renderPass->CreateImages();
-
     }
+
+    CreateImages();
 
     UpdateGlobalDescriptorSet();
 }

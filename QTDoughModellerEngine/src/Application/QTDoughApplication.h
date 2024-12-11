@@ -31,6 +31,7 @@
 
 #include <array>
 #include <chrono>
+#include <map>
 
 #include "imgui.h"
 #include "backends/imgui_impl_sdl2.h"
@@ -185,7 +186,8 @@ public:
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void RecreateResources();
-
+    VkCommandBuffer BeginSingleTimeCommands();
+    void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 
     VkImage albedoImage;
@@ -253,7 +255,6 @@ private:
     void RecreateSwapChain();
     void CleanupSwapChain();
     void InitImGui();
-    void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
     void CreateTextureImageView();
     void CreateDepthResources();
     bool HasStencilComponent(VkFormat format);
@@ -263,7 +264,7 @@ private:
     void GetMeshDataAllObjects();
     void CameraToBlender();
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-    VkCommandBuffer BeginSingleTimeCommands();
+
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/);
     VkCommandBufferBeginInfo CommandBufferBeginInfo(VkCommandBufferUsageFlags flags /*= 0*/);

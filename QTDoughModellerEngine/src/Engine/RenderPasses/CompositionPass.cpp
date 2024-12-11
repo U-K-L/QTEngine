@@ -21,5 +21,6 @@ void CompositionPass::CreateMaterials() {
     material.textureNames[1] = "AlbedoPass";
     material.textureNames[2] = "NormalPass";
     material.textureNames[3] = "PositionPass";
+    material.textureNames[4] = "DepthPass";
 
 }
