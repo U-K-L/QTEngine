@@ -69,5 +69,6 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    return outColor * 10;
+    return albedoImage;
+
 }

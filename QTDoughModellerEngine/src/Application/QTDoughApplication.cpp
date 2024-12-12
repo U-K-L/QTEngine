@@ -1114,15 +1114,6 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfos[i].imageView = keys[i].u_imageView;
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
-
-        //print name and id
-        std::cout << "Texture ID: " << i << " " << keys[i].TEXTURE_PATH << std::endl;
-    }
-
-    for (size_t i = 0; i < imageInfos.size(); ++i) {
-        std::cout << "ImageInfo[" << i << "] ImageView: " << imageInfos[i].imageView
-            << " Layout: " << imageInfos[i].imageLayout
-            << " Sampler: " << imageInfos[i].sampler << std::endl;
     }
 
     VkWriteDescriptorSet descriptorWrite{};

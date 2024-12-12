@@ -118,6 +118,7 @@ void LoadScene(const char* sceneName) {
                 if (propValue.is_object()) {
                     // Handle nested properties (e.g., BaseAlbedo)
                     renderCopy._material.vectorProperties[propName] = glm::vec4(propValue["r"], propValue["g"], propValue["b"], propValue["a"]);
+
                 }
                 else {
                     // Handle single properties (e.g., TextureName)

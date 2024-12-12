@@ -23,5 +23,5 @@ float4 main(PSInput input) : SV_TARGET
     
     float4 finalColor = float4(input.worldPosition.xyz, 1.0);
 
-    return input.position.z*0.5;
+    return finalColor;
 }

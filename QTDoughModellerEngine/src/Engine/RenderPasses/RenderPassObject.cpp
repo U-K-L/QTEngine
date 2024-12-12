@@ -587,8 +587,6 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
         if (app->textures.count(material.textureNames[i]) > 0)
         {
             material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
-            //print id and name.
-            std::cout << "Unifom Texture ID: " << material.textureIDs[i] << " Texture Name: " << material.textureNames[i] << std::endl;
         }
         else
             material.textureIDs[i] = 0;
