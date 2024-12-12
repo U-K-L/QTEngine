@@ -747,16 +747,6 @@ void QTDoughApplication::CreateImages()
         renderPassStack[i]->CreateImages();
     }
 
-    //Add depth to textures.
-    UnigmaTexture offscreenDepthTexture;
-    offscreenDepthTexture.u_image = depthImage;
-    offscreenDepthTexture.u_imageView = depthImageView;
-    offscreenDepthTexture.u_imageMemory = depthImageMemory;
-    offscreenDepthTexture.TEXTURE_PATH = "DepthPass";
-
-    // Use a unique key for the offscreen image
-    std::string textureKey = "DepthPass";
-    textures.insert({ textureKey, offscreenDepthTexture });
 }
 
 void QTDoughApplication::GetMeshDataAllObjects()

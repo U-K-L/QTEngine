@@ -37,3 +37,14 @@ float4x4 inverse(float4x4 m)
 
     return ret;
 }
+
+
+
+float LinearizeDepth(float depth)
+{
+    // near and far plane CHANGE TO UNIFORMS
+    float near_plane = 0.1;
+    float far_plane = 100.0;
+    float z = depth * 2.0 - 1.0; // transform to NDC coordinates
+    return (2.0 * near_plane * far_plane) / (far_plane + near_plane - z * (far_plane - near_plane));
+}

@@ -1,3 +1,5 @@
+#include "../Helpers/ShaderHelpers.hlsl"
+
 // HLSL Shader Code
 
 // Define an unbounded array of textures and samplers
@@ -58,5 +60,14 @@ float4 main(VSOutput i) : SV_Target
 
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
-    return positionImage;
+    float depth = depthImage.r;
+    float linearDepth = LinearizeDepth(depth);
+    // near and far plane CHANGE TO UNIFORMS
+    float near_plane = 0.1;
+    float far_plane = 100.0;
+    // Visualize linear depth
+    float4 outColor = linearDepth / far_plane;
+    outColor = float4(outColor.xyz, 1.0);
+    
+    return outColor * 10;
 }
