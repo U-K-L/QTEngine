@@ -217,18 +217,32 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
 void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera, void* uniformMem) {
 
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
+    static auto startTime = std::chrono::high_resolution_clock::now(); //Remove this nasty.
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
     //Make transform follow sin and cos.
     ubo.model = uRObj._transform.transformMatrix;
+    //rotate camera.
+        // Rotate the camera position and forward vector around its up axis
+    float rotationSpeed = glm::radians(0.0001f); // Rotate 45 degrees per second
+    float angle =  rotationSpeed;
+
+    camera.aspectRatio = app.swapChainExtent.width / (float)app.swapChainExtent.height;
+    camera.isOrthogonal = false;
+    //camera.rotateAroundPoint(glm::vec3(-1.0, -1.5, 0), angle, camera.up);
+    //camera.setForward(glm::vec3(0.0f, -1.0f, 0.0f));
+    //camera.Zoom(time*0.0001f);
+
+    /*
+    std::cout << "Object: "
+        << (camera.IsObjectWithinView(this->_transform.position) ? "visible" : "not visible")
+        << " in the orthographic volume.\n";
+*/
     ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), camera.up);
-    //rotate
-    //ubo.model = glm::rotate(ubo.model, time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
+    ubo.proj = camera.getProjectionMatrix();
+    //ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
     ubo.baseAlbedo = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 

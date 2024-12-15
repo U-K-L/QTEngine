@@ -188,6 +188,7 @@ public:
     void RecreateResources();
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+    void CreateGlobalSamplers(uint32_t samplerCount);
 
 
     VkImage albedoImage;
@@ -203,6 +204,7 @@ public:
     VkDescriptorSetLayout globalDescriptorSetLayout;
     VkDescriptorPool globalDescriptorPool;
     VkDescriptorSet globalDescriptorSet;
+    std::vector<VkSampler> globalSamplers;
 
 
 

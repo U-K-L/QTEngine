@@ -34,6 +34,10 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
+    CameraMain = *UNGetCamera(0);
+    //print FOV.
+    //UnigmaCameraStruct cam = UnigmaCameraStruct();
+    //std::cout << "Camera FOV: " << CameraMain.fov << std::endl;
     unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
 }
 
@@ -1047,28 +1051,45 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 
 void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 {
+    CreateGlobalSamplers(1000);
+
+    // Binding for sampled images
     VkDescriptorSetLayoutBinding sampledImageBinding{};
     sampledImageBinding.binding = 0;
     sampledImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    sampledImageBinding.descriptorCount = 1000; // Or VK_REMAINING_BINDING
+    sampledImageBinding.descriptorCount = 1000;
     sampledImageBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     sampledImageBinding.pImmutableSamplers = nullptr;
 
-    // Binding flags for descriptor indexing
-    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+    // Binding for samplers
+    VkDescriptorSetLayoutBinding samplerBinding{};
+    samplerBinding.binding = 1;
+    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    samplerBinding.descriptorCount = 1000;
+    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerBinding.pImmutableSamplers = globalSamplers.data();
+
+    // We now have two bindings
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { sampledImageBinding, samplerBinding };
+
+    // For descriptor indexing flags
+    VkDescriptorBindingFlags bindingFlags[2] = {
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+    };
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
     bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    bindingFlagsInfo.bindingCount = 1;
-    bindingFlagsInfo.pBindingFlags = &bindingFlags;
+    bindingFlagsInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    bindingFlagsInfo.pBindingFlags = bindingFlags;
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.pBindings = &sampledImageBinding;
-    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = bindings.data();
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pNext = &bindingFlagsInfo;
 
-    // Enable the update after bind flag
+    // Enable update-after-bind for descriptor indexing
     layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
     if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) != VK_SUCCESS) {
@@ -1076,18 +1097,23 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     }
 }
 
-
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    poolSize.descriptorCount = 1000; // Match the descriptor count in the layout
+    // We need pool sizes for both sampled images and samplers
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    poolSizes[0].descriptorCount = 1000;
+
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+    poolSizes[1].descriptorCount = 1000;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = 1;
+    // Enable update-after-bind so we can dynamically update
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
     if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &globalDescriptorPool) != VK_SUCCESS) {
@@ -1116,16 +1142,18 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
     }
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = globalDescriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    descriptorWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
-    descriptorWrite.pImageInfo = imageInfos.data();
+    VkWriteDescriptorSet imageWrite{};
+    imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    imageWrite.dstSet = globalDescriptorSet;
+    imageWrite.dstBinding = 0; // Binding for sampled images
+    imageWrite.dstArrayElement = 0;
+    imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    imageWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+    imageWrite.pImageInfo = imageInfos.data();
 
-    vkUpdateDescriptorSets(_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+    // Since we use immutable samplers, we do NOT update them here. No second write needed.
+
+    vkUpdateDescriptorSets(_logicalDevice, 1, &imageWrite, 0, nullptr);
 }
 
 
@@ -1493,6 +1521,36 @@ VkShaderModule QTDoughApplication::CreateShaderModule(const std::vector<char>& c
 
 void QTDoughApplication::CreateTextureImageView() {
     textureImageView = CreateImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void QTDoughApplication::CreateGlobalSamplers(uint32_t samplerCount)
+{
+    // Define common sampler settings
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    samplerInfo.anisotropyEnable = VK_TRUE;           // Enable anisotropy if supported
+    samplerInfo.maxAnisotropy = 16.0f;                // Typically a safe max anisotropy value, adjust as needed
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;   // Use normalized UV coordinates [0,1]
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.minLod = 0.0f;        // Clamping LOD range, these can be adjusted if you have mipmaps
+    samplerInfo.maxLod = 0.0f;
+    samplerInfo.mipLodBias = 0.0f;
+
+    globalSamplers.resize(samplerCount);
+
+    for (uint32_t i = 0; i < samplerCount; ++i) {
+        if (vkCreateSampler(_logicalDevice, &samplerInfo, nullptr, &globalSamplers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create sampler!");
+        }
+    }
 }
 
 VkImageView QTDoughApplication::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {

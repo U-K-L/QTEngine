@@ -8,11 +8,8 @@ struct UnigmaTransform
 {
 	glm::mat4 transformMatrix;
 	glm::vec3 position;
-	int pad;
 	glm::vec3 rotation;
-	int pad2;
 	glm::vec3 scale;
-	int pad3;
 	UnigmaTransform() : transformMatrix(1.0f), position(0.0f), rotation(0.0f)
 	{
 		UpdatePosition();

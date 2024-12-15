@@ -14,6 +14,8 @@ FnUpdateProgram UNUpdateProgram;
 FnGetGameObject UNGetGameObject;
 FnGetRenderObjectAt UNGetRenderObjectAt;
 FnGetRenderObjectsSize UNGetRenderObjectsSize;
+FnGetCamera UNGetCamera;
+FnGetCamerasSize UNGetCamerasSize;
 FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 HMODULE unigmaNative;
@@ -26,6 +28,8 @@ void LoadUnigmaNativeFunctions()
     UNGetGameObject = (FnGetGameObject)GetProcAddress(unigmaNative, "GetGameObject");
     UNGetRenderObjectAt = (FnGetRenderObjectAt)GetProcAddress(unigmaNative, "GetRenderObjectAt");
     UNGetRenderObjectsSize = (FnGetRenderObjectsSize)GetProcAddress(unigmaNative, "GetRenderObjectsSize");
+    UNGetCamera = (FnGetCamera)GetProcAddress(unigmaNative, "GetCamera");
+    UNGetCamerasSize = (FnGetCamerasSize)GetProcAddress(unigmaNative, "GetCamerasSize");
     UNRegisterCallback = (FnRegisterCallback)GetProcAddress(unigmaNative, "RegisterCallback");
     UNRegisterLoadSceneCallback = (FnRegisterLoadSceneCallback)GetProcAddress(unigmaNative, "RegisterLoadSceneCallback");
 

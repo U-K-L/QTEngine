@@ -26,6 +26,13 @@ struct UnigmaGameObject
         // Initialize 'components' array to zero
         //memset(components, 0, sizeof(components));
     }
+
+    // print name.
+    void PrintName()
+	{
+        //char array print.
+        std::cout << "Name: " << name << std::endl;
+	}
 };
 
 
