@@ -92,9 +92,11 @@ struct UnigmaCameraStruct
 		setForward(newForward);
 	}
 
-	glm::mat4 getProjectionMatrix(bool isOrthogonal = false) {
-		if (isOrthogonal) {
+	glm::mat4 getProjectionMatrix() {
+		if (isOrthogonal > 0) {
 			float orthoHeight = orthoWidth / aspectRatio;
+			//print width height and clips
+			std::cout << "OrthoWidth: " << orthoWidth << " OrthoHeight: " << orthoHeight << " NearClip: " << nearClip << " FarClip: " << farClip << std::endl;
 			return glm::ortho(-orthoWidth / 2.0f, orthoWidth / 2.0f, -orthoHeight / 2.0f, orthoHeight / 2.0f, nearClip, farClip);
 		}
 		else {

@@ -17,6 +17,8 @@ std::unordered_map<std::string, UnigmaTexture> textures;
 
 bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
+
+bool initialStart = false;
 //extern SDL_Window *SDLWindow;
 
 void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes* renderObject, UnigmaGameObject* gObj, uint32_t index)
@@ -34,7 +36,9 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
-    CameraMain = *UNGetCamera(0);
+    //if(initialStart == false) //remove this later.
+        CameraMain = *UNGetCamera(0);
+    //initialStart = true;
     //print FOV.
     //UnigmaCameraStruct cam = UnigmaCameraStruct();
     //std::cout << "Camera FOV: " << CameraMain.fov << std::endl;
