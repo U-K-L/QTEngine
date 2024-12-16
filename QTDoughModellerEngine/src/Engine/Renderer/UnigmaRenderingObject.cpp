@@ -240,6 +240,8 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     if(_material.vectorProperties.count("BaseAlbedo") > 0)
 		ubo.baseAlbedo = _material.vectorProperties["BaseAlbedo"];
 
+    ubo.ID = _renderer.GID;
+
     memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 
 

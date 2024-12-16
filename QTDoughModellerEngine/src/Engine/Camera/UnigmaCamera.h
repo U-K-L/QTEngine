@@ -17,6 +17,7 @@ struct UnigmaCameraStruct
 	float orthoWidth;
 	float isOrthogonal;
 
+
 	// Constructor
 	UnigmaCameraStruct()
 		: _transform(),                            // Initialize transform
@@ -32,6 +33,25 @@ struct UnigmaCameraStruct
 		_transform.transformMatrix[1][0] = -0.324013f; _transform.transformMatrix[1][1] = 0.305421f; _transform.transformMatrix[1][2] = 0.895396f; _transform.transformMatrix[1][3] = 0.0f;
 		_transform.transformMatrix[2][0] = 0.651558f; _transform.transformMatrix[2][1] = -0.61417f; _transform.transformMatrix[2][2] = 0.445271f; _transform.transformMatrix[2][3] = 0.0f;
 		_transform.transformMatrix[3][0] = 7.35889f; _transform.transformMatrix[3][1] = -6.92579f; _transform.transformMatrix[3][2] = 4.95831f; _transform.transformMatrix[3][3] = 1.0f;
+	}
+
+	// Overload the assignment operator for UnigmaCameraStruct
+	UnigmaCameraStruct& operator=(const UnigmaCameraStruct& other) {
+		if (this == &other) {
+			return *this; // Handle self-assignment
+		}
+
+		this->_transform = other._transform;
+		this->up = other.up;
+		this->aspectRatio = other.aspectRatio;
+		this->right = other.right;
+		this->fov = other.fov;
+		this->nearClip = other.nearClip;
+		this->farClip = other.farClip;
+		this->orthoWidth = other.orthoWidth;
+		this->isOrthogonal = other.isOrthogonal;
+
+		return *this;
 	}
 
 	glm::vec3 position()
@@ -93,15 +113,22 @@ struct UnigmaCameraStruct
 	}
 
 	glm::mat4 getProjectionMatrix() {
-		if (isOrthogonal > 0) {
+		if (isOrthogonal) {
 			float orthoHeight = orthoWidth / aspectRatio;
-			//print width height and clips
-			std::cout << "OrthoWidth: " << orthoWidth << " OrthoHeight: " << orthoHeight << " NearClip: " << nearClip << " FarClip: " << farClip << std::endl;
 			return glm::ortho(-orthoWidth / 2.0f, orthoWidth / 2.0f, -orthoHeight / 2.0f, orthoHeight / 2.0f, nearClip, farClip);
 		}
 		else {
 			return glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
 		}
+	}
+
+	//view matrix.
+	glm::mat4 getViewMatrix() {
+		// Calculate the target point
+		glm::vec3 target = position() + forward();
+
+		// Calculate the view matrix
+		return glm::lookAt(position(), target, up);
 	}
 
 	bool IsObjectWithinView(const glm::vec3& objPos) {
@@ -139,18 +166,15 @@ struct UnigmaCameraStruct
 
 	void Zoom(float delta)
 	{
-		float zoomFactor = 1.1f;
+		float zoomFactor = 1.0f;
 		if (isOrthogonal > 0) {
 			// Adjust orthoWidth
 			if (delta > 0) {
-				orthoWidth /= zoomFactor;
+				orthoWidth /= (zoomFactor + delta * 0.01);
 			}
 		}
 		else {
-			// Adjust fov
-			if (delta > 0) {
-				fov = fov + delta;
-			}
+			fov = fov + delta;
 		}
 	}
 

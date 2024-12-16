@@ -27,6 +27,9 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
     unigmaRenderingObjects[gObj->RenderID]._material = renderObject->_material;
 
+    //Set ID of renderer
+    unigmaRenderingObjects[gObj->RenderID]._renderer.GID = gObj->RenderID;
+
 
     for (auto& [key, value] : unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties) {
         std::cout << key << " : " << value.x << " " << value.y << " " << value.z << " " << value.w << std::endl;
@@ -37,11 +40,12 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
     //if(initialStart == false) //remove this later.
-        CameraMain = *UNGetCamera(0);
+    CameraMain = *UNGetCamera(0);
     //initialStart = true;
     //print FOV.
     //UnigmaCameraStruct cam = UnigmaCameraStruct();
     //std::cout << "Camera FOV: " << CameraMain.fov << std::endl;
+
     unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
 }
 

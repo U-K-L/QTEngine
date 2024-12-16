@@ -22,6 +22,7 @@ class UnigmaRenderingObject {
 			alignas(16) glm::mat4 view;
 			alignas(16) glm::mat4 proj;
 			alignas(16) glm::vec4 baseAlbedo;
+			Uint32 ID;
 		};
 
 		bool isRendering = false;

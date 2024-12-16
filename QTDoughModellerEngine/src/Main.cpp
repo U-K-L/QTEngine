@@ -40,7 +40,7 @@ int main(int argc, char* args[]) {
             auto fixedUpdateEnd = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double, std::milli> fixedElapsed = fixedUpdateEnd - fixedUpdateStart;
 
-            if (fixedElapsed.count() >= 0.01)
+            if (fixedElapsed.count() >= 0.0001)
 			{
 
                 //Update native plugin.
