@@ -207,6 +207,8 @@ void LoadScene(const char* sceneName) {
                 std::cerr << "Failed to load texture: " << texturePath << std::endl;
                 continue;
             }
+
+            renderCopy._material.textures.push_back(UnigmaTexture(texturePath));
         }
 
         //Get indices

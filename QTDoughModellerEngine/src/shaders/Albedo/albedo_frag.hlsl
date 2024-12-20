@@ -9,9 +9,27 @@ struct PSInput
     nointerpolation float3 normal : NORMAL; // Location 2, flat interpolation
 };
 
-Texture2D textures[] : register(t0, space0);
-SamplerState samplerState : register(s0);
+// Define an unbounded array of textures and samplers
+// Using register space0 to match Vulkan descriptor set 0
+Texture2D textures[] : register(t0, space0); //Global
+SamplerState samplers[] : register(s0, space0); //Global
 
+// Define a structured buffer for unsigned int array
+// Binding slot t1, space0 to match Vulkan descriptor set 1, binding 1
+StructuredBuffer<uint> intArray : register(t1, space1);
+
+struct Images
+{
+    uint AnimeGirl;
+};
+
+Images InitImages()
+{
+    Images image;
+    image.AnimeGirl = intArray[0];
+    
+    return image;
+}
 cbuffer LightBuffer : register(b0)
 {
     float3 lightDir; // Add this if lightDir needs to be adjustable via a uniform
@@ -19,6 +37,9 @@ cbuffer LightBuffer : register(b0)
 
 float4 main(PSInput input) : SV_TARGET
 {
+    Images images = InitImages();
+    float2 textureUVs = float2(input.uv.x, 1.0 - input.uv.y);
+    float4 animeGirl = textures[images.AnimeGirl].Sample(samplers[images.AnimeGirl], textureUVs);
     float thresholdX = 0.2;
     float thresholdY = 0.6;
     float thresholdZ = 0.8;
@@ -38,5 +59,5 @@ float4 main(PSInput input) : SV_TARGET
     
     finalColor.a = 1.0;
 
-    return finalColor;
+    return lerp(finalColor, animeGirl, animeGirl.w);
 }

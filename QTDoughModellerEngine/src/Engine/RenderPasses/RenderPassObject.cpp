@@ -479,6 +479,17 @@ void RenderPassObject::CreateImages() {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);
     }
 
+    //Load all textures for all objects.
+    for (int i = 0; i < renderingObjects.size(); i++)
+	{
+        for(int j = 0; j < renderingObjects[i]->_material.textures.size(); j++)
+		{
+            //print path
+            std::cout << "Loading texture loop: " << renderingObjects[i]->_material.textures[j].TEXTURE_PATH << std::endl;
+			app->LoadTexture(renderingObjects[i]->_material.textures[j].TEXTURE_PATH);
+		}
+	}
+
     VkFormat imageFormat = app->_swapChainImageFormat; // Use the same format as swap chain images
 
     // Create the offscreen image

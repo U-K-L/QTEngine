@@ -24,8 +24,9 @@ struct UnigmaMaterial
 
     UnigmaMaterial& operator=(const UnigmaMaterial& other) {
         if (this != &other) {
-            for (int i = 0; i < textures.size(); ++i) {
-                textures[i] = other.textures[i];
+            textures.clear();
+            for (int i = 0; i < other.textures.size(); ++i) {
+                textures.push_back(other.textures[i]);
             }
 
 

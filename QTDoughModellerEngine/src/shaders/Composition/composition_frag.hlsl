@@ -72,7 +72,7 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    return float4(GammaEncode(animeGirl.xyz, 0.32875), 1);
+    //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     return float4(GammaEncode(color.xyz, 0.32875), color.w);
 
 }
