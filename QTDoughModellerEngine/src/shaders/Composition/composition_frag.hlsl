@@ -18,6 +18,7 @@ struct Images
     uint NormalImage;
     uint PositionImage;
     uint DepthImage;
+    uint AnimeGirl;
 };
 
 Images InitImages()
@@ -29,6 +30,7 @@ Images InitImages()
     image.NormalImage = intArray[2];
     image.PositionImage = intArray[3];
     image.DepthImage = intArray[4];
+    image.AnimeGirl = intArray[5]; 
     
     return image;
 }
@@ -57,6 +59,7 @@ float4 main(VSOutput i) : SV_Target
     float4 normalImage = textures[images.NormalImage].Sample(samplers[images.NormalImage], textureUVs);
     float4 positionImage = textures[images.PositionImage].Sample(samplers[images.PositionImage], textureUVs);
     float4 depthImage = textures[images.DepthImage].Sample(samplers[images.DepthImage], textureUVs);
+    float4 animeGirl = textures[images.AnimeGirl].Sample(samplers[images.AnimeGirl], textureUVs);
 
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
@@ -69,6 +72,7 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    return positionImage;
+    return float4(GammaEncode(animeGirl.xyz, 0.32875), 1);
+    return float4(GammaEncode(color.xyz, 0.32875), color.w);
 
 }

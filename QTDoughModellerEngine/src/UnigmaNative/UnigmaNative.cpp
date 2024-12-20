@@ -4,6 +4,7 @@
 #include "tiny_gltf.h"
 #include "json.hpp"
 #include "../Engine/Renderer/UnigmaRenderingObject.h"
+#include "stb_image.h"
 
 AssetLoader assetLoader;
 
@@ -187,6 +188,26 @@ void LoadScene(const char* sceneName) {
         {
             vertices[i].texCoord = { texcoords[i][0], texcoords[i][1] };
 		}
+
+        //Get textures.
+        std::cout << "Loading Textures: " << model.textures.size() << std::endl;
+        for (int i = 0; i < (int)model.textures.size(); i++) {
+            const tinygltf::Texture& tex = model.textures[i];
+            if (tex.source < 0 || tex.source >= (int)model.images.size()) continue;
+            const tinygltf::Image& image = model.images[tex.source];
+
+            // Construct the full path to the texture image file
+            std::string texturePath = AssetsPath + "Textures/" + image.uri;
+
+            std::cout << "Loading texture: " << texturePath << std::endl;
+
+            int width, height, channels;
+            auto* pixelData = stbi_load(texturePath.c_str(), &width, &height, &channels, 4);
+            if (!pixelData) {
+                std::cerr << "Failed to load texture: " << texturePath << std::endl;
+                continue;
+            }
+        }
 
         //Get indices
         const auto& indexAccessor = accessors[model.meshes[meshID].primitives[0].indices];

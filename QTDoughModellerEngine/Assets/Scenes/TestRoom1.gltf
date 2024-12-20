@@ -58,6 +58,17 @@
 			"doubleSided":true,
 			"name":"UnigmaBaseShader",
 			"pbrMetallicRoughness":{}
+		},
+		{
+			"doubleSided":true,
+			"name":"Material.003",
+			"pbrMetallicRoughness":{
+				"baseColorTexture":{
+					"index":0
+				},
+				"metallicFactor":0,
+				"roughnessFactor":0.5
+			}
 		}
 	],
 	"meshes":[
@@ -99,7 +110,7 @@
 						"TEXCOORD_0":9
 					},
 					"indices":3,
-					"material":0
+					"material":1
 				}
 			]
 		},
@@ -116,6 +127,19 @@
 					"material":0
 				}
 			]
+		}
+	],
+	"textures":[
+		{
+			"sampler":0,
+			"source":0
+		}
+	],
+	"images":[
+		{
+			"mimeType":"image/png",
+			"name":"animeGirl",
+			"uri":"animeGirl.png"
 		}
 	],
 	"accessors":[
@@ -316,6 +340,12 @@
 			"byteLength":192,
 			"byteOffset":2952,
 			"target":34962
+		}
+	],
+	"samplers":[
+		{
+			"magFilter":9729,
+			"minFilter":9987
 		}
 	],
 	"buffers":[

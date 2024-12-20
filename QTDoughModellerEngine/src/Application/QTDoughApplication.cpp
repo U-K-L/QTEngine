@@ -9,6 +9,7 @@
 #include "../Engine/RenderPasses/NormalPass.h"
 #include "../Engine/RenderPasses/PositionPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
+#include "stb_image.h"
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
@@ -1166,24 +1167,20 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
 
 void QTDoughApplication::LoadTexture(const std::string& filename) {
-
-    /*
-    if (textures.count(filename) > 0)
-    {
+    if (textures.count(filename) > 0) {
         return;
     }
 
-    UnigmaTexture texture = UnigmaTexture();
+    UnigmaTexture texture;
 
-    // Load image data using stb_image or another image library
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, 4);
     if (!pixels) {
         throw std::runtime_error("failed to load texture image!");
     }
+
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-    // Create a staging buffer to transfer the image data
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     CreateBuffer(
@@ -1194,7 +1191,6 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
         stagingBufferMemory
     );
 
-    // Copy image data to the staging buffer
     void* data;
     vkMapMemory(_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
@@ -1202,7 +1198,6 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
 
     stbi_image_free(pixels);
 
-    // Create the Vulkan image
     CreateImage(
         texWidth, texHeight,
         VK_FORMAT_R8G8B8A8_SRGB,
@@ -1213,27 +1208,50 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
         texture.u_imageMemory
     );
 
-    // Transition the image layout and copy data from the staging buffer
-    TransitionImageLayout(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
+    // Initial layout transition
+    TransitionImageLayout(
+        texture.u_image,
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    );
+    std::cout << "Texture Loaded Name: " << filename << std::endl;
     CopyBufferToImage(stagingBuffer, texture.u_image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    TransitionImageLayout(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    // Clean up the staging buffer
+    // Final layout transition
+    TransitionImageLayout(
+        texture.u_image,
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
     vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
 
-    // Create an image view for the texture
     texture.u_imageView = CreateImageView(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    // Optionally create a sampler if not using a global sampler
-    // texture.sampler = CreateTextureSampler();
+    std::vector<std::string> tokens;
+    std::istringstream tokenStream(filename);
+    std::string token;
+    while (std::getline(tokenStream, token, '/')) {
+        tokens.push_back(token);
+    }
 
-    // Add the texture to the textures vector
-    //textures.push_back(&texture);
-    textures.insert({ filename, texture } );
-    */
+    // Safely remove .png if present
+    if (!tokens.empty()) {
+        std::string& lastToken = tokens.back();
+        if (lastToken.size() >= 4 && lastToken.compare(lastToken.size() - 4, 4, ".png") == 0) {
+            lastToken.erase(lastToken.end() - 4, lastToken.end());
+        }
+        std::cout << "Texture Loaded Name Final Token: " << tokens.back() << std::endl;
+    }
+
+    std::string textureName = tokens.empty() ? filename : tokens.back();
+    textures.insert({ textureName, texture });
 }
+
 
 
 

@@ -35,6 +35,8 @@ float4 main(PSInput input) : SV_TARGET
 
     float4 finalColor = max(midTones, shadows);
     finalColor = max(finalColor, highlights);
+    
+    finalColor.a = 1.0;
 
     return finalColor;
 }

@@ -23,4 +23,9 @@ void CompositionPass::CreateMaterials() {
     material.textureNames[3] = "PositionPass";
     material.textureNames[4] = "DepthPass";
 
+    material.textureNames[5] = "animeGirl";
+
+    material.textures.push_back(UnigmaTexture("animeGirl"));
+    material.textures[0].TEXTURE_PATH = "Assets/Textures/animeGirl.png";
+
 }

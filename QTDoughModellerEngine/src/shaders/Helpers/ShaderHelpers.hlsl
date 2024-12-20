@@ -272,3 +272,9 @@ float2 voronoiNoise(float2 value)
     float random = rand2dTo1d(closestCell);
     return float2(minDistToCell, random);
 }
+
+float3 GammaEncode(float3 color, float gamma)
+{
+    float3 gammaCorrected = 1.0 / gamma;
+    return pow(color, gammaCorrected);
+}

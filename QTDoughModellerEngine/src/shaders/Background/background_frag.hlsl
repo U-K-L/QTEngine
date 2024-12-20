@@ -33,9 +33,9 @@ float4 main(PSInput i) : SV_Target
                 
     //float ditherMask2 = dith + DitherMask;
 
-    float4 testTexture = textures[NonUniformResourceIndex(0)].Sample(samplerState, textureUVs);
+    float4 testTexture = textures[NonUniformResourceIndex(1)].Sample(samplerState, textureUVs);
     
-    float4 colorDither = (lerp(gradientYcolor, _TopColor, DitherMask) * 1.0) + testTexture;
+    float4 colorDither = (lerp(gradientYcolor, _TopColor, DitherMask) * 1.0);// + testTexture; ADD TEXTURE HERE.
 
     return colorDither;
 }
