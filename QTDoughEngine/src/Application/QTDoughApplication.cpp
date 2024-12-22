@@ -1970,7 +1970,6 @@ void QTDoughApplication::RecreateResources()
     */
     QTDoughApplication::instance->textures.clear();
 
-
     //CreateSwapChain();
     //CreateImageViews();
 

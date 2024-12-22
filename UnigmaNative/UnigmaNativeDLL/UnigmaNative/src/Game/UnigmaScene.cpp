@@ -67,7 +67,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 		gameObject.transform.rotation = glm::vec3(obj["rotation"]["world"]["x"], obj["rotation"]["world"]["y"], obj["rotation"]["world"]["z"]);
 
 		//Get the scales.
-		gameObject.transform.scale = glm::vec3(obj["scale"]["world"]["x"], obj["scale"]["world"]["y"], obj["scale"]["world"]["z"])*100.0f;
+		gameObject.transform.scale = glm::vec3(obj["scale"]["world"]["x"], obj["scale"]["world"]["y"], obj["scale"]["world"]["z"]);
 
 		gameObject.transform.UpdateTransform();
 

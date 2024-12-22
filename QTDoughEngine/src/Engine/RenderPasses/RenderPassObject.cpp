@@ -578,11 +578,6 @@ void RenderPassObject::CleanupPipeline() {
 
     std::cout << "Cleaning up pipeline" << std::endl;
 
-    if (offscreenFramebuffer != VK_NULL_HANDLE) {
-        vkDestroyFramebuffer(device, offscreenFramebuffer, nullptr);
-        offscreenFramebuffer = VK_NULL_HANDLE;
-    }
-
     if (graphicsPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
     }
