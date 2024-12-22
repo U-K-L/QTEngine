@@ -27,13 +27,6 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
     unigmaRenderingObjects[gObj->RenderID] = *renderObject;
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
     unigmaRenderingObjects[gObj->RenderID]._material = renderObject->_material;
-
-    //print texture names paths
-    for(int i = 0; i < unigmaRenderingObjects[gObj->RenderID]._material.textures.size(); i++)
-	{
-		std::cout << "Texture Path ADDD: " << unigmaRenderingObjects[gObj->RenderID]._material.textures[i].TEXTURE_PATH << std::endl;
-	}
-
     //Set ID of renderer
     unigmaRenderingObjects[gObj->RenderID]._renderer.GID = gObj->RenderID;
 
@@ -1143,7 +1136,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     for (auto& pair : textures) {
         pair.second.ID = index;
         //pair.second.TEXTURE_PATH = pair.first;
-        std::cout << "Texture ID: " << index << " " << pair.first << std::endl;
+        //std::cout << "Texture ID: " << index << " " << pair.first << std::endl;
         keys.push_back(pair.second);
         index++;
     }

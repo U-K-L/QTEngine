@@ -82,9 +82,27 @@ void LoadScene(const char* sceneName) {
         
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
-        const auto GameObjectJson = sceneJson["GameObjects"][gObj->ID];
+        const auto GameObjectJson = sceneJson["GameObjects"][gObj->JID];
 
         std::cout << "GameObject ID: " << gObj->ID << std::endl;
+        std::cout << "GameObject Json ID: " << gObj->JID << std::endl;
+        std::cout << "GameObject Name: " << gObj->name << std::endl;
+
+        //check if the game object has a mesh.
+        if(!GameObjectJson.contains("MeshID"))
+		{
+			std::cerr << "Game Object does not have a mesh!" << std::endl;
+			continue;
+		}
+        else
+            {
+            std::cout << "Game Object has a mesh!" << std::endl;
+			}
+
+        uint32_t gameMeshID = GameObjectJson["MeshID"];
+
+        std::cout << "Game Mesh ID: " << gameMeshID << std::endl;
+
 
         // Ensure both objects are valid
         if (!renderObj || !gObj) {
@@ -92,13 +110,15 @@ void LoadScene(const char* sceneName) {
             continue;
         }
         //Node
-        const auto node = glfJson["nodes"][gObj->RenderID];
+        const auto node = glfJson["nodes"][gameMeshID];
+
+        std::cout << "Node: " << node << std::endl;
 
         //Get the name of this mesh.
         const auto name = node["name"];
 
         //print name.
-        std::cout << "Name: " << name << std::endl;
+        std::cout << "GLTF Mesh Name: " << name << std::endl;
         int meshID = 0;
         // Check if the node contains a mesh
         if (node.contains("mesh")) {
@@ -133,6 +153,9 @@ void LoadScene(const char* sceneName) {
             }
         }
 
+        //Get base albedo.
+
+
         //Get the relevant information from the buffers.
         const auto& accessors = model.accessors;
         const auto& bufferViews = model.bufferViews;
@@ -142,6 +165,7 @@ void LoadScene(const char* sceneName) {
         std::vector<std::array<float, 3>> positions;
         std::vector<std::array<float, 3>> normals;
         std::vector<std::array<float, 2>> texcoords;
+        std::vector<std::array<float, 3>> colors;
         std::vector<uint32_t> indices;
 
         //Get vertices positions
@@ -171,6 +195,28 @@ void LoadScene(const char* sceneName) {
         texcoords.resize(texcoordAccessor.count);
         std::memcpy(texcoords.data(), texcoordBufferStart, texcoordAccessor.count * 2 * sizeof(float));
 
+        //Get colors
+        // Check if the mesh has COLOR_0
+        auto& prim = model.meshes[meshID].primitives[0];
+        if (prim.attributes.find("COLOR_0") != prim.attributes.end())
+        {
+            const auto& colorAccessor = accessors[prim.attributes["COLOR_0"]];
+            const auto& colorBufferView = bufferViews[colorAccessor.bufferView];
+            const auto& colorBuffer = buffers[colorBufferView.buffer];
+
+            // Calculate start pointer of color data
+            const auto colorBufferStart = colorBuffer.data.data()
+                + colorBufferView.byteOffset
+                + colorAccessor.byteOffset;
+            // Each color is assumed to be 4 floats
+            colors.resize(colorAccessor.count);
+            std::memcpy(colors.data(), colorBufferStart, colorAccessor.count * 4 * sizeof(float));
+        }
+        else
+        {
+            // If no vertex colors, just give them all a default color (e.g., white)
+            colors.resize(positions.size(), { 1.0f, 1.0f, 1.0f });
+        }
 
         std::vector<Vertex> vertices;
         for (size_t i = 0; i < positions.size(); i++)
@@ -189,26 +235,82 @@ void LoadScene(const char* sceneName) {
             vertices[i].texCoord = { texcoords[i][0], texcoords[i][1] };
 		}
 
-        //Get textures.
-        std::cout << "Loading Textures: " << model.textures.size() << std::endl;
-        for (int i = 0; i < (int)model.textures.size(); i++) {
-            const tinygltf::Texture& tex = model.textures[i];
-            if (tex.source < 0 || tex.source >= (int)model.images.size()) continue;
-            const tinygltf::Image& image = model.images[tex.source];
+        for (size_t i = 0; i < vertices.size(); i++)
+        {
+            vertices[i].color = {
+                colors[i][0],
+                colors[i][1],
+                colors[i][2]
+            };
+        }
 
-            // Construct the full path to the texture image file
-            std::string texturePath = AssetsPath + "Textures/" + image.uri;
+        // For each mesh's primitive, look up its assigned material
+        int materialIndex = model.meshes[meshID].primitives[0].material;
+        if (materialIndex >= 0 && materialIndex < model.materials.size())
+        {
+            const tinygltf::Material& material = model.materials[materialIndex];
 
-            std::cout << "Loading texture: " << texturePath << std::endl;
+            //----- Example: PBR Metallic Roughness baseColorTexture -----
+            int baseColorTexIndex = material.pbrMetallicRoughness.baseColorTexture.index;
+            if (baseColorTexIndex >= 0 && baseColorTexIndex < (int)model.textures.size())
+            {
+                const tinygltf::Texture& baseColorTex = model.textures[baseColorTexIndex];
+                // Load only if baseColorTex.source is valid
+                if (baseColorTex.source >= 0 && baseColorTex.source < (int)model.images.size())
+                {
+                    const tinygltf::Image& image = model.images[baseColorTex.source];
 
-            int width, height, channels;
-            auto* pixelData = stbi_load(texturePath.c_str(), &width, &height, &channels, 4);
-            if (!pixelData) {
-                std::cerr << "Failed to load texture: " << texturePath << std::endl;
-                continue;
+                    // Construct texture path (assuming images are in the "Textures" folder)
+                    std::string texturePath = AssetsPath + "Textures/" + image.uri;
+                    std::cout << "Loading baseColorTexture: " << texturePath << std::endl;
+
+                    //set texture ID
+                    //renderCopy._material.textureIDs[i] = i;
+                    std::vector<std::string> tokens;
+                    std::istringstream tokenStream(texturePath);
+                    std::string token;
+                    while (std::getline(tokenStream, token, '/')) {
+                        tokens.push_back(token);
+                    }
+
+                    // Safely remove .png if present
+                    if (!tokens.empty()) {
+                        std::string& lastToken = tokens.back();
+                        if (lastToken.size() >= 4 && lastToken.compare(lastToken.size() - 4, 4, ".png") == 0) {
+                            lastToken.erase(lastToken.end() - 4, lastToken.end());
+                        }
+                        std::cout << "Texture Loaded Name Final Token: " << tokens.back() << std::endl;
+                    }
+
+                    std::string textureName = tokens.empty() ? texturePath : tokens.back();
+                    renderCopy._material.textures.push_back(UnigmaTexture(texturePath));
+
+                    //assign textureName
+                    renderCopy._material.textureNames[0] = textureName;
+                }
             }
 
-            renderCopy._material.textures.push_back(UnigmaTexture(texturePath));
+            /*
+            //----- Example: Normal texture -----
+            int normalTexIndex = material.normalTexture.index;
+            if (normalTexIndex >= 0 && normalTexIndex < (int)model.textures.size())
+            {
+                const tinygltf::Texture& normalTex = model.textures[normalTexIndex];
+                if (normalTex.source >= 0 && normalTex.source < (int)model.images.size())
+                {
+                    const tinygltf::Image& image = model.images[normalTex.source];
+                    std::string texturePath = AssetsPath + "Textures/" + image.uri;
+                    std::cout << "Loading normalTexture: " << texturePath << std::endl;
+
+                    // ... load texture the same way ...
+
+                    renderCopy._material.textures.push_back(UnigmaTexture(texturePath));
+                }
+            }
+            */
+
+            //----- Repeat for other textures your material might include, e.g.:
+            //      occlusionTexture, emissiveTexture, metallicRoughnessTexture, etc.
         }
 
         //Get indices
@@ -225,6 +327,92 @@ void LoadScene(const char* sceneName) {
             indices[i] = static_cast<uint32_t>(indexBufferData[i]);
         }
 
+        //Print indices for debugging
+        for (int i = 0; i < indices.size(); i++)
+		{
+			std::cout << "Index " << i << ": " << indices[i] << std::endl;
+		}
+
+        // 1) Print original positions
+        for (int i = 0; i < vertices.size(); i++)
+        {
+            std::cout << "Original Vertex: "
+                << vertices[i].pos.x << " "
+                << vertices[i].pos.y << " "
+                << vertices[i].pos.z << std::endl;
+        }
+
+        // 2) Compute the bounding box
+        float minX = std::numeric_limits<float>::max();
+        float minY = std::numeric_limits<float>::max();
+        float minZ = std::numeric_limits<float>::max();
+
+        float maxX = std::numeric_limits<float>::lowest();
+        float maxY = std::numeric_limits<float>::lowest();
+        float maxZ = std::numeric_limits<float>::lowest();
+
+        for (int i = 0; i < vertices.size(); i++)
+        {
+            float x = vertices[i].pos.x;
+            float y = vertices[i].pos.y;
+            float z = vertices[i].pos.z;
+
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (z < minZ) minZ = z;
+
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+            if (z > maxZ) maxZ = z;
+        }
+
+        // 3) Find the center of the bounding box and the largest half-extent
+        float centerX = 0.5f * (minX + maxX);
+        float centerY = 0.5f * (minY + maxY);
+        float centerZ = 0.5f * (minZ + maxZ);
+
+        float halfExtentX = 0.5f * (maxX - minX);
+        float halfExtentY = 0.5f * (maxY - minY);
+        float halfExtentZ = 0.5f * (maxZ - minZ);
+
+        float largestHalfExtent = std::max({ halfExtentX, halfExtentY, halfExtentZ });
+
+        // 4) Shift and scale all vertices
+        if (largestHalfExtent > 1e-6f)
+        {
+            for (int i = 0; i < vertices.size(); i++)
+            {
+                // Shift to origin
+                vertices[i].pos.x -= centerX;
+                vertices[i].pos.y -= centerY;
+                vertices[i].pos.z -= centerZ;
+
+                // Uniform scale to make the bounding box fit [-1,1]
+                vertices[i].pos.x /= largestHalfExtent;
+                vertices[i].pos.y /= largestHalfExtent;
+                vertices[i].pos.z /= largestHalfExtent;
+            }
+        }
+
+        // 5) Print out normalized positions
+        for (int i = 0; i < vertices.size(); i++)
+        {
+            std::cout << "Normalized Vertex: "
+                << vertices[i].pos.x << " "
+                << vertices[i].pos.y << " "
+                << vertices[i].pos.z << std::endl;
+        }
+
+        // Once you've read COLOR_0 into 'colors' (or defaulted them), 
+        // you can print them for debugging:
+        for (size_t i = 0; i < colors.size(); i++)
+        {
+            std::cout << "Vertex " << i
+                << " Color RGBA: ("
+                << colors[i][0] << ", "
+                << colors[i][1] << ", "
+                << colors[i][2] << ")" << std::endl;
+        }
 
         UnigmaRenderingStruct renderStruct = UnigmaRenderingStruct();
         renderStruct.vertices = vertices;

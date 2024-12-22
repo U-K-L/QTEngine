@@ -43,6 +43,8 @@ float4 main(PSInput input) : SV_TARGET
     float thresholdX = 0.2;
     float thresholdY = 0.6;
     float thresholdZ = 0.8;
+    
+    float4 vertexColor = float4(input.color, 1.0);
     // Normalize light direction
     float3 normLightDir = normalize(float3(0.5, 0.5, 0.0));
 
@@ -58,6 +60,6 @@ float4 main(PSInput input) : SV_TARGET
     finalColor = max(finalColor, highlights);
     
     finalColor.a = 1.0;
-
-    return lerp(finalColor, animeGirl, animeGirl.w);
+    return animeGirl;
+    return lerp(finalColor, animeGirl, 0);
 }

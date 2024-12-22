@@ -29,6 +29,20 @@ struct UnigmaMaterial
                 textures.push_back(other.textures[i]);
             }
 
+            //set texture IDs
+            for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+			{
+				textureIDs[i] = other.textureIDs[i];
+				textureNames[i] = other.textureNames[i];
+			}
+
+            //names
+            for (auto& [key, value] : other.vectorProperties) {
+				vectorProperties[key] = value;
+			}
+
+            shader = other.shader;
+
 
             //vector properties
             for (auto& [key, value] : other.vectorProperties) {
