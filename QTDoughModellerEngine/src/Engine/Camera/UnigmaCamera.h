@@ -20,15 +20,15 @@ struct UnigmaCameraStruct
 
 	// Constructor
 	UnigmaCameraStruct()
-		: _transform(),                            // Initialize transform
-		up(0.0f, 0.0f, 1.0f),                    // Default up vector
-		aspectRatio(16.0f / 9.0f),               // Default aspect ratio
-		right(1.0f, 0.0f, 0.0f),                // Default right vector
-		fov(45.0f),                              // Default FOV
-		nearClip(0.1f),                          // Default near clipping plane
-		farClip(1000.0f),                        // Default far clipping plane
-		orthoWidth(20.0f),                       // Default orthographic width
-		isOrthogonal(0) {                    // Default orthogonal flag
+		: _transform(), 
+		up(0.0f, 0.0f, 1.0f),
+		aspectRatio(16.0f / 9.0f), 
+		right(1.0f, 0.0f, 0.0f), 
+		fov(45.0f), 
+		nearClip(0.1f),
+		farClip(1000.0f), 
+		orthoWidth(20.0f), 
+		isOrthogonal(0) {              
 		_transform.transformMatrix[0][0] = 0.685921f; _transform.transformMatrix[0][1] = 0.727676f; _transform.transformMatrix[0][2] = 0.0f; _transform.transformMatrix[0][3] = 0.0f;
 		_transform.transformMatrix[1][0] = -0.324013f; _transform.transformMatrix[1][1] = 0.305421f; _transform.transformMatrix[1][2] = 0.895396f; _transform.transformMatrix[1][3] = 0.0f;
 		_transform.transformMatrix[2][0] = 0.651558f; _transform.transformMatrix[2][1] = -0.61417f; _transform.transformMatrix[2][2] = 0.445271f; _transform.transformMatrix[2][3] = 0.0f;
@@ -129,39 +129,6 @@ struct UnigmaCameraStruct
 
 		// Calculate the view matrix
 		return glm::lookAt(position(), target, up);
-	}
-
-	bool IsObjectWithinView(const glm::vec3& objPos) {
-		if (isOrthogonal > 0) {
-			// Orthographic: derive bounds from orthoWidth and aspectRatio
-			float orthoHeight = orthoWidth / aspectRatio;
-			float left = -orthoWidth / 2.0f;
-			float right = orthoWidth / 2.0f;
-			float bottom = -orthoHeight / 2.0f;
-			float top = orthoHeight / 2.0f;
-
-			return (objPos.x >= left && objPos.x <= right &&
-				objPos.y >= bottom && objPos.y <= top &&
-				objPos.z >= nearClip && objPos.z <= farClip);
-		}
-		else {
-			// Perspective: approximate using the near plane's bounds
-			// Note: This is a simplified check that only tests if the object
-			// would be within the frustum at the near clipping plane.
-
-			float halfFovRadians = glm::radians(fov) / 2.0f;
-			float topNear = nearClip * tan(halfFovRadians);
-			float rightNear = topNear * aspectRatio;
-
-			float leftNear = -rightNear;
-			float bottomNear = -topNear;
-
-			// For perspective, this only ensures the object is within the near plane region.
-			// Objects further away may still be visible if they are within the expanding frustum.
-			return (objPos.z >= nearClip && objPos.z <= farClip &&
-				objPos.x >= leftNear && objPos.x <= rightNear &&
-				objPos.y >= bottomNear && objPos.y <= topNear);
-		}
 	}
 
 	void Zoom(float delta)

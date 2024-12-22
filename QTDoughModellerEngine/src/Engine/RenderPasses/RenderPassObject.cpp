@@ -38,8 +38,8 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
 
     // Combine both global and per-object descriptor sets
     VkDescriptorSet descriptorSetsToBind[] = {
-        app->globalDescriptorSet,       // Set 0: Global descriptor set
-        descriptorSets[currentFrame]    // Set 1: Per-object descriptor set
+        app->globalDescriptorSet,       
+        descriptorSets[currentFrame]    
     };
 
     // Bind both descriptor sets in one call
@@ -47,10 +47,10 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         pipelineLayout,
-        0, // Start at set 0
-        2, // Number of sets to bind (global and per-object)
+        0, 
+        2, 
         descriptorSetsToBind,
-        0, nullptr // No dynamic offsets
+        0, nullptr
     );
 
 
@@ -84,15 +84,6 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
     RenderObjects(commandBuffer, imageIndex, currentFrame, targetImage, CameraMain);
 
     vkCmdEndRendering(commandBuffer);
-
-    /*
-    app->TransitionImageLayout(
-        commandBuffer,
-        image,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    );
-    */
 }
 
 void RenderPassObject::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain)
@@ -102,10 +93,6 @@ void RenderPassObject::RenderObjects(VkCommandBuffer commandBuffer, uint32_t ima
 	{
 		if (renderingObjects[i]->isRendering)
 		{
-            //renderingObjects[i]->_transform.Print();
-            //renderingObjects[i]->_renderer.Print();
-            //std::cout << "Rendering object: " << i << std::endl;
-            //renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain);
             renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain, _uniformBuffersMapped[currentFrame]);
 
 			renderingObjects[i]->RenderPass(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame]);
@@ -224,24 +211,24 @@ void RenderPassObject::CreateGraphicsPipeline()
     rasterizer.cullMode = VK_CULL_MODE_NONE;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizer.depthBiasClamp = 0.0f; // Optional
-    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+    rasterizer.depthBiasConstantFactor = 0.0f;
+    rasterizer.depthBiasClamp = 0.0f; 
+    rasterizer.depthBiasSlopeFactor = 0.0f;
     rasterizer.pNext = &provokingVertexInfo;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = nullptr; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
+    multisampling.minSampleShading = 1.0f; 
+    multisampling.pSampleMask = nullptr; 
+    multisampling.alphaToCoverageEnable = VK_FALSE; 
+    multisampling.alphaToOneEnable = VK_FALSE; 
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE; // Set to VK_TRUE if needed
-    depthStencil.depthWriteEnable = VK_TRUE; // Set to VK_TRUE if needed
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE; 
     depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
     depthStencil.depthBoundsTestEnable = VK_FALSE;
     depthStencil.stencilTestEnable = VK_FALSE;
@@ -260,13 +247,9 @@ void RenderPassObject::CreateGraphicsPipeline()
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
+    colorBlending.logicOp = VK_LOGIC_OP_COPY;
     colorBlending.attachmentCount = 1;
     colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -330,9 +313,6 @@ void RenderPassObject::CreateGraphicsPipeline()
     std::cout << "Graphics pipeline created" << std::endl;
 }
 
-/*
-* First Layout must be created which gives us what buffers are going to be sent per this object to the GPU.
-*/
 void RenderPassObject::CreateDescriptorSetLayout()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -360,11 +340,11 @@ void RenderPassObject::CreateDescriptorSetLayout()
 
 
     VkDescriptorSetLayoutBinding intArrayLayoutBinding{};
-    intArrayLayoutBinding.binding = 1; // Binding number in the shader
-    intArrayLayoutBinding.descriptorCount = 1; // Only one buffer bound here
-    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Use storage buffer for an array
+    intArrayLayoutBinding.binding = 1; 
+    intArrayLayoutBinding.descriptorCount = 1; 
+    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; 
     intArrayLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
-    intArrayLayoutBinding.pImmutableSamplers = nullptr; // Not used for buffer bindings
+    intArrayLayoutBinding.pImmutableSamplers = nullptr; 
 
     //Bind the buffers we specified.
     std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, intArrayLayoutBinding };
@@ -445,7 +425,7 @@ void RenderPassObject::CreateDescriptorSets()
         VkDescriptorBufferInfo intArrayBufferInfo{};
         intArrayBufferInfo.buffer = intArrayBuffer;
         intArrayBufferInfo.offset = 0;
-        intArrayBufferInfo.range = VK_WHOLE_SIZE; // Use the entire buffer
+        intArrayBufferInfo.range = VK_WHOLE_SIZE; 
 
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -457,10 +437,9 @@ void RenderPassObject::CreateDescriptorSets()
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
 
-        // Write for unsigned int array buffer (accessible in all shader stages)
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1; // Match binding in shader
+        descriptorWrites[1].dstBinding = 1; 
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[1].descriptorCount = 1;
@@ -490,7 +469,7 @@ void RenderPassObject::CreateImages() {
 		}
 	}
 
-    VkFormat imageFormat = app->_swapChainImageFormat; // Use the same format as swap chain images
+    VkFormat imageFormat = app->_swapChainImageFormat;
 
     // Create the offscreen image
     app->CreateImage(
@@ -504,7 +483,6 @@ void RenderPassObject::CreateImages() {
         imageMemory
     );
 
-    // Transition the image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier{};
@@ -519,13 +497,13 @@ void RenderPassObject::CreateImages() {
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = 0; // No access before this
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Ready for transfer
+    barrier.srcAccessMask = 0; 
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
     vkCmdPipelineBarrier(
         commandBuffer,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,   // Earliest possible pipeline stage
-        VK_PIPELINE_STAGE_TRANSFER_BIT,     // Transition happens before transfer
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,  
+        VK_PIPELINE_STAGE_TRANSFER_BIT,     
         0,
         0, nullptr,
         0, nullptr,
@@ -537,32 +515,17 @@ void RenderPassObject::CreateImages() {
     // Create the image view for the offscreen image
     imageView = app->CreateImageView(image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    // Create the framebuffer for offscreen rendering
-    VkFramebufferCreateInfo framebufferInfo{};
-    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = VK_NULL_HANDLE; // We'll use dynamic rendering
-    framebufferInfo.attachmentCount = 1;
-    framebufferInfo.pAttachments = &imageView;
-    framebufferInfo.width = app->swapChainExtent.width;
-    framebufferInfo.height = app->swapChainExtent.height;
-    framebufferInfo.layers = 1;
-
-    if (vkCreateFramebuffer(app->_logicalDevice, &framebufferInfo, nullptr, &offscreenFramebuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create offscreen framebuffer!");
-    }
-
-    // After rendering, transition the image to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     commandBuffer = app->BeginSingleTimeCommands();
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Written by transfer
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;    // Ready for shader read
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; 
 
     vkCmdPipelineBarrier(
         commandBuffer,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,           // After transfer completes
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,    // Before shader reads
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         0,
         0, nullptr,
         0, nullptr,

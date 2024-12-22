@@ -1107,7 +1107,6 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
-    // We need pool sizes for both sampled images and samplers
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -1121,7 +1120,7 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = 1;
-    // Enable update-after-bind so we can dynamically update
+
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
     if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &globalDescriptorPool) != VK_SUCCESS) {
@@ -1135,8 +1134,6 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     int index = 0;
     for (auto& pair : textures) {
         pair.second.ID = index;
-        //pair.second.TEXTURE_PATH = pair.first;
-        //std::cout << "Texture ID: " << index << " " << pair.first << std::endl;
         keys.push_back(pair.second);
         index++;
     }
@@ -1158,8 +1155,6 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     imageWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
     imageWrite.pImageInfo = imageInfos.data();
-
-    // Since we use immutable samplers, we do NOT update them here. No second write needed.
 
     vkUpdateDescriptorSets(_logicalDevice, 1, &imageWrite, 0, nullptr);
 }
@@ -1418,30 +1413,6 @@ void QTDoughApplication::CreateCommandPool()
     std::cout << "Created Command Pool" << std::endl;
 }
 
-void QTDoughApplication::CreateFramebuffers() {
-    swapChainFramebuffers.resize(swapChainImageViews.size());
-
-    for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-        std::array<VkImageView, 2> attachments = {
-            swapChainImageViews[i],
-            depthImageView
-        };
-
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = swapChainExtent.width;
-        framebufferInfo.height = swapChainExtent.height;
-        framebufferInfo.layers = 1;
-
-        if (vkCreateFramebuffer(_logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create framebuffer!");
-        }
-    }
-}
-
 void QTDoughApplication::CreateRenderPass()
 {
     std::cout << "Creating Render Passes" << std::endl;
@@ -1558,14 +1529,14 @@ void QTDoughApplication::CreateGlobalSamplers(uint32_t samplerCount)
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.anisotropyEnable = VK_TRUE;           // Enable anisotropy if supported
-    samplerInfo.maxAnisotropy = 16.0f;                // Typically a safe max anisotropy value, adjust as needed
+    samplerInfo.anisotropyEnable = VK_TRUE;           
+    samplerInfo.maxAnisotropy = 16.0f;               
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;   // Use normalized UV coordinates [0,1]
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;   
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.minLod = 0.0f;        // Clamping LOD range, these can be adjusted if you have mipmaps
+    samplerInfo.minLod = 0.0f;       
     samplerInfo.maxLod = 0.0f;
     samplerInfo.mipLodBias = 0.0f;
 
@@ -1785,7 +1756,7 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 
     //After getting GPU features create list of features we want GPU to have to run program.
 
-    //Must support raytracing.
+    //Must support raytracing. Remove this later, adding this for now due to testing....
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingFeatures = {};
     rayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
     VkPhysicalDeviceFeatures2 deviceFeatures2{};
