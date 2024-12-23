@@ -38,7 +38,7 @@ void UnigmaScene::AddGameObject(UnigmaGameObject& gameObject)
 
 void UnigmaScene::LoadJSON(std::string sceneName)
 {
-	std::ifstream inputFile("Assets/Scenes/" + sceneName + ".json");
+	std::ifstream inputFile("Assets/Scenes/" + sceneName + "/" + sceneName + ".json");
 	if (!inputFile.is_open()) {
 		std::cerr << "Error: Unable to open file!" << std::endl;
 	}
@@ -64,7 +64,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 		gameObject.transform.position = glm::vec3(obj["position"]["world"]["x"], obj["position"]["world"]["y"], obj["position"]["world"]["z"]);
 
 		//Get the rotations.
-		gameObject.transform.rotation = glm::vec3(obj["rotation"]["world"]["x"], obj["rotation"]["world"]["y"], obj["rotation"]["world"]["z"]);
+		gameObject.transform.rotation = glm::vec3(obj["rotation"]["local"]["x"], obj["rotation"]["local"]["y"], obj["rotation"]["local"]["z"]);
 
 		//Get the scales.
 		gameObject.transform.scale = glm::vec3(obj["scale"]["world"]["x"], obj["scale"]["world"]["y"], obj["scale"]["world"]["z"]);

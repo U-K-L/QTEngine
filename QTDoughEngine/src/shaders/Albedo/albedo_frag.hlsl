@@ -60,6 +60,6 @@ float4 main(PSInput input) : SV_TARGET
     finalColor = max(finalColor, highlights);
     
     finalColor.a = 1.0;
-    return animeGirl;
+    //return animeGirl;
     return lerp(finalColor, animeGirl, 0);
 }

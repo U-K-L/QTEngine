@@ -30,8 +30,8 @@ void UnigmaGameManager::Create()
 
 	std::cout << "UnigmaGameManager created" << std::endl;
 
-	SceneManager->CreateScene("SM_Deccer_Cubes_Textured_Complex");
-	SceneManager->LoadScene("SM_Deccer_Cubes_Textured_Complex");
+	SceneManager->CreateScene("SunnyRoom");
+	SceneManager->LoadScene("SunnyRoom");
 
 	IsCreated = true;
 

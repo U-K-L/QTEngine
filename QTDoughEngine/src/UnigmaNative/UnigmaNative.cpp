@@ -46,12 +46,13 @@ void ApplicationFunction(const char* message) {
 //Loads the scene and all its initial models. This may or may not include the player.
 void LoadScene(const char* sceneName) {
 
+    std::string scenePath = AssetsPath + "Scenes/" + sceneName + "/" + sceneName;
     //First get the model from tinygltf. We need it to load all the arrays associated with the scene.
     tinygltf::Model model;
-    assetLoader.LoadGLTF(AssetsPath + "Scenes/" + sceneName + ".gltf", model);
+    assetLoader.LoadGLTF(scenePath + ".gltf", model);
 
     //We now have a binary loaded as the Model. And also a JSON describing the hiearchy of the scene. Load the JSON.
-    std::ifstream inputFile(AssetsPath + "Scenes/" + sceneName + ".gltf");
+    std::ifstream inputFile(scenePath + ".gltf");
     if (!inputFile.is_open()) {
         std::cerr << "Error: Unable to open file!" << std::endl;
     }
@@ -61,7 +62,7 @@ void LoadScene(const char* sceneName) {
     inputFile.close();
 
     //open normal json file.
-    std::ifstream inputFile2(AssetsPath + "Scenes/" + sceneName + ".json");
+    std::ifstream inputFile2(scenePath + ".json");
     if (!inputFile2.is_open()) {
 		std::cerr << "Error: Unable to open file!" << std::endl;
 	}
@@ -84,10 +85,6 @@ void LoadScene(const char* sceneName) {
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
         const auto GameObjectJson = sceneJson["GameObjects"][gObj->JID];
 
-        std::cout << "GameObject ID: " << gObj->ID << std::endl;
-        std::cout << "GameObject Json ID: " << gObj->JID << std::endl;
-        std::cout << "GameObject Name: " << gObj->name << std::endl;
-
         //check if the game object has a mesh.
         if(!GameObjectJson.contains("MeshID"))
 		{
@@ -101,9 +98,6 @@ void LoadScene(const char* sceneName) {
 
         uint32_t gameMeshID = GameObjectJson["MeshID"];
 
-        std::cout << "Game Mesh ID: " << gameMeshID << std::endl;
-
-
         // Ensure both objects are valid
         if (!renderObj || !gObj) {
             std::cerr << "Invalid render object or game object at index: " << i << std::endl;
@@ -112,13 +106,10 @@ void LoadScene(const char* sceneName) {
         //Node
         const auto node = glfJson["nodes"][gameMeshID];
 
-        std::cout << "Node: " << node << std::endl;
 
         //Get the name of this mesh.
         const auto name = node["name"];
 
-        //print name.
-        std::cout << "GLTF Mesh Name: " << name << std::endl;
         int meshID = 0;
         // Check if the node contains a mesh
         if (node.contains("mesh")) {
@@ -262,7 +253,6 @@ void LoadScene(const char* sceneName) {
 
                     // Construct texture path (assuming images are in the "Textures" folder)
                     std::string texturePath = AssetsPath + "Textures/" + image.uri;
-                    std::cout << "Loading baseColorTexture: " << texturePath << std::endl;
 
                     //set texture ID
                     //renderCopy._material.textureIDs[i] = i;
@@ -279,7 +269,6 @@ void LoadScene(const char* sceneName) {
                         if (lastToken.size() >= 4 && lastToken.compare(lastToken.size() - 4, 4, ".png") == 0) {
                             lastToken.erase(lastToken.end() - 4, lastToken.end());
                         }
-                        std::cout << "Texture Loaded Name Final Token: " << tokens.back() << std::endl;
                     }
 
                     std::string textureName = tokens.empty() ? texturePath : tokens.back();
@@ -327,21 +316,7 @@ void LoadScene(const char* sceneName) {
             indices[i] = static_cast<uint32_t>(indexBufferData[i]);
         }
 
-        //Print indices for debugging
-        for (int i = 0; i < indices.size(); i++)
-		{
-			std::cout << "Index " << i << ": " << indices[i] << std::endl;
-		}
-
-        // 1) Print original positions
-        for (int i = 0; i < vertices.size(); i++)
-        {
-            std::cout << "Original Vertex: "
-                << vertices[i].pos.x << " "
-                << vertices[i].pos.y << " "
-                << vertices[i].pos.z << std::endl;
-        }
-
+        /*
         // 2) Compute the bounding box
         float minX = std::numeric_limits<float>::max();
         float minY = std::numeric_limits<float>::max();
@@ -383,37 +358,17 @@ void LoadScene(const char* sceneName) {
             for (int i = 0; i < vertices.size(); i++)
             {
                 // Shift to origin
-                vertices[i].pos.x -= centerX;
-                vertices[i].pos.y -= centerY;
-                vertices[i].pos.z -= centerZ;
+                //vertices[i].pos.x -= centerX;
+                //vertices[i].pos.y -= centerY;
+                //vertices[i].pos.z -= centerZ;
 
                 // Uniform scale to make the bounding box fit [-1,1]
-                vertices[i].pos.x /= largestHalfExtent;
-                vertices[i].pos.y /= largestHalfExtent;
-                vertices[i].pos.z /= largestHalfExtent;
+                //vertices[i].pos.x /= largestHalfExtent;
+                //vertices[i].pos.y /= largestHalfExtent;
+                //vertices[i].pos.z /= largestHalfExtent;
             }
         }
-
-        // 5) Print out normalized positions
-        for (int i = 0; i < vertices.size(); i++)
-        {
-            std::cout << "Normalized Vertex: "
-                << vertices[i].pos.x << " "
-                << vertices[i].pos.y << " "
-                << vertices[i].pos.z << std::endl;
-        }
-
-        // Once you've read COLOR_0 into 'colors' (or defaulted them), 
-        // you can print them for debugging:
-        for (size_t i = 0; i < colors.size(); i++)
-        {
-            std::cout << "Vertex " << i
-                << " Color RGBA: ("
-                << colors[i][0] << ", "
-                << colors[i][1] << ", "
-                << colors[i][2] << ")" << std::endl;
-        }
-
+        */
         UnigmaRenderingStruct renderStruct = UnigmaRenderingStruct();
         renderStruct.vertices = vertices;
         renderStruct.indices = indices;

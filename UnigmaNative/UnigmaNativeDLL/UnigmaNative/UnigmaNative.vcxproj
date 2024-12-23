@@ -83,7 +83,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>UnigmaNative</TargetName>
-    <OutDir>..\..\..\..\QTDEngine\QTDough\ExternalLibs\Unigma</OutDir>
+    <OutDir>..\..\..\ExternalLibs\Unigma</OutDir>
     <LibraryPath>C:\ProjectsSpeed\QUnigma\UnigmaNative\UnigmaNativeDLL\UnigmaNative\ExternalLibs\SDL\lib;$(LibraryPath)</LibraryPath>
     <IncludePath>$(IncludePath)</IncludePath>
   </PropertyGroup>
