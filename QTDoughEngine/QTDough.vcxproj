@@ -39,6 +39,7 @@
     <ClCompile Include="src\Engine\RenderPasses\BackgroundPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\CompositionPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\NormalPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\OutlinePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\PositionPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
     <ClCompile Include="src\Main.cpp" />
@@ -73,6 +74,7 @@
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\NormalPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\OutlinePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\PositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
     <ClInclude Include="src\Loader.h" />
@@ -134,6 +136,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\Helpers\UniformBuffers.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\Outline\outline_frag.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\Outline\outline_vert.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

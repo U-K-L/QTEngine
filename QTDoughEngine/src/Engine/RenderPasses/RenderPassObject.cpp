@@ -551,6 +551,12 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    UniformBufferObject ubo{};
+    ubo.model = glm::mat4(1.0f);
+    ubo.view = glm::mat4(1.0f);
+    ubo.proj = glm::mat4(1.0f);
+    ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
+
     //Update int array assignments.
     
     // Determine the size of the array (should be the same as used during buffer creation)
@@ -565,6 +571,8 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
         else
             material.textureIDs[i] = 0;
     }
+
+    memcpy(_uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
 
     void* data;
     vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);

@@ -112,13 +112,27 @@ struct UnigmaCameraStruct
 		setForward(newForward);
 	}
 
+
+	glm::mat4 interpolateProjectionMatrix(const glm::mat4& perspective, const glm::mat4& orthographic, float t) {
+		// Linearly interpolate between the two matrices
+		return (1.0f - t) * perspective + t * orthographic;
+	}
+
 	glm::mat4 getProjectionMatrix() {
-		if (isOrthogonal) {
+
+		if (isOrthogonal >= 0.999) {
 			float orthoHeight = orthoWidth / aspectRatio;
 			return glm::ortho(-orthoWidth / 2.0f, orthoWidth / 2.0f, -orthoHeight / 2.0f, orthoHeight / 2.0f, nearClip, farClip);
 		}
-		else {
+		else if(isOrthogonal <= 0.001) {
 			return glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
+		}
+		else
+		{
+			float orthoHeight = orthoWidth / aspectRatio;
+			glm::mat4 ortho = glm::ortho(-orthoWidth / 2.0f, orthoWidth / 2.0f, -orthoHeight / 2.0f, orthoHeight / 2.0f, nearClip, farClip);
+			glm::mat4 perspective = glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
+			return interpolateProjectionMatrix(perspective, ortho, isOrthogonal);
 		}
 	}
 
@@ -130,6 +144,7 @@ struct UnigmaCameraStruct
 		// Calculate the view matrix
 		return glm::lookAt(position(), target, up);
 	}
+
 
 	void Zoom(float delta)
 	{

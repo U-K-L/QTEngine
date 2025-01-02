@@ -8,6 +8,7 @@
 #include "../Engine/RenderPasses/AlbedoPass.h"
 #include "../Engine/RenderPasses/NormalPass.h"
 #include "../Engine/RenderPasses/PositionPass.h"
+#include "../Engine/RenderPasses/OutlinePass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
@@ -28,7 +29,7 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
     unigmaRenderingObjects[gObj->RenderID].isRendering = true;
     unigmaRenderingObjects[gObj->RenderID]._material = renderObject->_material;
     //Set ID of renderer
-    unigmaRenderingObjects[gObj->RenderID]._renderer.GID = gObj->RenderID;
+    unigmaRenderingObjects[gObj->RenderID]._renderer.GID = gObj->ID;
 
 
     for (auto& [key, value] : unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties) {
@@ -57,6 +58,7 @@ int QTDoughApplication::Run() {
 
     SDL_Event e; 
     while (PROGRAMEND == false) {
+
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
                 PROGRAMEND = true;
@@ -664,6 +666,7 @@ void QTDoughApplication::AddPasses()
 {
 
     CompositionPass* compPass = new CompositionPass();
+    OutlinePass* outlinePass = new OutlinePass();
     PositionPass* positionPass = new PositionPass();
     NormalPass* normalPass = new NormalPass();
     AlbedoPass* albedoPass = new AlbedoPass();
@@ -683,6 +686,7 @@ void QTDoughApplication::AddPasses()
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(normalPass);
     renderPassStack.push_back(positionPass);
+    renderPassStack.push_back(outlinePass);
     renderPassStack.push_back(compPass);
 
 

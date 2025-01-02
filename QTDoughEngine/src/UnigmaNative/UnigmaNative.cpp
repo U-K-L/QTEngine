@@ -74,9 +74,6 @@ void LoadScene(const char* sceneName) {
     //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
 
-
-    std::cout << "Size of Render Objects: " << sizeOfRenderObjs << std::endl;
-
     //Feed RenderObjects to QTDoughEngine.
     for (uint32_t i = 0; i < sizeOfRenderObjs; i++)
     {
@@ -84,6 +81,10 @@ void LoadScene(const char* sceneName) {
         UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
         const auto GameObjectJson = sceneJson["GameObjects"][gObj->JID];
+
+        //print the name of the game object and its ID.
+        std::cout << "Game Object Name: " << gObj->name << std::endl;
+        std::cout << "Game Object ID: " << gObj->ID << std::endl;
 
         //check if the game object has a mesh.
         if(!GameObjectJson.contains("MeshID"))
