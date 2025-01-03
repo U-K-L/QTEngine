@@ -19,6 +19,7 @@ void PositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, ui
 }
 
 
+//This exists because we render depth out for the first time.
 void PositionPass::RenderPerObject(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -110,7 +111,7 @@ void PositionPass::RenderPerObject(VkCommandBuffer commandBuffer, uint32_t image
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 
-    RenderObjects(commandBuffer, imageIndex, currentFrame, targetImage, CameraMain);
+    RenderObjects(commandBuffer, imageIndex, currentFrame, CameraMain);
 
     vkCmdEndRendering(commandBuffer);
 

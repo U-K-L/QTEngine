@@ -25,6 +25,7 @@ struct Images
     uint NormalImage;
     uint PositionImage;
     uint DepthImage;
+    uint AlbedoImage;
 };
 
 Images InitImages()
@@ -34,6 +35,7 @@ Images InitImages()
     image.NormalImage = intArray[0];
     image.PositionImage = intArray[1];
     image.DepthImage = intArray[2];
+    image.AlbedoImage = intArray[3];
     
     return image;
 }
@@ -61,6 +63,7 @@ float4 main(VSOutput i) : SV_Target
     float4 normalImage = textures[images.NormalImage].Sample(samplers[images.NormalImage], textureUVs);
     float4 positionImage = textures[images.PositionImage].Sample(samplers[images.PositionImage], textureUVs);
     float4 depthImage = textures[images.DepthImage].Sample(samplers[images.DepthImage], textureUVs);
+    float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[images.AlbedoImage], textureUVs);
 
     float depth = depthImage.r;
     float linearDepth = LinearizeDepth(depth);
@@ -151,6 +154,7 @@ float4 main(VSOutput i) : SV_Target
     edgeDepth = edgeDepth > _DepthThreshold ? 1 : 0;
     
     //return edgePos;
+    return albedoImage;
     return edgeDepth + edgeNormal + edgePos;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //return float4(GammaEncode(color.xyz, 0.32875), color.w);

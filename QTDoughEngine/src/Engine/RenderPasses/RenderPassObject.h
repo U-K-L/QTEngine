@@ -25,6 +25,9 @@ class RenderPassObject
         VkImage image;
         VkDeviceMemory imageMemory;
         VkImageView imageView;
+        std::vector<VkImage> images;
+        std::vector<VkDeviceMemory> imagesMemory;
+        std::vector<VkImageView> imagesViews;
         VkPipeline graphicsPipeline;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorPool descriptorPool;
@@ -49,7 +52,8 @@ class RenderPassObject
         virtual void CreateMaterials();
         virtual void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame);
         virtual void CleanupPipeline();
-        virtual void RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
+        virtual void RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, UnigmaCameraStruct* CameraMain);
         virtual void UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
-        virtual void RenderPassObject::RenderPerObject(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
+        virtual void RenderPerObject(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
+        virtual void RenderPerObject(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, std::vector<VkImageView*> targetImages, UnigmaCameraStruct* CameraMain);
 };

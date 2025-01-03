@@ -111,7 +111,7 @@ void BackgroundPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, 
     // Draw the quad using indices
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
-    RenderObjects(commandBuffer, imageIndex, currentFrame, targetImage, CameraMain);
+    RenderObjects(commandBuffer, imageIndex, currentFrame, CameraMain);
 
     vkCmdEndRendering(commandBuffer);
 
