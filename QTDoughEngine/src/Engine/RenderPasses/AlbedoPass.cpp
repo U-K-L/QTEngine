@@ -6,7 +6,7 @@ AlbedoPass::~AlbedoPass() {
 
 AlbedoPass::AlbedoPass() {
     PassName = "AlbedoPass";
-    PassNames.push_back("AlbedoPass");
+    PassNames.push_back("AlbedoPass2");
     PassNames.push_back("OutlineColorsPass");
 }
 
@@ -31,6 +31,11 @@ void AlbedoPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint
 
 void AlbedoPass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    images.resize(PassNames.size());
+    imagesViews.resize(PassNames.size());
+    imagesMemory.resize(PassNames.size());
+
 
     for (int i = 0; i < material.textures.size(); i++) {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);
