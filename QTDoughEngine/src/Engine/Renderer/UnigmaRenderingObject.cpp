@@ -217,26 +217,20 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
 
 void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera, void* uniformMem) {
 
-    static auto startTime = std::chrono::high_resolution_clock::now(); //Remove this nasty.
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
     UniformBufferObject ubo{};
-    //Make transform follow sin and cos.
     ubo.model = uRObj._transform.transformMatrix;
-    //rotate camera.
-        // Rotate the camera position and forward vector around its up axis
-    float rotationSpeed = glm::radians(0.0001f); // Rotate 45 degrees per second
+    float rotationSpeed = glm::radians(0.0001f);
     float angle =  rotationSpeed;
 
     camera.aspectRatio = app.swapChainExtent.width / (float)app.swapChainExtent.height;
 
     ubo.view = glm::lookAt(camera.position(), camera.position() + camera.forward(), camera.up);
-    ubo.proj = camera.getProjectionMatrix();//glm::ortho(-640.0f/2, 640.0f/2, 520.0f/2, -520.0f/2, 0.01f, 1000.0f);//camera.getProjectionMatrix();
+    ubo.proj = camera.getProjectionMatrix();
 
-    //ubo.proj = glm::perspective(glm::radians(45.0f), app.swapChainExtent.width / (float)app.swapChainExtent.height, 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
     ubo.baseAlbedo = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    ubo.innerOutlineColor = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+    ubo.outerOutlineColor = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
 
     if(_material.vectorProperties.count("BaseAlbedo") > 0)
 		ubo.baseAlbedo = _material.vectorProperties["BaseAlbedo"];
@@ -245,10 +239,29 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
 
     memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 
+    // Determine the size of the array (should be the same as used during buffer creation)
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
 
-    //Update int array assignments.
+    for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+    {
+        if (app.textures.count(_material.textureNames[i]) > 0)
+            _material.textureIDs[i] = app.textures[_material.textureNames[i]].ID;
+        else
+            _material.textureIDs[i] = 0;
+    }
 
-// Determine the size of the array (should be the same as used during buffer creation)
+
+    void* data;
+    vkMapMemory(app._logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, _material.textureIDs, bufferSize); // Copy your unsigned int array
+    vkUnmapMemory(app._logicalDevice, intArrayBufferMemory);
+}
+
+void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera, void* uniformMem, UniformBufferObject ubo) {
+
+    memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
+    // Determine the size of the array (should be the same as used during buffer creation)
     VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
 
     for (int i = 0; i < MAX_NUM_TEXTURES; i++)

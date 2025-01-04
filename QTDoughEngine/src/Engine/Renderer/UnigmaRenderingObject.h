@@ -22,6 +22,9 @@ class UnigmaRenderingObject {
 			alignas(16) glm::mat4 view;
 			alignas(16) glm::mat4 proj;
 			alignas(16) glm::vec4 baseAlbedo;
+			alignas(16) glm::vec2 texelSize;
+			alignas(16) glm::vec4 outerOutlineColor;
+			alignas(16) glm::vec4 innerOutlineColor;
 			Uint32 ID;
 		};
 
@@ -70,6 +73,7 @@ class UnigmaRenderingObject {
 		void Cleanup(QTDoughApplication& app);
 		void LoadBlenderMeshData(RenderObject& rObj);
 		void UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera, void* uniformMem);
+		void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_t currentImage, UnigmaRenderingObject& uRObj, UnigmaCameraStruct& camera, void* uniformMem, UniformBufferObject ubo);
 		void CreateDescriptorSets(QTDoughApplication& app);
 		void CreateDescriptorPool(QTDoughApplication& app);
 		void CreateUniformBuffers(QTDoughApplication& app);

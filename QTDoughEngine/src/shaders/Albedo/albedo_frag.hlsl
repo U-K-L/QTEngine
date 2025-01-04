@@ -1,5 +1,16 @@
 #include "../Helpers/ShaderHelpers.hlsl"
-#include "../Helpers/UniformBuffers.hlsl"
+
+cbuffer UniformBufferObject : register(b0, space1)
+{
+    float4x4 model; // Model matrix
+    float4x4 view; // View matrix
+    float4x4 proj; // Projection matrix
+    float4 baseAlbedo;
+    float2 texelSize;
+    float4 outerOutlineColor;
+    float4 innerOutlineColor;
+    uint ID;
+}
 
 struct PSInput
 {
@@ -70,7 +81,7 @@ PSOutput main(PSInput input)
     finalColor.a = 1.0;
     //return animeGirl;
     output.color0 = lerp(finalColor, animeGirl, 0);
-    output.color1 = lerp(finalColor, animeGirl, 0);
-    output.color2 = float4(0, 1.0, 0, 1.0);
+    output.color1 = outerOutlineColor;
+    output.color2 = innerOutlineColor;
     return output;
 }
