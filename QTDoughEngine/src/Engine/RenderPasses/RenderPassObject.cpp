@@ -606,7 +606,9 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
 void RenderPassObject::CleanupPipeline() {
     VkDevice device = QTDoughApplication::instance->_logicalDevice;
 
-    std::cout << "Cleaning up pipeline" << std::endl;
+    std::cout << "Cleaning up pipeline: " << PassName << std::endl;
+
+    vkDeviceWaitIdle(device);
 
     if (graphicsPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
@@ -616,28 +618,30 @@ void RenderPassObject::CleanupPipeline() {
     }
 
     //delete images
+    if (imageView != VK_NULL_HANDLE)
+        vkDestroyImageView(device, imageView, nullptr);
     if (image != VK_NULL_HANDLE) {
 		vkDestroyImage(device, image, nullptr);
 	}
     if (imageMemory != VK_NULL_HANDLE) {
 		vkFreeMemory(device, imageMemory, nullptr);
 	}
-    //image view
-    if (imageView != VK_NULL_HANDLE)
-        vkDestroyImageView(device, imageView, nullptr);
+
 
     //delete all images in loop.
 
+    std::cout << "Cleaning pipiline loop" << std::endl;
     for (int i = 0; i < images.size(); i++)
 	{
+        if (imagesViews[i] != VK_NULL_HANDLE)
+            vkDestroyImageView(device, imagesViews[i], nullptr);
 		if (images[i] != VK_NULL_HANDLE) {
 			vkDestroyImage(device, images[i], nullptr);
 		}
 		if (imagesMemory[i] != VK_NULL_HANDLE) {
 			vkFreeMemory(device, imagesMemory[i], nullptr);
 		}
-		if (imagesViews[i] != VK_NULL_HANDLE)
-			vkDestroyImageView(device, imagesViews[i], nullptr);
+
 	}
 
 }

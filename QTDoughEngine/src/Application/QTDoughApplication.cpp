@@ -1952,9 +1952,8 @@ void QTDoughApplication::RecreateSwapChain()
 
 void QTDoughApplication::RecreateResources()
 {
-    /*
-    vkDeviceWaitIdle(_logicalDevice);
 
+    /*
     vkDestroyDescriptorPool(_logicalDevice, globalDescriptorPool, nullptr);
 
     // Recreate pool
