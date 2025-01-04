@@ -9,6 +9,13 @@ struct PSInput
     nointerpolation float3 normal : NORMAL; // Location 2, flat interpolation
 };
 
+struct PSOutput
+{
+    float4 color0 : SV_Target0; // Will map to color attachment #0
+    float4 color1 : SV_Target1; // Will map to color attachment #1
+    float4 color2 : SV_Target2; // Will map to color attachment #2
+};
+
 // Define an unbounded array of textures and samplers
 // Using register space0 to match Vulkan descriptor set 0
 Texture2D textures[] : register(t0, space0); //Global
@@ -35,8 +42,9 @@ cbuffer LightBuffer : register(b0)
     float3 lightDir; // Add this if lightDir needs to be adjustable via a uniform
 };
 
-float4 main(PSInput input) : SV_TARGET
+PSOutput main(PSInput input)
 {
+    PSOutput output;
     Images images = InitImages();
     float2 textureUVs = float2(input.uv.x, 1.0 - input.uv.y);
     float4 animeGirl = textures[images.AnimeGirl].Sample(samplers[images.AnimeGirl], textureUVs);
@@ -61,5 +69,8 @@ float4 main(PSInput input) : SV_TARGET
     
     finalColor.a = 1.0;
     //return animeGirl;
-    return lerp(finalColor, animeGirl, 0);
+    output.color0 = lerp(finalColor, animeGirl, 0);
+    output.color1 = float4(1.0, 0, 0, 1.0);
+    output.color2 = float4(0, 1.0, 0, 1.0);
+    return output;
 }

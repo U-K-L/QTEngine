@@ -783,7 +783,6 @@ void RenderPassObject::RenderPerObject(VkCommandBuffer commandBuffer, uint32_t i
     renderingInfo.renderArea.offset = { 0, 0 };
     renderingInfo.renderArea.extent = app->swapChainExtent;
     renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 1;
     renderingInfo.colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size()); // Multi render outputs.
     renderingInfo.pColorAttachments = colorAttachments.data();
     renderingInfo.pDepthAttachment = &depthAttachment;

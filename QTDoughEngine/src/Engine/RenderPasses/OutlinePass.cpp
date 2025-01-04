@@ -24,6 +24,8 @@ void OutlinePass::CreateMaterials() {
     material.textureNames[1] = "PositionPass";
     material.textureNames[2] = "DepthPass";
     material.textureNames[3] = "AlbedoPass2";
+    material.textureNames[4] = "OutlineColorsPass";
+    material.textureNames[5] = "InnerOutlineColorsPass";
 
 
 }
