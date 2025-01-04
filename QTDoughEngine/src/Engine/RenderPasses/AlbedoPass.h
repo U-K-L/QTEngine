@@ -3,7 +3,6 @@
 class AlbedoPass : public RenderPassObject
 {
 public:
-    std::vector<std::string> PassNames;
     // Constructor
     AlbedoPass();
 

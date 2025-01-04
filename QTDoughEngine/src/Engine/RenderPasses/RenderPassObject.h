@@ -22,6 +22,7 @@ class RenderPassObject
         std::vector<UnigmaRenderingObject*> renderingObjects;
         UnigmaMaterial material;
         std::string PassName = "DefaultPass";
+        std::vector<std::string> PassNames; //too lazy to refactor forgive me.
         VkImage image;
         VkDeviceMemory imageMemory;
         VkImageView imageView;

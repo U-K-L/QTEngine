@@ -133,6 +133,27 @@ void RenderPassObject::CreateGraphicsPipeline()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    std::vector<VkFormat> ColorFormats;
+    ColorFormats.resize(1 + PassNames.size());
+
+    for (int i = 0; i < ColorFormats.size(); i++)
+        ColorFormats[i] = app->_swapChainImageFormat;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments(ColorFormats.size());
+    for (size_t i = 0; i < blendAttachments.size(); i++) {
+        blendAttachments[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT;
+        blendAttachments[i].blendEnable = VK_TRUE;
+        blendAttachments[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        blendAttachments[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        blendAttachments[i].colorBlendOp = VK_BLEND_OP_ADD;
+        blendAttachments[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        blendAttachments[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        blendAttachments[i].alphaBlendOp = VK_BLEND_OP_ADD;
+    }
+
     //Get textures.
 
     std::cout << "Creating graphics pipeline background for: " << PassName << std::endl;
@@ -248,8 +269,8 @@ void RenderPassObject::CreateGraphicsPipeline()
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable = VK_FALSE;
     colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.attachmentCount = blendAttachments.size();
+    colorBlending.pAttachments = blendAttachments.data();
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -275,11 +296,12 @@ void RenderPassObject::CreateGraphicsPipeline()
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
+
     // Dynamic Rendering Pipeline Setup
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
     pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineRenderingInfo.colorAttachmentCount = 1;
-    pipelineRenderingInfo.pColorAttachmentFormats = &app->_swapChainImageFormat;
+    pipelineRenderingInfo.colorAttachmentCount = ColorFormats.size();
+    pipelineRenderingInfo.pColorAttachmentFormats = ColorFormats.data();
     pipelineRenderingInfo.depthAttachmentFormat = app->FindDepthFormat();
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};

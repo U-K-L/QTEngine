@@ -70,7 +70,7 @@ PSOutput main(PSInput input)
     finalColor.a = 1.0;
     //return animeGirl;
     output.color0 = lerp(finalColor, animeGirl, 0);
-    output.color1 = float4(1.0, 0, 0, 1.0);
+    output.color1 = lerp(finalColor, animeGirl, 0);
     output.color2 = float4(0, 1.0, 0, 1.0);
     return output;
 }
