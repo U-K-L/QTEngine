@@ -9,8 +9,6 @@
 #include "Vector.h"
 #include "../Game/UnigmaGameManager.h"
 #include <stdio.h>
-
-#include <iostream>
 #include <SDL.h>
 
 

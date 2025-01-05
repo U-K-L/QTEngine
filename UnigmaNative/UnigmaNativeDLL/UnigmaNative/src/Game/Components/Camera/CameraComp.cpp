@@ -4,6 +4,7 @@
 
 //SDL
 #include <SDL.h>
+#include "../../../Core/InputHander.h"
 
 CameraComp::CameraComp()
 {
@@ -13,8 +14,10 @@ CameraComp::~CameraComp()
 {
 }
 
+
 void CameraComp::Update()
 {
+    /*
     // Get the input event
     SDL_Event inputEvent = UnigmaGameManager::instance->inputEvent;
 
@@ -100,12 +103,30 @@ void CameraComp::Update()
         int scrollY = inputEvent.wheel.y;
         camera->Zoom(scrollY);
     }
-
+    */
     //If keyboard P button press change to perspective or orthogonal. depending on current.
-    if (inputEvent.type == SDL_KEYDOWN && inputEvent.key.keysym.sym == SDLK_p)
+    if (perspectiveButtonDown)
 	{
-		camera->isOrthogonal = !camera->isOrthogonal;
+		//camera->isOrthogonal = !camera->isOrthogonal;
+        float transitionSpeed = 1.0f;
+
+        camera->isOrthogonal -= transitionSpeed * UnigmaGameManager::instance->deltaTime;
 	}
+
+    //ooposite if O is pressed
+    if (orthoButtonDown)
+    {
+        float transitionSpeed = 1.01f;
+
+		camera->isOrthogonal += transitionSpeed * UnigmaGameManager::instance->deltaTime;
+	}
+
+    //rotate camera.
+    glm::vec3 targetPoint = glm::vec3(0, 0, 0);
+    float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.000000005) * 360;
+    camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
+
+    //std::cout << "Delta time: " << UnigmaGameManager::instance->deltaTime << std::endl;
 }
 
 
@@ -119,7 +140,7 @@ void CameraComp::Start()
 
 	camera = &Cameras[CameraID];
 
-    camera->farClip = 1000.0f;
-    camera->nearClip = 0.01f;
+    camera->farClip = 15.0f;
+    camera->nearClip = 0.1f;
     camera->isOrthogonal = 0.0f;
 }

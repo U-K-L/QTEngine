@@ -53,6 +53,7 @@ public:
     //Add to input manager in the future.
     SDL_Event inputEvent;
     float deltaTime;
+    float currentTime;
     std::chrono::high_resolution_clock::time_point lastTime;
     std::chrono::high_resolution_clock::time_point inputTime;
 

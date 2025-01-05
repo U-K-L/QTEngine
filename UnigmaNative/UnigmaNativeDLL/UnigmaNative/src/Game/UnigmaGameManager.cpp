@@ -3,7 +3,7 @@
 #include "GlobalObjects.h"
 #include <iostream>
 #include <chrono>
-
+#include "../Core/InputHander.h"
 
 UnigmaGameManager* UnigmaGameManager::instance = nullptr; // Define the static member
 //pointer to the callback function
@@ -76,26 +76,26 @@ void UnigmaGameManager::Start()
 void UnigmaGameManager::Update()
 {
 	auto elaspedTime = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - lastTime).count();
+	deltaTime = elaspedTime;
 
-	bool processInput = false;
-	while (SDL_PollEvent(&inputEvent))
-	{
-		//print all events.
-		SceneManager->Update();
-		RenderingManager->Update();
+	SetButtonInputs();
 
-		//Update each component.
-		for (auto& component : Components)
-		{
-			component->Update();
-		}
-		processInput = true;
-	}
-	if (processInput)
+	SceneManager->Update();
+	RenderingManager->Update();
+
+	//Update each component.
+	for (auto& component : Components)
 	{
-		SDL_Delay(16);
-		processInput = false;
+		component->Update();
 	}
+
+	lastTime = std::chrono::high_resolution_clock::now();
+
+	// Get the time since the epoch in seconds as a floating-point value
+	auto timeSinceEpoch = std::chrono::duration<float>(lastTime.time_since_epoch()).count();
+	currentTime = timeSinceEpoch;
+
+	//SDL_Delay(16);
 
 	/*
 	if(elaspedTime > 0)
