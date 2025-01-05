@@ -73,6 +73,7 @@ float4 main(VSOutput i) : SV_Target
     outColor = float4(outColor.xyz, 1.0);
     
     return outlineImage;
+    //return float4(rand(positionImage.a * 100), rand(positionImage.a * 100 + 1), rand(positionImage.a * 100 + 2), 1.0);
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     return float4(GammaEncode(color.xyz, 0.32875), color.w);

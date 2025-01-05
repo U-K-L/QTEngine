@@ -82,10 +82,10 @@ float4 main(VSOutput i) : SV_Target
     
     float _DepthThreshold = 0.4;
     float _NormalThreshold = 0.2;
-    float _PosThreshold = 0.01;
-    float _ScaleOuter = 3.0;
+    float _PosThreshold = 0.0;
+    float _ScaleOuter = 4.0;
     float _ScaleInner = 1.0;
-    float _ScaleOuterOuterLines = 10.0;
+    float _ScaleOuterOuterLines = 18.0;
     float OuterScale = _ScaleOuter;
     
     float scaleFloor = floor(OuterScale * 0.5);
@@ -108,9 +108,8 @@ float4 main(VSOutput i) : SV_Target
 
     float posFiniteDifference3 = abs(pos1 - pos0); //length(pos1 - pos0);
     float posFiniteDifference4 = abs(pos3 - pos2); //length(pos3 - pos2);
-    float edgePos = sqrt(pow(posFiniteDifference3, 2) + pow(posFiniteDifference4, 2)) * 100;
-    float posThreshold = _PosThreshold;
-    edgePos = edgePos > posThreshold ? 1 : 0;
+    float edgePos = sqrt(pow(posFiniteDifference3, 2) + pow(posFiniteDifference4, 2)) * 1000;
+    edgePos = edgePos > _PosThreshold ? 1 : 0;
     
     //------------------------------------------------------
     
@@ -158,8 +157,15 @@ float4 main(VSOutput i) : SV_Target
     
     float edgeDepth = sqrt(pow(depthFiniteDifference0, 2) + pow(depthFiniteDifference1, 2)) * 1;
     edgeDepth = edgeDepth > _DepthThreshold ? 1 : 0;
+    edgeDepth *= 1.0 - step(depthImage.r, 0.9999);
     
-    return innerColorsImage;
+    //Combine the lines. most outter overrides most inner.
+    
+    //First check if inner is 0, then add outer.
+    float4 outterLineFinal = lerp((edgeNormal * innerColorsImage), (edgePos * outlineColorsImage), edgePos);
+    float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;
+    
+    return finalOutline;
     //return edgePos;
     return albedoImage;
     return edgeDepth + edgeNormal + edgePos;

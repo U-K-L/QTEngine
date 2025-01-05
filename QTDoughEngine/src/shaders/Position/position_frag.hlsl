@@ -21,7 +21,7 @@ cbuffer LightBuffer : register(b0)
 float4 main(PSInput input) : SV_TARGET
 {
     
-    float4 finalColor = float4(input.worldPosition.xyz, 1.0);
+    float4 finalColor = float4(input.worldPosition.xyz, rand(ID));
 
-    return float4(rand(ID), rand(ID + 255), rand(ID + 7546), 1.0);
+    return finalColor;
 }
