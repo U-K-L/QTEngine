@@ -13,10 +13,10 @@ class RenderPassObject
         ~RenderPassObject();
 
         struct UniformBufferObject {
-            alignas(16) glm::mat4 model;
-            alignas(16) glm::mat4 view;
-            alignas(16) glm::mat4 proj;
-            alignas(16) glm::vec2 texelSize;
+            glm::mat4 model;
+            glm::mat4 view;
+            glm::mat4 proj;
+            float time;
         };
 
         std::vector<UnigmaRenderingObject*> renderingObjects;
