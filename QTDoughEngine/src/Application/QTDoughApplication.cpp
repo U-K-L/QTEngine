@@ -743,6 +743,7 @@ void QTDoughApplication::InitVulkan()
     CreateGlobalDescriptorPool();
     CreateDescriptorSets();
     CreateGlobalDescriptorSet();
+    CreateGlobalUniformBuffers();
 
     //Create command buffers.
     CreateCommandBuffers();
@@ -1070,7 +1071,7 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     sampledImageBinding.binding = 0;
     sampledImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     sampledImageBinding.descriptorCount = 1000;
-    sampledImageBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    sampledImageBinding.stageFlags = VK_SHADER_STAGE_ALL;
     sampledImageBinding.pImmutableSamplers = nullptr;
 
     // Binding for samplers
@@ -1078,16 +1079,25 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     samplerBinding.binding = 1;
     samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerBinding.descriptorCount = 1000;
-    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerBinding.stageFlags = VK_SHADER_STAGE_ALL;
     samplerBinding.pImmutableSamplers = globalSamplers.data();
 
+    //Uniform buffer.
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 2;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
     // We now have two bindings
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { sampledImageBinding, samplerBinding };
+    std::array<VkDescriptorSetLayoutBinding, 3> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding };
 
     // For descriptor indexing flags
-    VkDescriptorBindingFlags bindingFlags[2] = {
+    VkDescriptorBindingFlags bindingFlags[3] = {
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
-        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
+        0
     };
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
@@ -1111,7 +1121,7 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     poolSizes[0].descriptorCount = 1000;
@@ -1119,11 +1129,16 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
     poolSizes[1].descriptorCount = 1000;
 
+    // Uniform buffer
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[2].descriptorCount = MAX_FRAMES_IN_FLIGHT;
+
+
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 1;
+    poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT;
 
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
@@ -1131,6 +1146,22 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
         throw std::runtime_error("failed to create global descriptor pool!");
     }
 }
+
+void QTDoughApplication::CreateGlobalUniformBuffers() {
+    globalUniformBufferObject.resize(MAX_FRAMES_IN_FLIGHT);
+    globalUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+    VkDeviceSize bufferSize = sizeof(GlobalUniformBufferObject);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        CreateBuffer(bufferSize,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            globalUniformBufferObject[i],
+            globalUniformBuffersMemory[i]);
+    }
+}
+
 
 void QTDoughApplication::UpdateGlobalDescriptorSet()
 {
@@ -1255,22 +1286,49 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
 
 void QTDoughApplication::CreateGlobalDescriptorSet()
 {
+    globalDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+
     uint32_t maxDescriptorCount = 1000;
 
     VkDescriptorSetVariableDescriptorCountAllocateInfo descriptorCountAllocInfo{};
     descriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-    descriptorCountAllocInfo.descriptorSetCount = 1;
+    descriptorCountAllocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     descriptorCountAllocInfo.pDescriptorCounts = &maxDescriptorCount;
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = globalDescriptorPool;
-    allocInfo.descriptorSetCount = 1;
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     allocInfo.pSetLayouts = &globalDescriptorSetLayout;
     allocInfo.pNext = &descriptorCountAllocInfo;
 
+
     if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, &globalDescriptorSet) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate global descriptor set!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = globalUniformBufferObject[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(GlobalUniformBufferObject);
+
+        VkWriteDescriptorSet uboWrite{};
+        uboWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        uboWrite.dstSet = globalDescriptorSets[i];
+        uboWrite.dstBinding = 2; 
+        uboWrite.dstArrayElement = 0;
+        uboWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboWrite.descriptorCount = 1;
+        uboWrite.pBufferInfo = &bufferInfo;
+
+        std::vector<VkWriteDescriptorSet> writes = { uboWrite };
+        vkUpdateDescriptorSets(_logicalDevice,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr);
     }
 }
 

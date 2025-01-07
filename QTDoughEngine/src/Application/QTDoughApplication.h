@@ -77,6 +77,11 @@ struct QueueFamilyIndices {
     }
 };
 
+struct GlobalUniformBufferObject {
+    alignas(16) float time;
+    alignas(16) float deltaTime;
+};
+
 
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -120,11 +125,15 @@ public:
     void AddPasses();
     void UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index);
     void AddRenderObject(UnigmaRenderingStructCopyableAttributes* renderObject, UnigmaGameObject* gObj, uint32_t index);
+    void CreateGlobalUniformBuffers();
     //Fields.
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
     std::chrono::high_resolution_clock::time_point timeMinutePassed;
     std::chrono::high_resolution_clock::time_point currentTime;
+    std::vector<VkBuffer> globalUniformBufferObject;
+    std::vector<VkDeviceMemory> globalUniformBuffersMemory;
+    std::vector<VkDescriptorSet> globalDescriptorSets;
     uint32_t currentFrame;
     float FPS;
     SDL_Window* QTSDLWindow;
