@@ -78,7 +78,7 @@ void PositionPass::RenderPerObject(VkCommandBuffer commandBuffer, uint32_t image
 
     // Combine both global and per-object descriptor sets
     VkDescriptorSet descriptorSetsToBind[] = {
-        app->globalDescriptorSet,       // Set 0: Global descriptor set
+        app->globalDescriptorSets[currentFrame],       // Set 0: Global descriptor set
         descriptorSets[currentFrame]    // Set 1: Per-object descriptor set
     };
 

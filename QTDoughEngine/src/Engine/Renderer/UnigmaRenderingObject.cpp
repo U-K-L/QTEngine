@@ -125,7 +125,7 @@ void UnigmaRenderingObject::RenderPass(QTDoughApplication& app, VkCommandBuffer 
 
     // Combine both global and per-object descriptor sets
     VkDescriptorSet descriptorSetsToBind[] = {
-        app.globalDescriptorSet,       // Set 0: Global descriptor set
+        app.globalDescriptorSets[currentFrame],       // Set 0: Global descriptor set
         _descriptorSets[currentFrame]    // Set 1: Per-object descriptor set
     };
 

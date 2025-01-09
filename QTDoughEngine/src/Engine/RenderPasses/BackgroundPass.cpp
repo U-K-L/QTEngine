@@ -80,7 +80,7 @@ void BackgroundPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, 
         pipelineLayout,
         0, // First set
         1, // Number of sets
-        &app->globalDescriptorSet,
+        &app->globalDescriptorSets[currentFrame],
         0, nullptr // No dynamic offsets
     );
 

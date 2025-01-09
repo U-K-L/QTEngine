@@ -1184,7 +1184,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
     VkWriteDescriptorSet imageWrite{};
     imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    imageWrite.dstSet = globalDescriptorSet;
+    imageWrite.dstSet = globalDescriptorSets[currentFrame];
     imageWrite.dstBinding = 0; // Binding for sampled images
     imageWrite.dstArrayElement = 0;
     imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -1303,7 +1303,7 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
     allocInfo.pNext = &descriptorCountAllocInfo;
 
 
-    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, &globalDescriptorSet) != VK_SUCCESS) {
+    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, globalDescriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate global descriptor set!");
     }
 

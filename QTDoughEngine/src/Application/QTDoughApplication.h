@@ -212,7 +212,7 @@ public:
     //Bindless
     VkDescriptorSetLayout globalDescriptorSetLayout;
     VkDescriptorPool globalDescriptorPool;
-    VkDescriptorSet globalDescriptorSet;
+    //VkDescriptorSet globalDescriptorSet;
     std::vector<VkSampler> globalSamplers;
 
 
