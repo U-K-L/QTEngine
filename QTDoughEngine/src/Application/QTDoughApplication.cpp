@@ -701,6 +701,7 @@ void QTDoughApplication::InitVulkan()
 
     //Create the intial instances, windows, get the GPU and create the swap chain.
 	CreateInstance();
+    SetupDebugMessenger();
     CreateWindowSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
@@ -742,8 +743,9 @@ void QTDoughApplication::InitVulkan()
     CreateDescriptorPool();
     CreateGlobalDescriptorPool();
     CreateDescriptorSets();
-    CreateGlobalDescriptorSet();
     CreateGlobalUniformBuffers();
+    CreateGlobalDescriptorSet();
+
 
     //Create command buffers.
     CreateCommandBuffers();
@@ -754,6 +756,33 @@ void QTDoughApplication::InitVulkan()
     //Sync the buffers.
     CreateSyncObjects();
 
+}
+
+VkResult QTDoughApplication::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    }
+    else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
+
+void QTDoughApplication::SetupDebugMessenger() {
+    if (!enableValidationLayers) return;
+
+
+    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.pfnUserCallback = debugCallback;
+    createInfo.pUserData = nullptr; // Optional
+
+    if (CreateDebugUtilsMessengerEXT(_vkInstance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+        throw std::runtime_error("failed to set up debug messenger!");
+    }
 }
 
 void QTDoughApplication::CreateImages()
@@ -1035,6 +1064,7 @@ void QTDoughApplication::CreateDescriptorPool()
 
 void QTDoughApplication::CreateUniformBuffers()
 {
+    std::cout << "Creating Uniform Buffers" << std::endl;
     for (int i = 0; i < renderPassStack.size(); i++)
     {
         renderPassStack[i]->CreateUniformBuffers();
@@ -1045,6 +1075,7 @@ void QTDoughApplication::CreateUniformBuffers()
         if (unigmaRenderingObjects[i].isRendering)
             unigmaRenderingObjects[i].CreateUniformBuffers(*this);
     }
+    std::cout << "Created Uniform Buffers" << std::endl;
 }
 
 void QTDoughApplication::CreateDescriptorSetLayout()
@@ -1064,6 +1095,7 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 
 void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 {
+    std::cout << "Creating global descriptor set layout" << std::endl;
     CreateGlobalSamplers(1000);
 
     // Binding for sampled images
@@ -1095,8 +1127,8 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 
     // For descriptor indexing flags
     VkDescriptorBindingFlags bindingFlags[3] = {
-        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
-        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
+        0,
+        0,
         0
     };
 
@@ -1117,10 +1149,13 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create global descriptor set layout!");
     }
+
+    std::cout << "Created global descriptor set layout" << std::endl;
 }
 
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
+    std::cout << "Creating Descriptor Pool" << std::endl;
     std::array<VkDescriptorPoolSize, 3> poolSizes{};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -1145,6 +1180,9 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
     if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &globalDescriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create global descriptor pool!");
     }
+
+    std::cout << "Created Descriptor Pool" << std::endl;
+
 }
 
 void QTDoughApplication::CreateGlobalUniformBuffers() {
@@ -1192,6 +1230,18 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     imageWrite.pImageInfo = imageInfos.data();
 
     vkUpdateDescriptorSets(_logicalDevice, 1, &imageWrite, 0, nullptr);
+
+    GlobalUniformBufferObject globalUBO{};
+    globalUBO.deltaTime = 0.0f;
+    globalUBO.time = 0.0f;
+
+    /*
+    void* data;
+    vkMapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame], 0,
+        sizeof(GlobalUniformBufferObject), 0, &data);
+    memcpy(data, &globalUBO, sizeof(GlobalUniformBufferObject));
+    vkUnmapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame]);
+    */
 }
 
 
@@ -1281,31 +1331,23 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
     textures.insert({ textureName, texture });
 }
 
-
-
-
 void QTDoughApplication::CreateGlobalDescriptorSet()
 {
+    std::cout << "Creating Global Descriptor Set" << std::endl;
     globalDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
 
-    uint32_t maxDescriptorCount = 1000;
-
-    VkDescriptorSetVariableDescriptorCountAllocateInfo descriptorCountAllocInfo{};
-    descriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-    descriptorCountAllocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-    descriptorCountAllocInfo.pDescriptorCounts = &maxDescriptorCount;
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, globalDescriptorSetLayout);
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = globalDescriptorPool;
     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-    allocInfo.pSetLayouts = &globalDescriptorSetLayout;
-    allocInfo.pNext = &descriptorCountAllocInfo;
-
+    allocInfo.pSetLayouts = layouts.data();  // 2 layouts for 2 descriptor sets
 
     if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, globalDescriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate global descriptor set!");
     }
+
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
@@ -1330,6 +1372,8 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
             0,
             nullptr);
     }
+
+    std::cout << "Created Global Descriptor Set" << std::endl;
 }
 
 
@@ -1738,11 +1782,29 @@ void QTDoughApplication::CreateInstance()
     createInfo.enabledLayerCount = 0;
 
     auto sdlExtensions = GetRequiredExtensions();
+
     createInfo.enabledExtensionCount = static_cast<uint32_t>(sdlExtensions.size());
     createInfo.ppEnabledExtensionNames = sdlExtensions.data();
 
     if (enableValidationLayers && !CheckValidationLayerSupport()) {
         throw std::runtime_error("validation layers requested, but not available!");
+    }
+
+
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+    if (enableValidationLayers) {
+        debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugCreateInfo.pfnUserCallback = debugCallback;
+        debugCreateInfo.pUserData = nullptr; // Optional
+
+        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+    }
+    else {
+        createInfo.enabledLayerCount = 0;
+
+        createInfo.pNext = nullptr;
     }
 
     //Finally create the instance.

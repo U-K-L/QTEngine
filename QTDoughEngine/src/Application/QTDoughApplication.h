@@ -100,6 +100,20 @@ static std::vector<char> readFile(const std::string& filename) {
     return buffer;
 };
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData) {
+
+    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+    return VK_FALSE;
+}
+
+
+
+
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -126,6 +140,7 @@ public:
     void UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index);
     void AddRenderObject(UnigmaRenderingStructCopyableAttributes* renderObject, UnigmaGameObject* gObj, uint32_t index);
     void CreateGlobalUniformBuffers();
+    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
     //Fields.
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
@@ -134,6 +149,7 @@ public:
     std::vector<VkBuffer> globalUniformBufferObject;
     std::vector<VkDeviceMemory> globalUniformBuffersMemory;
     std::vector<VkDescriptorSet> globalDescriptorSets;
+    VkDebugUtilsMessengerEXT debugMessenger;
     uint32_t currentFrame;
     float FPS;
     SDL_Window* QTSDLWindow;
@@ -223,6 +239,7 @@ private:
     //Methods.
     void InitSDLWindow();
     void InitVulkan();
+    void SetupDebugMessenger();
     void MainLoop();
     void CreateInstance();
     bool CheckValidationLayerSupport();
