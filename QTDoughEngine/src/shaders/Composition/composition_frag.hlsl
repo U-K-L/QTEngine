@@ -35,12 +35,12 @@ Images InitImages()
     return image;
 }
 
-// Define any constants or uniforms you need
-cbuffer Constants : register(b0, space0)
+cbuffer Constants : register(b2, space0)
 {
-    uint offscreenImageIndex;
-    // Add any other constants you might need
-}
+    float deltaTime; // offset 0
+    float time; // offset 4
+    float2 pad; // offset 8..15, total 16 bytes
+};
 
 struct VSOutput
 {
@@ -72,10 +72,11 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    return outlineImage;
+    //return outlineImage;
     //return float4(rand(positionImage.a * 100), rand(positionImage.a * 100 + 1), rand(positionImage.a * 100 + 2), 1.0);
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
-    return float4(GammaEncode(color.xyz, 0.32875), color.w);
+    float sins = sin(time);
+    return float4(GammaEncode(outlineImage.xyz, 0.32875 * sins), color.w);
 
 }

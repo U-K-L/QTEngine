@@ -1231,17 +1231,22 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
     vkUpdateDescriptorSets(_logicalDevice, 1, &imageWrite, 0, nullptr);
 
+    std::chrono::steady_clock::time_point currentTime = std::chrono::steady_clock::now();
+    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - timeSinceApplication).count();
+    timeSinceApplication = currentTime;
     GlobalUniformBufferObject globalUBO{};
-    globalUBO.deltaTime = 0.0f;
-    globalUBO.time = 0.0f;
+    globalUBO.deltaTime = deltaTime;
+    globalUBO.time = timeSinceApplication.time_since_epoch().count();
 
-    /*
+    std::cout << "Time: " << globalUBO.time << std::endl;
+
+    
     void* data;
     vkMapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame], 0,
         sizeof(GlobalUniformBufferObject), 0, &data);
     memcpy(data, &globalUBO, sizeof(GlobalUniformBufferObject));
     vkUnmapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame]);
-    */
+    
 }
 
 

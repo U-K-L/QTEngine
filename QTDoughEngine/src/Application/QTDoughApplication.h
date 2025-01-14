@@ -76,13 +76,13 @@ struct QueueFamilyIndices {
         return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
-
-struct GlobalUniformBufferObject {
-    alignas(16) float time;
-    alignas(16) float deltaTime;
+struct GlobalUniformBufferObject
+{
+    float deltaTime;    // offset 0
+    float time;         // offset 4
+    float pad[2];       // offset 8..15 to make total 16 bytes
+    // total struct size = 16 bytes
 };
-
-
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
