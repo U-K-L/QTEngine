@@ -28,6 +28,8 @@ struct Images
     uint AlbedoImage;
     uint OutlineColorsImage;
     uint InnerColorsImage;
+    uint UVImage;
+    uint NoiseAndGrainImage;
 };
 
 Images InitImages()
@@ -40,6 +42,8 @@ Images InitImages()
     image.AlbedoImage = intArray[3];
     image.OutlineColorsImage = intArray[4];
     image.InnerColorsImage = intArray[5];
+    image.UVImage = intArray[6];
+    image.NoiseAndGrainImage = intArray[7];
     
     return image;
 }
@@ -70,6 +74,10 @@ float4 main(VSOutput i) : SV_Target
     float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[images.AlbedoImage], textureUVs);
     float4 outlineColorsImage = textures[images.OutlineColorsImage].Sample(samplers[images.OutlineColorsImage], textureUVs);
     float4 innerColorsImage = textures[images.InnerColorsImage].Sample(samplers[images.InnerColorsImage], textureUVs);
+    float4 uvImage = textures[images.UVImage].Sample(samplers[images.UVImage], textureUVs);
+    
+    
+    float4 noiseAndGrain = textures[images.NoiseAndGrainImage].Sample(samplers[images.NoiseAndGrainImage], uvImage.xy);
 
     float depth = depthImage.r;
     float linearDepth = LinearizeDepth(depth);
@@ -165,7 +173,7 @@ float4 main(VSOutput i) : SV_Target
     float4 outterLineFinal = lerp((edgeNormal * innerColorsImage), (edgePos * outlineColorsImage), edgePos);
     float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;
     
-    return finalOutline;
+    return noiseAndGrain;
     //return edgePos;
     return albedoImage;
     return edgeDepth + edgeNormal + edgePos;

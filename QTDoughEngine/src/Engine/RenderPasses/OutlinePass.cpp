@@ -26,6 +26,11 @@ void OutlinePass::CreateMaterials() {
     material.textureNames[3] = "AlbedoPass2";
     material.textureNames[4] = "OutlineColorsPass";
     material.textureNames[5] = "InnerOutlineColorsPass";
+    material.textureNames[6] = "UVPass";
+    material.textureNames[7] = "NoiseAndGrain";
+
+    material.push_back_texture(UnigmaTexture(std::string(AssetsPath + "Textures/NoiseAndGrain.png")), std::string(AssetsPath + "Textures/NoiseAndGrain.png"));
+
 
 
 }

@@ -9,6 +9,7 @@ AlbedoPass::AlbedoPass() {
     PassNames.push_back("AlbedoPass2");
     PassNames.push_back("OutlineColorsPass");
     PassNames.push_back("InnerOutlineColorsPass");
+    PassNames.push_back("UVPass");
 }
 
 void AlbedoPass::CreateMaterials() {

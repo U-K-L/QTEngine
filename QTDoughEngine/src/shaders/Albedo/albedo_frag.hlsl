@@ -25,6 +25,7 @@ struct PSOutput
     float4 color0 : SV_Target0; // Will map to color attachment #0
     float4 color1 : SV_Target1; // Will map to color attachment #1
     float4 color2 : SV_Target2; // Will map to color attachment #2
+    float4 color3 : SV_Target3; // Will map to color attachment #3
 };
 
 // Define an unbounded array of textures and samplers
@@ -83,5 +84,8 @@ PSOutput main(PSInput input)
     output.color0 = lerp(finalColor, animeGirl, 0);
     output.color1 = outerOutlineColor;
     output.color2 = innerOutlineColor;
+    
+    //w component should not need to be 1, there is some incorrect blending here.
+    output.color3 = float4(textureUVs.x, textureUVs.y, texelSize.x, 1);
     return output;
 }

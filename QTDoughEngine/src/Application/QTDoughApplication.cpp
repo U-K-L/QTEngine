@@ -1231,14 +1231,16 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
     vkUpdateDescriptorSets(_logicalDevice, 1, &imageWrite, 0, nullptr);
 
-    std::chrono::steady_clock::time_point currentTime = std::chrono::steady_clock::now();
-    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - timeSinceApplication).count();
-    timeSinceApplication = currentTime;
+    auto timeNow = std::chrono::high_resolution_clock::now();
+    auto duration = timeSinceApplication;
+    float timeInSeconds = std::chrono::duration<float, std::milli>(timeNow - duration).count();
+
+
+    float deltaTime = std::chrono::duration<float>(timeNow - currentTime).count(); //current time a frame behind.
+
     GlobalUniformBufferObject globalUBO{};
     globalUBO.deltaTime = deltaTime;
-    globalUBO.time = timeSinceApplication.time_since_epoch().count();
-
-    std::cout << "Time: " << globalUBO.time << std::endl;
+    globalUBO.time = timeInSeconds;
 
     
     void* data;
@@ -1246,6 +1248,8 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         sizeof(GlobalUniformBufferObject), 0, &data);
     memcpy(data, &globalUBO, sizeof(GlobalUniformBufferObject));
     vkUnmapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame]);
+
+    currentTime = timeNow;
     
 }
 
@@ -1316,6 +1320,7 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
 
     texture.u_imageView = CreateImageView(texture.u_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 
+    //Remove the path and .png from the filename.
     std::vector<std::string> tokens;
     std::istringstream tokenStream(filename);
     std::string token;
@@ -1332,6 +1337,7 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
         std::cout << "Texture Loaded Name Final Token: " << tokens.back() << std::endl;
     }
 
+    //Pick the removed .png and path to get name, else use the full path.
     std::string textureName = tokens.empty() ? filename : tokens.back();
     textures.insert({ textureName, texture });
 }
@@ -1764,6 +1770,10 @@ void QTDoughApplication::CreateSwapChain() {
 
 void QTDoughApplication::CreateInstance()
 {
+
+    //Create time.
+    timeSinceApplication = std::chrono::steady_clock::now();
+
     unsigned int extensionCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     VkApplicationInfo appInfo{};

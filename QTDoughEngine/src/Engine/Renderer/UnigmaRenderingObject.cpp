@@ -246,6 +246,7 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     // Determine the size of the array (should be the same as used during buffer creation)
     VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
 
+    //When this object is being render as per object pass, set the textures of the pass to the ones on this material by index.
     for (int i = 0; i < MAX_NUM_TEXTURES; i++)
     {
         if (app.textures.count(_material.textureNames[i]) > 0)
