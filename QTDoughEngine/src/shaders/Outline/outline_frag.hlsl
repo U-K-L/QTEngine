@@ -48,12 +48,12 @@ Images InitImages()
     return image;
 }
 
-// Define any constants or uniforms you need
-cbuffer Constants : register(b0, space0)
+cbuffer Constants : register(b2, space0)
 {
-    uint offscreenImageIndex;
-    // Add any other constants you might need
-}
+    float deltaTime; // offset 0
+    float time; // offset 4
+    float2 pad; // offset 8..15, total 16 bytes
+};
 
 struct VSOutput
 {
@@ -76,8 +76,15 @@ float4 main(VSOutput i) : SV_Target
     float4 innerColorsImage = textures[images.InnerColorsImage].Sample(samplers[images.InnerColorsImage], textureUVs);
     float4 uvImage = textures[images.UVImage].Sample(samplers[images.UVImage], textureUVs);
     
+    float2 uvs4Noise = uvImage.xy * 4.0f;
+    float3 _Time = time*0.0001f;
+    float4 _SurfaceNoiseScroll = float4(1, 0, 0, 1);
+    float3 flowDirection = _SurfaceNoiseScroll.xyz * _SurfaceNoiseScroll.w;
+    float3 noiseUV = float3(uvs4Noise.x + _Time.y * flowDirection.x, uvs4Noise.y + _Time.y * flowDirection.y, uvs4Noise.y + _Time.y * flowDirection.z);
     
-    float4 noiseAndGrain = textures[images.NoiseAndGrainImage].Sample(samplers[images.NoiseAndGrainImage], uvImage.xy);
+    float4 noiseAndGrain = textures[images.NoiseAndGrainImage].Sample(samplers[images.NoiseAndGrainImage], noiseUV.xy);
+    
+    float lineBreaker = 1.0 - step(0.8, noiseAndGrain.r);
 
     float depth = depthImage.r;
     float linearDepth = LinearizeDepth(depth);
@@ -170,13 +177,15 @@ float4 main(VSOutput i) : SV_Target
     //Combine the lines. most outter overrides most inner.
     
     //First check if inner is 0, then add outer.
-    float4 outterLineFinal = lerp((edgeNormal * innerColorsImage), (edgePos * outlineColorsImage), edgePos);
+    float4 outterLineFinal = lerp(edgeNormal * innerColorsImage, edgePos * outlineColorsImage, edgePos);// * lineBreaker;
     float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;
     
-    return noiseAndGrain;
+    
+    return positionImage;
+    //return noiseAndGrain;
     //return edgePos;
-    return albedoImage;
-    return edgeDepth + edgeNormal + edgePos;
+    //return albedoImage;
+    //return edgeDepth + edgeNormal + edgePos;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //return float4(GammaEncode(color.xyz, 0.32875), color.w);
 

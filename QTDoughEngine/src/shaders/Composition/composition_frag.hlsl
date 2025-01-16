@@ -61,6 +61,7 @@ float4 main(VSOutput i) : SV_Target
     float4 depthImage = textures[images.DepthImage].Sample(samplers[images.DepthImage], textureUVs);
     float4 outlineImage = textures[images.OutlineImage].Sample(samplers[images.OutlineImage], textureUVs);
 
+    return float4(positionImage.xyz, 1);
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
     float depth = depthImage.r;

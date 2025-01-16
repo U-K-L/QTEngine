@@ -6,6 +6,8 @@ RenderPassObject::~RenderPassObject() {
 
 RenderPassObject::RenderPassObject() {}
 
+
+
 void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -145,7 +147,7 @@ void RenderPassObject::CreateGraphicsPipeline()
             VK_COLOR_COMPONENT_G_BIT |
             VK_COLOR_COMPONENT_B_BIT |
             VK_COLOR_COMPONENT_A_BIT;
-        blendAttachments[i].blendEnable = VK_TRUE;
+        blendAttachments[i].blendEnable = VK_FALSE;
         blendAttachments[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         blendAttachments[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         blendAttachments[i].colorBlendOp = VK_BLEND_OP_ADD;
@@ -491,7 +493,7 @@ void RenderPassObject::CreateImages() {
 		}
 	}
 
-    VkFormat imageFormat = app->_swapChainImageFormat;
+    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;//app->_swapChainImageFormat;
 
     // Create the offscreen image
     app->CreateImage(
