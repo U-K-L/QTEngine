@@ -47,6 +47,7 @@ class RenderPassObject
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();
         virtual void CreateGraphicsPipeline();
+        virtual void AddObjects(UnigmaRenderingObject* unigmaRenderingObjects);
         virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage = nullptr, UnigmaCameraStruct* CameraMain = nullptr);
         virtual void CreateImages();
         virtual void CreateDescriptorSetLayout();

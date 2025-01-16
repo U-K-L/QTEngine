@@ -671,16 +671,11 @@ void QTDoughApplication::AddPasses()
     NormalPass* normalPass = new NormalPass();
     AlbedoPass* albedoPass = new AlbedoPass();
     BackgroundPass* bgPass = new BackgroundPass();
+
     //Add objects.
-    for (int i = 0; i < NUM_OBJECTS; i++)
-    {
-        if (unigmaRenderingObjects[i].isRendering)
-        {
-            albedoPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
-            normalPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
-            positionPass->renderingObjects.push_back(&unigmaRenderingObjects[i]);
-        }
-    }
+    albedoPass->AddObjects(unigmaRenderingObjects);
+    normalPass->AddObjects(unigmaRenderingObjects);
+    positionPass->AddObjects(unigmaRenderingObjects);
 
     renderPassStack.push_back(bgPass);
     renderPassStack.push_back(albedoPass);

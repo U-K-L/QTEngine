@@ -6,7 +6,18 @@ RenderPassObject::~RenderPassObject() {
 
 RenderPassObject::RenderPassObject() {}
 
+void RenderPassObject::AddObjects(UnigmaRenderingObject *unigmaRenderingObjects)
+{
 
+    QTDoughApplication* app = QTDoughApplication::instance;
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+        {
+            renderingObjects.push_back(&unigmaRenderingObjects[i]);
+        }
+    }
+}
 
 void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain) {
 
