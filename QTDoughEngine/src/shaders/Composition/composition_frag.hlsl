@@ -61,7 +61,6 @@ float4 main(VSOutput i) : SV_Target
     float4 depthImage = textures[images.DepthImage].Sample(samplers[images.DepthImage], textureUVs);
     float4 outlineImage = textures[images.OutlineImage].Sample(samplers[images.OutlineImage], textureUVs);
 
-    return float4(positionImage.xyz, 1);
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
     float depth = depthImage.r;
@@ -73,11 +72,12 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    return outlineImage;
+    //return albedoImage;
+    //return outlineImage;
     //return float4(rand(positionImage.a * 100), rand(positionImage.a * 100 + 1), rand(positionImage.a * 100 + 2), 1.0);
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return float4(GammaEncode(outlineImage.xyz, 0.32875), color.w);
+    return lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
 
 }

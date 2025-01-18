@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <iostream>
 
-#define MAX_NUM_TEXTURES 8
+#define MAX_NUM_TEXTURES 16
 
 struct UnigmaMaterial
 {
@@ -58,7 +58,6 @@ struct UnigmaMaterial
             return;
         }
         textures.push_back(texture);
-        textureNames[textures.size()] = path;
     }
 
     void Clean()

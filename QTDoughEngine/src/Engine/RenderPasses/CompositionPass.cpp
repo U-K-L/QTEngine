@@ -18,7 +18,7 @@ void CompositionPass::CreateMaterials() {
     material.shader = UnigmaShader("composition");
 
     material.textureNames[0] = "BackgroundPass";
-    material.textureNames[1] = "AlbedoPass";
+    material.textureNames[1] = "AlbedoPass2";
     material.textureNames[2] = "NormalPass";
     material.textureNames[3] = "PositionPass";
     material.textureNames[4] = "DepthPass";

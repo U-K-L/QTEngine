@@ -229,8 +229,8 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
 
     ubo.proj[1][1] *= -1;
     ubo.baseAlbedo = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    ubo.innerOutlineColor = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
-    ubo.outerOutlineColor = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
+    ubo.innerOutlineColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f);
+    ubo.outerOutlineColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f);
 
     if(_material.vectorProperties.count("BaseAlbedo") > 0)
 		ubo.baseAlbedo = _material.vectorProperties["BaseAlbedo"];

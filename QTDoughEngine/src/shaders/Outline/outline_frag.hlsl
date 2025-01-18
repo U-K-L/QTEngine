@@ -181,7 +181,7 @@ float4 main(VSOutput i) : SV_Target
     float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;
     
     
-    return positionImage;
+    return finalOutline;
     //return noiseAndGrain;
     //return edgePos;
     //return albedoImage;
