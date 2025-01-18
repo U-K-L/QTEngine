@@ -123,8 +123,8 @@ void CameraComp::Update()
 
     //rotate camera.
     glm::vec3 targetPoint = glm::vec3(0, 0, 0);
-    float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.000000005) * 360;
-    camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
+    float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.00000005) * 360;
+    //camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
 
     //std::cout << "Delta time: " << UnigmaGameManager::instance->deltaTime << std::endl;
 }
