@@ -62,8 +62,8 @@ PSOutput main(PSInput input)
     
     
     float4 midTones = baseAlbedo * step(thresholdX, NdotL);
-    float4 shadows = (sideAlbedo * 0.5) * step(NdotL, thresholdY);
-    float4 highlights = (topAlbedo * 2.0) * step(thresholdZ, NdotL);
+    float4 shadows = (sideAlbedo) * step(NdotL, thresholdY);
+    float4 highlights = (topAlbedo) * step(thresholdZ, NdotL);
 
     float4 finalColor = max(midTones, shadows);
     finalColor = max(finalColor, highlights);
