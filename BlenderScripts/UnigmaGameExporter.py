@@ -70,16 +70,33 @@ class UnigmaExporter(bpy.types.Operator):
 
             # Custom properties (e.g., BaseAlbedo)
             custom_properties = {}
+            for prop_name in ["BaseAlbedo", "TopAlbedo", "SideAlbedo", "InnerOutlineColor", "OuterOutlineColor"]:
+                if hasattr(obj, prop_name):
+                    prop_value = getattr(obj, prop_name)
+                    if isinstance(prop_value, (list, tuple)):  # Already serializable
+                        custom_properties[prop_name] = {
+                            "r": prop_value[0],
+                            "g": prop_value[1],
+                            "b": prop_value[2],
+                            "a": prop_value[3]
+                        }
+                    elif hasattr(prop_value, "to_list"):  # Convert IDPropertyArray to list
+                        prop_list = prop_value.to_list()
+                        custom_properties[prop_name] = {
+                            "r": prop_list[0],
+                            "g": prop_list[1],
+                            "b": prop_list[2],
+                            "a": prop_list[3]
+                        }
             for prop_name, prop_value in obj.items():
-                if prop_name == "BaseAlbedo":
-                    custom_properties[prop_name] = {
-                        "r": prop_value[0],
-                        "g": prop_value[1],
-                        "b": prop_value[2],
-                        "a": prop_value[3]
-                    }
-                else:
-                    custom_properties[prop_name] = prop_value
+                if prop_name not in custom_properties:  # Avoid overwriting already processed properties
+                    if isinstance(prop_value, (list, tuple)):  # Handle directly serializable types
+                        custom_properties[prop_name] = prop_value
+                    elif hasattr(prop_value, "to_list"):  # Handle IDPropertyArray
+                        custom_properties[prop_name] = prop_value.to_list()
+                    else:
+                        custom_properties[prop_name] = str(prop_value)  # Fallback for unsupported types
+
 
             # Identify parent name (if any)
             parent_name = obj.parent.name if obj.parent else None
