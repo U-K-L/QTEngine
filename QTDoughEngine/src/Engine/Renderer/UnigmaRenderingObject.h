@@ -22,6 +22,8 @@ class UnigmaRenderingObject {
 			alignas(16) glm::mat4 view;
 			alignas(16) glm::mat4 proj;
 			alignas(16) glm::vec4 baseAlbedo;
+			alignas(16) glm::vec4 sideAlbedo;
+			alignas(16) glm::vec4 topAlbedo;
 			alignas(16) glm::vec2 texelSize;
 			alignas(16) glm::vec4 outerOutlineColor;
 			alignas(16) glm::vec4 innerOutlineColor;

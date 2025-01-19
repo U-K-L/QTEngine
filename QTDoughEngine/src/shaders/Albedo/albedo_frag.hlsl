@@ -1,16 +1,5 @@
 #include "../Helpers/ShaderHelpers.hlsl"
-
-cbuffer UniformBufferObject : register(b0, space1)
-{
-    float4x4 model; // Model matrix
-    float4x4 view; // View matrix
-    float4x4 proj; // Projection matrix
-    float4 baseAlbedo;
-    float2 texelSize;
-    float4 outerOutlineColor;
-    float4 innerOutlineColor;
-    uint ID;
-}
+#include "../Helpers/UniformBuffers.hlsl"
 
 struct PSInput
 {
@@ -73,8 +62,8 @@ PSOutput main(PSInput input)
     
     
     float4 midTones = baseAlbedo * step(thresholdX, NdotL);
-    float4 shadows = (baseAlbedo * 0.5) * step(NdotL, thresholdY);
-    float4 highlights = (baseAlbedo* 2.0) * step(thresholdZ, NdotL);
+    float4 shadows = (sideAlbedo * 0.5) * step(NdotL, thresholdY);
+    float4 highlights = (topAlbedo * 2.0) * step(thresholdZ, NdotL);
 
     float4 finalColor = max(midTones, shadows);
     finalColor = max(finalColor, highlights);

@@ -234,6 +234,10 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
 
     if(_material.vectorProperties.count("BaseAlbedo") > 0)
 		ubo.baseAlbedo = _material.vectorProperties["BaseAlbedo"];
+    if (_material.vectorProperties.count("SideAlbedo") > 0)
+        ubo.sideAlbedo = _material.vectorProperties["SideAlbedo"];
+    if (_material.vectorProperties.count("TopAlbedo") > 0)
+        ubo.topAlbedo = _material.vectorProperties["TopAlbedo"];
     if (_material.vectorProperties.count("InnerOutlineColor") > 0)
         ubo.innerOutlineColor = _material.vectorProperties["InnerOutlineColor"];
     if (_material.vectorProperties.count("OuterOutlineColor") > 0)

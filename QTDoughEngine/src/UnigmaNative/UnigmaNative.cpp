@@ -124,17 +124,15 @@ void LoadScene(const char* sceneName) {
         UnigmaRenderingStructCopyableAttributes renderCopy = UnigmaRenderingStructCopyableAttributes();
         renderCopy._transform = gObj->transform;
 
+        //std::cout << "Accessing custom properties" << std::endl;
         // Access CustomProperties
         if (GameObjectJson.contains("CustomProperties")) {
 
-            //Assign material properties
-            auto customProperties = sceneJson["GameObjects"][gObj->ID]["customProperties"];
-
             //Loop through all custom properties as a hashmap.
             for (const auto& [propName, propValue] : GameObjectJson["CustomProperties"].items()) {
-                if (propValue.is_object()) {
+                if (propValue.is_array()) {
                     // Handle nested properties (e.g., BaseAlbedo)
-                    renderCopy._material.vectorProperties[propName] = glm::vec4(propValue["r"], propValue["g"], propValue["b"], propValue["a"]);
+                    renderCopy._material.vectorProperties[propName] = glm::vec4(propValue[0], propValue[1], propValue[2], propValue[3]);
 
                 }
                 else {
@@ -147,7 +145,7 @@ void LoadScene(const char* sceneName) {
 
         //Get base albedo.
 
-
+        //std::cout << "Getting attribute data" << std::endl;
         //Get the relevant information from the buffers.
         const auto& accessors = model.accessors;
         const auto& bufferViews = model.bufferViews;
