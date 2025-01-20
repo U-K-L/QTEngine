@@ -81,6 +81,7 @@ struct GlobalUniformBufferObject
     float deltaTime;    // offset 0
     float time;         // offset 4
     float pad[2];       // offset 8..15 to make total 16 bytes
+    glm::vec4 light[32];
     // total struct size = 16 bytes
 };
 static std::vector<char> readFile(const std::string& filename) {

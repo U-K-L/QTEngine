@@ -1236,6 +1236,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     GlobalUniformBufferObject globalUBO{};
     globalUBO.deltaTime = deltaTime;
     globalUBO.time = timeInSeconds;
+    //globalUBO.light[0] = glm::vec4(1.0, sin(timeInSeconds), cos(timeInSeconds), 1.0);
 
     
     void* data;
