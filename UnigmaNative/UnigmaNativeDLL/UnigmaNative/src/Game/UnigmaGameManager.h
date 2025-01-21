@@ -74,6 +74,12 @@ extern "C" {
     //Size of Camera.
     UNIGMANATIVE_API uint32_t GetCamerasSize();
 
+    //Get Light.
+    UNIGMANATIVE_API UnigmaLight* GetLight(uint32_t ID);
+
+    //Size of Lights.
+    UNIGMANATIVE_API uint32_t GetLightsSize();
+
     //Register loading scene callback
     extern UNIGMANATIVE_API void RegisterLoadSceneCallback(LoadSceneCallbackType callback);
 

@@ -152,6 +152,7 @@ UNIGMANATIVE_API UnigmaGameObject* GetGameObject(uint32_t ID)
 	}
 }
 
+
 //Get cameras.
 UNIGMANATIVE_API UnigmaCameraStruct* GetCamera(uint32_t ID)
 {
@@ -162,6 +163,18 @@ UNIGMANATIVE_API UnigmaCameraStruct* GetCamera(uint32_t ID)
 UNIGMANATIVE_API uint32_t GetCamerasSize()
 {
 	return Cameras.size();
+}
+
+//Get Light.
+UNIGMANATIVE_API UnigmaLight* GetLight(uint32_t ID)
+{
+	return &Lights[ID];
+}
+
+//Size of Lights.
+UNIGMANATIVE_API uint32_t GetLightsSize()
+{
+	return Lights.size();
 }
 
 //Register loading scene callback

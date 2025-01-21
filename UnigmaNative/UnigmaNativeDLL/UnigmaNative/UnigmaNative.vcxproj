@@ -148,7 +148,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\json;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\glm;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\SDL2\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\json;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\glm;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\SDL2\include;C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\Engine\Renderer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <LanguageStandard>stdcpp20</LanguageStandard>
