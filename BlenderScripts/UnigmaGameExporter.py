@@ -88,6 +88,7 @@ class UnigmaExporter(bpy.types.Operator):
                             "b": prop_list[2],
                             "a": prop_list[3]
                         }
+
             for prop_name, prop_value in obj.items():
                 if prop_name not in custom_properties:  # Avoid overwriting already processed properties
                     if isinstance(prop_value, (list, tuple)):  # Handle directly serializable types

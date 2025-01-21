@@ -63,6 +63,7 @@
     <ClInclude Include="src\Engine\Core\UnigmaGameObjectManager.h" />
     <ClInclude Include="src\Engine\Core\UnigmaScenes.h" />
     <ClInclude Include="src\Engine\Core\UnigmaTransform.h" />
+    <ClInclude Include="src\Engine\Renderer\UnigmaLights.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMaterial.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMesh.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaRenderingManager.h" />
