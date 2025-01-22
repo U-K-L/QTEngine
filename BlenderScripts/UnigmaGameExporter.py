@@ -99,6 +99,28 @@ class UnigmaExporter(bpy.types.Operator):
                         custom_properties[prop_name] = str(prop_value)  # Fallback for unsupported types
 
 
+            # Get shader properties
+            emission = [0, 0, 0, 0]
+            print("Starting to process objects...")
+
+            if obj.type == 'MESH' and obj.data.materials:
+                print(f"Processing object: {obj.name}")
+                for material in obj.data.materials:
+                    if material and material.use_nodes:
+                        for node in material.node_tree.nodes:
+                            print(f"Node: {node.name}, Type: {node.type}")
+                            if node.type == 'BSDF_PRINCIPLED':  # Check for Principled BSDF node
+                                print("Found Principled BSDF node")
+                                if "Emission Strength" in node.inputs:  # Check for "Emission" input
+                                    emission = list(node.inputs["Emission Color"].default_value)
+                                    emission[3] = node.inputs["Emission Strength"].default_value
+                                    print(f"Object: {obj.name}, Emission: {emission}")
+                                else:
+                                    # Debug available inputs if "Emission" is missing
+                                    print(f"Emission input not found in node: {node.name}")
+                                    print(f"Available inputs: {[input.name for input in node.inputs]}")
+
+                                        
             # Identify parent name (if any)
             parent_name = obj.parent.name if obj.parent else None
 
@@ -141,6 +163,12 @@ class UnigmaExporter(bpy.types.Operator):
                         "y": world_scale.y,
                         "z": world_scale.z
                     }
+                },
+                "Emission": {
+                    "r": emission[0],
+                    "g": emission[1],
+                    "b": emission[2],
+                    "a": emission[3]
                 },
                 "type": object_type,
                 "parent": parent_name,
