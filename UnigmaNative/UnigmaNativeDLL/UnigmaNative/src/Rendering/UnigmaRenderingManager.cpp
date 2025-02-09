@@ -28,3 +28,14 @@ void UnigmaRenderingManager::CreateRenderingObject(UnigmaGameObject& gameObject)
 	GameObjects[gameObject.ID].RenderID = RenderingObjects.size();
 	RenderingObjects.push_back(renderingObject);
 }
+
+void UnigmaRenderingManager::CreateLightObject(UnigmaGameObject& gameObject)
+{
+	UnigmaLight lightObject = UnigmaLight();
+
+	lightObject.position = gameObject.transform.position;
+	lightObject.direction = gameObject.transform.forward();
+
+
+	Lights.push_back(lightObject);
+}

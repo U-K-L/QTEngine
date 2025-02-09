@@ -15,4 +15,5 @@ class UnigmaRenderingManager
 
 	std::vector<UnigmaRenderingStruct> RenderingObjects;
 	void CreateRenderingObject(UnigmaGameObject& gameObject);
+	void CreateLightObject(UnigmaGameObject& gameObject);
 };

@@ -85,6 +85,18 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 			std::cout << "Mesh object found: " << gameObject.name << std::endl;
 			gameManager->RenderingManager->CreateRenderingObject(gameObject);
 		}
+
+		if(strcmp(std::string(obj["type"]).c_str(), "Light") == 0)
+		{
+			std::cout << "Light object found: " << gameObject.name << std::endl;
+			gameManager->RenderingManager->CreateLightObject(gameObject);
+
+			//Get size of lights.
+			uint32_t size = GetLightsSize();
+			Lights[size].emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
+
+			std::cout << "Light Emission: " << Lights[size].emission.r << Lights[size].emission.g << Lights[size].emission.b << Lights[size].emission.a << std::endl;
+		}
 	}
 }
 
