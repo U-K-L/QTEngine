@@ -22,7 +22,7 @@ class UnigmaExporter(bpy.types.Operator):
     _timer = None
     
     def invoke(self, context, event):
-        # 1) Determine the current working directory:
+
         blend_file_dir = bpy.path.abspath("//")
         blend_file_name_no_ext = os.path.basename(bpy.data.filepath).replace(".blend", "")
         gltf_path = os.path.join(blend_file_dir, f"{blend_file_name_no_ext}.gltf")
@@ -50,7 +50,6 @@ class UnigmaExporter(bpy.types.Operator):
             "GameObjects": []
         }
 
-        # Collect basic object info
         for obj in scene.objects:
             # Skip hidden objects
             if not obj.visible_get():
@@ -59,12 +58,11 @@ class UnigmaExporter(bpy.types.Operator):
             object_name = obj.name
             local_position = obj.location
             world_position = obj.matrix_world.translation
-            # Distinguish cameras, lights, or mesh objects
+
             object_type = ("Camera" if obj.type == "CAMERA" else
                         "Light" if obj.type == "LIGHT" else
                         "Mesh")
 
-            # Extract world rotation and scale from matrix_world
             world_rotation = obj.matrix_world.to_euler()
             world_scale = obj.matrix_world.to_scale()
 
@@ -120,8 +118,12 @@ class UnigmaExporter(bpy.types.Operator):
                                     print(f"Emission input not found in node: {node.name}")
                                     print(f"Available inputs: {[input.name for input in node.inputs]}")
 
+
+            if obj.type == 'LIGHT':
+                light_data = obj.data
+                emcolor = list(light_data.color)
+                emission = [emcolor[0], emcolor[1], emcolor[2], light_data.energy]
                                         
-            # Identify parent name (if any)
             parent_name = obj.parent.name if obj.parent else None
 
             # Add info to the scene data structure
@@ -181,26 +183,21 @@ class UnigmaExporter(bpy.types.Operator):
         # JSON export path for our custom scene data
         output_file_path = os.path.join(blend_file_dir, f"{blend_file_name_no_ext}.json")
 
-        # 1) Try to load the matching glTF file in the same directory
         gltf_path = os.path.join(blend_file_dir, f"{blend_file_name_no_ext}.gltf")
         if os.path.isfile(gltf_path):
             with open(gltf_path, 'r') as gf:
                 gltf_data = json.load(gf)
 
-            # 2) Build a dictionary: node_name -> mesh_index
             node_name_to_mesh_index = {}
             for node in gltf_data.get("nodes", []):
-                # Only assign if node has both "name" and "mesh"
                 if "name" in node and "mesh" in node:
                     node_name = node["name"]
                     mesh_idx = node["mesh"]
                     node_name_to_mesh_index[node_name] = mesh_idx
 
-            # 3) Update the scene_data game objects
             for gobj in scene_data["GameObjects"]:
                 if gobj["type"] == "Mesh":
                     gobj_name = gobj["name"]
-                    # If the object name matches a glTF node’s name, set MeshID
                     if gobj_name in node_name_to_mesh_index:
                         gobj["MeshID"] = node_name_to_mesh_index[gobj_name]
                     else:
