@@ -17,6 +17,8 @@ FnGetRenderObjectAt UNGetRenderObjectAt;
 FnGetRenderObjectsSize UNGetRenderObjectsSize;
 FnGetCamera UNGetCamera;
 FnGetCamerasSize UNGetCamerasSize;
+FnGetLight UNGetLight;
+FnGetLightsSize UNGetLightsSize;
 FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 HMODULE unigmaNative;
@@ -31,6 +33,8 @@ void LoadUnigmaNativeFunctions()
     UNGetRenderObjectsSize = (FnGetRenderObjectsSize)GetProcAddress(unigmaNative, "GetRenderObjectsSize");
     UNGetCamera = (FnGetCamera)GetProcAddress(unigmaNative, "GetCamera");
     UNGetCamerasSize = (FnGetCamerasSize)GetProcAddress(unigmaNative, "GetCamerasSize");
+    UNGetLight = (FnGetLight)GetProcAddress(unigmaNative, "GetLight");
+    UNGetLightsSize = (FnGetLightsSize)GetProcAddress(unigmaNative, "GetLightsSize");
     UNRegisterCallback = (FnRegisterCallback)GetProcAddress(unigmaNative, "RegisterCallback");
     UNRegisterLoadSceneCallback = (FnRegisterLoadSceneCallback)GetProcAddress(unigmaNative, "RegisterLoadSceneCallback");
 
@@ -45,6 +49,8 @@ void ApplicationFunction(const char* message) {
 
 //Loads the scene and all its initial models. This may or may not include the player.
 void LoadScene(const char* sceneName) {
+
+    int sizeOfLight = sizeof(UnigmaLight);
 
     std::string scenePath = AssetsPath + "Scenes/" + sceneName + "/" + sceneName;
     //First get the model from tinygltf. We need it to load all the arrays associated with the scene.

@@ -6,6 +6,7 @@
 #include "../Engine/Core/UnigmaGameObject.h"
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
 #include "../Engine/Camera/UnigmaCamera.h"
+#include "../Engine/Renderer/UnigmaLights.h"
 
 
 
@@ -27,6 +28,9 @@ typedef uint32_t (*FnGetRenderObjectsSize)();
 typedef UnigmaCameraStruct* (*FnGetCamera)(uint32_t ID);
 typedef uint32_t (*FnGetCamerasSize)();
 
+typedef UnigmaLight* (*FnGetLight)(uint32_t ID);
+typedef uint32_t(*FnGetLightsSize)();
+
 typedef void (*FnRegisterCallback)(AppFunctionType); //Generic function pointer type for registering a callback function
 typedef void (*FnRegisterLoadSceneCallback)(LoadSceneCallbackType); //Generic function pointer type for registering a callback function
 
@@ -40,6 +44,8 @@ extern FnGetRenderObjectAt UNGetRenderObjectAt;
 extern FnGetRenderObjectsSize UNGetRenderObjectsSize;
 extern FnGetCamera UNGetCamera;
 extern FnGetCamerasSize UNGetCamerasSize;
+extern FnGetLight UNGetLight;
+extern FnGetLightsSize UNGetLightsSize;
 extern FnRegisterCallback UNRegisterCallback;
 extern FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "../Engine/Renderer/UnigmaLights.h"
 
 #include <SDL2/SDL_vulkan.h>
 #include <SDL2/SDL_system.h>
@@ -187,6 +188,7 @@ public:
     VK_DYNAMIC_STATE_SCISSOR
     };
     std::unordered_map<std::string, UnigmaTexture> textures;
+    std::vector<UnigmaLight*> lights;
 
     //Quads
     VkBuffer quadVertexBuffer;

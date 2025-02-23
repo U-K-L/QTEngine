@@ -48,6 +48,15 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
     //std::cout << "Camera FOV: " << CameraMain.fov << std::endl;
 
     unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
+
+    lights.clear();
+
+    int lightSize = UNGetLightsSize();
+
+    for (int i = 0; i < lightSize; i++)
+    {
+        lights.push_back(UNGetLight(i));
+    }
 }
 
 int QTDoughApplication::Run() {
