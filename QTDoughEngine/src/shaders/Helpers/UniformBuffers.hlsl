@@ -10,4 +10,10 @@ cbuffer UniformBufferObject : register(b0, space1)
     float4 outerOutlineColor;
     float4 innerOutlineColor;
     uint ID;
-}
+};
+
+struct GPULight
+{
+    float4 emission;
+    float3 direction;
+};

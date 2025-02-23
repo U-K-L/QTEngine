@@ -1248,7 +1248,8 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
     for (int i = 0; i < lights.size(); i++)
     {
-        globalUBO.light[i] = glm::vec4(lights[i]->direction, 1.0f);
+        globalUBO.light[i].direction = lights[i]->direction;
+        globalUBO.light[i].emission = lights[i]->emission;
     }
 
 

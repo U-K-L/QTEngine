@@ -44,7 +44,7 @@ cbuffer Constants : register(b2, space0)
     float deltaTime; // offset 0
     float time; // offset 4
     float2 pad; // offset 8..15, total 16 bytes
-    float4 light[32];
+    GPULight light[32];
 };
 
 PSOutput main(PSInput input)
@@ -59,7 +59,7 @@ PSOutput main(PSInput input)
     
     float4 vertexColor = float4(input.color, 1.0);
     // Normalize light direction
-    float3 normLightDir = light[0].xyz; //normalize(float3(0.5, 0.5, 0.0));
+    float3 normLightDir = light[0].direction; //normalize(float3(0.5, 0.5, 0.0));
 
     // Dot product for lighting intensity, adjusted for [-1, 1] to [0, 1] range
     float NdotL = dot(input.normal, normLightDir) * 0.5 + 0.5;
