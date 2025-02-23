@@ -64,13 +64,36 @@ PSOutput main(PSInput input)
     // Dot product for lighting intensity, adjusted for [-1, 1] to [0, 1] range
     float NdotL = dot(input.normal, normLightDir) * 0.5 + 0.5;
     
-    
+    /*
     float4 midTones = baseAlbedo * step(thresholdX, NdotL);
     float4 shadows = (sideAlbedo) * step(NdotL, thresholdY);
     float4 highlights = (topAlbedo) * step(thresholdZ, NdotL);
-
+    
+    
     float4 finalColor = max(midTones, shadows);
     finalColor = max(finalColor, highlights);
+    */
+    
+    //Pick based on normals.
+    float3 normal = input.normal;
+    float4 front = baseAlbedo;
+    float4 sides = sideAlbedo;
+    float4 top = topAlbedo;
+    
+    float3 forward = float3(0, 1, 0);
+    float3 up = float3(0, 0, 1);
+    float3 right = float3(1, 0, 0);
+    
+    float weightFront = abs(normal.y);
+    float weightSides = abs(normal.x);
+    float weightTop = abs(normal.z);
+    
+    float total = weightFront + weightSides + weightTop;
+    weightFront /= total;
+    weightSides /= total;
+    weightTop /= total;
+
+    float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
     
     finalColor.a = 1.0;
     //return animeGirl;
