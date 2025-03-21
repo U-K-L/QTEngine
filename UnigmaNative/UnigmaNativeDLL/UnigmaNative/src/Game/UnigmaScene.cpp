@@ -93,7 +93,11 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 			//Get size of lights.
 			uint32_t size = GetLightsSize();
-			Lights[size].emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
+			UnigmaLight light;
+
+			light.emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
+
+			Lights.push_back(light);
 
 			std::cout << "Light Emission: " << Lights[size].emission.r << ", " << Lights[size].emission.g << ", " << Lights[size].emission.b << ", " << Lights[size].emission.a << std::endl;
 		}

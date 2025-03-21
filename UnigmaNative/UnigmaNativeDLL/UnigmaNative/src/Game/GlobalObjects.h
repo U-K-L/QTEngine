@@ -3,7 +3,7 @@
 #include "UnigmaScene.h"
 #include "unordered_map"
 #include "../Rendering/UnigmaRenderingObject.h"
-#include "UnigmaLights.h"
+#include "../Rendering/UnigmaLight.h"
 
 
 #define MAX_NUM_GAMEOBJECTS 8192

@@ -148,7 +148,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\json;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\glm;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\SDL2\include;C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\Engine\Renderer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\json;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\glm;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\SDL2\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -185,6 +185,7 @@
     <ClInclude Include="src\Game\UnigmaScene.h" />
     <ClInclude Include="src\Game\UnigmaSceneManager.h" />
     <ClInclude Include="src\Rendering\UnigmaCamera.h" />
+    <ClInclude Include="src\Rendering\UnigmaLight.h" />
     <ClInclude Include="src\Rendering\UnigmaRenderingManager.h" />
     <ClInclude Include="src\Rendering\UnigmaRenderingObject.h" />
   </ItemGroup>
