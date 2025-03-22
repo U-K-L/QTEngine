@@ -21,6 +21,7 @@ FnGetLight UNGetLight;
 FnGetLightsSize UNGetLightsSize;
 FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
+FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
 HMODULE unigmaNative;
 
 void LoadUnigmaNativeFunctions()
@@ -37,14 +38,21 @@ void LoadUnigmaNativeFunctions()
     UNGetLightsSize = (FnGetLightsSize)GetProcAddress(unigmaNative, "GetLightsSize");
     UNRegisterCallback = (FnRegisterCallback)GetProcAddress(unigmaNative, "RegisterCallback");
     UNRegisterLoadSceneCallback = (FnRegisterLoadSceneCallback)GetProcAddress(unigmaNative, "RegisterLoadSceneCallback");
+    UNRegisterLoadInputCallback = (FnRegisterLoadInputCallback)GetProcAddress(unigmaNative, "RegisterLoadInputCallback");
 
     //Register the callback function
     UNRegisterCallback(ApplicationFunction);
     UNRegisterLoadSceneCallback(LoadScene);
+    UNRegisterLoadInputCallback(LoadInput);
 }
 
 void ApplicationFunction(const char* message) {
     std::cout << "Application received message: " << message << std::endl;
+}
+
+UnigmaInputStruct LoadInput(int flag)
+{
+    return GetInput(flag);
 }
 
 //Loads the scene and all its initial models. This may or may not include the player.

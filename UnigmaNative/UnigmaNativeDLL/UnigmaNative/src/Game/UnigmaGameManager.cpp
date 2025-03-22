@@ -3,11 +3,12 @@
 #include "GlobalObjects.h"
 #include <iostream>
 #include <chrono>
-#include "../Core/InputHander.h"
+
 
 UnigmaGameManager* UnigmaGameManager::instance = nullptr; // Define the static member
 //pointer to the callback function
 extern LoadSceneCallbackType LoadSceneCallbackPointer = nullptr;
+extern LoadInputCallbackType LoadInputCallbackPointer = nullptr;
 
 
 
@@ -80,7 +81,12 @@ void UnigmaGameManager::Update()
 	auto elaspedTime = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - lastTime).count();
 	deltaTime = elaspedTime;
 
-	SetButtonInputs();
+	//SetButtonInputs();
+	UnigmaInputStruct inputTemp = LoadInputCallbackPointer(0);
+	if (inputTemp.inputReceived)
+	{
+		Controller0 = inputTemp;
+	}
 
 	SceneManager->Update();
 	RenderingManager->Update();
@@ -183,6 +189,12 @@ UNIGMANATIVE_API uint32_t GetLightsSize()
 UNIGMANATIVE_API void RegisterLoadSceneCallback(LoadSceneCallbackType callback)
 {
 	LoadSceneCallbackPointer = callback;
+}
+
+//Register loading input callback
+UNIGMANATIVE_API void RegisterLoadInputCallback(LoadInputCallbackType callback)
+{
+	LoadInputCallbackPointer = callback;
 }
 
 // Function to get the size of the RenderingObjects vector

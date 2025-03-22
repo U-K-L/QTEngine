@@ -7,12 +7,14 @@
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
 #include "../Engine/Camera/UnigmaCamera.h"
 #include "../Engine/Renderer/UnigmaLights.h"
+#include "../Engine/Core/InputManager.h"
 
 
 
 // Define a callback function signature
 typedef void (*AppFunctionType)(const char*);
 typedef void (*LoadSceneCallbackType)(const char* sceneName);
+typedef UnigmaInputStruct (*LoadInputCallbackType)(int flag);
 
 // Function pointer types for the functions exported from the DLL
 typedef int (*FnUnigmaNative)();
@@ -33,6 +35,7 @@ typedef uint32_t(*FnGetLightsSize)();
 
 typedef void (*FnRegisterCallback)(AppFunctionType); //Generic function pointer type for registering a callback function
 typedef void (*FnRegisterLoadSceneCallback)(LoadSceneCallbackType); //Generic function pointer type for registering a callback function
+typedef void (*FnRegisterLoadInputCallback)(LoadInputCallbackType); //Generic function pointer type for registering a callback function
 
 
 // Function pointers for the functions exported from the DLL
@@ -48,10 +51,12 @@ extern FnGetLight UNGetLight;
 extern FnGetLightsSize UNGetLightsSize;
 extern FnRegisterCallback UNRegisterCallback;
 extern FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
+extern FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
 
 
 void ApplicationFunction(const char* message);
 void LoadScene(const char* sceneName);
+UnigmaInputStruct LoadInput(int flag);
 
 extern HMODULE unigmaNative;
 

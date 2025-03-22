@@ -7,6 +7,7 @@
 #include "../Rendering/UnigmaRenderingManager.h"
 #include <algorithm>
 #include <SDL.h>
+#include "../Core/InputHander.h"
 
 // Function declarations.
 void AddGameObject(UnigmaGameObject gameObject);
@@ -14,9 +15,11 @@ void RemoveGameObject(uint32_t ID);
 
 //Typedef for callback register loadScene function
 typedef void (*LoadSceneCallbackType)(const char* sceneName);
+typedef UnigmaInputStruct (*LoadInputCallbackType)(int flag);
 
 //pointer to the callback function
 extern LoadSceneCallbackType LoadSceneCallbackPointer;
+extern LoadInputCallbackType LoadInputCallbackPointer;
 
 class UnigmaGameManager
 {
@@ -51,6 +54,7 @@ public:
     bool IsCreated;
 
     //Add to input manager in the future.
+    UnigmaInputStruct Controller0;
     SDL_Event inputEvent;
     float deltaTime;
     float currentTime;
@@ -83,4 +87,6 @@ extern "C" {
     //Register loading scene callback
     extern UNIGMANATIVE_API void RegisterLoadSceneCallback(LoadSceneCallbackType callback);
 
+    //Register loading input callback
+    extern UNIGMANATIVE_API void RegisterLoadInputCallback(LoadInputCallbackType callback);
 }

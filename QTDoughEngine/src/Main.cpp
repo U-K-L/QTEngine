@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vulkan/vulkan.h>
 #include "Application/QTDoughApplication.h"
+#include "Engine\Core\InputManager.h"
 #include "Loader.h"
 #include "UnigmaNative/UnigmaNative.h"
 #include <mutex>
@@ -63,20 +64,8 @@ void InitSDLWindow()
 
 void GetInput()
 {
-
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) {
-            std::cout << "Quitting program." << std::endl;
-            qtDoughApp.PROGRAMEND = true;
-        }
-        else if (e.type == SDL_WINDOWEVENT) {
-            if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || e.window.event == SDL_WINDOWEVENT_RESIZED) {
-                qtDoughApp.framebufferResized = true;
-            }
-        }
-        //ImGui_ImplSDL2_ProcessEvent(&e);
-    }
+    qtDoughApp.PROGRAMEND = INPUTPROGRAMEND;
+    qtDoughApp.framebufferResized = inputFramebufferResized;
 }
 
 int main(int argc, char* args[]) {

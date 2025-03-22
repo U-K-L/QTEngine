@@ -1,23 +1,34 @@
-#include "InputHander.h"
+#include "InputManager.h"
+#include <iostream>
 
+bool INPUTPROGRAMEND = false;
+bool inputFramebufferResized = false;
 UnigmaInputStruct GetInput(int flag)
 {
 	UnigmaInputStruct input;
 	SetButtonInputs(&input);
 	input.port = 0;
+	
 	return input;
 }
 
-bool orthoButtonDown = false;
-bool perspectiveButtonDown = false;
-
 void SetButtonInputs(UnigmaInputStruct* input)
 {
-
+	inputFramebufferResized = false;
 	SDL_Event inputEvent;
-	while (SDL_PollEvent(&inputEvent))
-	{
+	while (SDL_PollEvent(&inputEvent)) {
+		if (inputEvent.type == SDL_QUIT) {
+			std::cout << "Quitting program." << std::endl;
+			INPUTPROGRAMEND = true;
+		}
+		else if (inputEvent.type == SDL_WINDOWEVENT) {
+			if (inputEvent.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || inputEvent.window.event == SDL_WINDOWEVENT_RESIZED) {
+				inputFramebufferResized = true;
+			}
+		}
+		//ImGui_ImplSDL2_ProcessEvent(&e);
 		cameraProjectionButtons(inputEvent, input);
+		input->inputReceived = true;
 	}
 }
 

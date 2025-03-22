@@ -1,6 +1,6 @@
 #pragma once
-#include <SDL.h>
 #include <cstdint>
+#include <SDL2\SDL.h>
 
 struct UnigmaInputStruct
 {
@@ -24,3 +24,6 @@ UnigmaInputStruct GetInput(int flag);
 void SetButtonInputs(UnigmaInputStruct* input);
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input);
+
+extern bool INPUTPROGRAMEND;
+extern bool inputFramebufferResized;

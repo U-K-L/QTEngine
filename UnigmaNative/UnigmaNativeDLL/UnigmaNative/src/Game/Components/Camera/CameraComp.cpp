@@ -17,6 +17,7 @@ CameraComp::~CameraComp()
 
 void CameraComp::Update()
 {
+    UnigmaInputStruct Controller0 = UnigmaGameManager::instance->Controller0;
     /*
     // Get the input event
     SDL_Event inputEvent = UnigmaGameManager::instance->inputEvent;
@@ -105,7 +106,7 @@ void CameraComp::Update()
     }
     */
     //If keyboard P button press change to perspective or orthogonal. depending on current.
-    if (perspectiveButtonDown)
+    if (Controller0.perspectiveButtonDown)
 	{
 		//camera->isOrthogonal = !camera->isOrthogonal;
         float transitionSpeed = 1.0f;
@@ -115,7 +116,7 @@ void CameraComp::Update()
 	}
 
     //ooposite if O is pressed
-    if (orthoButtonDown)
+    if (Controller0.orthoButtonDown)
     {
         float transitionSpeed = 1.0f;
 
