@@ -93,14 +93,63 @@ struct UnigmaCameraStruct
 		setForward(newForward);
 	}
 
+	glm::mat4 getVulkanOrthoMatrix(float left, float right, float bottom, float top, float nearZ, float farZ) const {
+		glm::mat4 result(1.0f);
+
+		result[0][0] = 2.0f / (right - left);
+		result[1][1] = 2.0f / (top - bottom);
+		result[2][2] = 1.0f / (farZ - nearZ); // Vulkan-style depth [0, 1]
+		result[3][0] = -(right + left) / (right - left);
+		result[3][1] = -(top + bottom) / (top - bottom);
+		result[3][2] = -nearZ / (farZ - nearZ);
+		result[3][3] = 1.0f;
+
+		return result;
+	}
+
+	glm::mat4 interpolateProjectionMatrix(const glm::mat4& perspective, const glm::mat4& orthographic, float t) {
+		// Linearly interpolate between the two matrices
+		return (1.0f - t) * perspective + t * orthographic;
+	}
+
 	glm::mat4 getProjectionMatrix() {
-		if (isOrthogonal) {
+		if (isOrthogonal < 0.999f) {
 			float orthoHeight = orthoWidth / aspectRatio;
-			return glm::ortho(-orthoWidth / 2.0f, orthoWidth / 2.0f, -orthoHeight / 2.0f, orthoHeight / 2.0f, nearClip, farClip);
+			glm::mat4 ortho = getVulkanOrthoMatrix(
+				-orthoWidth / 2.0f, orthoWidth / 2.0f,
+				-orthoHeight / 2.0f, orthoHeight / 2.0f,
+				nearClip, farClip
+			);
+			glm::mat4 perspective = glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
+			return interpolateProjectionMatrix(perspective, ortho, isOrthogonal);
+		}
+	}
+
+	void runOrthoDepthDiagnostic(const glm::vec3& worldPosition, const std::string& label = "") {
+		glm::mat4 proj;
+		if (isOrthogonal >= 0.999f) {
+			float orthoHeight = orthoWidth / aspectRatio;
+			proj = getVulkanOrthoMatrix(-orthoWidth / 2.0f, orthoWidth / 2.0f,
+				-orthoHeight / 2.0f, orthoHeight / 2.0f,
+				nearClip, farClip);
 		}
 		else {
-			return glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
+			proj = glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
 		}
+
+		glm::mat4 view = getViewMatrix();
+
+		glm::vec4 worldPos4(worldPosition, 1.0f);
+		glm::vec4 viewPos = view * worldPos4;
+		glm::vec4 clipPos = proj * viewPos;
+		glm::vec3 ndc = glm::vec3(clipPos) / clipPos.w;
+
+		std::cout << "== Diagnostic for " << label << " ==" << std::endl;
+		std::cout << "World Position : (" << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << ")\n";
+		std::cout << "View-Space Z   : " << viewPos.z << std::endl;
+		std::cout << "Clip-Space Z   : " << clipPos.z << std::endl;
+		std::cout << "NDC Z          : " << ndc.z << std::endl;
+		std::cout << "Clipped?HERE       : " << ((ndc.z < 0.0f || ndc.z > 1.0f) ? "YES" : "NO") << std::endl;
 	}
 
 	//view matrix.

@@ -111,20 +111,27 @@ void CameraComp::Update()
         float transitionSpeed = 1.0f;
 
         camera->isOrthogonal -= transitionSpeed * UnigmaGameManager::instance->deltaTime;
+        camera->isOrthogonal = std::fmax(0, camera->isOrthogonal);
 	}
 
     //ooposite if O is pressed
     if (orthoButtonDown)
     {
-        float transitionSpeed = 1.01f;
+        float transitionSpeed = 1.0f;
 
 		camera->isOrthogonal += transitionSpeed * UnigmaGameManager::instance->deltaTime;
+        camera->isOrthogonal = std::fmin(1, camera->isOrthogonal);
 	}
+
+    camera->farClip = glm::mix(1000.0f, 1000.0f, camera->isOrthogonal);
+
+    //std::cout << "Clip far plane: " << camera->farClip << std::endl;
+
 
     //rotate camera.
     glm::vec3 targetPoint = glm::vec3(0, 0, 0);
-    float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.0000000125) * 360;
-    camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
+    //float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.0000000125) * 360;
+    //camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
 
     //std::cout << "Delta time: " << UnigmaGameManager::instance->deltaTime << std::endl;
 }
