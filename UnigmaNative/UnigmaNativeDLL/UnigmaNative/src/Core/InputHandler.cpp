@@ -6,6 +6,7 @@ bool perspectiveButtonDown = false;
 
 void SetButtonInputs()
 {
+
 	SDL_Event inputEvent;
 	while(SDL_PollEvent(&inputEvent))
 	{

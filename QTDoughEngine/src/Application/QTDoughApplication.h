@@ -151,6 +151,7 @@ public:
     void CreateGlobalUniformBuffers();
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
     //Fields.
+    bool PROGRAMEND = false;
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
     std::chrono::high_resolution_clock::time_point timeMinutePassed;
@@ -181,6 +182,7 @@ public:
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
     VkFormat _swapChainImageFormat;
+    SDL_Surface* _screenSurface = NULL;
     bool framebufferResized = false;
     VkFormat FindDepthFormat();
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
@@ -319,7 +321,7 @@ private:
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
-    SDL_Surface* _screenSurface = NULL;
+
     VkQueue _presentQueue = VK_NULL_HANDLE;
     VkCommandPool _commandPool;
     VkCommandPoolCreateInfo _commandPoolInfo{};

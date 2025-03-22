@@ -17,7 +17,6 @@ std::vector<RenderPassObject*> renderPassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
 
-bool PROGRAMEND = false;
 uint32_t currentFrame = 0;
 
 bool initialStart = false;
@@ -62,23 +61,11 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 int QTDoughApplication::Run() {
 
     CameraMain = UnigmaCameraStruct();
-    InitSDLWindow();
+    //InitSDLWindow();
 	InitVulkan();
 
-    SDL_Event e; 
     while (PROGRAMEND == false) {
 
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) {
-                PROGRAMEND = true;
-            }
-            else if (e.type == SDL_WINDOWEVENT) {
-                if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || e.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    framebufferResized = true;
-                }
-            }
-            ImGui_ImplSDL2_ProcessEvent(&e);
-        }
         // Main Game Loop.
         RunMainGameLoop();
     }
@@ -120,14 +107,6 @@ void QTDoughApplication::RunMainGameLoop()
         CameraToBlender();
         GetMeshDataAllObjects();
     }
-    //Set new data.
-    
-    //Quit if E key is pressed.
-    const Uint8* state = SDL_GetKeyboardState(NULL);
-    if (state[SDL_SCANCODE_E]) {
-        // The "E" key is currently pressed
-        PROGRAMEND = true;
-    }
 
 
     // Calculate the elapsed time in milliseconds
@@ -168,10 +147,10 @@ void QTDoughApplication::DrawFrame()
 
     UpdateGlobalDescriptorSet();
 
-    //Set fence back to unsignled for next time.
+    //Set fence back to unsignal for next time.
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
 
-    //REturn command buffers back to original state.
+    //Return command buffers back to original state.
     vkResetCommandBuffer(_commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
     RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
 
@@ -210,6 +189,7 @@ void QTDoughApplication::DrawFrame()
 
     presentInfo.pImageIndices = &imageIndex;
 
+    //Actually draws to the screen.
     result = vkQueuePresentKHR(_presentQueue, &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
@@ -224,42 +204,6 @@ void QTDoughApplication::DrawFrame()
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void QTDoughApplication::InitSDLWindow()
-{
-    //The surface contained by the window
-    //Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-    }
-    else
-    {
-        //Create window
-        QTSDLWindow = SDL_CreateWindow("QTDough", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-        if (QTSDLWindow == NULL)
-        {
-            printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-        }
-        else
-        {
-            //Get window surface
-            _screenSurface = SDL_GetWindowSurface(QTSDLWindow);
-
-            //Fill the surface white
-            SDL_FillRect(_screenSurface, NULL, SDL_MapRGB(_screenSurface->format, 0x00, 0x00, 0x00));
-
-            //Update the surface
-            SDL_UpdateWindowSurface(QTSDLWindow);
-
-            printf("Window Created!!!\n");
-
-            //Hack to get window to stay up
-            //SDL_Event e; bool quit = false; while (quit == false) { while (SDL_PollEvent(&e)) { if (e.type == SDL_QUIT) quit = true; } }
-
-
-        }
-    }
-}
 
 VkVertexInputBindingDescription QTDoughApplication::getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
