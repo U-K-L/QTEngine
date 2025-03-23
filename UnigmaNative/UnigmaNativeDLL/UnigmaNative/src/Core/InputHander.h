@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <cstdint>
+#include <glm.hpp>
 
 struct UnigmaInputStruct
 {
@@ -8,14 +9,17 @@ struct UnigmaInputStruct
 	bool inputReceived;
 	bool orthoButtonDown;
 	bool perspectiveButtonDown;
-
+	bool cameraZoom;
+	glm::vec2 wheel;
 	UnigmaInputStruct()
 		: port(0),
 		inputReceived(false),
 		orthoButtonDown(false),
-		perspectiveButtonDown(false)
+		perspectiveButtonDown(false),
+		cameraZoom(false)
 	{}
 };
+
 
 
 UnigmaInputStruct GetInput(int flag);

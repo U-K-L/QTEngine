@@ -17,7 +17,7 @@ CameraComp::~CameraComp()
 
 void CameraComp::Update()
 {
-    UnigmaInputStruct Controller0 = UnigmaGameManager::instance->Controller0;
+    UnigmaInputStruct *Controller0 = &UnigmaGameManager::instance->Controller0;
     /*
     // Get the input event
     SDL_Event inputEvent = UnigmaGameManager::instance->inputEvent;
@@ -97,16 +97,17 @@ void CameraComp::Update()
         isPanning = false;
         isOrbiting = false;
     }
-
-    // Zoom camera via mousewheel
-    if (inputEvent.type == SDL_MOUSEWHEEL)
-    {
-        int scrollY = inputEvent.wheel.y;
-        camera->Zoom(scrollY);
-    }
     */
+    // Zoom camera via mousewheel
+    if (Controller0->cameraZoom == true)
+    {
+        int scrollY = Controller0->wheel.y;
+        camera->Zoom(scrollY);
+        Controller0->cameraZoom = false;
+    }
+
     //If keyboard P button press change to perspective or orthogonal. depending on current.
-    if (Controller0.perspectiveButtonDown)
+    if (Controller0->perspectiveButtonDown)
 	{
 		//camera->isOrthogonal = !camera->isOrthogonal;
         float transitionSpeed = 1.0f;
@@ -116,7 +117,7 @@ void CameraComp::Update()
 	}
 
     //ooposite if O is pressed
-    if (Controller0.orthoButtonDown)
+    if (Controller0->orthoButtonDown)
     {
         float transitionSpeed = 1.0f;
 

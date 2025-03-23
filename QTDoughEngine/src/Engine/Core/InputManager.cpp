@@ -28,6 +28,7 @@ void SetButtonInputs(UnigmaInputStruct* input)
 		}
 		//ImGui_ImplSDL2_ProcessEvent(&e);
 		cameraProjectionButtons(inputEvent, input);
+		cameraInputButtons(inputEvent, input);
 		input->inputReceived = true;
 	}
 }
@@ -56,5 +57,16 @@ void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 		{
 			input->perspectiveButtonDown = false;
 		}
+	}
+}
+
+void cameraInputButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
+{
+	input->cameraZoom = false;
+	if (inputEvent.type == SDL_MOUSEWHEEL)
+	{
+		glm::vec2 wheel = glm::vec2(inputEvent.wheel.x, inputEvent.wheel.y);
+		input->wheel = wheel;
+		input->cameraZoom = true;
 	}
 }
