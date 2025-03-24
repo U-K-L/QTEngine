@@ -202,6 +202,9 @@ struct UnigmaCameraStruct
 			if (delta > 0) {
 				orthoWidth /= (zoomFactor + delta*0.01);
 			}
+			else {
+				orthoWidth *= (zoomFactor - delta*0.01);
+			}
 		}
 		else {
 			fov = fov + delta;
