@@ -22,6 +22,7 @@ int SCREEN_HEIGHT = 520;
 void RunQTDough()
 {
     std::cout << "Houston we're running the renderer!!!" << std::endl;
+    qtDoughApp.QTDoughEngineThread = QTDoughEngine;
     qtDoughApp.Run();
 }
 
@@ -66,6 +67,19 @@ void GetInput()
 {
     qtDoughApp.PROGRAMEND = INPUTPROGRAMEND;
     qtDoughApp.framebufferResized = inputFramebufferResized;
+}
+
+//This is only called after proper synchronization.
+void UpdateRenderApplication()
+{
+    uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
+    for (uint32_t i = 0; i < sizeOfGameObjs; i++)
+    {
+        UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
+        UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
+        QTDoughApplication::instance->UpdateObjects(renderObj, gObj, i);
+    }
+
 }
 
 int main(int argc, char* args[]) {
@@ -113,20 +127,45 @@ int main(int argc, char* args[]) {
 			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
 
-			if (renderElapsed.count() >= 4)
+			if (renderElapsed.count() >= 0)
 			{
                 GetInput();
 				//Render the scene.
                 //Check synchronization point for QTDoughApplication.
-                uint32_t sizeOfGameObjs = UNGetRenderObjectsSize();
-                for (uint32_t i = 0; i < sizeOfGameObjs; i++)
+
+                if (QTDoughEngine->requestSignal.load(std::memory_order_acquire) == false)
                 {
-                    UnigmaRenderingStruct* renderObj = UNGetRenderObjectAt(i);
-                    UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
-                    QTDoughApplication::instance->UpdateObjects(renderObj, gObj, i);
+                    //Ask Renderer if scene is done rendering. Wait until its done with current iteration.
+                    //std::cout << "1) Asking renderer for request..." << std::endl;
+
+                    QTDoughEngine->AskRequest();
+
+
+                    //std::cout << "2) Waiting for renderer to finish..." << std::endl;
+                    //Wait for the renderer to finish.
+                    {
+                        std::unique_lock<std::mutex> lock(QTDoughEngine->mainmtx);
+
+                        QTDoughEngine->maincv.wait(lock, [&] {
+                            return QTDoughEngine->workFinished.load(std::memory_order_acquire);
+                            });
+                        QTDoughEngine->workFinished.store(false, std::memory_order_release);
+                    }
+
+                    //std::cout << "5) Renderer has finished!" << std::endl;
+
+                    //The worker thread is now waiting for a signal to continue. Update some of its data!
+                    UpdateRenderApplication();
+                    renderUpdateStart = std::chrono::high_resolution_clock::now();
+
+
+                    //Notify the worker thread to continue.
+                    QTDoughEngine->continueSignal.store(true);
+                    QTDoughEngine->NotifyWorker();
+
+                    //std::cout << "6) Updated objects, now notify renderer to continue!" << std::endl;
                 }
 
-                renderUpdateStart = std::chrono::high_resolution_clock::now();
 			}
         }
     }

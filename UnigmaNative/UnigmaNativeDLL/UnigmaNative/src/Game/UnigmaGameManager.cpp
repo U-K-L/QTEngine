@@ -176,6 +176,14 @@ UNIGMANATIVE_API uint32_t GetCamerasSize()
 //Get Light.
 UNIGMANATIVE_API UnigmaLight* GetLight(uint32_t ID)
 {
+	if(Lights.size() == 0)
+	{
+		return nullptr;
+	}
+	if(ID >= Lights.size())
+	{
+		return nullptr;
+	}
 	return &Lights[ID];
 }
 

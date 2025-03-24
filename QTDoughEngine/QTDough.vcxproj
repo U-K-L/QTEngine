@@ -82,6 +82,7 @@
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
     <ClInclude Include="src\Loader.h" />
     <ClInclude Include="src\UnigmaNative\UnigmaNative.h" />
+    <ClInclude Include="src\UnigmaNative\UnigmaThread.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Scenes\DefaultScene.json" />

@@ -37,24 +37,27 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 
 }
 
+void QTDoughApplication::ClearObjectData()
+{
+    lights.clear();
+}
+
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
-    //if(initialStart == false) //remove this later.
-    CameraMain = *UNGetCamera(0);
-    //initialStart = true;
-    //print FOV.
-    //UnigmaCameraStruct cam = UnigmaCameraStruct();
-    //std::cout << "Camera FOV: " << CameraMain.fov << std::endl;
 
+    CameraMain = *UNGetCamera(0);
     unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
 
-    lights.clear();
 
     int lightSize = UNGetLightsSize();
 
     for (int i = 0; i < lightSize; i++)
     {
-        lights.push_back(UNGetLight(i));
+        UnigmaLight* light = UNGetLight(i);
+        if(light != nullptr)
+		{
+			lights.push_back(light);
+		}
     }
 }
 
@@ -69,7 +72,8 @@ int QTDoughApplication::Run() {
         // Main Game Loop.
         RunMainGameLoop();
     }
-
+    // Final loop to release resources.
+    RunMainGameLoop();
     vkDeviceWaitIdle(_logicalDevice);
 	return 0;
 }
@@ -100,6 +104,32 @@ void QTDoughApplication::RunMainGameLoop()
 
     //make imgui calculate internal draw structures
     ImGui::Render();
+
+    //If a request is sent pause rendering.
+    if (QTDoughEngineThread->requestSignal == true)
+    {
+        ClearObjectData();
+        //std::cout << "3) Request signal received." << std::endl;
+        //Notify the main thread that the work is done. And we can take requests.
+        QTDoughEngineThread->workFinished.store(true, std::memory_order_release);
+        QTDoughEngineThread->NotifyMain();
+
+        //std::cout << "4) Waiting for main thread to continue..." << std::endl;
+        
+        //Wait for the main thread to send a signal to continue.
+        if(QTDoughEngineThread->continueSignal.load() == false)
+		{
+            std::unique_lock<std::mutex> lock(QTDoughEngineThread->workmtx);
+            QTDoughEngineThread->workcv.wait(lock, [this] { return QTDoughEngineThread->continueSignal.load(); });
+            QTDoughEngineThread->continueSignal.store(false);
+		}
+
+
+
+        //std::cout << "7) Notified as a worker, now continue rendering scene." << std::endl;
+        QTDoughEngineThread->requestSignal.store(false, std::memory_order_release);
+
+    }
 
     DrawFrame();
     if (GatherBlenderInfo() == 0)

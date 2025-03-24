@@ -17,6 +17,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "../Engine/Renderer/UnigmaLights.h"
+#include "../UnigmaNative/UnigmaThread.h"
 
 #include <SDL2/SDL_vulkan.h>
 #include <SDL2/SDL_system.h>
@@ -142,12 +143,14 @@ public:
     static QTDoughApplication* instance;
     QTDoughApplication(const QTDoughApplication&) = delete;
     QTDoughApplication& operator=(const QTDoughApplication&) = delete;
+    UnigmaThread* QTDoughEngineThread;
     //Methods.
     int Run();
     void Cleanup();
     void AddPasses();
     void UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index);
     void AddRenderObject(UnigmaRenderingStructCopyableAttributes* renderObject, UnigmaGameObject* gObj, uint32_t index);
+    void ClearObjectData();
     void CreateGlobalUniformBuffers();
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
     //Fields.
