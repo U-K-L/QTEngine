@@ -94,7 +94,7 @@ int main(int argc, char* args[]) {
     qtDoughApp.SCREEN_WIDTH = SCREEN_WIDTH;
     qtDoughApp.SCREEN_HEIGHT = SCREEN_HEIGHT;
 
-    unigmaNative = LoadDLL(L"Unigma/UnigmaNative.dll");
+    unigmaNative = LoadDLL(L"UnigmaNative.dll");
     LoadUnigmaNativeFunctions();
 
     UNStartProgram();
