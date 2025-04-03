@@ -46,8 +46,9 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 {
 
     CameraMain = *UNGetCamera(0);
-    unigmaRenderingObjects[gObj->RenderID]._transform = gObj->transform.position;
-
+    unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
+    unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
+    unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
 
     int lightSize = UNGetLightsSize();
 

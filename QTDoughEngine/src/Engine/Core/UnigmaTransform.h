@@ -40,18 +40,29 @@ struct UnigmaTransform
 		transformMatrix[3][2] = position.z;
 	}
 
-	void UpdateRotation()
-	{
-		// Create quaternion for each axis rotation
-		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // X-axis
-		glm::quat rotY = glm::angleAxis(rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Y-axis
-		glm::quat rotZ = glm::angleAxis(rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Z-axis
 
-		// Combine rotations: Z * Y * X (or another order as needed)
+	void UpdateTransform()
+	{
+		UpdatePosition();
+		// Create rotation quaternions
+		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+		glm::quat rotY = glm::angleAxis(rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::quat rotZ = glm::angleAxis(rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+
+		// Combine rotations: Z * Y * X (or change order as needed)
 		glm::quat combinedRotation = rotZ * rotY * rotX;
 
-		// Convert quaternion to a rotation matrix
-		transformMatrix = glm::toMat4(combinedRotation);
+		// Convert quaternion to a 4x4 rotation matrix
+		glm::mat4 rotationMatrix = glm::toMat4(combinedRotation);
+
+		// Translation matrix
+		glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
+
+		// Scale matrix
+		glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
+
+		// Combine transformations: T * R * S
+		transformMatrix = translationMatrix * rotationMatrix * scaleMatrix;
 	}
 
 

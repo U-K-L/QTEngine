@@ -19,6 +19,7 @@ static PxDefaultCpuDispatcher* gDispatcher = NULL;
 static PxScene* gScene = NULL;
 static PxMaterial* gMaterial = NULL;
 static PxPvd* gPvd = NULL;
+PxRigidDynamic* cube;
 
 static PxReal stackZ = 10.0f;
 
@@ -35,11 +36,68 @@ UnigmaScene::~UnigmaScene()
 
 void UnigmaScene::Update()
 {
+	std::cout << "Delta Time: " << UnigmaGameManager::instance->deltaTime << std::endl;
+	gScene->simulate(0.001f);
+	gScene->fetchResults(true);
 
+	if (cube)
+	{
+		PxTransform pose = cube->getGlobalPose();
+		printf("Cube Position: x=%.2f, y=%.2f, z=%.2f\n",
+			pose.p.x, pose.p.y, pose.p.z);
+		printf("Cube Rotation: x=%.2f, y=%.2f, z=%.2f, w=%.2f\n",
+			pose.q.x, pose.q.y, pose.q.z, pose.q.w);
+
+		UnigmaGameObject* gobj = &GameObjects[3];
+		std::cout << "GameObject Name: " << gobj->name << std::endl;
+		gobj->transform.position.x = pose.p.x;
+		gobj->transform.position.y = pose.p.y;
+		gobj->transform.position.z = pose.p.z;
+
+		glm::quat q = glm::quat(pose.q.w, pose.q.x, pose.q.y, pose.q.z); // (w, x, y, z)
+		glm::vec3 euler = glm::eulerAngles(q);
+		gobj->transform.rotation.x = euler.x;
+		gobj->transform.rotation.y = euler.y;
+		gobj->transform.rotation.z = euler.z;
+
+		gobj->transform.UpdateTransform();
+
+	}
 }
 
 void UnigmaScene::Start()
 {
+	gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
+	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true);
+
+	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
+	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
+	gDispatcher = PxDefaultCpuDispatcherCreate(2);
+	sceneDesc.cpuDispatcher = gDispatcher;
+	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+
+	gScene = gPhysics->createScene(sceneDesc);
+
+
+	PxMaterial* material = gPhysics->createMaterial(0.5f, 0.5f, 0.6f); // static friction, dynamic friction, restitution
+
+	PxTransform groundPose(PxVec3(0, 0, -2.5));
+	PxBoxGeometry groundBox(50, 50, 1); // Wide flat box at Z = 0
+	PxRigidStatic* ground = gPhysics->createRigidStatic(groundPose);
+	PxShape* shape = gPhysics->createShape(groundBox, *material);
+	ground->attachShape(*shape);
+	gScene->addActor(*ground);
+
+
+	// Create a dynamic cube
+	PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
+	PxTransform t(PxVec3(0, 0, 10), rotation);
+	PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
+	cube = PxCreateDynamic(*gPhysics, t, boxGeom, *material, 10.0f); // 10kg
+	gScene->addActor(*cube);
+
+
+
 }
 
 void UnigmaScene::AddGameObject(UnigmaGameObject& gameObject)

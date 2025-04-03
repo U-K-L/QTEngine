@@ -42,6 +42,7 @@ struct UnigmaTransform
 
 	void UpdateTransform()
 	{
+		UpdatePosition();
 		// Create rotation quaternions
 		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
 		glm::quat rotY = glm::angleAxis(rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
