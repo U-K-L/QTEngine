@@ -28,6 +28,7 @@ void UnigmaGameManager::Create()
 	//Create managers.
 	SceneManager = new UnigmaSceneManager();
 	RenderingManager = new UnigmaRenderingManager();
+	PhysicsInitialize();
 
 	std::cout << "UnigmaGameManager created" << std::endl;
 

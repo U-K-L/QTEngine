@@ -6,22 +6,7 @@
 #include <fstream>
 #include "../json/json.hpp"
 
-#include <ctype.h>
-#include "PxPhysicsAPI.h"
-
-using namespace physx;
-
-static PxDefaultAllocator		gAllocator;
-static PxDefaultErrorCallback	gErrorCallback;
-static PxFoundation* gFoundation = NULL;
-static PxPhysics* gPhysics = NULL;
-static PxDefaultCpuDispatcher* gDispatcher = NULL;
-static PxScene* gScene = NULL;
-static PxMaterial* gMaterial = NULL;
-static PxPvd* gPvd = NULL;
-PxRigidDynamic* cube;
-
-static PxReal stackZ = 10.0f;
+#include "../Physics/UnigmaPhysicsManager.h"
 
 
 using json = nlohmann::json;
@@ -37,18 +22,21 @@ UnigmaScene::~UnigmaScene()
 void UnigmaScene::Update()
 {
 	std::cout << "Delta Time: " << UnigmaGameManager::instance->deltaTime << std::endl;
-	gScene->simulate(0.001f);
-	gScene->fetchResults(true);
+	physicsScene->simulate(0.001f);
+	physicsScene->fetchResults(true);
 
-	if (cube)
+	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
+	UnigmaGameObject* gobj = &GameObjects[3];
+	PxRigidDynamic* physicsCube = static_cast<PxRigidDynamic*>( static_cast<UnigmaPhysicsComp*>(gameManager->Components[1])->actor);
+	if (physicsCube)
 	{
-		PxTransform pose = cube->getGlobalPose();
+		PxTransform pose = physicsCube->getGlobalPose();
 		printf("Cube Position: x=%.2f, y=%.2f, z=%.2f\n",
 			pose.p.x, pose.p.y, pose.p.z);
 		printf("Cube Rotation: x=%.2f, y=%.2f, z=%.2f, w=%.2f\n",
 			pose.q.x, pose.q.y, pose.q.z, pose.q.w);
 
-		UnigmaGameObject* gobj = &GameObjects[3];
+
 		std::cout << "GameObject Name: " << gobj->name << std::endl;
 		gobj->transform.position.x = pose.p.x;
 		gobj->transform.position.y = pose.p.y;
@@ -67,36 +55,6 @@ void UnigmaScene::Update()
 
 void UnigmaScene::Start()
 {
-	gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
-	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true);
-
-	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
-	gDispatcher = PxDefaultCpuDispatcherCreate(2);
-	sceneDesc.cpuDispatcher = gDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-
-	gScene = gPhysics->createScene(sceneDesc);
-
-
-	PxMaterial* material = gPhysics->createMaterial(0.5f, 0.5f, 0.6f); // static friction, dynamic friction, restitution
-
-	PxTransform groundPose(PxVec3(0, 0, -2.5));
-	PxBoxGeometry groundBox(50, 50, 1); // Wide flat box at Z = 0
-	PxRigidStatic* ground = gPhysics->createRigidStatic(groundPose);
-	PxShape* shape = gPhysics->createShape(groundBox, *material);
-	ground->attachShape(*shape);
-	gScene->addActor(*ground);
-
-
-	// Create a dynamic cube
-	PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
-	PxTransform t(PxVec3(0, 0, 10), rotation);
-	PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
-	cube = PxCreateDynamic(*gPhysics, t, boxGeom, *material, 10.0f); // 10kg
-	gScene->addActor(*cube);
-
-
 
 }
 
@@ -180,6 +138,22 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 void UnigmaScene::CreateScene()
 {
+
+	std::cout << "Creating scene" << std::endl;
+	//gPhysicsFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gPhysicsAllocator, gPhysicsErrorCallback);
+	//gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gPhysicsFoundation, PxTolerancesScale(), true);
+
+	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
+	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
+	sceneDesc.cpuDispatcher = gPhysicsDispatcher;
+	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+
+	std::cout << "Physics Scene desc created" << std::endl;
+
+	physicsScene = gPhysics->createScene(sceneDesc);
+
+	std::cout << "Physics Scene created" << std::endl;
+
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
 	//LoadJSON("Assets/Scenes/WaveTestScene.json");
 
@@ -194,6 +168,50 @@ void UnigmaScene::CreateScene()
 	//CID determines which object, this will have a table mapping but for now manual.
 	cameraComponent.CID = 1; //Camera component.
 	gameManager->AddComponent(camera, cameraComponent);
+
+
+
+
+	PxMaterial* material = gPhysics->createMaterial(0.5f, 0.5f, 0.6f); // static friction, dynamic friction, restitution
+
+	std::cout << "Physics Material created" << std::endl;
+
+	// Create a ground plane
+	PxTransform groundPose(PxVec3(0, 0, -2.5));
+	PxBoxGeometry groundBox(50, 50, 1); // Wide flat box at Z = 0
+	PxRigidStatic* ground = gPhysics->createRigidStatic(groundPose);
+	PxShape* shape = gPhysics->createShape(groundBox, *material);
+	ground->attachShape(*shape);
+	physicsScene->addActor(*ground);
+
+	std::cout << "Ground plane created" << std::endl;
+
+
+	// Create a dynamic cube
+	UnigmaGameObject* gobj = &GameObjects[3];
+	Component unigmaPhysicsComp;
+	unigmaPhysicsComp.CID = 2; //Camera component.
+	gameManager->AddComponent(*gobj, unigmaPhysicsComp);
+	PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
+	PxTransform t(PxVec3(0, 0, 10), rotation);
+	PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
+
+	std::cout << "Physics Transform created" << std::endl;
+
+
+
+	UnigmaPhysicsComp* physicsComp = static_cast<UnigmaPhysicsComp*>(gameManager->Components[1]);
+
+	physicsComp->geometryType = UnigmaPhysicsComp::Box;
+	physicsComp->bodyType = UnigmaPhysicsComp::Dynamic;
+	physicsComp->bounds = glm::vec3(1, 1, 1);
+	physicsComp->transform = t;
+	physicsComp->Init();
+
+	physicsScene->addActor(*physicsComp->actor);
+
+
+
 
 	std::cout << "Scene created" << std::endl;
 

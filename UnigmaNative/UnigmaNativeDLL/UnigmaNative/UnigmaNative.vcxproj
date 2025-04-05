@@ -183,11 +183,13 @@
     <ClInclude Include="src\Game\Components\Camera\CameraComp.h" />
     <ClInclude Include="src\Game\Components\Component.h" />
     <ClInclude Include="src\Game\Components\ComponentsHeaders.h" />
+    <ClInclude Include="src\Game\Components\UnigmaPhysicsComp\UnigmaPhysicsComp.h" />
     <ClInclude Include="src\Game\GlobalObjects.h" />
     <ClInclude Include="src\Game\UnigmaGameManager.h" />
     <ClInclude Include="src\Game\UnigmaGameObject.h" />
     <ClInclude Include="src\Game\UnigmaScene.h" />
     <ClInclude Include="src\Game\UnigmaSceneManager.h" />
+    <ClInclude Include="src\Physics\UnigmaPhysicsManager.h" />
     <ClInclude Include="src\Rendering\UnigmaCamera.h" />
     <ClInclude Include="src\Rendering\UnigmaLight.h" />
     <ClInclude Include="src\Rendering\UnigmaRenderingManager.h" />
@@ -207,11 +209,13 @@
     <ClCompile Include="src\Game\Components\Camera\CameraComp.cpp" />
     <ClCompile Include="src\Game\Components\Component.cpp" />
     <ClCompile Include="src\Game\Components\ComponentsHeaders.cpp" />
+    <ClCompile Include="src\Game\Components\UnigmaPhysicsComp\UnigmaPhysicsComp.cpp" />
     <ClCompile Include="src\Game\GlobalObjects.cpp" />
     <ClCompile Include="src\Game\UnigmaGameManager.cpp" />
     <ClCompile Include="src\Game\UnigmaGameObject.cpp" />
     <ClCompile Include="src\Game\UnigmaScene.cpp" />
     <ClCompile Include="src\Game\UnigmaSceneManager.cpp" />
+    <ClCompile Include="src\Physics\UnigmaPhysicsManager.cpp" />
     <ClCompile Include="src\Rendering\UnigmaRenderingManager.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

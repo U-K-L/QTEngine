@@ -5,6 +5,7 @@
 #include "../Game/Components/ComponentsHeaders.h"
 #include "UnigmaSceneManager.h"
 #include "../Rendering/UnigmaRenderingManager.h"
+#include "../Physics/UnigmaPhysicsManager.h"
 #include <algorithm>
 #include <SDL.h>
 #include "../Core/InputHander.h"

@@ -9,6 +9,11 @@ Component* GetComponent(uint32_t componentType)
 		CameraComp* camera = new CameraComp();
 		return camera;
 	}
+	case 2: {
+		//Physics component
+		UnigmaPhysicsComp* physics = new UnigmaPhysicsComp();
+		return physics;
+	}
 	default: {
 		return nullptr;
 	}
