@@ -111,7 +111,7 @@ int main(int argc, char* args[]) {
             auto fixedUpdateEnd = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double, std::milli> fixedElapsed = fixedUpdateEnd - fixedUpdateStart;
 
-            if (fixedElapsed.count() >= 0.0001)
+            if (fixedElapsed.count() >= 33)
 			{
 
                 //Update native plugin.
@@ -127,7 +127,7 @@ int main(int argc, char* args[]) {
 			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
 
-			if (renderElapsed.count() >= 0)
+			if (renderElapsed.count() >= 3)
 			{
                 GetInput();
 				//Render the scene.

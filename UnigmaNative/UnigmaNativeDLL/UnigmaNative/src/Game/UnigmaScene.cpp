@@ -21,36 +21,9 @@ UnigmaScene::~UnigmaScene()
 
 void UnigmaScene::Update()
 {
-	std::cout << "Delta Time: " << UnigmaGameManager::instance->deltaTime << std::endl;
-	physicsScene->simulate(0.001f);
+	float simulationTime = 1.0f / 24.0f;
+	physicsScene->simulate(simulationTime);
 	physicsScene->fetchResults(true);
-
-	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
-	UnigmaGameObject* gobj = &GameObjects[3];
-	PxRigidDynamic* physicsCube = static_cast<PxRigidDynamic*>( static_cast<UnigmaPhysicsComp*>(gameManager->Components[1])->actor);
-	if (physicsCube)
-	{
-		PxTransform pose = physicsCube->getGlobalPose();
-		printf("Cube Position: x=%.2f, y=%.2f, z=%.2f\n",
-			pose.p.x, pose.p.y, pose.p.z);
-		printf("Cube Rotation: x=%.2f, y=%.2f, z=%.2f, w=%.2f\n",
-			pose.q.x, pose.q.y, pose.q.z, pose.q.w);
-
-
-		std::cout << "GameObject Name: " << gobj->name << std::endl;
-		gobj->transform.position.x = pose.p.x;
-		gobj->transform.position.y = pose.p.y;
-		gobj->transform.position.z = pose.p.z;
-
-		glm::quat q = glm::quat(pose.q.w, pose.q.x, pose.q.y, pose.q.z); // (w, x, y, z)
-		glm::vec3 euler = glm::eulerAngles(q);
-		gobj->transform.rotation.x = euler.x;
-		gobj->transform.rotation.y = euler.y;
-		gobj->transform.rotation.z = euler.z;
-
-		gobj->transform.UpdateTransform();
-
-	}
 }
 
 void UnigmaScene::Start()
@@ -66,6 +39,9 @@ void UnigmaScene::AddGameObject(UnigmaGameObject& gameObject)
 	gameObject.ID = GameObjectsIndex.size();
 	GameObjectsIndex.push_back(gameObject.ID); //Push this onto our scene gameobjects.
 	GameObjects[gameObject.ID] = gameObject; //Globally overwrite with this.
+	UnigmaGameObjectClass gameObjectClass;
+	gameObjectClass.gameObject = &gameObject;
+	GameObjectsClasses.push_back(gameObjectClass);
 }
 
 void UnigmaScene::LoadJSON(std::string sceneName)
@@ -88,6 +64,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 	for (const auto& obj : jsonData["GameObjects"]) {
 		UnigmaGameObject gameObject;
 
+
 		//Get the name of this object.
 		std::string name = obj["name"];
 		strcpy(gameObject.name, name.c_str());
@@ -106,6 +83,39 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 		gameObject.JID = jIndex;
 
 		AddGameObject(gameObject);
+
+		// Create a dynamic cube
+		if (jIndex == 2)
+		{
+			UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[jIndex];
+			UnigmaGameObject* gobj = gameObjectClass->gameObject;
+			Component unigmaPhysicsComp;
+			gameManager->AddComponent(*gobj, unigmaPhysicsComp, "UnigmaPhysicsComp");
+
+
+			PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
+			PxTransform t(PxVec3(0, 0, 10), rotation);
+			PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
+
+			std::cout << "gameobjectclass component unigmaphysics: " << GameObjectsClasses[gobj->ID].components["UnigmaPhysicsComp"] << std::endl;
+
+			//Get the physics component.
+			UnigmaPhysicsComp* physicsComp = gameManager->GetObjectComponent<UnigmaPhysicsComp>(GameObjectsClasses[gobj->ID]);
+
+
+
+			//UnigmaPhysicsComp* physicsComp = static_cast<UnigmaPhysicsComp*>(gameManager->Components[GameObjectsClasses[gobj->ID].components["UnigmaPhysicsComp"]]);
+
+			std::cout << "Physics comp pos: " << physicsComp->transform.p.x << std::endl;
+
+			physicsComp->geometryType = UnigmaPhysicsComp::Box;
+			physicsComp->bodyType = UnigmaPhysicsComp::Dynamic;
+			physicsComp->bounds = glm::vec3(1, 1, 1);
+			physicsComp->transform = t;
+			physicsComp->Init();
+
+			physicsScene->addActor(*physicsComp->actor);
+		}
 
 
 		jIndex++;
@@ -140,23 +150,15 @@ void UnigmaScene::CreateScene()
 {
 
 	std::cout << "Creating scene" << std::endl;
-	//gPhysicsFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gPhysicsAllocator, gPhysicsErrorCallback);
-	//gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gPhysicsFoundation, PxTolerancesScale(), true);
 
 	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
 	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
 	sceneDesc.cpuDispatcher = gPhysicsDispatcher;
 	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
 
-	std::cout << "Physics Scene desc created" << std::endl;
 
 	physicsScene = gPhysics->createScene(sceneDesc);
-
-	std::cout << "Physics Scene created" << std::endl;
-
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
-	//LoadJSON("Assets/Scenes/WaveTestScene.json");
-
 	//Create a camera.
 	camera.SetName("mainCamera");
 
@@ -167,7 +169,7 @@ void UnigmaScene::CreateScene()
 	Component cameraComponent;
 	//CID determines which object, this will have a table mapping but for now manual.
 	cameraComponent.CID = 1; //Camera component.
-	gameManager->AddComponent(camera, cameraComponent);
+	gameManager->AddComponent(camera, cameraComponent, "CameraComp");
 
 
 
@@ -187,28 +189,7 @@ void UnigmaScene::CreateScene()
 	std::cout << "Ground plane created" << std::endl;
 
 
-	// Create a dynamic cube
-	UnigmaGameObject* gobj = &GameObjects[3];
-	Component unigmaPhysicsComp;
-	unigmaPhysicsComp.CID = 2; //Camera component.
-	gameManager->AddComponent(*gobj, unigmaPhysicsComp);
-	PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
-	PxTransform t(PxVec3(0, 0, 10), rotation);
-	PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
 
-	std::cout << "Physics Transform created" << std::endl;
-
-
-
-	UnigmaPhysicsComp* physicsComp = static_cast<UnigmaPhysicsComp*>(gameManager->Components[1]);
-
-	physicsComp->geometryType = UnigmaPhysicsComp::Box;
-	physicsComp->bodyType = UnigmaPhysicsComp::Dynamic;
-	physicsComp->bounds = glm::vec3(1, 1, 1);
-	physicsComp->transform = t;
-	physicsComp->Init();
-
-	physicsScene->addActor(*physicsComp->actor);
 
 
 

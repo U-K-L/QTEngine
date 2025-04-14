@@ -17,8 +17,10 @@ class Component
 	virtual void Update();
 	virtual void Start();
 
+	static constexpr const char* TypeName = "ComponentNameComp";
 	uint32_t GID; //ID of the gameObject this component is tied to.
 	uint32_t CID; //ID of the component. For now this is set inside the code for each component, later we'll use a table.
+	uint32_t GlobalIndexID; //Global index ID for the component.
 	std::string Name;
 	bool IsActive;
 	bool IsCreated;

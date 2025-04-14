@@ -73,5 +73,22 @@ void UnigmaPhysicsComp::Init()
 
 void UnigmaPhysicsComp::Update()
 {
-	// Update logic for the physics component
+	UnigmaGameObject* gobj = &GameObjects[GID];
+	PxRigidDynamic* physicsCube = static_cast<PxRigidDynamic*>(actor);
+	if (physicsCube)
+	{
+		PxTransform pose = physicsCube->getGlobalPose();
+		gobj->transform.position.x = pose.p.x;
+		gobj->transform.position.y = pose.p.y;
+		gobj->transform.position.z = pose.p.z;
+
+		glm::quat q = glm::quat(pose.q.w, pose.q.x, pose.q.y, pose.q.z); // (w, x, y, z)
+		glm::vec3 euler = glm::eulerAngles(q);
+		gobj->transform.rotation.x = euler.x;
+		gobj->transform.rotation.y = euler.y;
+		gobj->transform.rotation.z = euler.z;
+
+		gobj->transform.UpdateTransform();
+
+	}
 }

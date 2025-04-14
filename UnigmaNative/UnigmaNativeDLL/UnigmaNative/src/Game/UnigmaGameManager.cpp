@@ -103,26 +103,6 @@ void UnigmaGameManager::Update()
 	// Get the time since the epoch in seconds as a floating-point value
 	auto timeSinceEpoch = std::chrono::duration<float>(lastTime.time_since_epoch()).count();
 	currentTime = timeSinceEpoch;
-
-	//SDL_Delay(16);
-
-	/*
-	if(elaspedTime > 0)
-	{
-		deltaTime = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - lastTime).count();
-		SceneManager->Update();
-		RenderingManager->Update();
-
-		//Update each component.
-		for (auto& component : Components)
-		{
-			component->Update();
-		}
-		lastTime = std::chrono::high_resolution_clock::now();
-	}
-
-	SDL_Delay(16);
-	*/
 }
 
 void UnigmaGameManager::SortComponents()
@@ -133,16 +113,24 @@ void UnigmaGameManager::SortComponents()
 	});
 }
 
-void UnigmaGameManager::AddComponent(UnigmaGameObject gObj, Component component)
+void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, Component component, std::string compName)
 {
 	//Create the component according to a table mapper.
-	Component* comp = GetComponent(component.CID);
+	Component* comp = GetComponent(ComponentMap[compName]);
+
+	
+	//Set the GID of the component.
+	comp->GID = gObj.ID;
 
 	//Add the component to components array.
 	Components.push_back(comp);
 
-	//Set the GID of the component.
-	comp->GID = gObj.ID;
+	//Set the GlobalIndexID of the component.
+	Components[Components.size()-1]->GlobalIndexID = Components.size() - 1;
+
+	uint16_t GIndex = UnigmaGameManager::instance->Components[UnigmaGameManager::instance->Components.size() - 1]->GlobalIndexID;
+	gObj.components[GameObjectsClasses[gObj.ID].components.size()] = GIndex;
+	GameObjectsClasses[gObj.ID].components.insert({ compName, gObj.components[GameObjectsClasses[gObj.ID].components.size()] });
 
 	//Sort the components.
 	SortComponents();

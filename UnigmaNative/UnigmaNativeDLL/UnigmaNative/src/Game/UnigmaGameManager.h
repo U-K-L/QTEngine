@@ -43,7 +43,26 @@ public:
     void LoadScene(const char* sceneName);
 
     void SortComponents();
-    void AddComponent(UnigmaGameObject gObj, Component component);
+    void AddComponent(UnigmaGameObject& gObj, Component component, std::string compName);
+
+    template<typename T> 
+    T* GetObjectComponent(UnigmaGameObjectClass& gObjClass)
+    {
+        if (gObjClass.components.contains(T::TypeName)) {
+
+            auto index = gObjClass.components[T::TypeName];
+            auto globalId = gObjClass.gameObject->components[index];
+
+            Component* comp = Components[globalId];
+
+            UnigmaPhysicsComp* physicsComp = static_cast<T*>(comp);
+
+            std::cout << "Physics comp pos: " << physicsComp->transform.p.z << std::endl;
+
+            return static_cast<T*>(comp);
+        }
+        return nullptr;
+    }
 
     UnigmaRenderingManager* RenderingManager;
     UnigmaSceneManager* SceneManager;

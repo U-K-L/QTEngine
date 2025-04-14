@@ -16,6 +16,7 @@ class CameraComp : public Component
 	void Start() override;
 
 	//This is the camera struct that will be used to render the scene.
+	static constexpr const char* TypeName = "CameraComp";
 	uint32_t CameraID;
 	UnigmaCameraStruct* camera;
 };

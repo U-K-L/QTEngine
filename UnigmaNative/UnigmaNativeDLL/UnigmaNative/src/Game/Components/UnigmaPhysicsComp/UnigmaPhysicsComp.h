@@ -13,6 +13,7 @@ public:
 	void Start() override;
 	void Init();
 
+	static constexpr const char* TypeName = "UnigmaPhysicsComp";
 	enum BodyType
 	{
 		Dynamic,

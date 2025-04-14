@@ -7,3 +7,5 @@
 
 //Maps ints to the correct component.
 Component* GetComponent(uint32_t componentType);
+
+extern std::unordered_map<std::string, int> ComponentMap;
