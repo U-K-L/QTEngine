@@ -113,7 +113,7 @@ void UnigmaGameManager::SortComponents()
 	});
 }
 
-void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, Component component, std::string compName)
+void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, std::string compName)
 {
 	//Create the component according to a table mapper.
 	Component* comp = GetComponent(ComponentMap[compName]);
@@ -130,7 +130,7 @@ void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, Component component
 
 	uint16_t GIndex = UnigmaGameManager::instance->Components[UnigmaGameManager::instance->Components.size() - 1]->GlobalIndexID;
 	gObj.components[GameObjectsClasses[gObj.ID].components.size()] = GIndex;
-	GameObjectsClasses[gObj.ID].components.insert({ compName, gObj.components[GameObjectsClasses[gObj.ID].components.size()] });
+	GameObjectsClasses[gObj.ID].components.insert({ compName, GameObjectsClasses[gObj.ID].components.size() });
 
 	//Sort the components.
 	SortComponents();

@@ -89,24 +89,14 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 		{
 			UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[jIndex];
 			UnigmaGameObject* gobj = gameObjectClass->gameObject;
-			Component unigmaPhysicsComp;
-			gameManager->AddComponent(*gobj, unigmaPhysicsComp, "UnigmaPhysicsComp");
-
-
-			PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
-			PxTransform t(PxVec3(0, 0, 10), rotation);
-			PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
-
-			std::cout << "gameobjectclass component unigmaphysics: " << GameObjectsClasses[gobj->ID].components["UnigmaPhysicsComp"] << std::endl;
+			gameManager->AddComponent(*gobj, "UnigmaPhysicsComp");
 
 			//Get the physics component.
 			UnigmaPhysicsComp* physicsComp = gameManager->GetObjectComponent<UnigmaPhysicsComp>(GameObjectsClasses[gobj->ID]);
 
-
-
-			//UnigmaPhysicsComp* physicsComp = static_cast<UnigmaPhysicsComp*>(gameManager->Components[GameObjectsClasses[gobj->ID].components["UnigmaPhysicsComp"]]);
-
-			std::cout << "Physics comp pos: " << physicsComp->transform.p.x << std::endl;
+			PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
+			PxTransform t(PxVec3(0, 0, 10), rotation);
+			PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
 
 			physicsComp->geometryType = UnigmaPhysicsComp::Box;
 			physicsComp->bodyType = UnigmaPhysicsComp::Dynamic;
@@ -169,7 +159,7 @@ void UnigmaScene::CreateScene()
 	Component cameraComponent;
 	//CID determines which object, this will have a table mapping but for now manual.
 	cameraComponent.CID = 1; //Camera component.
-	gameManager->AddComponent(camera, cameraComponent, "CameraComp");
+	gameManager->AddComponent(camera, "CameraComp");
 
 
 

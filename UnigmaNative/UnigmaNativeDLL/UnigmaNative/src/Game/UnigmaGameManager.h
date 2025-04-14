@@ -43,7 +43,7 @@ public:
     void LoadScene(const char* sceneName);
 
     void SortComponents();
-    void AddComponent(UnigmaGameObject& gObj, Component component, std::string compName);
+    void AddComponent(UnigmaGameObject& gObj, std::string compName);
 
     template<typename T> 
     T* GetObjectComponent(UnigmaGameObjectClass& gObjClass)
@@ -56,8 +56,6 @@ public:
             Component* comp = Components[globalId];
 
             UnigmaPhysicsComp* physicsComp = static_cast<T*>(comp);
-
-            std::cout << "Physics comp pos: " << physicsComp->transform.p.z << std::endl;
 
             return static_cast<T*>(comp);
         }
