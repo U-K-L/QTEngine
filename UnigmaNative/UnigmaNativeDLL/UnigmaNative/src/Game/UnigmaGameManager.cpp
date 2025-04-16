@@ -27,6 +27,7 @@ void UnigmaGameManager::Create()
 {
 	//Create managers.
 	SceneManager = new UnigmaSceneManager();
+	SceneManager->SetInstance(SceneManager);
 	RenderingManager = new UnigmaRenderingManager();
 	PhysicsInitialize();
 

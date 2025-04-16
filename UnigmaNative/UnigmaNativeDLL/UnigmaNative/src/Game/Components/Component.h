@@ -5,6 +5,8 @@
 #include <vector>
 #include <../glm//glm.hpp>
 #include "../GlobalObjects.h"
+#include "../json/json.hpp"
+#include "../../Game/UnigmaSceneManager.h"
 
 
 
@@ -14,6 +16,7 @@ class Component
 	Component();
 	~Component();
 
+	virtual void InitializeData(nlohmann::json& componentData);
 	virtual void Update();
 	virtual void Start();
 

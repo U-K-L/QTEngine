@@ -15,7 +15,7 @@ struct UnigmaGameObject
     char name[32];
     uint32_t ID;
     uint32_t RenderID;
-    uint32_t JID; //Idea for data structure.
+    uint32_t JID; //Id for json data structure.
     bool isActive;
     bool isCreated;
     char _pad2[6];

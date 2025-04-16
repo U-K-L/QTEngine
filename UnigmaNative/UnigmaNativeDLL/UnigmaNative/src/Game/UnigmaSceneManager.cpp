@@ -2,6 +2,8 @@
 #include "GlobalObjects.h"
 #include "UnigmaGameManager.h"
 
+UnigmaSceneManager* UnigmaSceneManager::instance = nullptr; // Define the static member
+
 UnigmaSceneManager::UnigmaSceneManager()
 {
 
@@ -80,16 +82,24 @@ void UnigmaSceneManager::AddScene(UnigmaScene scene)
 	}
 
 	GlobalScenes.insert( std::pair<std::string, UnigmaScene>(scene.Name, scene));
+	SetCurrentScene(&GlobalScenes[scene.Name]);
 }
 
 UnigmaScene* UnigmaSceneManager::GetCurrentScene()
 {
+	std::cout << "Getting current scene" << std::endl;
+	std::cout << CurrentScene->Name << std::endl;
+	if(CurrentScene == nullptr)
+	{
+		std::cout << "Current scene is null" << std::endl;
+		return nullptr;
+	}
 	return CurrentScene;
 }
 
-void UnigmaSceneManager::SetCurrentScene(UnigmaScene scene)
+void UnigmaSceneManager::SetCurrentScene(UnigmaScene* scene)
 {
-		CurrentScene = &scene;
+		CurrentScene = scene;
 }
 
 

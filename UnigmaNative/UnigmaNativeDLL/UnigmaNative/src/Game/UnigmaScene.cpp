@@ -4,7 +4,6 @@
 #include "GlobalObjects.h"
 #include "UnigmaGameManager.h"
 #include <fstream>
-#include "../json/json.hpp"
 
 #include "../Physics/UnigmaPhysicsManager.h"
 
@@ -44,6 +43,32 @@ void UnigmaScene::AddGameObject(UnigmaGameObject& gameObject)
 	GameObjectsClasses.push_back(gameObjectClass);
 }
 
+void UnigmaScene::AddObjectComponents(UnigmaGameObject& gameObject, json& gameObjectData)
+{
+	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
+	UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[gameObject.JID];
+	UnigmaGameObject* gobj = gameObjectClass->gameObject;
+
+	std::cout << "Adding components to game object: " << gameObject.name << std::endl;
+	for (const auto& [componentName, componentData] : gameObjectData["Components"].items())
+	{
+		gameManager->AddComponent(*gobj, componentName);
+
+		std::cout << "Component added: " << componentName << std::endl;
+		//Initialize the component data.
+		if (GameObjectsClasses[gameObject.ID].components.contains(componentName)) {
+
+			std::cout << "Component found: " << componentName << std::endl;
+			auto index = GameObjectsClasses[gameObject.ID].components[componentName];
+			auto globalId = GameObjectsClasses[gameObject.ID].gameObject->components[index];
+
+			Component* comp = gameManager->Components[globalId];
+			comp->InitializeData(componentData);
+		}
+	}
+
+}
+
 void UnigmaScene::LoadJSON(std::string sceneName)
 {
 	std::ifstream inputFile("Assets/Scenes/" + sceneName + "/" + sceneName + ".json");
@@ -61,7 +86,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 	uint32_t jIndex = 0;
 	// Parse GameObjects
 	std::vector<UnigmaGameObject> gameObjects;
-	for (const auto& obj : jsonData["GameObjects"]) {
+	for (auto& obj : jsonData["GameObjects"]) {
 		UnigmaGameObject gameObject;
 
 
@@ -83,8 +108,9 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 		gameObject.JID = jIndex;
 
 		AddGameObject(gameObject);
-
+		AddObjectComponents(gameObject, obj);
 		// Create a dynamic cube
+		/*
 		if (jIndex == 2)
 		{
 			UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[jIndex];
@@ -106,7 +132,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 			physicsScene->addActor(*physicsComp->actor);
 		}
-
+		*/
 
 		jIndex++;
 

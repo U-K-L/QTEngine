@@ -9,6 +9,7 @@ public:
 	UnigmaPhysicsComp();
 	~UnigmaPhysicsComp();
 
+	void InitializeData(nlohmann::json& componentData) override;
 	void Update() override;
 	void Start() override;
 	void Init();

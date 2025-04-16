@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include "PxPhysicsAPI.h"
 #include "PxScene.h"
+#include "../json/json.hpp"
 
 
 using namespace physx;
@@ -18,6 +19,7 @@ class UnigmaScene
 	void Start();
 	void CreateScene();
 	void AddGameObject(UnigmaGameObject& gameObject);
+	void AddObjectComponents(UnigmaGameObject& gameObject, nlohmann::json& gameObjectData);
 	void LoadJSON(std::string scenePath);
 
 	PxScene* physicsScene;

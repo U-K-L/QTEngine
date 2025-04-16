@@ -5,6 +5,12 @@
 class UnigmaSceneManager
 {
 	public:
+	static UnigmaSceneManager* instance;
+	static void SetInstance(UnigmaSceneManager* app)
+	{
+		std::cout << "Setting Scene Manager instance" << std::endl;
+		instance = app;
+	}
 	UnigmaSceneManager();
 	~UnigmaSceneManager();
 
@@ -18,7 +24,7 @@ class UnigmaSceneManager
 	std::vector<uint32_t> ScenesIndex;
 
 	UnigmaScene* GetCurrentScene();
-	void SetCurrentScene(UnigmaScene scene);
+	void SetCurrentScene(UnigmaScene* scene);
 
 	private:
 		UnigmaScene* CurrentScene;

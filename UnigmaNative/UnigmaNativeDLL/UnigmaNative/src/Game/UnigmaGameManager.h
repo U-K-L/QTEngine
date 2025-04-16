@@ -55,8 +55,6 @@ public:
 
             Component* comp = Components[globalId];
 
-            UnigmaPhysicsComp* physicsComp = static_cast<T*>(comp);
-
             return static_cast<T*>(comp);
         }
         return nullptr;
