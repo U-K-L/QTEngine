@@ -63,11 +63,12 @@ void UnigmaPhysicsComp::InitializeData(nlohmann::json& componentData)
 		bounds.z = componentData["Bounds"][2];
 	}
 
-	//PxQuat rot = PxQuat (PxPiDivTwo, PxVec3(gobj->transform.rotation.x, gobj->transform.rotation.y, gobj->transform.rotation.z));
+	PxQuat qx(gobj->transform.rotation.x, PxVec3(1, 0, 0));
+	PxQuat qy(gobj->transform.rotation.y, PxVec3(0, 1, 0));
+	PxQuat qz(gobj->transform.rotation.z, PxVec3(0, 0, 1));
+	PxQuat rot = qz * qy * qx;
 	PxVec3 pos = PxVec3(gobj->transform.position.x, gobj->transform.position.y, gobj->transform.position.z);
-	//PxTransform t(position, rotation);
-	PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
-	PxTransform t(pos, rotation);
+	PxTransform t(pos, rot);
 	transform = t;
 	Init();
 
