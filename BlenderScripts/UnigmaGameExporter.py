@@ -2,6 +2,7 @@
 import bpy
 import os
 import json
+from mathutils import Vector
 
 #Exporter menu options
 bl_info  = {
@@ -32,13 +33,24 @@ class UnigmaExporter(bpy.types.Operator):
             filepath=gltf_path,
             export_format='GLTF_SEPARATE',
             use_visible=True,
-            export_yup=False
+            export_yup=True
         )
 
         print("Unigma Exporter GLTF. Starting Json")
         self.exportJson()
         print("Unigma Exporter Json. Done")
         return {'FINISHED'}
+    
+    def make_serializable(self, obj):
+        if isinstance(obj, Vector):
+            return list(obj)
+        if hasattr(obj, "to_list"):
+            return obj.to_list()
+        if isinstance(obj, dict):
+            return {k: self.make_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [self.make_serializable(v) for v in obj]
+        return obj
     
     def exportJson(self):
         scene = bpy.context.scene
@@ -68,34 +80,16 @@ class UnigmaExporter(bpy.types.Operator):
 
             # Custom properties (e.g., BaseAlbedo)
             custom_properties = {}
-            for prop_name in ["BaseAlbedo", "TopAlbedo", "SideAlbedo", "InnerOutlineColor", "OuterOutlineColor"]:
-                if hasattr(obj, prop_name):
-                    prop_value = getattr(obj, prop_name)
-                    if isinstance(prop_value, (list, tuple)):  # Already serializable
-                        custom_properties[prop_name] = {
-                            "r": prop_value[0],
-                            "g": prop_value[1],
-                            "b": prop_value[2],
-                            "a": prop_value[3]
-                        }
-                    elif hasattr(prop_value, "to_list"):  # Convert IDPropertyArray to list
-                        prop_list = prop_value.to_list()
-                        custom_properties[prop_name] = {
-                            "r": prop_list[0],
-                            "g": prop_list[1],
-                            "b": prop_list[2],
-                            "a": prop_list[3]
-                        }
-
+            outlineNames = ["BaseAlbedo", "TopAlbedo", "SideAlbedo", "InnerOutlineColor", "OuterOutlineColor"]
             for prop_name, prop_value in obj.items():
-                if prop_name not in custom_properties:  # Avoid overwriting already processed properties
-                    if isinstance(prop_value, (list, tuple)):  # Handle directly serializable types
-                        custom_properties[prop_name] = prop_value
-                    elif hasattr(prop_value, "to_list"):  # Handle IDPropertyArray
-                        custom_properties[prop_name] = prop_value.to_list()
-                    else:
-                        custom_properties[prop_name] = str(prop_value)  # Fallback for unsupported types
-
+                if prop_name not in outlineNames:
+                    continue
+                if isinstance(prop_value, (list, tuple)):  # Handle directly serializable types
+                    custom_properties[prop_name] = prop_value
+                elif hasattr(prop_value, "to_list"):  # Handle IDPropertyArray
+                    custom_properties[prop_name] = prop_value.to_list()
+                else:
+                    custom_properties[prop_name] = str(prop_value)  # Fallback for unsupported types
 
             # Get shader properties
             emission = [0, 0, 0, 0]
@@ -125,7 +119,20 @@ class UnigmaExporter(bpy.types.Operator):
                 emission = [emcolor[0], emcolor[1], emcolor[2], light_data.energy]
                                         
             parent_name = obj.parent.name if obj.parent else None
+            
+            compOut = {}
+            for comp in obj.components:
+                settings = {}
+                for k in comp.keys():
+                    v = comp[k]
+                    # convert mathutils.Vector → list
+                    if isinstance(v, Vector):
+                        settings[k] = list(v)
+                    else:
+                        settings[k] = v
+                compOut.setdefault(comp.name, []).append(settings)
 
+            serializableComponents = self.make_serializable(compOut)
             # Add info to the scene data structure
             scene_data["GameObjects"].append({
                 "name": object_name,
@@ -174,6 +181,7 @@ class UnigmaExporter(bpy.types.Operator):
                 },
                 "type": object_type,
                 "parent": parent_name,
+                "Components": serializableComponents,
                 "CustomProperties": custom_properties
             })
 

@@ -49,16 +49,13 @@ void UnigmaScene::AddObjectComponents(UnigmaGameObject& gameObject, json& gameOb
 	UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[gameObject.JID];
 	UnigmaGameObject* gobj = gameObjectClass->gameObject;
 
-	std::cout << "Adding components to game object: " << gameObject.name << std::endl;
 	for (const auto& [componentName, componentData] : gameObjectData["Components"].items())
 	{
 		gameManager->AddComponent(*gobj, componentName);
 
-		std::cout << "Component added: " << componentName << std::endl;
 		//Initialize the component data.
 		if (GameObjectsClasses[gameObject.ID].components.contains(componentName)) {
 
-			std::cout << "Component found: " << componentName << std::endl;
 			auto index = GameObjectsClasses[gameObject.ID].components[componentName];
 			auto globalId = GameObjectsClasses[gameObject.ID].gameObject->components[index];
 
@@ -109,30 +106,6 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 		AddGameObject(gameObject);
 		AddObjectComponents(gameObject, obj);
-		// Create a dynamic cube
-		/*
-		if (jIndex == 2)
-		{
-			UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[jIndex];
-			UnigmaGameObject* gobj = gameObjectClass->gameObject;
-			gameManager->AddComponent(*gobj, "UnigmaPhysicsComp");
-
-			//Get the physics component.
-			UnigmaPhysicsComp* physicsComp = gameManager->GetObjectComponent<UnigmaPhysicsComp>(GameObjectsClasses[gobj->ID]);
-
-			PxQuat rotation(PxPiDivTwo, PxVec3(1, 0, 0)); // rotate 90° around X
-			PxTransform t(PxVec3(0, 0, 10), rotation);
-			PxBoxGeometry boxGeom(1, 1, 1); // 2x2x2 cube
-
-			physicsComp->geometryType = UnigmaPhysicsComp::Box;
-			physicsComp->bodyType = UnigmaPhysicsComp::Dynamic;
-			physicsComp->bounds = glm::vec3(1, 1, 1);
-			physicsComp->transform = t;
-			physicsComp->Init();
-
-			physicsScene->addActor(*physicsComp->actor);
-		}
-		*/
 
 		jIndex++;
 
