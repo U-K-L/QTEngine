@@ -1,9 +1,9 @@
 import os, bpy, json
 
 if bpy.data.filepath:
-    json_path = bpy.path.abspath("//components.json")
+    json_path = bpy.path.abspath("//Components.json")
 else:
-    json_path = os.path.join(os.path.dirname(__file__), "components.json")
+    json_path = os.path.join(os.path.dirname(__file__), "../../Components/Components.json")
 
 with open(json_path) as f:
     COMPONENT_DEFS = json.load(f)

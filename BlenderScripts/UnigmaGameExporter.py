@@ -130,7 +130,7 @@ class UnigmaExporter(bpy.types.Operator):
                         settings[k] = list(v)
                     else:
                         settings[k] = v
-                compOut.setdefault(comp.name, []).append(settings)
+                compOut[comp.name] = settings
 
             serializableComponents = self.make_serializable(compOut)
             # Add info to the scene data structure
