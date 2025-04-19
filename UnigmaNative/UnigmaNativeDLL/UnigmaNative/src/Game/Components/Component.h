@@ -7,6 +7,7 @@
 #include "../GlobalObjects.h"
 #include "../json/json.hpp"
 #include "../../Game/UnigmaSceneManager.h"
+#include "../../Game/UnigmaGameObject.h"
 
 
 
@@ -25,6 +26,7 @@ class Component
 	uint32_t CID; //ID of the component. For now this is set inside the code for each component, later we'll use a table.
 	uint32_t GlobalIndexID; //Global index ID for the component.
 	std::string Name;
+	UnigmaGameObjectClass* gameObjectClass; //Pointer to the game object class this component is tied to.
 	bool IsActive;
 	bool IsCreated;
 	bool IsStarted;
