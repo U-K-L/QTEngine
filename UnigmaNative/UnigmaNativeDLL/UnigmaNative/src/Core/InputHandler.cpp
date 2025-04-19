@@ -18,6 +18,7 @@ void SetButtonInputs(UnigmaInputStruct* input)
 	while (SDL_PollEvent(&inputEvent))
 	{
 		cameraProjectionButtons(inputEvent, input);
+		SetMovement(inputEvent, input);
 	}
 }
 
@@ -46,4 +47,14 @@ void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 			input->perspectiveButtonDown = false;
 		}
 	}
+}
+
+void SetMovement(SDL_Event& inputEvent, UnigmaInputStruct* input)
+{
+	//Keyboard input arrow keys.
+	const Uint8* keystates = SDL_GetKeyboardState(NULL);
+	if (keystates[SDL_SCANCODE_LEFT])  input->movement.x -= 1.0f;
+	if (keystates[SDL_SCANCODE_RIGHT]) input->movement.x += 1.0f;
+	if (keystates[SDL_SCANCODE_UP])    input->movement.y -= 1.0f;
+	if (keystates[SDL_SCANCODE_DOWN])  input->movement.y += 1.0f;
 }

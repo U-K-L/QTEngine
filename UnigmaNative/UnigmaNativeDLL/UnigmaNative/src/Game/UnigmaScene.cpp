@@ -160,29 +160,6 @@ void UnigmaScene::CreateScene()
 	cameraComponent.CID = 1; //Camera component.
 	gameManager->AddComponent(camera, "CameraComp");
 
-
-
-
-	PxMaterial* material = gPhysics->createMaterial(0.5f, 0.5f, 0.6f); // static friction, dynamic friction, restitution
-
-	std::cout << "Physics Material created" << std::endl;
-
-	// Create a ground plane
-	PxTransform groundPose(PxVec3(0, 0, -2.5));
-	PxBoxGeometry groundBox(50, 50, 1); // Wide flat box at Z = 0
-	PxRigidStatic* ground = gPhysics->createRigidStatic(groundPose);
-	PxShape* shape = gPhysics->createShape(groundBox, *material);
-	ground->attachShape(*shape);
-	physicsScene->addActor(*ground);
-
-	std::cout << "Ground plane created" << std::endl;
-
-
-
-
-
-
-
 	std::cout << "Scene created" << std::endl;
 
 }

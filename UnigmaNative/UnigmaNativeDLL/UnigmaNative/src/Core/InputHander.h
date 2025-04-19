@@ -11,6 +11,7 @@ struct UnigmaInputStruct
 	bool perspectiveButtonDown;
 	bool cameraZoom;
 	glm::vec2 wheel;
+	glm::vec2 movement;
 	UnigmaInputStruct()
 		: port(0),
 		inputReceived(false),
@@ -28,3 +29,5 @@ UnigmaInputStruct GetInput(int flag);
 void SetButtonInputs(UnigmaInputStruct* input);
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input);
+
+void SetMovement(SDL_Event& inputEvent, UnigmaInputStruct* input);
