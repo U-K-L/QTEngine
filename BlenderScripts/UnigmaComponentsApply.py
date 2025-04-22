@@ -1,9 +1,12 @@
 import os, bpy, json
 
-if bpy.data.filepath:
-    json_path = bpy.path.abspath("//Components.json")
-else:
-    json_path = os.path.join(os.path.dirname(__file__), "../../Components/Components.json")
+if not bpy.data.filepath:
+    raise RuntimeError("Save your .blend first so we know where “//” is!")
+
+blend_dir = bpy.path.abspath("//")
+json_path  = os.path.normpath(
+    os.path.join(blend_dir, "..", "..", "Components", "Components.json")
+)
 
 with open(json_path) as f:
     COMPONENT_DEFS = json.load(f)

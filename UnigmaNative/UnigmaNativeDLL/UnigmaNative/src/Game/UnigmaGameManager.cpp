@@ -123,6 +123,8 @@ void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, std::string compNam
 	//Set the GID of the component.
 	comp->GID = gObj.ID;
 
+	comp->gameObjectClass = &GameObjectsClasses[gObj.ID];
+
 	//Add the component to components array.
 	Components.push_back(comp);
 
@@ -130,6 +132,7 @@ void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, std::string compNam
 	Components[Components.size()-1]->GlobalIndexID = Components.size() - 1;
 
 	uint16_t GIndex = UnigmaGameManager::instance->Components[UnigmaGameManager::instance->Components.size() - 1]->GlobalIndexID;
+
 	gObj.components[GameObjectsClasses[gObj.ID].components.size()] = GIndex;
 	GameObjectsClasses[gObj.ID].components.insert({ compName, GameObjectsClasses[gObj.ID].components.size() });
 

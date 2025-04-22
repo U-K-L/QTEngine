@@ -39,20 +39,21 @@ void UnigmaScene::AddGameObject(UnigmaGameObject& gameObject)
 	GameObjectsIndex.push_back(gameObject.ID); //Push this onto our scene gameobjects.
 	GameObjects[gameObject.ID] = gameObject; //Globally overwrite with this.
 	UnigmaGameObjectClass gameObjectClass;
-	gameObjectClass.gameObject = &gameObject;
+	gameObjectClass.gameObject = &GameObjects[gameObject.ID];
 	GameObjectsClasses.push_back(gameObjectClass);
 }
 
 void UnigmaScene::AddObjectComponents(UnigmaGameObject& gameObject, json& gameObjectData)
 {
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
-	UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[gameObject.JID];
+	UnigmaGameObjectClass* gameObjectClass = &GameObjectsClasses[gameObject.ID];
 	UnigmaGameObject* gobj = gameObjectClass->gameObject;
 
 	for (const auto& [componentName, componentData] : gameObjectData["Components"].items())
 	{
-		gameManager->AddComponent(*gobj, componentName);
 
+		gameManager->AddComponent(*gobj, componentName);
+		std::cout << "Adding component: " << componentName << std::endl;
 		//Initialize the component data.
 		if (GameObjectsClasses[gameObject.ID].components.contains(componentName)) {
 
@@ -60,7 +61,9 @@ void UnigmaScene::AddObjectComponents(UnigmaGameObject& gameObject, json& gameOb
 			auto globalId = GameObjectsClasses[gameObject.ID].gameObject->components[index];
 
 			Component* comp = gameManager->Components[globalId];
+			std::cout << "Component initialized: " << componentName << std::endl;
 			comp->InitializeData(componentData);
+
 		}
 	}
 
@@ -147,6 +150,7 @@ void UnigmaScene::CreateScene()
 
 
 	physicsScene = gPhysics->createScene(sceneDesc);
+	/*
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
 	//Create a camera.
 	camera.SetName("mainCamera");
@@ -159,7 +163,7 @@ void UnigmaScene::CreateScene()
 	//CID determines which object, this will have a table mapping but for now manual.
 	cameraComponent.CID = 1; //Camera component.
 	gameManager->AddComponent(camera, "CameraComp");
-
+	*/
 	std::cout << "Scene created" << std::endl;
 
 }

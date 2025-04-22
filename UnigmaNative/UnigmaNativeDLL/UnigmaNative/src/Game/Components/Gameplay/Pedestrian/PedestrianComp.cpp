@@ -20,7 +20,12 @@ void PedestrianComp::InitializeData(nlohmann::json& componentData)
 
 void PedestrianComp::Update()
 {
+	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
 	UnigmaInputStruct* Controller0 = &UnigmaGameManager::instance->Controller0;
+	UnigmaPhysicsComp* physicsComp = gameManager->GetObjectComponent<UnigmaPhysicsComp>(*gameObjectClass);
+
+	// Quick print of physics.
+	//std::cout << "Physics: " << physicsComp->geometryType << std::endl;
 	//Arrow keys move character
 	
 

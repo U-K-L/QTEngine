@@ -143,13 +143,40 @@ void CameraComp::Start()
 {
 	std::cout << "Camera component started" << std::endl;
 	//Add this camera to global objects.
-	UnigmaCameraStruct cameraTemp = UnigmaCameraStruct();
-	Cameras.push_back(cameraTemp);
-	CameraID = Cameras.size() - 1;
 
-	camera = &Cameras[CameraID];
-
+    /*
     camera->farClip = 15.0f;
     camera->nearClip = 0.1f;
     camera->isOrthogonal = 0.0f;
+    */
+}
+
+void CameraComp::InitializeData(nlohmann::json& componentData)
+{
+	// Initialize camera properties from JSON data
+    UnigmaCameraStruct cameraTemp = UnigmaCameraStruct();
+    Cameras.push_back(cameraTemp);
+    CameraID = Cameras.size() - 1;
+
+    camera = &Cameras[CameraID];
+    std::cout << componentData["CameraType"] << std::endl;
+	if (componentData.contains("FarClip"))
+	{
+        camera->farClip = componentData["FarClip"];
+	}
+	if (componentData.contains("NearClip"))
+	{
+		camera->nearClip = componentData["NearClip"];
+	}
+	if (componentData.contains("CameraType"))
+	{
+        if(componentData["CameraType"] == "Perspective")
+			camera->isOrthogonal = 0.0f;
+		else if(componentData["CameraType"] == "Orthogonal")
+			camera->isOrthogonal = 1.0f;
+	}
+    if(componentData.contains("OrthographicSize"))
+	{
+		camera->orthoWidth = componentData["OrthographicSize"];
+	}
 }

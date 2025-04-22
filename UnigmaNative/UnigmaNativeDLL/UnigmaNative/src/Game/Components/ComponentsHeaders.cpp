@@ -2,7 +2,9 @@
 
 std::unordered_map<std::string, int> ComponentMap = {
 	{"CameraComp", 1},
-	{"UnigmaPhysicsComp", 2}
+	{"UnigmaPhysicsComp", 2},
+	{"PedestrianComp", 3}
+
 };
 
 Component* GetComponent(uint32_t componentType)
@@ -20,6 +22,12 @@ Component* GetComponent(uint32_t componentType)
 		UnigmaPhysicsComp* physics = new UnigmaPhysicsComp();
 		physics->CID = 2;
 		return physics;
+	}
+	case 3: {
+		//Pedestrian component
+		PedestrianComp* pedestrian = new PedestrianComp();
+		pedestrian->CID = 3;
+		return pedestrian;
 	}
 	default: {
 		return nullptr;
