@@ -24,11 +24,12 @@ void PedestrianComp::Update()
 	UnigmaInputStruct* Controller0 = &UnigmaGameManager::instance->Controller0;
 	UnigmaPhysicsComp* physicsComp = gameManager->GetObjectComponent<UnigmaPhysicsComp>(*gameObjectClass);
 
-	// Quick print of physics.
-	//std::cout << "Physics: " << physicsComp->geometryType << std::endl;
-	//Arrow keys move character
-	
+	//Should only be dynamic.
+	PxRigidDynamic *dynamicBody = static_cast<PxRigidDynamic*>(physicsComp->actor);
 
+	// Quick print of physics.
+	//Arrow keys move character
+	dynamicBody->addForce(PxVec3(Controller0->movement.x, Controller0->movement.y, 0) * 10.0f, PxForceMode::eFORCE, true);
 }
 
 void PedestrianComp::Start()

@@ -83,6 +83,8 @@ void UnigmaPhysicsComp::Start()
 
 void UnigmaPhysicsComp::Init()
 {
+	UnigmaGameObject* gobj = &GameObjects[GID];
+	std::cout << "Creating Physics Component with gobj name: " << gobj->name << std::endl;
 	PxMaterial* material = gPhysics->createMaterial(staticFriction, dynamicFriction, restitution);
 
 	switch (geometryType)
@@ -135,21 +137,46 @@ void UnigmaPhysicsComp::Init()
 void UnigmaPhysicsComp::Update()
 {
 	UnigmaGameObject* gobj = &GameObjects[GID];
-	PxRigidDynamic* physicsCube = static_cast<PxRigidDynamic*>(actor);
-	if (physicsCube)
+	if(bodyType == Static)
 	{
-		PxTransform pose = physicsCube->getGlobalPose();
-		gobj->transform.position.x = pose.p.x;
-		gobj->transform.position.y = pose.p.y;
-		gobj->transform.position.z = pose.p.z;
+		PxRigidStatic* physicsStatic = static_cast<PxRigidStatic*>(actor);
+		if (physicsStatic)
+		{
+			PxTransform pose = physicsStatic->getGlobalPose();
+			gobj->transform.position.x = pose.p.x;
+			gobj->transform.position.y = pose.p.y;
+			gobj->transform.position.z = pose.p.z;
 
-		glm::quat q = glm::quat(pose.q.w, pose.q.x, pose.q.y, pose.q.z); // (w, x, y, z)
-		glm::vec3 euler = glm::eulerAngles(q);
-		gobj->transform.rotation.x = euler.x;
-		gobj->transform.rotation.y = euler.y;
-		gobj->transform.rotation.z = euler.z;
+			glm::quat q = glm::quat(pose.q.w, pose.q.x, pose.q.y, pose.q.z); // (w, x, y, z)
+			glm::vec3 euler = glm::eulerAngles(q);
+			gobj->transform.rotation.x = euler.x;
+			gobj->transform.rotation.y = euler.y;
+			gobj->transform.rotation.z = euler.z;
 
-		gobj->transform.UpdateTransform();
-
+			gobj->transform.UpdateTransform();
+		}
 	}
+	else if (bodyType == Dynamic)
+	{
+		PxRigidDynamic* physicsDynamic = static_cast<PxRigidDynamic*>(actor);
+		if (physicsDynamic)
+		{
+			PxTransform pose = physicsDynamic->getGlobalPose();
+			gobj->transform.position.x = pose.p.x;
+			gobj->transform.position.y = pose.p.y;
+			gobj->transform.position.z = pose.p.z;
+
+			glm::quat q = glm::quat(pose.q.w, pose.q.x, pose.q.y, pose.q.z); // (w, x, y, z)
+			glm::vec3 euler = glm::eulerAngles(q);
+			gobj->transform.rotation.x = euler.x;
+			gobj->transform.rotation.y = euler.y;
+			gobj->transform.rotation.z = euler.z;
+
+			gobj->transform.UpdateTransform();
+
+		}
+	}
+
+
+
 }

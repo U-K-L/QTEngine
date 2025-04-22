@@ -1,4 +1,5 @@
 #include "InputHander.h"
+#include <iostream>
 
 UnigmaInputStruct GetInput(int flag)
 {
@@ -13,7 +14,7 @@ bool perspectiveButtonDown = false;
 
 void SetButtonInputs(UnigmaInputStruct* input)
 {
-
+	//std::cout << "Key Pressed: " << SDL_GetKeyName(inputEvent.key.keysym.sym) << std::endl;
 	SDL_Event inputEvent;
 	while (SDL_PollEvent(&inputEvent))
 	{
@@ -24,6 +25,7 @@ void SetButtonInputs(UnigmaInputStruct* input)
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 {
+
 	if (inputEvent.type == SDL_KEYDOWN)
 	{
 
@@ -51,10 +53,19 @@ void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 
 void SetMovement(SDL_Event& inputEvent, UnigmaInputStruct* input)
 {
+	
 	//Keyboard input arrow keys.
-	const Uint8* keystates = SDL_GetKeyboardState(NULL);
-	if (keystates[SDL_SCANCODE_LEFT])  input->movement.x -= 1.0f;
-	if (keystates[SDL_SCANCODE_RIGHT]) input->movement.x += 1.0f;
-	if (keystates[SDL_SCANCODE_UP])    input->movement.y -= 1.0f;
-	if (keystates[SDL_SCANCODE_DOWN])  input->movement.y += 1.0f;
+	if (inputEvent.type == SDL_KEYDOWN || inputEvent.type == SDL_KEYUP)
+	{
+		
+		bool isDown = inputEvent.type == SDL_KEYDOWN;
+		switch (inputEvent.key.keysym.sym)
+		{
+		case SDLK_LEFT:  input->movement.x = isDown ? -1.0f : 0.0f; break;
+		case SDLK_RIGHT: input->movement.x = isDown ? 1.0f : 0.0f; break;
+		case SDLK_UP:    input->movement.y = isDown ? -1.0f : 0.0f; break;
+		case SDLK_DOWN:  input->movement.y = isDown ? 1.0f : 0.0f; break;
+		default: break;
+		}
+	}
 }

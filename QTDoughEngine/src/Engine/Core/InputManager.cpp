@@ -29,6 +29,7 @@ void SetButtonInputs(UnigmaInputStruct* input)
 		//ImGui_ImplSDL2_ProcessEvent(&e);
 		cameraProjectionButtons(inputEvent, input);
 		cameraInputButtons(inputEvent, input);
+		SetMovement(inputEvent, input);
 		input->inputReceived = true;
 	}
 }
@@ -68,5 +69,24 @@ void cameraInputButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 		glm::vec2 wheel = glm::vec2(inputEvent.wheel.x, inputEvent.wheel.y);
 		input->wheel = wheel;
 		input->cameraZoom = true;
+	}
+}
+
+void SetMovement(SDL_Event& inputEvent, UnigmaInputStruct* input)
+{
+
+	//Keyboard input arrow keys.
+	if (inputEvent.type == SDL_KEYDOWN || inputEvent.type == SDL_KEYUP)
+	{
+
+		bool isDown = inputEvent.type == SDL_KEYDOWN;
+		switch (inputEvent.key.keysym.sym)
+		{
+		case SDLK_LEFT:  input->movement.x = isDown ? -1.0f : 0.0f; break;
+		case SDLK_RIGHT: input->movement.x = isDown ? 1.0f : 0.0f; break;
+		case SDLK_UP:    input->movement.y = isDown ? -1.0f : 0.0f; break;
+		case SDLK_DOWN:  input->movement.y = isDown ? 1.0f : 0.0f; break;
+		default: break;
+		}
 	}
 }

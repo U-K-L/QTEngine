@@ -137,7 +137,7 @@ void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, std::string compNam
 	GameObjectsClasses[gObj.ID].components.insert({ compName, GameObjectsClasses[gObj.ID].components.size() });
 
 	//Sort the components.
-	SortComponents();
+	//SortComponents();
 }
 
 UNIGMANATIVE_API UnigmaGameObject* GetGameObject(uint32_t ID)
