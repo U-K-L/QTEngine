@@ -71,12 +71,11 @@ struct SwapChainSupportDetails {
 };
 
 struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
     std::optional<uint32_t> graphicsAndComputeFamily;
+    std::optional<uint32_t> presentFamily;
 
     bool isComplete() {
-        return graphicsFamily.has_value() && presentFamily.has_value() && graphicsAndComputeFamily.has_value();
+        return graphicsAndComputeFamily.has_value() && presentFamily.has_value();
     }
 };
 

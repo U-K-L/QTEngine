@@ -1715,7 +1715,7 @@ void QTDoughApplication::CreateCommandPool()
     QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(_physicalDevice);
     _commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     _commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    _commandPoolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    _commandPoolInfo.queueFamilyIndex = queueFamilyIndices.graphicsAndComputeFamily.value();
 
     if (vkCreateCommandPool(_logicalDevice , &_commandPoolInfo, nullptr, &_commandPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create command pool!");
@@ -1928,9 +1928,9 @@ void QTDoughApplication::CreateSwapChain() {
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
-    uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    uint32_t queueFamilyIndices[] = { indices.graphicsAndComputeFamily.value(), indices.presentFamily.value() };
 
-    if (indices.graphicsFamily != indices.presentFamily) {
+    if (indices.graphicsAndComputeFamily != indices.presentFamily) {
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -2113,7 +2113,7 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
     //return true;
 
     return rayTracingFeatures.rayTracingPipeline &&
-           indices.graphicsFamily.has_value();
+           indices.graphicsAndComputeFamily.has_value();
 }
 
 std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
@@ -2145,8 +2145,8 @@ QueueFamilyIndices QTDoughApplication::FindQueueFamilies(VkPhysicalDevice device
 
     int i = 0;
     for (const auto& queueFamily : queueFamilies) {
-        if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-            indices.graphicsFamily = i;
+        if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)) {
+            indices.graphicsAndComputeFamily = i;
         }
 
         VkBool32 presentSupport = false;
@@ -2171,7 +2171,7 @@ void QTDoughApplication::CreateLogicalDevice()
     QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsAndComputeFamily.value(), indices.presentFamily.value() };
 
     float queuePriority = 1.0f;
     for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -2188,7 +2188,7 @@ void QTDoughApplication::CreateLogicalDevice()
 
     VkDeviceQueueCreateInfo queueCreateInfo{};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+    queueCreateInfo.queueFamilyIndex = indices.graphicsAndComputeFamily.value();
     queueCreateInfo.queueCount = 1;
 
     queueCreateInfo.pQueuePriorities = &queuePriority;
@@ -2236,12 +2236,9 @@ void QTDoughApplication::CreateLogicalDevice()
         throw std::runtime_error("failed to create logical device!");
     }
 
-
-    vkGetDeviceQueue(_logicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
-
+    vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkGraphicsQueue);
+    vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkComputeQueue);
     vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
-
-    //vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkComputeQueue);
 }
 
 void QTDoughApplication::CleanupSwapChain()
