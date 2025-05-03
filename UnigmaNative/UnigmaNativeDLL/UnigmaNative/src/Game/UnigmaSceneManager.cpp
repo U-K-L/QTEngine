@@ -102,4 +102,13 @@ void UnigmaSceneManager::SetCurrentScene(UnigmaScene* scene)
 		CurrentScene = scene;
 }
 
+void UnigmaSceneManager::CleanUpAllScenes()
+{
+	std::cout << "Cleaning up all scenes" << std::endl;
+	for(auto scene = GlobalScenes.begin(); scene != GlobalScenes.end(); scene++)
+	{
+		scene->second.CleanUpScene();
+	}
+	GlobalScenes.clear();
+}
 

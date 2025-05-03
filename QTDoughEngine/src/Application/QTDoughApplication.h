@@ -73,9 +73,10 @@ struct SwapChainSupportDetails {
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
+    std::optional<uint32_t> graphicsAndComputeFamily;
 
     bool isComplete() {
-        return graphicsFamily.has_value() && presentFamily.has_value();
+        return graphicsFamily.has_value() && presentFamily.has_value() && graphicsAndComputeFamily.has_value();
     }
 };
 
@@ -162,6 +163,8 @@ public:
     std::vector<VkBuffer> globalUniformBufferObject;
     std::vector<VkDeviceMemory> globalUniformBuffersMemory;
     std::vector<VkDescriptorSet> globalDescriptorSets;
+    std::vector<VkDescriptorSet> computeDescriptorSets;
+    VkDescriptorSetLayout computeDescriptorSetLayout;
     VkDebugUtilsMessengerEXT debugMessenger;
     uint32_t currentFrame;
     float FPS;
@@ -173,7 +176,9 @@ public:
     VkExtent2D swapChainExtent;
     VkRenderPass renderPass;
     VkPipelineLayout _pipelineLayout;
+    VkPipelineLayout _computePipelineLayout;
     VkPipeline graphicsPipeline;
+    VkPipeline _computePipeline;
     VkDevice _logicalDevice = VK_NULL_HANDLE;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
@@ -270,6 +275,7 @@ private:
     void CreateFramebuffers();
     void CreateCommandPool();
     void CreateCommandBuffers();
+    void CreateCompute();
     void RunMainGameLoop();
     void DrawFrame();
     void CreateSyncObjects();
@@ -286,6 +292,7 @@ private:
     VkRenderingAttachmentInfo AttachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
     void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void RecordComputeCommandBuffer(VkCommandBuffer commandBuffer);
     void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
     void InitCommands();
     void InitSyncStructures();
@@ -306,6 +313,7 @@ private:
     void RenderPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void GetMeshDataAllObjects();
     void CameraToBlender();
+    void CreateComputeCommandBuffers();
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
@@ -323,12 +331,15 @@ private:
     VkInstance _vkInstance;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
+    VkQueue _vkComputeQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
 
     VkQueue _presentQueue = VK_NULL_HANDLE;
     VkCommandPool _commandPool;
     VkCommandPoolCreateInfo _commandPoolInfo{};
     std::vector<VkCommandBuffer> _commandBuffers;
+    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkCommandBuffer> computeCommandBuffers;
     VkDeviceCreateInfo _createInfo{};
     VkFenceCreateInfo fenceInfo{};
     VkSemaphoreCreateInfo semaphoreInfo{};

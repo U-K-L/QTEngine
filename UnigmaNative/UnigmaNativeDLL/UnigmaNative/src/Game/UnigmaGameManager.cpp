@@ -140,6 +140,13 @@ void UnigmaGameManager::AddComponent(UnigmaGameObject& gObj, std::string compNam
 	//SortComponents();
 }
 
+void UnigmaGameManager::EndGame()
+{
+	//Clean up all scenes.
+	SceneManager->CleanUpAllScenes();
+	PhysicsShutdown();
+}
+
 UNIGMANATIVE_API UnigmaGameObject* GetGameObject(uint32_t ID)
 {
 	return &GameObjects[ID];

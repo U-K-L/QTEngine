@@ -41,6 +41,7 @@ public:
     void Start();
     void Create();
     void LoadScene(const char* sceneName);
+    void EndGame();
 
     void SortComponents();
     void AddComponent(UnigmaGameObject& gObj, std::string compName);

@@ -167,3 +167,15 @@ void UnigmaScene::CreateScene()
 	std::cout << "Scene created" << std::endl;
 
 }
+
+void UnigmaScene::CleanUpScene()
+{
+	std::cout << "Cleaning up scene named: " << Name << std::endl;
+	// in your cleanup, before gPhysicsDispatcher->release()…
+	if (physicsScene)
+	{
+		physicsScene->release();
+		physicsScene = nullptr;
+	}
+
+}

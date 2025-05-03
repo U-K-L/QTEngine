@@ -63,7 +63,7 @@ UNIGMANATIVE_API void EndProgram()
 {
     DebugPrint("Native Plugin ended, Unigma");
     programRunning = false;
-    //FreeDebugConsole();
+    GameManager->EndGame();
 }
 
 UNIGMANATIVE_API void RegisterCallback(AppFunctionType appFunction) {

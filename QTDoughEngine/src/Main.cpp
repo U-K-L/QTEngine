@@ -107,6 +107,7 @@ int main(int argc, char* args[]) {
         auto renderUpdateStart = std::chrono::high_resolution_clock::now();
         while (qtDoughApp.PROGRAMEND == false)
         {
+            //std::cout << "Main Thread Running..." << std::endl;
             //check if 33ms has elasped.
             auto fixedUpdateEnd = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double, std::milli> fixedElapsed = fixedUpdateEnd - fixedUpdateStart;
@@ -127,24 +128,27 @@ int main(int argc, char* args[]) {
 			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
 
+            //std::cout << "Updating main..." << std::endl;
 			if (renderElapsed.count() >= 3)
 			{
                 GetInput();
 				//Render the scene.
                 //Check synchronization point for QTDoughApplication.
-
+                //std::cout << "Waiting for signal..." << std::endl;
                 if (QTDoughEngine->requestSignal.load(std::memory_order_acquire) == false)
                 {
                     //Ask Renderer if scene is done rendering. Wait until its done with current iteration.
                     //std::cout << "1) Asking renderer for request..." << std::endl;
 
-                    QTDoughEngine->AskRequest();
+                 
 
 
                     //std::cout << "2) Waiting for renderer to finish..." << std::endl;
                     //Wait for the renderer to finish.
                     {
                         std::unique_lock<std::mutex> lock(QTDoughEngine->mainmtx);
+
+                        QTDoughEngine->AskRequest();
 
                         QTDoughEngine->maincv.wait(lock, [&] {
                             return QTDoughEngine->workFinished.load(std::memory_order_acquire);
@@ -159,11 +163,11 @@ int main(int argc, char* args[]) {
                     renderUpdateStart = std::chrono::high_resolution_clock::now();
 
 
+                    //std::cout << "6) Updated objects, now notify renderer to continue!" << std::endl;
                     //Notify the worker thread to continue.
                     QTDoughEngine->continueSignal.store(true);
                     QTDoughEngine->NotifyWorker();
 
-                    //std::cout << "6) Updated objects, now notify renderer to continue!" << std::endl;
                 }
 
 			}
@@ -175,7 +179,14 @@ int main(int argc, char* args[]) {
     }
 
     //Clean up and delete threads.
+    std::cout << "Cleaning up..." << std::endl;
+    //if (QTDoughEngine->thread.joinable())
+    //    QTDoughEngine->thread.join();
+    UNEndProgram();
+    FreeLibrary(unigmaNative);
+    unigmaNative = nullptr;
     qtDoughApp.Cleanup();
     delete QTDoughEngine;
+;
     return EXIT_SUCCESS;
 }

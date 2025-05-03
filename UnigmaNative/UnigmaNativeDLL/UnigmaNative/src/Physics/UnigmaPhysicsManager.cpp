@@ -34,3 +34,33 @@ void PhysicsInitialize()
 		return;
 	}
 }
+
+void PhysicsShutdown()
+{
+	std::cout << "Shutting down Physics" << std::endl;
+
+	if (gPhysicsDispatcher)
+	{
+		gPhysicsDispatcher->release();
+		gPhysicsDispatcher = nullptr;
+	}
+
+	if (gPhysics)
+	{
+		gPhysics->release();
+		gPhysics = nullptr;
+	}
+
+	if (gPhysicsPvd)
+	{
+		gPhysicsPvd->release();
+		gPhysicsPvd = nullptr;
+	}
+
+	if (gPhysicsFoundation)
+	{
+		gPhysicsFoundation->release();
+		gPhysicsFoundation = nullptr;
+	}
+}
+

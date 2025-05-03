@@ -11,6 +11,7 @@
 #include "../Engine/RenderPasses/OutlinePass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
+#include <random>
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
@@ -110,10 +111,10 @@ void QTDoughApplication::RunMainGameLoop()
     if (QTDoughEngineThread->requestSignal == true)
     {
         ClearObjectData();
+
         //std::cout << "3) Request signal received." << std::endl;
         //Notify the main thread that the work is done. And we can take requests.
-        QTDoughEngineThread->workFinished.store(true, std::memory_order_release);
-        QTDoughEngineThread->NotifyMain();
+
 
         //std::cout << "4) Waiting for main thread to continue..." << std::endl;
         
@@ -121,16 +122,22 @@ void QTDoughApplication::RunMainGameLoop()
         if(QTDoughEngineThread->continueSignal.load() == false)
 		{
             std::unique_lock<std::mutex> lock(QTDoughEngineThread->workmtx);
-            QTDoughEngineThread->workcv.wait(lock, [this] { return QTDoughEngineThread->continueSignal.load(); });
-            QTDoughEngineThread->continueSignal.store(false);
-		}
 
+            QTDoughEngineThread->workFinished.store(true, std::memory_order_release);
+            QTDoughEngineThread->NotifyMain();
+
+            QTDoughEngineThread->workcv.wait(lock, [this] { return QTDoughEngineThread->continueSignal.load(); });
+         
+		}
+        QTDoughEngineThread->continueSignal.store(false);
 
 
         //std::cout << "7) Notified as a worker, now continue rendering scene." << std::endl;
         QTDoughEngineThread->requestSignal.store(false, std::memory_order_release);
 
     }
+    //std::cout << "Updating frame..." << std::endl;
+
 
     DrawFrame();
     if (GatherBlenderInfo() == 0)
@@ -181,6 +188,9 @@ void QTDoughApplication::DrawFrame()
     //Set fence back to unsignal for next time.
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
 
+    //vkResetCommandBuffer(computeCommandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
+    //RecordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
+
     //Return command buffers back to original state.
     vkResetCommandBuffer(_commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
     RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
@@ -203,6 +213,11 @@ void QTDoughApplication::DrawFrame()
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
+    /*
+    if (vkQueueSubmit(_vkComputeQueue, 1, &submitInfo, nullptr) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit compute command buffer!");
+    };
+    */
     //Sends the recorded command buffer to be rendered.
     if (vkQueueSubmit(_vkGraphicsQueue, 1, &submitInfo, _inFlightFences[currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
@@ -728,6 +743,7 @@ void QTDoughApplication::InitVulkan()
 
     //Create command buffers.
     CreateCommandBuffers();
+    //CreateComputeCommandBuffers();
 
     //Imgui.
     InitImGui();
@@ -763,6 +779,187 @@ void QTDoughApplication::SetupDebugMessenger() {
         throw std::runtime_error("failed to set up debug messenger!");
     }
 }
+
+void QTDoughApplication::CreateCompute()
+{
+    int PARTICLE_COUNT = 1000;
+    struct Particle {
+        glm::vec2 position;
+        glm::vec2 velocity;
+        glm::vec4 color;
+    };
+
+    /*
+    std::vector<VkBuffer> shaderStorageBuffers;
+    std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
+
+    auto computeShaderCode = readFile("shaders/compute.spv");
+
+    VkShaderModule computeShaderModule = CreateShaderModule(computeShaderCode);
+
+    VkPipelineShaderStageCreateInfo computeShaderStageInfo{};
+    computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeShaderStageInfo.module = computeShaderModule;
+    computeShaderStageInfo.pName = "main";
+
+    // Initialize particles
+    std::default_random_engine rndEngine((unsigned)time(nullptr));
+    std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
+
+    // Initial particle positions on a circle
+    std::vector<Particle> particles(PARTICLE_COUNT);
+    for (auto& particle : particles) {
+        float r = 0.25f * sqrt(rndDist(rndEngine));
+        float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846;
+        float x = r * cos(theta) * swapChainExtent.height / swapChainExtent.width;
+        float y = r * sin(theta);
+        particle.position = glm::vec2(x, y);
+        particle.velocity = glm::normalize(glm::vec2(x, y)) * 0.00025f;
+        particle.color = glm::vec4(rndDist(rndEngine), rndDist(rndEngine), rndDist(rndEngine), 1.0f);
+    }
+
+    VkDeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, particles.data(), (size_t)bufferSize);
+    vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        CreateBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);
+        // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
+        CopyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
+    }
+
+    std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
+    layoutBindings[0].binding = 0;
+    layoutBindings[0].descriptorCount = 1;
+    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBindings[0].pImmutableSamplers = nullptr;
+    layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    layoutBindings[1].binding = 1;
+    layoutBindings[1].descriptorCount = 1;
+    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layoutBindings[1].pImmutableSamplers = nullptr;
+    layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    layoutBindings[2].binding = 2;
+    layoutBindings[2].descriptorCount = 1;
+    layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layoutBindings[2].pImmutableSamplers = nullptr;
+    layoutBindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 3;
+    layoutInfo.pBindings = layoutBindings.data();
+
+    if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create compute descriptor set layout!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        //VkDescriptorBufferInfo uniformBufferInfo{};
+        //uniformBufferInfo.buffer = uniformBuffers[i];
+        //uniformBufferInfo.offset = 0;
+        //uniformBufferInfo.range = sizeof(UniformBufferObject);
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        std::array<VkDescriptorPoolSize, 2> poolSizes{};
+
+
+        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
+        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % MAX_FRAMES_IN_FLIGHT];
+        storageBufferInfoLastFrame.offset = 0;
+        storageBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = computeDescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pBufferInfo = &storageBufferInfoLastFrame;
+
+        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
+        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
+        storageBufferInfoCurrentFrame.offset = 0;
+        storageBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = computeDescriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo = &storageBufferInfoCurrentFrame;
+
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+
+        vkUpdateDescriptorSets(_logicalDevice, 3, descriptorWrites.data(), 0, nullptr);
+    }
+
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.layout = _computePipelineLayout;
+    pipelineInfo.stage = computeShaderStageInfo;
+
+    if (vkCreateComputePipelines(_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_computePipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create compute pipeline!");
+    }
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &computeDescriptorSetLayout;
+
+    if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutInfo, nullptr, &_computePipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create compute pipeline layout!");
+    }
+    */
+}
+
+void QTDoughApplication::CreateComputeCommandBuffers() {
+    computeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = _commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = (uint32_t)computeCommandBuffers.size();
+
+    if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate compute command buffers!");
+    }
+}
+
+void QTDoughApplication::RecordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("failed to begin recording compute command buffer!");
+    }
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipelineLayout, 0, 1, &computeDescriptorSets[currentFrame], 0, nullptr);
+
+    vkCmdDispatch(commandBuffer, 1000 / 256, 1, 1);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record compute command buffer!");
+    }
+
+}
+
 
 void QTDoughApplication::CreateImages()
 {
@@ -1376,10 +1573,15 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
 
 void QTDoughApplication::CreateSyncObjects()
 {
+    //std::vector<VkFence> computeInFlightFences;
+    //std::vector<VkSemaphore> computeFinishedSemaphores;
     //Resize to fit the amount of possible frames in flight.
     _imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
+    //computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    //computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 
 
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1394,6 +1596,12 @@ void QTDoughApplication::CreateSyncObjects()
 
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
+        /*
+        if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &computeFinishedSemaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create compute synchronization objects for a frame!");
+        }
+        */
     }
 }
 
@@ -1937,7 +2145,7 @@ QueueFamilyIndices QTDoughApplication::FindQueueFamilies(VkPhysicalDevice device
 
     int i = 0;
     for (const auto& queueFamily : queueFamilies) {
-        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+        if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
             indices.graphicsFamily = i;
         }
 
@@ -2032,6 +2240,8 @@ void QTDoughApplication::CreateLogicalDevice()
     vkGetDeviceQueue(_logicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
 
     vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
+
+    //vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkComputeQueue);
 }
 
 void QTDoughApplication::CleanupSwapChain()

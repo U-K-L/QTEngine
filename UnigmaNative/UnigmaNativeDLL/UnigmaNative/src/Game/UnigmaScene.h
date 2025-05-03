@@ -21,6 +21,7 @@ class UnigmaScene
 	void AddGameObject(UnigmaGameObject& gameObject);
 	void AddObjectComponents(UnigmaGameObject& gameObject, nlohmann::json& gameObjectData);
 	void LoadJSON(std::string scenePath);
+	void CleanUpScene();
 
 	PxScene* physicsScene;
 	uint32_t Index;

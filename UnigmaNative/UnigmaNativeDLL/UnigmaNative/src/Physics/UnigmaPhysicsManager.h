@@ -14,3 +14,4 @@ extern PxPvd* gPhysicsPvd;
 extern PxReal gPhysicsStackZ;
 
 void PhysicsInitialize();
+void PhysicsShutdown();

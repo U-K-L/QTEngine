@@ -19,6 +19,7 @@ class UnigmaSceneManager
 	void CreateScene(std::string sceneName);
 	void AddScene(UnigmaScene scene);
 	void LoadScene(std::string sceneName);
+	void CleanUpAllScenes();
 
 	uint32_t Index;
 	std::vector<uint32_t> ScenesIndex;
