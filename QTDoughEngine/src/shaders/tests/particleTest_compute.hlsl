@@ -35,5 +35,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
         result.velocity.y = -result.velocity.y;
     }
 
+    result.velocity = 1.245f;
     particlesOut[index] = result;
 }

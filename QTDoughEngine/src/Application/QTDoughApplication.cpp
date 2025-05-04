@@ -167,8 +167,7 @@ void QTDoughApplication::RunMainGameLoop()
 
 void QTDoughApplication::DrawFrame()
 {
-    //Waits for this fence to finish. 
-    vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
 
     //Aquire the rendered image.
     uint32_t imageIndex;
@@ -185,6 +184,28 @@ void QTDoughApplication::DrawFrame()
 
     UpdateGlobalDescriptorSet();
 
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    // Compute submission        
+    vkWaitForFences(_logicalDevice, 1, &computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+    vkResetFences(_logicalDevice, 1, &computeInFlightFences[currentFrame]);
+
+    vkResetCommandBuffer(computeCommandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
+    RecordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &computeCommandBuffers[currentFrame];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
+
+    if (vkQueueSubmit(_vkComputeQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit compute command buffer!");
+    };
+
+    //Waits for this fence to finish. 
+    vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
     //Set fence back to unsignal for next time.
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
 
@@ -193,12 +214,7 @@ void QTDoughApplication::DrawFrame()
 
     //Return command buffers back to original state.
     vkResetCommandBuffer(_commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-    RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);
-
-
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    RecordCommandBuffer(_commandBuffers[currentFrame], imageIndex);;
 
     VkSemaphore waitSemaphores[] = { _imageAvailableSemaphores[currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -246,6 +262,8 @@ void QTDoughApplication::DrawFrame()
     else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
     }
+
+    DebugPrintParticles(currentFrame);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1760,15 +1778,14 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
 
 void QTDoughApplication::CreateSyncObjects()
 {
-    //std::vector<VkFence> computeInFlightFences;
-    //std::vector<VkSemaphore> computeFinishedSemaphores;
+
     //Resize to fit the amount of possible frames in flight.
     _imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     _inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
-    //computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    //computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 
 
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1783,12 +1800,10 @@ void QTDoughApplication::CreateSyncObjects()
 
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
-        /*
         if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &computeFinishedSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute synchronization objects for a frame!");
         }
-        */
     }
 }
 
@@ -2699,6 +2714,43 @@ void QTDoughApplication::CreateQuadBuffers() {
     vkMapMemory(_logicalDevice, quadIndexBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, quadIndices.data(), (size_t)bufferSize);
     vkUnmapMemory(_logicalDevice, quadIndexBufferMemory);
+}
+
+void QTDoughApplication::DebugPrintParticles(uint32_t currentFrame) {
+    VkDeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
+
+    // 1. Create CPU-readable buffer
+    VkBuffer readbackBuffer;
+    VkDeviceMemory readbackBufferMemory;
+    CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        readbackBuffer,
+        readbackBufferMemory
+    );
+
+    // 2. Copy GPU buffer to readback buffer
+    CopyBuffer(shaderStorageBuffers[currentFrame], readbackBuffer, bufferSize);
+
+    // 3. Map and print particle data
+    Particle* mappedParticles = nullptr;
+    vkMapMemory(_logicalDevice, readbackBufferMemory, 0, bufferSize, 0, reinterpret_cast<void**>(&mappedParticles));
+
+    for (size_t i = 0; i < std::min((size_t)10, (size_t)PARTICLE_COUNT); ++i) {
+        std::cout << "Particle " << i
+            << " Pos: (" << mappedParticles[i].position.x << ", " << mappedParticles[i].position.y << ")"
+            << " Vel: (" << mappedParticles[i].velocity.x << ", " << mappedParticles[i].velocity.y << ")"
+            << " Color: (" << mappedParticles[i].color.r << ", " << mappedParticles[i].color.g << ", "
+            << mappedParticles[i].color.b << ", " << mappedParticles[i].color.a << ")"
+            << std::endl;
+    }
+
+    vkUnmapMemory(_logicalDevice, readbackBufferMemory);
+
+    // 4. Cleanup
+    vkDestroyBuffer(_logicalDevice, readbackBuffer, nullptr);
+    vkFreeMemory(_logicalDevice, readbackBufferMemory, nullptr);
 }
 
 

@@ -163,6 +163,8 @@ public:
     std::vector<VkDeviceMemory> globalUniformBuffersMemory;
     std::vector<VkDescriptorSet> globalDescriptorSets;
     std::vector<VkDescriptorSet> computeDescriptorSets;
+    std::vector<VkFence> computeInFlightFences;
+    std::vector<VkSemaphore> computeFinishedSemaphores;
     VkDescriptorSetLayout computeDescriptorSetLayout;
     VkDebugUtilsMessengerEXT debugMessenger;
     uint32_t currentFrame;
@@ -225,6 +227,7 @@ public:
     void CreateGlobalDescriptorSet();
     void CreateGlobalDescriptorSetLayout();
     void UpdateGlobalDescriptorSet();
+    void DebugPrintParticles(uint32_t currentFrame);
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
