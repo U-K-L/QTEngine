@@ -239,6 +239,7 @@ public:
     VkDeviceMemory albedoImageMemory;
     VkImageView albedoImageView;
 
+    VkDescriptorPool descriptorPool;
     //Composite.
     VkDescriptorSetLayout compositionDescriptorSetLayout;
     VkDescriptorPool compositionDescriptorPool;
@@ -254,7 +255,14 @@ public:
 
 
 private:
-
+    int PARTICLE_COUNT = 1000;
+    struct Particle {
+        glm::vec2 position;
+        glm::vec2 velocity;
+        glm::vec4 color;
+    };
+    std::vector<VkBuffer> shaderStorageBuffers;
+    std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
     //Methods.
     void InitSDLWindow();
     void InitVulkan();
@@ -275,6 +283,10 @@ private:
     void CreateCommandPool();
     void CreateCommandBuffers();
     void CreateCompute();
+    void CreateComputeDescriptorSetLayout();
+    void CreateComputeDescriptorSets();
+    void CreateComputePipeline();
+    void CreateShaderStorageBuffers();
     void RunMainGameLoop();
     void DrawFrame();
     void CreateSyncObjects();
