@@ -178,6 +178,19 @@ void ComputePass::CreateComputePipeline()
 
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
     std::cout << "Compute pipeline created" << std::endl;
+
+    readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    readbackBufferMemories.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; ++i) {
+        app->CreateBuffer(
+            sizeof(Particle) * PARTICLE_COUNT,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            readbackBuffers[i],
+            readbackBufferMemories[i]
+        );
+    }
 }
 
 void ComputePass::CreateComputeDescriptorSetLayout()
@@ -393,10 +406,16 @@ void ComputePass::CreateComputeCommandBuffers()
     if (vkAllocateCommandBuffers(app->_logicalDevice, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate compute command buffers!");
     }
+
+    std::cout << "Created compute command buffers" << std::endl;
 }
 
 void ComputePass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 	QTDoughApplication* app = QTDoughApplication::instance;
+
+    if (vkGetFenceStatus(app->_logicalDevice, app->computeFences[currentFrame]) == VK_NOT_READY)
+        return; // Wait until readback from this buffer is done
+
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
@@ -420,38 +439,41 @@ void ComputePass::DebugCompute(uint32_t currentFrame)
     QTDoughApplication* app = QTDoughApplication::instance;
     VkDeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
 
-    //Create CPU-readable buffer
-    VkBuffer readbackBuffer;
-    VkDeviceMemory readbackBufferMemory;
-    app->CreateBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        readbackBuffer,
-        readbackBufferMemory
-    );
-
-    //Copy GPU buffer to readback buffer
-    app->CopyBuffer(shaderStorageBuffers[currentFrame], readbackBuffer, bufferSize);
-
-    //Map and print particle data
-    Particle* mappedParticles = nullptr;
-    vkMapMemory(app->_logicalDevice, readbackBufferMemory, 0, bufferSize, 0, reinterpret_cast<void**>(&mappedParticles));
-
-    for (size_t i = 0; i < std::min((size_t)10, (size_t)PARTICLE_COUNT); ++i) {
-        std::cout << "Particle " << i
-            << " Pos: (" << mappedParticles[i].position.x << ", " << mappedParticles[i].position.y << ")"
-            << " Vel: (" << mappedParticles[i].velocity.x << ", " << mappedParticles[i].velocity.y << ")"
-            << " Color: (" << mappedParticles[i].color.r << ", " << mappedParticles[i].color.g << ", "
-            << mappedParticles[i].color.b << ", " << mappedParticles[i].color.a << ")"
-            << std::endl;
+    VkFence& fence = app->computeFences[currentFrame];
+    if (fence != VK_NULL_HANDLE) {
+        if (vkGetFenceStatus(app->_logicalDevice, fence) == VK_NOT_READY)
+        {
+            return;
+        }
     }
 
-    vkUnmapMemory(app->_logicalDevice, readbackBufferMemory);
+    // Command buffer for async transferdoe
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-    vkDestroyBuffer(app->_logicalDevice, readbackBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, readbackBufferMemory, nullptr);
+    // Record copy command, add copy to command buffer!
+    VkBuffer srcBuffer = shaderStorageBuffers[currentFrame];
+    VkBufferCopy copyRegion{};
+    copyRegion.size = sizeof(Particle) * PARTICLE_COUNT;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, readbackBuffers[currentFrame], 1, &copyRegion);
+
+    app->EndSingleTimeCommandsAsync(currentFrame, commandBuffer, [=]() {
+        Particle* mappedParticles = nullptr;
+        vkMapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame], 0, copyRegion.size, 0, reinterpret_cast<void**>(&mappedParticles));
+
+        /*
+        for (size_t i = 0; i < std::min((size_t)10, (size_t)PARTICLE_COUNT); ++i) {
+            std::cout << "Particle " << i
+                << " Pos: (" << mappedParticles[i].position.x << ", " << mappedParticles[i].position.y << ")"
+                << " Vel: (" << mappedParticles[i].velocity.x << ", " << mappedParticles[i].velocity.y << ")"
+                << " Color: (" << mappedParticles[i].color.r << ", " << mappedParticles[i].color.g << ", "
+                << mappedParticles[i].color.b << ", " << mappedParticles[i].color.a << ")"
+                << std::endl;
+        }
+        */
+        vkUnmapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame]);
+        });
 }
+
 
 void ComputePass::CreateMaterials() {
     material.Clean();

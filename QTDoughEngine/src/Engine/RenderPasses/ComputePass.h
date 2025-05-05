@@ -19,7 +19,7 @@ public:
         alignas(16) glm::vec2 texelSize;
     };
 
-    int PARTICLE_COUNT = 1000;
+    int PARTICLE_COUNT = 10000000;
     struct Particle {
         glm::vec2 position;
         glm::vec2 velocity;
@@ -53,6 +53,8 @@ public:
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkCommandBuffer> computeCommandBuffers;
     VkCommandPool _commandPool;
+    std::vector<VkBuffer> readbackBuffers;
+    std::vector<VkDeviceMemory> readbackBufferMemories;
 
     std::vector<UnigmaRenderingObject*> GameObjects;
 

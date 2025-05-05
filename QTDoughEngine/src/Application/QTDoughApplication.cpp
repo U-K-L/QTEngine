@@ -265,7 +265,10 @@ void QTDoughApplication::DrawFrame()
         throw std::runtime_error("failed to present swap chain image!");
     }
 
+
     DebugCompute(currentFrame);
+
+
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1220,6 +1223,39 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
     vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, &commandBuffer);
 }
 
+void QTDoughApplication::EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback)
+{
+    VkFence& fence = computeFences[currentFrame];
+
+    vkResetFences(_logicalDevice, 1, &fence);
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    VkResult submitResult = vkQueueSubmit(_vkComputeQueue, 1, &submitInfo, fence);
+    if (submitResult != VK_SUCCESS) {
+        std::cerr << "Failed to submit command buffer!" << std::endl;
+        return;
+    }
+
+    // Move command buffer to heap to ensure it survives the thread
+    VkCommandBuffer* commandBufferCopy = new VkCommandBuffer(commandBuffer);
+
+    std::thread([this, &fence, commandBufferCopy, callback]() {
+        vkWaitForFences(_logicalDevice, 1, &fence, VK_TRUE, UINT64_MAX);
+
+        vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, commandBufferCopy);
+        delete commandBufferCopy;
+
+        callback();
+        }).detach();
+}
+
+
+
 void QTDoughApplication::CreateTextureImage()
 {
     /*
@@ -1643,6 +1679,14 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
 
 void QTDoughApplication::CreateSyncObjects()
 {
+    computeFences.resize(MAX_FRAMES_IN_FLIGHT);
+    //Create fences for compute.
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkFenceCreateInfo fenceInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &computeFences[i]);
+    }
 
     //Resize to fit the amount of possible frames in flight.
     _imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);

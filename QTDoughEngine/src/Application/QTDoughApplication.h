@@ -188,6 +188,7 @@ public:
     VkImageView depthImageView;
     VkFormat _swapChainImageFormat;
     SDL_Surface* _screenSurface = NULL;
+    std::vector<VkFence> computeFences;
     bool framebufferResized = false;
     VkFormat FindDepthFormat();
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
@@ -196,7 +197,7 @@ public:
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     VkVertexInputBindingDescription getBindingDescription();
     std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
-    const int MAX_FRAMES_IN_FLIGHT = 2;
+    const int MAX_FRAMES_IN_FLIGHT = 3;
     std::vector<VkDynamicState> dynamicStates = {
     VK_DYNAMIC_STATE_VIEWPORT,
     VK_DYNAMIC_STATE_SCISSOR
@@ -231,6 +232,7 @@ public:
     void RecreateResources();
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+    void EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback);
     void CreateGlobalSamplers(uint32_t samplerCount);
 
 
@@ -359,6 +361,7 @@ private:
     VkFence _immFence;
     VkCommandBuffer _immCommandBuffer;
     VkCommandPool _immCommandPool;
+
 
 };
 
