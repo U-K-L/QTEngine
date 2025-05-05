@@ -162,10 +162,8 @@ public:
     std::vector<VkBuffer> globalUniformBufferObject;
     std::vector<VkDeviceMemory> globalUniformBuffersMemory;
     std::vector<VkDescriptorSet> globalDescriptorSets;
-    std::vector<VkDescriptorSet> computeDescriptorSets;
     std::vector<VkFence> computeInFlightFences;
     std::vector<VkSemaphore> computeFinishedSemaphores;
-    VkDescriptorSetLayout computeDescriptorSetLayout;
     VkDebugUtilsMessengerEXT debugMessenger;
     uint32_t currentFrame;
     float FPS;
@@ -177,9 +175,7 @@ public:
     VkExtent2D swapChainExtent;
     VkRenderPass renderPass;
     VkPipelineLayout _pipelineLayout;
-    VkPipelineLayout _computePipelineLayout;
     VkPipeline graphicsPipeline;
-    VkPipeline _computePipeline;
     VkDevice _logicalDevice = VK_NULL_HANDLE;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
@@ -227,7 +223,7 @@ public:
     void CreateGlobalDescriptorSet();
     void CreateGlobalDescriptorSetLayout();
     void UpdateGlobalDescriptorSet();
-    void DebugPrintParticles(uint32_t currentFrame);
+    //void DebugPrintParticles(uint32_t currentFrame);
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
@@ -258,14 +254,7 @@ public:
 
 
 private:
-    int PARTICLE_COUNT = 1000;
-    struct Particle {
-        glm::vec2 position;
-        glm::vec2 velocity;
-        glm::vec4 color;
-    };
-    std::vector<VkBuffer> shaderStorageBuffers;
-    std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
+
     //Methods.
     void InitSDLWindow();
     void InitVulkan();
@@ -286,9 +275,6 @@ private:
     void CreateCommandPool();
     void CreateCommandBuffers();
     void CreateCompute();
-    void CreateComputeDescriptorSetLayout();
-    void CreateComputeDescriptorSets();
-    void CreateComputePipeline();
     void CreateShaderStorageBuffers();
     void RunMainGameLoop();
     void DrawFrame();
@@ -328,6 +314,11 @@ private:
     void GetMeshDataAllObjects();
     void CameraToBlender();
     void CreateComputeCommandBuffers();
+    void CreateComputeDescriptorSetLayout();
+    void CreateComputeDescriptorSets();
+    void CreateComputePipeline();
+    void DispatchPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void DebugCompute(uint32_t currentFrame);
     VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
@@ -352,7 +343,6 @@ private:
     VkCommandPool _commandPool;
     VkCommandPoolCreateInfo _commandPoolInfo{};
     std::vector<VkCommandBuffer> _commandBuffers;
-    std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkCommandBuffer> computeCommandBuffers;
     VkDeviceCreateInfo _createInfo{};
     VkFenceCreateInfo fenceInfo{};

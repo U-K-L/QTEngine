@@ -39,10 +39,12 @@
     <ClCompile Include="src\Engine\RenderPasses\AlbedoPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\BackgroundPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\CompositionPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\ComputePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\NormalPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\OutlinePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\PositionPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\SDFPass.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Application\UnigmaBlend.cpp" />
     <ClCompile Include="src\UnigmaNative\UnigmaNative.cpp" />
@@ -76,10 +78,12 @@
     <ClInclude Include="src\Engine\RenderPasses\AlbedoPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\ComputePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\NormalPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\OutlinePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\PositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
+    <ClInclude Include="src\Engine\RenderPasses\SDFPass.h" />
     <ClInclude Include="src\Loader.h" />
     <ClInclude Include="src\UnigmaNative\UnigmaNative.h" />
     <ClInclude Include="src\UnigmaNative\UnigmaThread.h" />
