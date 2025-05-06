@@ -186,7 +186,7 @@ void ComputePass::CreateComputePipeline()
         app->CreateBuffer(
             sizeof(Particle) * PARTICLE_COUNT,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
             readbackBuffers[i],
             readbackBufferMemories[i]
         );
@@ -371,7 +371,7 @@ void ComputePass::CreateShaderStorageBuffers()
     // Create a staging buffer used to upload data to the gpu
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
 
     void* data;
     vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -458,7 +458,15 @@ void ComputePass::DebugCompute(uint32_t currentFrame)
 
     app->EndSingleTimeCommandsAsync(currentFrame, commandBuffer, [=]() {
         Particle* mappedParticles = nullptr;
-        vkMapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame], 0, copyRegion.size, 0, reinterpret_cast<void**>(&mappedParticles));
+
+        VkMappedMemoryRange range{};
+        range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        range.memory = readbackBufferMemories[currentFrame];
+        range.offset = 0;
+        range.size = VK_WHOLE_SIZE;
+
+        vkInvalidateMappedMemoryRanges(app->_logicalDevice, 1, &range);
+        vkMapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame], 0, bufferSize, 0, reinterpret_cast<void**>(&mappedParticles));
 
         /*
         for (size_t i = 0; i < std::min((size_t)10, (size_t)PARTICLE_COUNT); ++i) {

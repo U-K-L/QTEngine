@@ -124,12 +124,11 @@ int main(int argc, char* args[]) {
 
 			}
             
-			//check if 3ms has elapsed.
+			//check if 33ms has elapsed.
 			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
 
-            //std::cout << "Updating main..." << std::endl;
-			if (renderElapsed.count() >= 3)
+			if (renderElapsed.count() >= 16)
 			{
                 GetInput();
 				//Render the scene.

@@ -10,6 +10,7 @@
 #include "../Engine/RenderPasses/PositionPass.h"
 #include "../Engine/RenderPasses/OutlinePass.h"
 #include "../Engine/RenderPasses/ComputePass.h"
+#include "../Engine/RenderPasses/SDFPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
 #include <random>
@@ -708,13 +709,13 @@ void QTDoughApplication::AddPasses()
 
 
     //Compute Passes.
-    ComputePass* computePass = new ComputePass();
+    SDFPass* sdfPass = new SDFPass();
 
     //Add objects to compute pass.
-    computePass->AddObjects(unigmaRenderingObjects);
+    sdfPass->AddObjects(unigmaRenderingObjects);
 
     //Add the compute pass to the stack.
-    computePassStack.push_back(computePass);
+    computePassStack.push_back(sdfPass);
 
 
 
