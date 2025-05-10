@@ -10,12 +10,11 @@ class SDFPass : public ComputePass
 public:
     struct Voxel
 	{
-		glm::vec3 position;
-		float distance;
-		glm::vec3 normal;
-		float density;
+		glm::vec4 positionDistance;
+		glm::vec4 normalDensity;
 	};
     int VOXEL_COUNT = 64;
+    std::vector<std::vector<Voxel>> frameReadbackData;
     // Constructor
     SDFPass();
 
@@ -23,6 +22,7 @@ public:
     ~SDFPass();
 
     void CreateComputeDescriptorSets() override;
+    void CreateComputeDescriptorSetLayout() override;
     void CreateComputePipeline() override;
     void Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
     void CreateShaderStorageBuffers() override;

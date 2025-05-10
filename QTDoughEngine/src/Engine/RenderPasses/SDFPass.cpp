@@ -54,6 +54,10 @@ void SDFPass::CreateComputePipeline()
             readbackBufferMemories[i]
         );
     }
+
+    frameReadbackData.resize(app->MAX_FRAMES_IN_FLIGHT);
+    for (auto& frame : frameReadbackData)
+        frame.resize(VOXEL_COUNT);
 }
 
 void SDFPass::CreateComputeDescriptorSets()
@@ -79,7 +83,13 @@ void SDFPass::CreateComputeDescriptorSets()
         uniformBufferInfo.offset = 0;
         uniformBufferInfo.range = sizeof(UniformBufferObject);
 
-        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+        VkDescriptorBufferInfo intArrayBufferInfo{};
+        intArrayBufferInfo.buffer = intArrayBuffer;
+        intArrayBufferInfo.offset = 0;
+        intArrayBufferInfo.range = VK_WHOLE_SIZE;
+
+
+        std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -88,23 +98,19 @@ void SDFPass::CreateComputeDescriptorSets()
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
 
-        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
-        storageBufferInfoLastFrame.offset = 0;
-        storageBufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNT;
-
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = computeDescriptorSets[i];
         descriptorWrites[1].dstBinding = 1;
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pBufferInfo = &storageBufferInfoLastFrame;
+        descriptorWrites[1].pBufferInfo = &intArrayBufferInfo;
 
-        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
-        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
-        storageBufferInfoCurrentFrame.offset = 0;
-        storageBufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNT;
+
+        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
+        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        storageBufferInfoLastFrame.offset = 0;
+        storageBufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNT;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = computeDescriptorSets[i];
@@ -112,12 +118,88 @@ void SDFPass::CreateComputeDescriptorSets()
         descriptorWrites[2].dstArrayElement = 0;
         descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo = &storageBufferInfoCurrentFrame;
+        descriptorWrites[2].pBufferInfo = &storageBufferInfoLastFrame;
 
-        vkUpdateDescriptorSets(app->_logicalDevice, 3, descriptorWrites.data(), 0, nullptr);
+        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
+        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
+        storageBufferInfoCurrentFrame.offset = 0;
+        storageBufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNT;
+
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstSet = computeDescriptorSets[i];
+        descriptorWrites[3].dstBinding = 3;
+        descriptorWrites[3].dstArrayElement = 0;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[3].descriptorCount = 1;
+        descriptorWrites[3].pBufferInfo = &storageBufferInfoCurrentFrame;
+
+        vkUpdateDescriptorSets(app->_logicalDevice, 4, descriptorWrites.data(), 0, nullptr);
     }
 
     std::cout << "Created descriptor pools" << std::endl;
+}
+
+void SDFPass::CreateComputeDescriptorSetLayout()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Create required buffers.
+    //Create Texture IDs
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+    app->CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        intArrayBuffer,
+        intArrayBufferMemory
+    );
+
+
+    //Bindings for our uniform buffer. Which is things like transform information.
+    //Create the actual buffers.
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+
+    //For texture IDs the second binding.
+    VkDescriptorSetLayoutBinding intArrayLayoutBinding{};
+    intArrayLayoutBinding.binding = 1;
+    intArrayLayoutBinding.descriptorCount = 1;
+    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    intArrayLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    intArrayLayoutBinding.pImmutableSamplers = nullptr;
+
+    //Third binding is for storage buffer. General purpose.
+    VkDescriptorSetLayoutBinding generalBinding{};
+    generalBinding.binding = 2;
+    generalBinding.descriptorCount = 1;
+    generalBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    generalBinding.pImmutableSamplers = nullptr;
+    generalBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Fourth binding is for storage buffer. General purpose.
+    VkDescriptorSetLayoutBinding generalBinding2{};
+    generalBinding2.binding = 3;
+    generalBinding2.descriptorCount = 1;
+    generalBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    generalBinding2.pImmutableSamplers = nullptr;
+    generalBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Bind the buffers we specified.
+    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2 };
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(app->_logicalDevice, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create compute descriptor set layout!");
+    }
+
 }
 
 void SDFPass::CreateShaderStorageBuffers()
@@ -127,10 +209,8 @@ void SDFPass::CreateShaderStorageBuffers()
     // Initial data
     std::vector<Voxel> voxels(VOXEL_COUNT);
     for (auto& voxel : voxels) {
-        voxel.position = glm::vec3(0.0f, 0.0f, 0.0f);
-		voxel.distance = 0.0f;
-		voxel.normal = glm::vec3(0.0f, 0.0f, 0.0f);
-		voxel.density = 1.0f;
+        voxel.positionDistance = glm::vec4(30.0f, 0.0f, 0.09f, 0.001f);
+		voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
     }
 
     VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
@@ -181,7 +261,7 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     );
 
     // Dispatch the compute shader
-    vkCmdDispatch(commandBuffer, 1, 1, 1);
+    vkCmdDispatch(commandBuffer, 32, 1, 1);
 }
 
 void SDFPass::DebugCompute(uint32_t currentFrame)
@@ -217,14 +297,16 @@ void SDFPass::DebugCompute(uint32_t currentFrame)
 
         vkInvalidateMappedMemoryRanges(app->_logicalDevice, 1, &range);
         vkMapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame], 0, bufferSize, 0, reinterpret_cast<void**>(&mappedVoxels));
-
-        for (size_t i = 0; i < std::min((size_t)10, (size_t)VOXEL_COUNT); ++i) {
-            std::cout << "Voxel " << i << ": " << mappedVoxels[i].position.x << ", " << mappedVoxels[i].position.y << ", " << mappedVoxels[i].position.z << std::endl;
-            std::cout << "Distance: " << mappedVoxels[i].distance << std::endl;
-            std::cout << "Normal: " << mappedVoxels[i].normal.x << ", " << mappedVoxels[i].normal.y << ", " << mappedVoxels[i].normal.z << std::endl;
-            std::cout << "Density: " << mappedVoxels[i].density << std::endl;
-		
-        }
+        std::memcpy(frameReadbackData[currentFrame].data(), mappedVoxels, sizeof(Voxel) * VOXEL_COUNT);
         vkUnmapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame]);
-        });
+    });
+
+
+    for (size_t i = 0; i < std::min((size_t)10, (size_t)VOXEL_COUNT); ++i) {
+        std::cout << "Voxel: " << i << "Position: " << frameReadbackData[currentFrame][i].positionDistance.x << ", " << frameReadbackData[currentFrame][i].positionDistance.y << ", " << frameReadbackData[currentFrame][i].positionDistance.z << std::endl;
+        std::cout << "Distance: " << frameReadbackData[currentFrame][i].positionDistance.w << std::endl;
+        std::cout << "Normal: " << frameReadbackData[currentFrame][i].normalDensity.x << ", " << frameReadbackData[currentFrame][i].normalDensity.y << ", " << frameReadbackData[currentFrame][i].normalDensity.z << std::endl;
+        std::cout << "Density: " << frameReadbackData[currentFrame][i].normalDensity.w << std::endl;
+
+    }
 }

@@ -55,7 +55,7 @@ public:
     VkCommandPool _commandPool;
     std::vector<VkBuffer> readbackBuffers;
     std::vector<VkDeviceMemory> readbackBufferMemories;
-
+    std::vector<std::vector<Particle>> frameReadbackData;
     std::vector<UnigmaRenderingObject*> GameObjects;
 
     virtual void CreateUniformBuffers();
