@@ -39,6 +39,40 @@ void ComputePass::CreateUniformBuffers()
 
 }
 
+void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame) {
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    UniformBufferObject ubo{};
+    ubo.model = glm::mat4(1.0f);
+    ubo.view = glm::mat4(1.0f);
+    ubo.proj = glm::mat4(1.0f);
+    ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
+
+    //Update int array assignments.
+
+    // Determine the size of the array (should be the same as used during buffer creation)
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+
+    for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+    {
+        if (app->textures.count(material.textureNames[i]) > 0)
+        {
+            material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
+        }
+        else
+            material.textureIDs[i] = 0;
+    }
+
+    memcpy(_uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
+
+    void* data;
+    vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
+    vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
+
+}
+
 
 void ComputePass::UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain)
 {
@@ -75,7 +109,7 @@ void ComputePass::CreateImages() {
         app->swapChainExtent.height,
         imageFormat,
         VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         image,
         imageMemory

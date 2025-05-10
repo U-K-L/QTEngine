@@ -1813,6 +1813,13 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
     {
         renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame, nullptr, &CameraMain);
     }
+
+    //Compute
+    for (int i = 0; i < computePassStack.size(); i++)
+	{
+		computePassStack[i]->UpdateUniformBuffer(imageIndex, currentFrame);
+	}
+
 }
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
