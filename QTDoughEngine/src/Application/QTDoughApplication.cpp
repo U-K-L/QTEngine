@@ -1378,14 +1378,15 @@ void QTDoughApplication::CreateDescriptorSetLayout()
 
 void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 {
+
     std::cout << "Creating global descriptor set layout" << std::endl;
-    CreateGlobalSamplers(1000);
+    CreateGlobalSamplers(MAX_BINDLESS_IMAGES);
 
     // Binding for sampled images
     VkDescriptorSetLayoutBinding sampledImageBinding{};
     sampledImageBinding.binding = 0;
     sampledImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    sampledImageBinding.descriptorCount = 1000;
+    sampledImageBinding.descriptorCount = MAX_BINDLESS_IMAGES;
     sampledImageBinding.stageFlags = VK_SHADER_STAGE_ALL;
     sampledImageBinding.pImmutableSamplers = nullptr;
 
@@ -1393,7 +1394,7 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     VkDescriptorSetLayoutBinding samplerBinding{};
     samplerBinding.binding = 1;
     samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    samplerBinding.descriptorCount = 1000;
+    samplerBinding.descriptorCount = MAX_BINDLESS_IMAGES;
     samplerBinding.stageFlags = VK_SHADER_STAGE_ALL;
     samplerBinding.pImmutableSamplers = globalSamplers.data();
 
@@ -1405,11 +1406,19 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
+    // Storage images the compute shader writes to (u1[])
+    VkDescriptorSetLayoutBinding imgStorage{};
+    imgStorage.binding = 3;
+    imgStorage.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    imgStorage.descriptorCount = MAX_BINDLESS_IMAGES;
+    imgStorage.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
     // We now have two bindings
-    std::array<VkDescriptorSetLayoutBinding, 3> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding };
+    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding, imgStorage };
 
     // For descriptor indexing flags
-    VkDescriptorBindingFlags bindingFlags[3] = {
+    VkDescriptorBindingFlags bindingFlags[4] = {
+        0,
         0,
         0,
         0
@@ -1439,17 +1448,20 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
     std::cout << "Creating Descriptor Pool" << std::endl;
-    std::array<VkDescriptorPoolSize, 3> poolSizes{};
+    std::array<VkDescriptorPoolSize, 4> poolSizes{};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    poolSizes[0].descriptorCount = 1000;
+    poolSizes[0].descriptorCount = MAX_BINDLESS_IMAGES;
 
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
-    poolSizes[1].descriptorCount = 1000;
+    poolSizes[1].descriptorCount = MAX_BINDLESS_IMAGES;
 
     // Uniform buffer
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[2].descriptorCount = MAX_FRAMES_IN_FLIGHT;
+
+    poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[3].descriptorCount = MAX_BINDLESS_IMAGES;
 
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -1503,6 +1515,14 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         imageInfos[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
     }
 
+    //Writable textures
+    std::vector<VkDescriptorImageInfo> storageInfos(sizeTextures);
+    for (size_t i = 0; i < sizeTextures; ++i) {
+        storageInfos[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;   // UAV layout
+        storageInfos[i].imageView = keys[i].u_imageView;
+        storageInfos[i].sampler = VK_NULL_HANDLE;
+    }
+
     VkWriteDescriptorSet imageWrite{};
     imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     imageWrite.dstSet = globalDescriptorSets[currentFrame];
@@ -1512,7 +1532,16 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     imageWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
     imageWrite.pImageInfo = imageInfos.data();
 
-    vkUpdateDescriptorSets(_logicalDevice, 1, &imageWrite, 0, nullptr);
+    VkWriteDescriptorSet writeStorage{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    writeStorage.dstSet = globalDescriptorSets[currentFrame];
+    writeStorage.dstBinding = 3;
+    writeStorage.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writeStorage.descriptorCount = static_cast<uint32_t>(storageInfos.size());
+    writeStorage.pImageInfo = storageInfos.data();
+
+    std::array<VkWriteDescriptorSet, 2> writes = { imageWrite, writeStorage };
+
+    vkUpdateDescriptorSets(_logicalDevice,static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 
     auto timeNow = std::chrono::high_resolution_clock::now();
     auto duration = timeSinceApplication;
@@ -2046,6 +2075,11 @@ void QTDoughApplication::CreateMaterials() {
     {
         renderPassStack[i]->CreateMaterials();
     }
+
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+		computePassStack[i]->CreateMaterials();
+	}
 
     for (int i = 0; i < NUM_OBJECTS; i++)
     {

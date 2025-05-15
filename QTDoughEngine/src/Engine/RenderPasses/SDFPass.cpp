@@ -2,9 +2,21 @@
 #include <random>
 
 SDFPass::~SDFPass() {
+    PassName = "SDFPass";
 }
 
-SDFPass::SDFPass() {}
+SDFPass::SDFPass() {
+    PassName = "SDFPass";
+    PassNames.push_back("SDFPass");
+}
+
+void SDFPass::CreateMaterials() {
+    material.Clean();
+    material.shader = UnigmaShader("raymarchsdf");
+
+    material.textureNames[0] = "SDFPass";
+}
+
 
 
 void SDFPass::CreateComputePipeline()
@@ -26,7 +38,17 @@ void SDFPass::CreateComputePipeline()
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &computeDescriptorSetLayout;
 
-    if (vkCreatePipelineLayout(app->_logicalDevice, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
+    std::array<VkDescriptorSetLayout, 2> layouts = {
+        app->globalDescriptorSetLayout,     // global information (camera, images, etc.)
+        computeDescriptorSetLayout          // set 1 (particles, etc.)
+    };
+
+    VkPipelineLayoutCreateInfo pli{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+    pli.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    pli.pSetLayouts = layouts.data();
+
+
+    if (vkCreatePipelineLayout(app->_logicalDevice, &pli, nullptr, &computePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline layout!");
     }
 
@@ -54,7 +76,6 @@ void SDFPass::CreateComputePipeline()
             readbackBufferMemories[i]
         );
     }
-
     frameReadbackData.resize(app->MAX_FRAMES_IN_FLIGHT);
     for (auto& frame : frameReadbackData)
         frame.resize(VOXEL_COUNT);
@@ -243,24 +264,42 @@ void SDFPass::CreateShaderStorageBuffers()
 void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    if (vkGetFenceStatus(app->_logicalDevice, app->computeFences[currentFrame]) == VK_NOT_READY)
-        return; // Wait until readback from this buffer is done
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
 
+    vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
-    // Bind the descriptor set
-    vkCmdBindDescriptorSets(
-        commandBuffer,
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
         computePipelineLayout,
-        0, // First set
-        1, // Number of sets
-        &computeDescriptorSets[currentFrame],
-        0, nullptr // No dynamic offsets
-    );
+        0, 2, sets,
+        0, nullptr);
 
-    // Dispatch the compute shader
     vkCmdDispatch(commandBuffer, 32, 1, 1);
 }
 

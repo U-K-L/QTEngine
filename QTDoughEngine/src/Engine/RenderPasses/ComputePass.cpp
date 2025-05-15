@@ -197,7 +197,17 @@ void ComputePass::CreateComputePipeline()
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &computeDescriptorSetLayout;
 
-    if (vkCreatePipelineLayout(app->_logicalDevice, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
+    std::array<VkDescriptorSetLayout, 2> layouts = {
+        app->globalDescriptorSetLayout,     // global information (camera, images, etc.)
+        computeDescriptorSetLayout          // set 1 (particles, etc.)
+    };
+
+    VkPipelineLayoutCreateInfo pli{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+    pli.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    pli.pSetLayouts = layouts.data();
+
+
+    if (vkCreatePipelineLayout(app->_logicalDevice, &pli, nullptr, &computePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline layout!");
     }
 

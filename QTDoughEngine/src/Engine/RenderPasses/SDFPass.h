@@ -27,4 +27,5 @@ public:
     void Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
     void CreateShaderStorageBuffers() override;
     void DebugCompute(uint32_t currentFrame) override;
+    void CreateMaterials() override;
 };
