@@ -11,7 +11,7 @@ struct Voxel
 StructuredBuffer<Voxel> voxelsIn : register(t2, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsOut : register(u3, space1); // write
 
-[numthreads(64, 1, 1)]
+[numthreads(8, 8, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
 
@@ -20,7 +20,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint handle = NonUniformResourceIndex(imgId);
 
     // Shader‑model 6.6 (or later) – texel operator
-    gBindlessStorage[handle][pix] = float4(1, 220, 0, 1);
+    gBindlessStorage[handle][pix] = float4(1, 1, 0, 1);
 
     // Pre‑6.6 form – Write method
     // gBindlessStorage[handle].Write(pix, float4(1, 0, 0, 1));

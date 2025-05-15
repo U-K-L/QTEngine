@@ -300,7 +300,23 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
         0, 2, sets,
         0, nullptr);
 
-    vkCmdDispatch(commandBuffer, 32, 1, 1);
+    vkCmdDispatch(commandBuffer, 320, 320, 1);
+
+    VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+    barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier2.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    barrier2.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier2.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    barrier2.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier2.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier2.image = image;                 // SDFPass target
+    barrier2.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1 };
+
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.imageMemoryBarrierCount = 1;
+    dep.pImageMemoryBarriers = &barrier2;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
 void SDFPass::DebugCompute(uint32_t currentFrame)
