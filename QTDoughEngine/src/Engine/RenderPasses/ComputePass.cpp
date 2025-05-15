@@ -39,7 +39,7 @@ void ComputePass::CreateUniformBuffers()
 
 }
 
-void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame) {
+void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -49,6 +49,11 @@ void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFra
     ubo.proj = glm::mat4(1.0f);
     ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
 
+    ubo.view = glm::lookAt(CameraMain.position(), CameraMain.position() + CameraMain.forward(), CameraMain.up);
+    ubo.proj = CameraMain.getProjectionMatrix();
+
+    //print view matrix.
+    std::cout << "View matrix by elements:" << ubo.view[0][0] << " " << ubo.view[0][1] << " " << ubo.view[0][2] << " " << ubo.view[0][3] << std::endl;
     //Update int array assignments.
 
     // Determine the size of the array (should be the same as used during buffer creation)

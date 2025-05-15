@@ -74,5 +74,5 @@ public:
     virtual void UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
     //virtual void CleanupPipeline();
     virtual void DebugCompute(uint32_t currentFrame);
-    virtual void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame);
+    virtual void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain);
 };

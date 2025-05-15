@@ -1846,7 +1846,7 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
     //Compute
     for (int i = 0; i < computePassStack.size(); i++)
 	{
-		computePassStack[i]->UpdateUniformBuffer(imageIndex, currentFrame);
+		computePassStack[i]->UpdateUniformBuffer(imageIndex, currentFrame, CameraMain);
 	}
 
 }
