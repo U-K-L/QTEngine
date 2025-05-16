@@ -267,7 +267,7 @@ void QTDoughApplication::DrawFrame()
     }
 
 
-    DebugCompute(currentFrame);
+    //DebugCompute(currentFrame);
 
 
 

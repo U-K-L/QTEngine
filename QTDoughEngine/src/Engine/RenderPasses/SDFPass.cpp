@@ -230,7 +230,14 @@ void SDFPass::CreateShaderStorageBuffers()
     // Initial data
     std::vector<Voxel> voxels(VOXEL_COUNT);
     for (auto& voxel : voxels) {
-        voxel.positionDistance = glm::vec4(30.0f, 0.0f, 0.09f, 0.001f);
+        float x = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+        float y = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+        float z = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+        glm::vec3 dir = glm::normalize(glm::vec3(x, y, z));
+        float r = std::cbrt(std::rand() / (float)RAND_MAX) * 10.0f;
+
+        glm::vec3 pos = abs(dir * r);
+        voxel.positionDistance = glm::vec4(pos, 0.001f);
 		voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
     }
 

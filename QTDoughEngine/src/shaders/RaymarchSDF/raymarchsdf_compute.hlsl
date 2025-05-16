@@ -22,25 +22,106 @@ StructuredBuffer<Voxel> voxelsIn : register(t2, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsOut : register(u3, space1); // write
 
 
-float SDFSphere(float3 position, float radius)
+float SDFSphere(float3 position, float3 spherePos, float radius)
 {
-    return length(position) - radius;
+    return length(position - spherePos) -  radius;
 }
 
-float RayMarch(float3 ro, float3 rd)
+float SDFRoundBox(float3 position, float3 boxPosition, float3 halfSize, float radius)
 {
-    float dist = 0.0f;
-    for (uint i = 0; i < 128; ++i)
+    float3 q = abs(position - boxPosition) - halfSize;
+    return length(max(q, 0.0f)) + min(max(q.x, max(q.y, q.z)), 0.0f) - radius;
+}
+
+float dot2(float3 v)
+{
+    return dot(v, v);
+}
+
+float udTriangle(float3 p, float3 a, float3 b, float3 c)
+{
+    float3 ba = b - a;
+    float3 pa = p - a;
+    float3 cb = c - b;
+    float3 pb = p - b;
+    float3 ac = a - c;
+    float3 pc = p - c;
+    float3 nor = cross(ba, ac);
+
+    float inside = sign(dot(cross(ba, nor), pa)) +
+                   sign(dot(cross(cb, nor), pb)) +
+                   sign(dot(cross(ac, nor), pc));
+
+    if (inside < 2.0f)
     {
-        float3 pos = ro + rd * dist;
-        float d = SDFSphere(pos, 1.0f); // <- test with small radius
-        if (d < 0.001f)
-            return dist;
-        dist += d;
-        if (dist > 50.0f)
-            break;
+        float d1 = dot2(ba * clamp(dot(ba, pa) / dot2(ba), 0.0f, 1.0f) - pa);
+        float d2 = dot2(cb * clamp(dot(cb, pb) / dot2(cb), 0.0f, 1.0f) - pb);
+        float d3 = dot2(ac * clamp(dot(ac, pc) / dot2(ac), 0.0f, 1.0f) - pc);
+        return sqrt(min(min(d1, d2), d3));
     }
-    return -1.0f;
+    else
+    {
+        return abs(dot(nor, pa)) / length(nor);
+    }
+}
+
+
+float IntersectionPoint(float3 pos, float3 dir)
+{
+    float maxDistance = 100.0f;
+    /*
+    float3 spheres[3];
+    spheres[0] = float3(0, 0, 0);
+    spheres[1] = float3(8, 0, 0);
+    spheres[2] = float3(0, 8, 0);
+    
+    //Find the smallest intersection to return.
+    float intersection = maxDistance;
+    for (int i = 0; i < 3; i++)
+    {
+        float hitPoint = SDFSphere(pos, spheres[i], 1.0f);
+        intersection = min(intersection, hitPoint);
+        
+    }
+    */
+    
+    //Voxels.
+    //Find the smallest intersection to return.
+    float intersection = maxDistance;
+    for (int i = 0; i < 8; i++)
+    {
+        float hitPoint = SDFRoundBox(pos, voxelsIn[i].positionDistance.xyz, 1.0f, 0.05f);
+        intersection = min(intersection, hitPoint);
+        
+    }
+    
+    return intersection;
+}
+
+float SphereMarch(float3 ro, float3 rd)
+{
+    float maxDistance = 100.0f;
+    float minDistance = 0.01f;
+    float3 pos = ro;
+    int maxSteps = 64;
+    
+    for (int i = 0; i < maxSteps; i++)
+    {
+        //Find the smallest distance
+        float distance = IntersectionPoint(pos, rd);
+        
+        //See if it is close enough otherwise continue.
+        if(distance < minDistance)
+        {
+            return distance; //Something was hit.
+        }
+        
+        //update position to the nearest point. effectively a sphere trace.
+        pos = pos + rd * distance;
+    }
+    
+    return -1; //Nothing hit.
+
 }
 
 
@@ -64,7 +145,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     /* ---- march ----------------------------------------------------------- */
 
-    float hit = RayMarch(camPos, dirWorld);
+    float hit = SphereMarch(camPos, dirWorld);
     float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     gBindlessStorage[outputImageHandle][pixel] = col;
     

@@ -53,7 +53,6 @@ void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFra
     ubo.proj = CameraMain.getProjectionMatrix();
 
     //print view matrix.
-    std::cout << "View matrix by elements:" << ubo.view[0][0] << " " << ubo.view[0][1] << " " << ubo.view[0][2] << " " << ubo.view[0][3] << std::endl;
     //Update int array assignments.
 
     // Determine the size of the array (should be the same as used during buffer creation)
