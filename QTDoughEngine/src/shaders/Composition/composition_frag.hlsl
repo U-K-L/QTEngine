@@ -64,7 +64,7 @@ float4 main(VSOutput i) : SV_Target
     float4 outlineImage = textures[images.OutlineImage].Sample(samplers[images.OutlineImage], textureUVs);
     float4 sdfImage = textures[images.SDFImage].Sample(samplers[images.SDFImage], textureUVs);
     
-    return sdfImage;
+    //return sdfImage;
 
     float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
 
@@ -83,6 +83,6 @@ float4 main(VSOutput i) : SV_Target
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
+    return lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w) * 0.5 + 0.5 * sdfImage;
 
 }

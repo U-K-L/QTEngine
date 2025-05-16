@@ -38,7 +38,7 @@ float dot2(float3 v)
     return dot(v, v);
 }
 
-float udTriangle(float3 p, float3 a, float3 b, float3 c)
+float SDFTriangle(float3 p, float3 a, float3 b, float3 c)
 {
     float3 ba = b - a;
     float3 pa = p - a;
@@ -66,7 +66,7 @@ float udTriangle(float3 p, float3 a, float3 b, float3 c)
 }
 
 
-float IntersectionPoint(float3 pos, float3 dir)
+float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
 {
     float maxDistance = 100.0f;
     /*
@@ -88,27 +88,36 @@ float IntersectionPoint(float3 pos, float3 dir)
     //Voxels.
     //Find the smallest intersection to return.
     float intersection = maxDistance;
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 64; i++)
     {
-        float hitPoint = SDFRoundBox(pos, voxelsIn[i].positionDistance.xyz, 1.0f, 0.05f);
+        float hitPoint = SDFRoundBox(pos, float3(0,0,0), 5.0f, 0.05f);   
+        //Remove this when not debugging.
+        if (hitPoint < intersection)
+        {
+            float4 randPos = rand4(voxelsIn[i].positionDistance);
+            resultOutput.xyz = normalize(randPos.xyz);
+            resultOutput.w = 1.0f;
+        }
+        
         intersection = min(intersection, hitPoint);
+
         
     }
     
     return intersection;
 }
 
-float SphereMarch(float3 ro, float3 rd)
+float SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 {
     float maxDistance = 100.0f;
     float minDistance = 0.01f;
     float3 pos = ro;
-    int maxSteps = 64;
+    int maxSteps = 32;
     
     for (int i = 0; i < maxSteps; i++)
     {
         //Find the smallest distance
-        float distance = IntersectionPoint(pos, rd);
+        float distance = IntersectionPoint(pos, rd, resultOutput);
         
         //See if it is close enough otherwise continue.
         if(distance < minDistance)
@@ -132,22 +141,24 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint2 pixel = DTid.xy;
     uint2 outputImageIndex = uint2(DTid.x, DTid.y);
     uint outputImageHandle = NonUniformResourceIndex(intArray[0]);
-    
-    /* ---- build the ray --------------------------------------------------- */
 
-    float2 uv = (float2(pixel) + 0.5) * texelSize * 2.0 - 1.0; // –1 .. 1
-    float4 clip = float4(uv, 0.0, 1.0); // z = 0  (near)
+    float2 uv = (float2(pixel) + 0.5) * texelSize * 2.0 - 1.0;
+    uv.y = -uv.y; // Flip Y
 
-    float3 dirView = normalize(mul(inverse(proj), clip).xyz);
+    float4 clip = float4(uv, 1.0, 1.0); 
 
-    float3 camPos = mul(inverse(view), float4(0, 0, 0, 1)).xyz; // correct
+    float4 viewPos = mul(inverse(proj), clip);
+    viewPos /= viewPos.w;
+
+    float3 dirView = normalize(viewPos.xyz); 
+    float3 camPos = mul(inverse(view), float4(0, 0, 0, 1)).xyz;
     float3 dirWorld = normalize(mul((float3x3) inverse(view), dirView));
 
-    /* ---- march ----------------------------------------------------------- */
 
-    float hit = SphereMarch(camPos, dirWorld);
+    float4 result = 0;
+    float hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
-    gBindlessStorage[outputImageHandle][pixel] = col;
+    gBindlessStorage[outputImageHandle][pixel] = saturate(result * col);
     
     /*
     uint2 pix = DTid.xy;

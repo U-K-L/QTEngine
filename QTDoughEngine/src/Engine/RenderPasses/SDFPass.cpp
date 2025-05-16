@@ -6,6 +6,7 @@ SDFPass::~SDFPass() {
 }
 
 SDFPass::SDFPass() {
+    VOXEL_COUNT = VOXEL_RESOLUTION * VOXEL_RESOLUTION * VOXEL_RESOLUTION;
     PassName = "SDFPass";
     PassNames.push_back("SDFPass");
 }
@@ -227,9 +228,32 @@ void SDFPass::CreateShaderStorageBuffers()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    // Initial data
+    // Initial data. This should create the voxel scene grid.
     std::vector<Voxel> voxels(VOXEL_COUNT);
+
+    for (int i = 0; i < VOXEL_RESOLUTION; i++)
+    {
+        for (int j = 0; j < VOXEL_RESOLUTION; j++)
+        {
+            for (int k = 0; k < VOXEL_RESOLUTION; k++)
+            {
+                auto& voxel = voxels[i * VOXEL_RESOLUTION * VOXEL_RESOLUTION + j * VOXEL_RESOLUTION + k];
+
+                voxel.positionDistance = glm::vec4(
+                    ((float)i + 0.5f) / (float)VOXEL_RESOLUTION * SCENE_BOUNDS - SCENE_BOUNDS * 0.5f,
+                    ((float)j + 0.5f) / (float)VOXEL_RESOLUTION * SCENE_BOUNDS - SCENE_BOUNDS * 0.5f,
+                    ((float)k + 0.5f) / (float)VOXEL_RESOLUTION * SCENE_BOUNDS - SCENE_BOUNDS * 0.5f,
+                    defaultDistanceMax
+                );
+
+                voxel.normalDensity = glm::vec4(0.0f, 0.0f, 0.0f, defaultDistanceMax);
+            }
+        }
+    }
+
+
     for (auto& voxel : voxels) {
+        /*
         float x = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
         float y = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
         float z = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
@@ -239,6 +263,8 @@ void SDFPass::CreateShaderStorageBuffers()
         glm::vec3 pos = abs(dir * r);
         voxel.positionDistance = glm::vec4(pos, 0.001f);
 		voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
+        */
+
     }
 
     VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
@@ -307,7 +333,9 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
         0, 2, sets,
         0, nullptr);
 
-    vkCmdDispatch(commandBuffer, 320, 320, 1);
+    uint32_t groupCountX = (app->swapChainExtent.width + 7) / 8;
+    uint32_t groupCountY = (app->swapChainExtent.height + 7) / 8;
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;

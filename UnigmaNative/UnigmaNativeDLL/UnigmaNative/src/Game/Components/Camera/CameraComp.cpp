@@ -160,6 +160,12 @@ void CameraComp::InitializeData(nlohmann::json& componentData)
 
     camera = &Cameras[CameraID];
     std::cout << componentData["CameraType"] << std::endl;
+    //update transform;
+    UnigmaGameObject* gobj = &GameObjects[GID];
+    //position
+    camera->setPosition(gobj->transform.position);
+    //rotation
+    camera->setForward(gobj->transform.forward());
 	if (componentData.contains("FarClip"))
 	{
         camera->farClip = componentData["FarClip"];

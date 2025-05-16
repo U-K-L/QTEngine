@@ -269,8 +269,6 @@ void QTDoughApplication::DrawFrame()
 
     //DebugCompute(currentFrame);
 
-
-
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
