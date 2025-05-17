@@ -20,6 +20,90 @@ void ComputePass::AddObjects(UnigmaRenderingObject* unigmaRenderingObjects)
 }
 
 
+void ComputePass::CreateTriangleSoup()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    // Objects should already be added to renderingObjects stack by this point. Now process them.
+
+    // First add all the vertices and indices to the vectors.
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+        vertices.insert(vertices.end(),
+            renderingObjects[i]->_renderer.vertices.begin(),
+            renderingObjects[i]->_renderer.vertices.end());
+
+        // Adjust index offset based on current vertex base
+        uint32_t vertexOffset = static_cast<uint32_t>(vertices.size() - renderingObjects[i]->_renderer.vertices.size());
+        for (auto idx : renderingObjects[i]->_renderer.indices)
+        {
+            indices.push_back(idx + vertexOffset);
+        }
+    }
+
+
+    VkDeviceSize vertexSize = sizeof(Vertex) * vertices.size();
+    VkDeviceSize indexSize = sizeof(glm::uvec3) * (indices.size() / 3); // each triangle = 1 glm::uvec3
+
+    std::cout << "Vertex size: " << vertexSize << std::endl;
+
+    // Create staging buffers
+    VkBuffer stagingVertexBuffer, stagingIndexBuffer;
+    VkDeviceMemory stagingVertexMemory, stagingIndexMemory;
+
+    app->CreateBuffer(vertexSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingVertexBuffer, stagingVertexMemory);
+
+    app->CreateBuffer(indexSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingIndexBuffer, stagingIndexMemory);
+
+    // Copy CPU data into staging buffers
+    void* data;
+    vkMapMemory(app->_logicalDevice, stagingVertexMemory, 0, vertexSize, 0, &data);
+    std::memcpy(data, vertices.data(), vertexSize);
+    vkUnmapMemory(app->_logicalDevice, stagingVertexMemory);
+
+    std::vector<glm::uvec3> triangleIndices(indices.size() / 3);
+    for (size_t i = 0; i < triangleIndices.size(); ++i)
+    {
+        triangleIndices[i] = glm::uvec3(indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]);
+    }
+
+    vkMapMemory(app->_logicalDevice, stagingIndexMemory, 0, indexSize, 0, &data);
+    std::memcpy(data, triangleIndices.data(), indexSize);
+    vkUnmapMemory(app->_logicalDevice, stagingIndexMemory);
+
+    // Create GPU buffers
+    app->CreateBuffer(vertexSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        vertexBuffer, vertexBufferMemory);
+
+    app->CreateBuffer(indexSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        indexBuffer, indexBufferMemory);
+
+    std::cout << "stagingVertexBuffer = " << stagingVertexBuffer << std::endl;
+    std::cout << "vertexBuffer = " << vertexBuffer << std::endl;
+    std::cout << "vertexSize = " << vertexSize << std::endl;
+
+    // Copy from staging to device-local buffers
+    app->CopyBuffer(stagingVertexBuffer, vertexBuffer, vertexSize);
+    //app->CopyBuffer(stagingIndexBuffer, indexBuffer, indexSize);
+
+    // Cleanup staging
+    vkDestroyBuffer(app->_logicalDevice, stagingVertexBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingVertexMemory, nullptr);
+    vkDestroyBuffer(app->_logicalDevice, stagingIndexBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingIndexMemory, nullptr);
+}
+
+
 void ComputePass::CreateUniformBuffers()
 {
     QTDoughApplication* app = QTDoughApplication::instance;

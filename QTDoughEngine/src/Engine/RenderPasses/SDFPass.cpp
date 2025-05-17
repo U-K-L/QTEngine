@@ -80,6 +80,8 @@ void SDFPass::CreateComputePipeline()
     frameReadbackData.resize(app->MAX_FRAMES_IN_FLIGHT);
     for (auto& frame : frameReadbackData)
         frame.resize(VOXEL_COUNT);
+
+    CreateTriangleSoup();
 }
 
 void SDFPass::CreateComputeDescriptorSets()
@@ -229,7 +231,7 @@ void SDFPass::CreateShaderStorageBuffers()
     QTDoughApplication* app = QTDoughApplication::instance;
 
     // Initial data. This should create the voxel scene grid.
-    std::vector<Voxel> voxels(VOXEL_COUNT);
+    voxels.resize(VOXEL_COUNT); 
 
     for (int i = 0; i < VOXEL_RESOLUTION; i++)
     {

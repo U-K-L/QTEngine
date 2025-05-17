@@ -58,6 +58,15 @@ public:
     std::vector<std::vector<Particle>> frameReadbackData;
     std::vector<UnigmaRenderingObject*> GameObjects;
 
+    std::vector<Vertex> vertices;     // Vertex Soup
+    std::vector<uint32_t> indices; // Index Soup
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
+
+
+
     virtual void CreateUniformBuffers();
     virtual void CreateComputeDescriptorSetLayout();
     virtual void CreateComputeDescriptorSets();
@@ -75,4 +84,5 @@ public:
     //virtual void CleanupPipeline();
     virtual void DebugCompute(uint32_t currentFrame);
     virtual void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain);
+    virtual void CreateTriangleSoup();
 };

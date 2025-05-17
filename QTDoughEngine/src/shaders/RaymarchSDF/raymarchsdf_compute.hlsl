@@ -169,7 +169,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 
     float4 result = 0;
-    float hit = SphereMarch(camPos, dirWorld, result);
+    float hit = 0; //SphereMarch(camPos, dirWorld, result);
     float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     gBindlessStorage[outputImageHandle][pixel] += saturate(result * col);
     
