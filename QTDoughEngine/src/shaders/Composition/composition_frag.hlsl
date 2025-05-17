@@ -77,12 +77,15 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
+    float4 finalImage = lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
+    //Debug voxels.
+    return lerp(finalImage, sdfImage, saturate(length(sdfImage.xyz)) * 0.15 + 0.85);
     //return albedoImage;
     //return outlineImage;
     //return float4(rand(positionImage.a * 100), rand(positionImage.a * 100 + 1), rand(positionImage.a * 100 + 2), 1.0);
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w) * 0.5 + 0.5 * sdfImage;
+    return finalImage;
 
 }

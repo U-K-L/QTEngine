@@ -90,7 +90,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     float intersection = maxDistance;
     for (int i = 0; i < 64; i++)
     {
-        float hitPoint = SDFRoundBox(pos, float3(0,0,0), 5.0f, 0.05f);   
+        float hitPoint = SDFRoundBox(pos, voxelsIn[i].positionDistance.xyz, voxelsIn[i].normalDensity.w*0.5f, 0.05f);
         //Remove this when not debugging.
         if (hitPoint < intersection)
         {
@@ -112,7 +112,7 @@ float SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
     float minDistance = 0.01f;
     float3 pos = ro;
-    int maxSteps = 32;
+    int maxSteps = 64;
     
     for (int i = 0; i < maxSteps; i++)
     {
@@ -141,24 +141,37 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint2 pixel = DTid.xy;
     uint2 outputImageIndex = uint2(DTid.x, DTid.y);
     uint outputImageHandle = NonUniformResourceIndex(intArray[0]);
+    gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
+    bool ortho = abs(proj[3][3] - 1.0) < 1e-5;
 
+    float4x4 invProj = inverse(proj);
+    float4x4 invView = inverse(view);
+    
     float2 uv = (float2(pixel) + 0.5) * texelSize * 2.0 - 1.0;
     uv.y = -uv.y; // Flip Y
 
-    float4 clip = float4(uv, 1.0, 1.0); 
+    float3 camPos, dirWorld;
 
-    float4 viewPos = mul(inverse(proj), clip);
-    viewPos /= viewPos.w;
-
-    float3 dirView = normalize(viewPos.xyz); 
-    float3 camPos = mul(inverse(view), float4(0, 0, 0, 1)).xyz;
-    float3 dirWorld = normalize(mul((float3x3) inverse(view), dirView));
+    if (ortho)
+    {
+        float4 clip = float4(uv, 0.0, 1.0); // no extra scale
+        camPos = mul(invView, mul(invProj, clip)).xyz;
+        dirWorld = normalize(-invView[2].xyz);
+    }
+    else
+    {
+        float4 clip = float4(uv, 1.0, 1.0);
+        float4 viewP = mul(invProj, clip);
+        viewP /= viewP.w;
+        dirWorld = normalize(mul((float3x3) invView, normalize(viewP.xyz)));
+        camPos = mul(invView, float4(0, 0, 0, 1)).xyz;
+    }
 
 
     float4 result = 0;
     float hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
-    gBindlessStorage[outputImageHandle][pixel] = saturate(result * col);
+    gBindlessStorage[outputImageHandle][pixel] += saturate(result * col);
     
     /*
     uint2 pix = DTid.xy;

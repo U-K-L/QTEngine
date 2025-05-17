@@ -239,14 +239,16 @@ void SDFPass::CreateShaderStorageBuffers()
             {
                 auto& voxel = voxels[i * VOXEL_RESOLUTION * VOXEL_RESOLUTION + j * VOXEL_RESOLUTION + k];
 
+                float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
+
                 voxel.positionDistance = glm::vec4(
-                    ((float)i + 0.5f) / (float)VOXEL_RESOLUTION * SCENE_BOUNDS - SCENE_BOUNDS * 0.5f,
-                    ((float)j + 0.5f) / (float)VOXEL_RESOLUTION * SCENE_BOUNDS - SCENE_BOUNDS * 0.5f,
-                    ((float)k + 0.5f) / (float)VOXEL_RESOLUTION * SCENE_BOUNDS - SCENE_BOUNDS * 0.5f,
+                    (i + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
+                    (j + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
+                    (k + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
                     defaultDistanceMax
                 );
 
-                voxel.normalDensity = glm::vec4(0.0f, 0.0f, 0.0f, defaultDistanceMax);
+                voxel.normalDensity = glm::vec4(0.0f, 0.0f, 0.0f, voxelSize);
             }
         }
     }

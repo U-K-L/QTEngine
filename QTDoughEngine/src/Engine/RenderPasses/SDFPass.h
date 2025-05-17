@@ -14,9 +14,9 @@ public:
 		glm::vec4 positionDistance;
 		glm::vec4 normalDensity;
 	};
-    int VOXEL_COUNT = 64; 
-    int VOXEL_RESOLUTION = 4; //This is the resolution of the 3D texture. 8 = 512 voxels.
-    float SCENE_BOUNDS = 512; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
+    int VOXEL_COUNT = 1; //Set in the creation of the pass.
+    int VOXEL_RESOLUTION = 4; //This is the resolution of the 3D texture. n^3
+    float SCENE_BOUNDS = 6; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
     std::vector<std::vector<Voxel>> frameReadbackData; //Generic readback data for the SDF pass.
     // Constructor

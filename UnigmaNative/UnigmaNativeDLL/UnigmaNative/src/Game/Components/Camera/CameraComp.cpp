@@ -136,6 +136,24 @@ void CameraComp::Update()
     //camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
 
     //std::cout << "Delta time: " << UnigmaGameManager::instance->deltaTime << std::endl;
+
+                // Get rotation rate from the camera
+    float rotationRate = 0.004f;
+
+    // Calculate angles in radians
+    float angleX = 1.0f * rotationRate;
+    float angleY = 0 * rotationRate;
+
+    // Orbit horizontally around the Y-axis
+    camera->rotateAroundPoint(glm::vec3(0.0f), angleX, glm::vec3(0.0f, 0.0f, 1.0f));
+
+    // Orbit vertically around the X-axis (optional, limited to avoid flipping)
+    glm::vec3 cameraForward = camera->forward();
+    glm::vec3 forwardProjection = glm::vec3(cameraForward.x, 0.0f, cameraForward.z); // Forward projected to XZ plane
+    if (glm::length(forwardProjection) > 0.01f) // Prevent flipping at zenith
+    {
+        camera->rotateAroundPoint(glm::vec3(0.0f), angleY, camera->_transform.right());
+    }
 }
 
 
