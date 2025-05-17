@@ -18,7 +18,68 @@ void SDFPass::CreateMaterials() {
     material.textureNames[0] = "SDFPass";
 }
 
+std::vector<SDFPass::Triangle> SDFPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
+{
+    std::vector<Triangle> triangles;
 
+    for (const auto& tri : triangleIndices)
+    {
+        if (tri.x >= vertices.size() || tri.y >= vertices.size() || tri.z >= vertices.size()) {
+            std::cerr << "[Warning] Skipping invalid triangle: " << tri.x << ", " << tri.y << ", " << tri.z << std::endl;
+            continue;
+        }
+
+        glm::vec3 a = glm::vec3(vertices[tri.x].position);
+        glm::vec3 b = glm::vec3(vertices[tri.y].position);
+        glm::vec3 c = glm::vec3(vertices[tri.z].position);
+        glm::vec3 normal = glm::normalize(glm::cross(b - a, c - a));
+
+        triangles.push_back({ a, b, c, normal });
+    }
+
+    return triangles;
+}
+
+
+float SDFPass::DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
+{
+    // Algorithm based on Inigo Quilez's "Signed distance functions"
+    glm::vec3 ba = b - a, pa = p - a;
+    glm::vec3 cb = c - b, pb = p - b;
+    glm::vec3 ac = a - c, pc = p - c;
+    glm::vec3 nor = glm::cross(ba, ac);
+
+    float sign = glm::sign(glm::dot(glm::cross(ba, nor), pa) +
+        glm::dot(glm::cross(cb, nor), pb) +
+        glm::dot(glm::cross(ac, nor), pc));
+
+    float d = glm::min(glm::min(
+        glm::length(ba * glm::clamp(glm::dot(ba, pa) / glm::dot(ba, ba), 0.0f, 1.0f) - pa),
+        glm::length(cb * glm::clamp(glm::dot(cb, pb) / glm::dot(cb, cb), 0.0f, 1.0f) - pb)),
+        glm::length(ac * glm::clamp(glm::dot(ac, pc) / glm::dot(ac, ac), 0.0f, 1.0f) - pc));
+
+    float distToPlane = glm::abs(glm::dot(nor, pa)) / glm::length(nor);
+    bool inside = sign >= 2.0f;
+
+    return inside ? distToPlane : d;
+}
+
+void SDFPass::BakeSDFFromTriangles()
+{
+    for (auto& voxel : voxels)
+    {
+        float minDistance = defaultDistanceMax;
+        glm::vec3 voxelCenter = glm::vec3(voxel.positionDistance);
+
+        for (const auto& tri : triangleSoup)
+        {
+            float d = DistanceToTriangle(voxelCenter, tri.a, tri.b, tri.c);
+            minDistance = std::min(minDistance, d);
+        }
+
+        voxel.positionDistance.w = minDistance;
+    }
+}
 
 void SDFPass::CreateComputePipeline()
 {
@@ -248,6 +309,8 @@ void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, 
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
     vertices.clear();
+    triangleSoup.clear();
+    indices.clear();
     //Update all vertices world positions.
     for (int i = 0; i < renderingObjects.size(); i++)
     {
@@ -264,10 +327,29 @@ void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, 
 
             vertices.push_back(computeVertex);
         }
+
+        // Adjust index offset based on current vertex base
+        uint32_t vertexOffset = static_cast<uint32_t>(vertices.size() - renderingObjects[i]->_renderer.vertices.size());
+        for (auto idx : renderingObjects[i]->_renderer.indices)
+        {
+            indices.push_back(idx + vertexOffset);
+        }
+
     }
+
+
 
     //All of BELOW will move to GPU side ------------------------------------
     // MOVE TO GPU ----------------------------------------------
+
+    triangleIndices.resize(indices.size() / 3);
+    for (size_t i = 0; i < triangleIndices.size(); ++i)
+    {
+        triangleIndices[i] = glm::uvec3(indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]);
+    }
+    auto meshTriangles = ExtractTrianglesFromMeshFromTriplets(vertices, triangleIndices);
+    triangleSoup.insert(triangleSoup.end(), meshTriangles.begin(), meshTriangles.end());
+
     VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;

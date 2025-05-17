@@ -80,7 +80,7 @@ void ComputePass::CreateTriangleSoup()
     std::memcpy(data, vertices.data(), vertexSize);
     vkUnmapMemory(app->_logicalDevice, stagingVertexMemory);
 
-    std::vector<glm::uvec3> triangleIndices(indices.size() / 3);
+    triangleIndices.resize(indices.size() / 3);
     for (size_t i = 0; i < triangleIndices.size(); ++i)
     {
         triangleIndices[i] = glm::uvec3(indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]);

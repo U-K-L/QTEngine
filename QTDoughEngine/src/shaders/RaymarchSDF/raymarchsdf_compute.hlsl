@@ -101,7 +101,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     //Find the smallest intersection to return.
     float intersection = maxDistance;
     int minIndex = 0;
-    for (int i = 0; i <512; i++)
+    for (int i = 0; i <4096; i++)
     {
         if(voxelsIn[i].occuipiedInfo.w <= 0)
             continue;
@@ -109,8 +109,10 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
         //Remove this when not debugging.
         if (hitPoint < intersection)
         {
+            float index = i;
             float4 randPos = rand4(voxelsIn[i].positionDistance);
-            resultOutput.xyz = normalize(randPos.xyz);
+            float4 randIndex = float4(rand(index), rand(index + 1.0f), rand(index + 2.0f), index);
+            resultOutput.xyz = normalize(randPos.xyz + randIndex.xyz);
             resultOutput.w = 1.0f;
             minIndex = i;
 
@@ -233,18 +235,18 @@ void main(uint3 DTid : SV_DispatchThreadID)
         camPos = mul(invView, float4(0, 0, 0, 1)).xyz;
     }
 
-    /*
     float4 result = 0;
     float hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     gBindlessStorage[outputImageHandle][pixel] += saturate(result * col);
-    */
+
+    /*
     //SDF sphere trace each vertex point.
     float debugHit = DebugMarchVertices(camPos, dirWorld);
     
     gBindlessStorage[outputImageHandle][pixel] += debugHit * float4(1, 0, 0, 1);
-
+    */
     
     /*
     uint2 pix = DTid.xy;

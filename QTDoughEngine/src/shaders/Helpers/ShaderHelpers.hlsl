@@ -198,6 +198,7 @@ float4 rand4(float4 co)
     return float4(rand(co.x), rand(co.y), rand(co.z), rand(co.w));
 }
 
+
 // Returns a pseudorandom number. By Ronja Böhringer
 float rand(float4 value)
 {

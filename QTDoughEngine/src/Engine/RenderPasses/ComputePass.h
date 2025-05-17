@@ -69,6 +69,7 @@ public:
 
     std::vector<ComputeVertex> vertices;     // Vertex Soup
     std::vector<uint32_t> indices; // Index Soup
+    std::vector<glm::uvec3> triangleIndices; // Triangle indices
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;

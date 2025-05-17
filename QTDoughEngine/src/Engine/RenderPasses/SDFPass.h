@@ -23,6 +23,12 @@ public:
     std::vector<std::vector<Voxel>> frameReadbackData; //Generic readback data for the SDF pass.
     std::vector<Voxel> voxels; //The canonical voxel data for all passes.
 
+    struct Triangle {
+        glm::vec3 a, b, c;
+        glm::vec3 normal;
+    };
+    std::vector<Triangle> triangleSoup;
+
     // Constructor
     SDFPass();
 
@@ -38,4 +44,9 @@ public:
     void CreateMaterials() override;
     void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) override;
     void IsOccupiedByVoxel();
+    void BakeSDFFromTriangles();
+    float DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
+
+
+    std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 };
