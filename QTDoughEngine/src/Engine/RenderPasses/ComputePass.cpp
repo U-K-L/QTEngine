@@ -88,9 +88,42 @@ void ComputePass::CreateTriangleSoup()
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         indexBuffer, indexBufferMemory);
 
+    VkMemoryRequirements req{};
+    vkGetBufferMemoryRequirements(app->_logicalDevice, vertexBuffer, &req);
+    std::cout << "vertexBuffer memReq.size = " << req.size << "\n";
+
+    if (vertexSize > req.size)
+    {
+        std::cerr << "Copy size (" << vertexSize
+            << ") exceeds buffer memory (" << req.size << ")\n";
+    }
+
+
     std::cout << "stagingVertexBuffer = " << stagingVertexBuffer << std::endl;
     std::cout << "vertexBuffer = " << vertexBuffer << std::endl;
     std::cout << "vertexSize = " << vertexSize << std::endl;
+
+    if (vertexSize & 3)
+    {
+        std::cerr << "vertexSize (" << vertexSize << ") not 4-byte aligned\n";
+        vertexSize = (vertexSize + 3) & ~3ULL;          // round-up
+    }
+
+    // ----- safety checks --------------------------------------------------
+    VkDeviceSize copySize = vertexSize;
+
+    // (1) 4-byte alignment
+    if (copySize & 3) copySize = (copySize + 3) & ~3ULL;
+
+    // (2) make sure dst buffer is large enough
+    VkMemoryRequirements reqDst{};
+    vkGetBufferMemoryRequirements(app->_logicalDevice, vertexBuffer, &reqDst);
+    assert(copySize <= reqDst.size && "dst buffer too small");
+
+    VkMemoryRequirements reqSrc{};
+    vkGetBufferMemoryRequirements(app->_logicalDevice, stagingVertexBuffer, &reqSrc);
+    assert(copySize <= reqSrc.size && "src buffer too small");
+    // ----------------------------------------------------------------------
 
     // Copy from staging to device-local buffers
     app->CopyBuffer(stagingVertexBuffer, vertexBuffer, vertexSize);
