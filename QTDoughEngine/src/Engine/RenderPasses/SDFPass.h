@@ -14,9 +14,10 @@ public:
 	{
 		glm::vec4 positionDistance;
 		glm::vec4 normalDensity;
+        glm::vec4 occuipiedInfo;
 	};
     int VOXEL_COUNT = 1; //Set in the creation of the pass.
-    int VOXEL_RESOLUTION = 128; //This is the resolution of the 3D texture. n^3
+    int VOXEL_RESOLUTION = 8; //This is the resolution of the 3D texture. n^3
     float SCENE_BOUNDS = 10; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
     std::vector<std::vector<Voxel>> frameReadbackData; //Generic readback data for the SDF pass.
@@ -35,4 +36,6 @@ public:
     void CreateShaderStorageBuffers() override;
     void DebugCompute(uint32_t currentFrame) override;
     void CreateMaterials() override;
+    void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) override;
+    void IsOccupiedByVoxel();
 };

@@ -29,9 +29,21 @@ void ComputePass::CreateTriangleSoup()
     // First add all the vertices and indices to the vectors.
     for (int i = 0; i < renderingObjects.size(); i++)
     {
-        vertices.insert(vertices.end(),
-            renderingObjects[i]->_renderer.vertices.begin(),
-            renderingObjects[i]->_renderer.vertices.end());
+        glm::mat4 model = renderingObjects[i]->_transform.GetModelMatrix();
+        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model))); // for correct normal transform
+
+        for (auto& vertex : renderingObjects[i]->_renderer.vertices)
+        {
+            ComputeVertex computeVertex;
+            computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
+            computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, 0.0f);
+            computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
+
+
+            vertices.push_back(computeVertex);
+        }
+
+
 
         // Adjust index offset based on current vertex base
         uint32_t vertexOffset = static_cast<uint32_t>(vertices.size() - renderingObjects[i]->_renderer.vertices.size());
@@ -42,9 +54,10 @@ void ComputePass::CreateTriangleSoup()
     }
 
 
-    VkDeviceSize vertexSize = sizeof(Vertex) * vertices.size();
+    VkDeviceSize vertexSize = sizeof(ComputeVertex) * vertices.size();
     VkDeviceSize indexSize = sizeof(glm::uvec3) * (indices.size() / 3); // each triangle = 1 glm::uvec3
 
+    std::cout << "Vertex count: " << vertices.size() << std::endl;
     std::cout << "Vertex size: " << vertexSize << std::endl;
 
     // Create staging buffers
@@ -158,6 +171,43 @@ void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFra
     vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
+
+    vertices.clear();
+    //Update all vertices world positions.
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+
+        glm::mat4 model = renderingObjects[i]->_transform.GetModelMatrix();
+        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model))); // for correct normal transform
+
+        for (auto& vertex : renderingObjects[i]->_renderer.vertices)
+        {
+            ComputeVertex computeVertex;
+            computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
+            computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, 0.0f);
+            computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
+
+            vertices.push_back(computeVertex);
+        }
+    }
+
+    VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    app->CreateBuffer(vertexBufferSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer, stagingMemory);
+
+    void* mapped;
+    vkMapMemory(app->_logicalDevice, stagingMemory, 0, vertexBufferSize, 0, &mapped);
+    memcpy(mapped, vertices.data(), vertexBufferSize);
+    vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+    app->CopyBuffer(stagingBuffer, vertexBuffer, vertexBufferSize);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
 
 }
 
@@ -375,8 +425,24 @@ void ComputePass::CreateComputeDescriptorSetLayout()
     generalBinding2.pImmutableSamplers = nullptr;
     generalBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    //Fith binding for vertex buffer.
+    VkDescriptorSetLayoutBinding vertexBinding{};
+    vertexBinding.binding = 4;
+    vertexBinding.descriptorCount = 1;
+    vertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexBinding.pImmutableSamplers = nullptr;
+    vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //sixth binding for index buffer.
+    VkDescriptorSetLayoutBinding indexBinding{};
+    indexBinding.binding = 5;
+    indexBinding.descriptorCount = 1;
+    indexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    indexBinding.pImmutableSamplers = nullptr;
+    indexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2  };
+    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2, vertexBinding, indexBinding  };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -397,7 +463,7 @@ void ComputePass::CreateDescriptorPool()
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT) *3;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT) *3 + 2; //Last two are used in all frames.
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -437,7 +503,18 @@ void ComputePass::CreateComputeDescriptorSets()
         uniformBufferInfo.offset = 0;
         uniformBufferInfo.range = sizeof(UniformBufferObject);
 
-        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
+        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        storageBufferInfoLastFrame.offset = 0;
+        storageBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
+        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
+        storageBufferInfoCurrentFrame.offset = 0;
+        storageBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+
+        std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -446,10 +523,7 @@ void ComputePass::CreateComputeDescriptorSets()
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
 
-        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
-        storageBufferInfoLastFrame.offset = 0;
-        storageBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = computeDescriptorSets[i];
@@ -459,11 +533,6 @@ void ComputePass::CreateComputeDescriptorSets()
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pBufferInfo = &storageBufferInfoLastFrame;
 
-        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
-        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
-        storageBufferInfoCurrentFrame.offset = 0;
-        storageBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
-
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = computeDescriptorSets[i];
         descriptorWrites[2].dstBinding = 2;
@@ -472,8 +541,33 @@ void ComputePass::CreateComputeDescriptorSets()
         descriptorWrites[2].descriptorCount = 1;
         descriptorWrites[2].pBufferInfo = &storageBufferInfoCurrentFrame;
 
-        vkUpdateDescriptorSets(app->_logicalDevice, 3, descriptorWrites.data(), 0, nullptr);
+
+        VkDescriptorBufferInfo iInfo{};
+        VkDescriptorBufferInfo vInfo{};
+        vInfo.buffer = vertexBuffer;
+        vInfo.offset = 0;
+        vInfo.range = VK_WHOLE_SIZE;
+
+        iInfo.buffer = indexBuffer;
+        iInfo.offset = 0;
+        iInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstSet = computeDescriptorSets[i];
+        descriptorWrites[3].dstBinding = 4;
+        descriptorWrites[3].descriptorCount = 1;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[3].pBufferInfo = &vInfo;
+
+        descriptorWrites[4] = descriptorWrites[3];
+        descriptorWrites[4].dstBinding = 5;
+        descriptorWrites[4].pBufferInfo = &iInfo;
+
+        vkUpdateDescriptorSets(app->_logicalDevice, 5, descriptorWrites.data(), 0, nullptr);
     }
+
+
+
 
     std::cout << "Created descriptor pools" << std::endl;
 }

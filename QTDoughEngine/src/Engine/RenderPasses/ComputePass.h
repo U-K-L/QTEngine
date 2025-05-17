@@ -58,7 +58,16 @@ public:
     std::vector<std::vector<Particle>> frameReadbackData;
     std::vector<UnigmaRenderingObject*> GameObjects;
 
-    std::vector<Vertex> vertices;     // Vertex Soup
+    //Compute vertex with significantly less data to compact to meaningful data.
+    struct ComputeVertex
+	{
+		glm::vec4 position;
+		glm::vec4 texCoord;
+		glm::vec4 normal;
+	};
+
+
+    std::vector<ComputeVertex> vertices;     // Vertex Soup
     std::vector<uint32_t> indices; // Index Soup
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;

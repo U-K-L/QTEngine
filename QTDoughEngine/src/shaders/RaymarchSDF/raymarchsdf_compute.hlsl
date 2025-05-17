@@ -8,6 +8,14 @@ struct Voxel
 {
     float4 positionDistance;
     float4 normalDensity;
+    float4 occuipiedInfo;
+};
+
+struct ComputeVertex
+{
+    float4 position;
+    float4 texCoord;
+    float4 normal;
 };
 
 cbuffer UniformBufferObject : register(b0, space1)
@@ -20,6 +28,10 @@ cbuffer UniformBufferObject : register(b0, space1)
 
 StructuredBuffer<Voxel> voxelsIn : register(t2, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsOut : register(u3, space1); // write
+
+
+StructuredBuffer<ComputeVertex> vertexBuffer : register(t4, space1);
+StructuredBuffer<uint3> indexBuffer : register(t5, space1);
 
 
 float SDFSphere(float3 position, float3 spherePos, float radius)
@@ -88,8 +100,11 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     //Voxels.
     //Find the smallest intersection to return.
     float intersection = maxDistance;
-    for (int i = 0; i < 64; i++)
+    int minIndex = 0;
+    for (int i = 0; i <512; i++)
     {
+        if(voxelsIn[i].occuipiedInfo.w <= 0)
+            continue;
         float hitPoint = SDFRoundBox(pos, voxelsIn[i].positionDistance.xyz, voxelsIn[i].normalDensity.w*0.5f, 0.05f);
         //Remove this when not debugging.
         if (hitPoint < intersection)
@@ -97,13 +112,36 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
             float4 randPos = rand4(voxelsIn[i].positionDistance);
             resultOutput.xyz = normalize(randPos.xyz);
             resultOutput.w = 1.0f;
+            minIndex = i;
+
         }
         
         intersection = min(intersection, hitPoint);
-
-        
     }
     
+    float keepAlive = 0;
+    //Check if box contains a vertex. Is vertex position in box?
+    /*
+    for (int j = 0; j < 6661; j++)
+    {
+        Voxel voxel = voxelsIn[minIndex];
+        ComputeVertex vert = vertexBuffer[j];
+
+        float3 halfExtent = voxel.normalDensity.w * 0.5f;
+        float3 voxelMin = voxel.positionDistance.xyz - halfExtent;
+        float3 voxelMax = voxel.positionDistance.xyz + halfExtent;
+
+        bool isInside = all(vert.position.xyz >= voxelMin) && all(vert.position.xyz <= voxelMax);
+
+        if (isInside)
+        {
+            keepAlive = 1;
+            break;
+        }
+    }
+    
+    resultOutput *= keepAlive;
+    */
     return intersection;
 }
 
@@ -131,6 +169,34 @@ float SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     
     return -1; //Nothing hit.
 
+}
+
+bool RayIntersectsSphere(float3 ro, float3 rd, float3 center, float radius)
+{
+    float3 oc = ro - center;
+    float a = dot(rd, rd);
+    float b = 2.0 * dot(oc, rd);
+    float c = dot(oc, oc) - radius * radius;
+    float discriminant = b * b - 4.0 * a * c;
+    return discriminant > 0.0f;
+}
+
+float DebugMarchVertices(float3 ro, float3 rd)
+{
+    const float radius = 0.05f;
+    const int maxVerts = 6661;
+
+    for (uint i = 0; i < maxVerts; ++i)
+    {
+        float3 center = vertexBuffer[i].position.xyz;
+
+        if (RayIntersectsSphere(ro, rd, center, radius))
+        {
+            return 1.0f;
+        }
+    }
+
+    return 0.0f;
 }
 
 
@@ -167,11 +233,18 @@ void main(uint3 DTid : SV_DispatchThreadID)
         camPos = mul(invView, float4(0, 0, 0, 1)).xyz;
     }
 
-
+    /*
     float4 result = 0;
-    float hit = 0; //SphereMarch(camPos, dirWorld, result);
+    float hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
+    
     gBindlessStorage[outputImageHandle][pixel] += saturate(result * col);
+    */
+    //SDF sphere trace each vertex point.
+    float debugHit = DebugMarchVertices(camPos, dirWorld);
+    
+    gBindlessStorage[outputImageHandle][pixel] += debugHit * float4(1, 0, 0, 1);
+
     
     /*
     uint2 pix = DTid.xy;

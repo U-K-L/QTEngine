@@ -113,7 +113,7 @@ void SDFPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -157,11 +157,162 @@ void SDFPass::CreateComputeDescriptorSets()
         descriptorWrites[3].descriptorCount = 1;
         descriptorWrites[3].pBufferInfo = &storageBufferInfoCurrentFrame;
 
-        vkUpdateDescriptorSets(app->_logicalDevice, 4, descriptorWrites.data(), 0, nullptr);
+        VkDescriptorBufferInfo iInfo{};
+        VkDescriptorBufferInfo vInfo{};
+        vInfo.buffer = vertexBuffer;
+        vInfo.offset = 0;
+        vInfo.range = VK_WHOLE_SIZE;
+
+        iInfo.buffer = indexBuffer;
+        iInfo.offset = 0;
+        iInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = computeDescriptorSets[i];
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].descriptorCount = 1;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[4].pBufferInfo = &vInfo;
+
+        descriptorWrites[5] = descriptorWrites[4];
+        descriptorWrites[5].dstBinding = 5;
+        descriptorWrites[5].pBufferInfo = &iInfo;
+
+        vkUpdateDescriptorSets(app->_logicalDevice, 6, descriptorWrites.data(), 0, nullptr);
     }
 
     std::cout << "Created descriptor pools" << std::endl;
 }
+
+void SDFPass::IsOccupiedByVoxel()
+{
+    float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
+    for (auto& voxel : voxels)
+    {
+        voxel.occuipiedInfo = glm::vec4(0.0f);
+        for (auto& vertex : vertices)
+        {
+
+            glm::vec3 pos = voxel.positionDistance;
+            glm::vec3 vPos = vertex.position;
+
+            glm::vec3 halfSize = glm::vec3(voxel.normalDensity.w * 0.5f);
+            glm::vec3 min = pos - halfSize;
+            glm::vec3 max = pos + halfSize;
+
+            if (vPos.x >= min.x && vPos.x <= max.x &&
+                vPos.y >= min.y && vPos.y <= max.y &&
+                vPos.z >= min.z && vPos.z <= max.z)
+            {
+                voxel.occuipiedInfo = glm::vec4(1.0f);
+            }
+
+        }
+    }
+}
+
+void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    UniformBufferObject ubo{};
+    ubo.model = glm::mat4(1.0f);
+    ubo.view = glm::mat4(1.0f);
+    ubo.proj = glm::mat4(1.0f);
+    ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
+
+    ubo.view = glm::lookAt(CameraMain.position(), CameraMain.position() + CameraMain.forward(), CameraMain.up);
+    ubo.proj = CameraMain.getProjectionMatrix();
+
+    //print view matrix.
+    //Update int array assignments.
+
+    // Determine the size of the array (should be the same as used during buffer creation)
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+
+    for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+    {
+        if (app->textures.count(material.textureNames[i]) > 0)
+        {
+            material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
+        }
+        else
+            material.textureIDs[i] = 0;
+    }
+
+    memcpy(_uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
+
+    void* data;
+    vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
+    vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
+
+    vertices.clear();
+    //Update all vertices world positions.
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+
+        glm::mat4 model = renderingObjects[i]->_transform.GetModelMatrix();
+        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model))); // for correct normal transform
+
+        for (auto& vertex : renderingObjects[i]->_renderer.vertices)
+        {
+            ComputeVertex computeVertex;
+            computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
+            computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, 0.0f);
+            computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
+
+            vertices.push_back(computeVertex);
+        }
+    }
+
+    //All of BELOW will move to GPU side ------------------------------------
+    // MOVE TO GPU ----------------------------------------------
+    VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    app->CreateBuffer(vertexBufferSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer, stagingMemory);
+
+    void* mapped;
+    vkMapMemory(app->_logicalDevice, stagingMemory, 0, vertexBufferSize, 0, &mapped);
+    memcpy(mapped, vertices.data(), vertexBufferSize);
+    vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+    app->CopyBuffer(stagingBuffer, vertexBuffer, vertexBufferSize);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
+
+    //Update Voxel Information
+    IsOccupiedByVoxel();
+
+    //Update voxels.
+    VkDeviceSize voxelBufferSize = sizeof(Voxel) * VOXEL_COUNT;
+    VkBuffer stagingBuffer2;
+    VkDeviceMemory stagingMemory2;
+    app->CreateBuffer(voxelBufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer2, stagingMemory2);
+
+    void* mapped2;
+	vkMapMemory(app->_logicalDevice, stagingMemory2, 0, voxelBufferSize, 0, &mapped2);
+	memcpy(mapped2, voxels.data(), voxelBufferSize);
+	vkUnmapMemory(app->_logicalDevice, stagingMemory2);
+
+	app->CopyBuffer(stagingBuffer2, shaderStorageBuffers[currentFrame], voxelBufferSize);
+
+	vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
+	vkFreeMemory(app->_logicalDevice, stagingMemory2, nullptr);
+
+    //All of ABOVE will move to GPU side ------------------------------------
+    // MOVE TO GPU ----------------------------------------------
+}
+
 
 void SDFPass::CreateComputeDescriptorSetLayout()
 {
@@ -213,8 +364,24 @@ void SDFPass::CreateComputeDescriptorSetLayout()
     generalBinding2.pImmutableSamplers = nullptr;
     generalBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    //Fith binding for vertex buffer.
+    VkDescriptorSetLayoutBinding vertexBinding{};
+    vertexBinding.binding = 4;
+    vertexBinding.descriptorCount = 1;
+    vertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexBinding.pImmutableSamplers = nullptr;
+    vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //sixth binding for index buffer.
+    VkDescriptorSetLayoutBinding indexBinding{};
+    indexBinding.binding = 5;
+    indexBinding.descriptorCount = 1;
+    indexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    indexBinding.pImmutableSamplers = nullptr;
+    indexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2 };
+    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2, vertexBinding, indexBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -253,6 +420,7 @@ void SDFPass::CreateShaderStorageBuffers()
                 );
 
                 voxel.normalDensity = glm::vec4(0.0f, 0.0f, 0.0f, voxelSize);
+
             }
         }
     }

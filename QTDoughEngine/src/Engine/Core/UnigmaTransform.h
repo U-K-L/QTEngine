@@ -40,6 +40,21 @@ struct UnigmaTransform
 		transformMatrix[3][2] = position.z;
 	}
 
+	glm::mat4 GetModelMatrix() const {
+		// Recalculate every time for correctness
+		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+		glm::quat rotY = glm::angleAxis(rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::quat rotZ = glm::angleAxis(rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+		glm::quat combinedRotation = rotZ * rotY * rotX;
+
+		glm::mat4 rotationMatrix = glm::toMat4(combinedRotation);
+		glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
+		glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
+
+		return translationMatrix * rotationMatrix * scaleMatrix;
+	}
+
+
 
 	void UpdateTransform()
 	{

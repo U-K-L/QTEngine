@@ -79,7 +79,7 @@ float4 main(VSOutput i) : SV_Target
     
     float4 finalImage = lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
     //Debug voxels.
-    return lerp(finalImage, sdfImage, saturate(length(sdfImage.xyz)) * 0.15 + 0.85);
+    return lerp(finalImage, sdfImage, saturate(length(sdfImage.xyz)) * 0.55 + 0.15);
     //return albedoImage;
     //return outlineImage;
     //return float4(rand(positionImage.a * 100), rand(positionImage.a * 100 + 1), rand(positionImage.a * 100 + 2), 1.0);
