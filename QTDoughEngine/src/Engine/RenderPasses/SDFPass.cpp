@@ -81,7 +81,7 @@ void SDFPass::CreateComputePipeline()
     for (auto& frame : frameReadbackData)
         frame.resize(VOXEL_COUNT);
 
-    CreateTriangleSoup();
+
 }
 
 void SDFPass::CreateComputeDescriptorSets()
@@ -230,6 +230,8 @@ void SDFPass::CreateShaderStorageBuffers()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    //Create the triangle soup first.
+    CreateTriangleSoup();
     // Initial data. This should create the voxel scene grid.
     voxels.resize(VOXEL_COUNT); 
 
