@@ -367,7 +367,9 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
         triangleSoup.insert(triangleSoup.end(), meshTriangles.begin(), meshTriangles.end());
 
         //Bake SDF from triangles.
-        BakeSDFFromTriangles();
+        //BakeSDFFromTriangles();
+
+        std::cout << "Indices count " << indices.size() << std::endl;
 
         VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
         VkBuffer stagingBuffer;
@@ -610,9 +612,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, 2, sets,
         0, nullptr);
 
-    uint32_t groupCountX = (app->swapChainExtent.width + 7) / 8;
-    uint32_t groupCountY = (app->swapChainExtent.height + 7) / 8;
-    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
+    uint32_t groupCountX = (VOXEL_RESOLUTION + 7) / 8;
+    uint32_t groupCountY = (VOXEL_RESOLUTION + 7) / 8;
+    uint32_t groupCountZ = (VOXEL_RESOLUTION + 7) / 8;
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;

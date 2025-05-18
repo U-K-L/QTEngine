@@ -4,7 +4,7 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 16
+#define VOXEL_RESOLUTION 64
 #define SCENE_BOUNDS 10.0f
 
 struct Voxel
@@ -136,13 +136,15 @@ float TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormal(float3 p)
 {
-    float eps = 0.01f;
+    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float eps = voxelSize *0.5f;
 
     float dx = TrilinearSampleSDF(p + float3(eps, 0, 0)) - TrilinearSampleSDF(p - float3(eps, 0, 0));
     float dy = TrilinearSampleSDF(p + float3(0, eps, 0)) - TrilinearSampleSDF(p - float3(0, eps, 0));
     float dz = TrilinearSampleSDF(p + float3(0, 0, eps)) - TrilinearSampleSDF(p - float3(0, 0, eps));
 
-    return normalize(float3(dx, dy, dz));
+    float3 n = float3(dx, dy, dz);
+    return (length(n) > 1e-5f) ? normalize(n) : float3(0, 0, 0);
 }
 
 
@@ -247,7 +249,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
     float minDistance = voxelSize*0.5f;
     float3 pos = ro;
-    int maxSteps = 128;
+    int maxSteps = 256;
     
     for (int i = 0; i < maxSteps; i++)
     {
@@ -334,10 +336,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float4 result = 0;
     float4 hit = SphereMarch(camPos, dirWorld, result);
-    float4 col = (hit.x > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
+    float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
-    gBindlessStorage[outputImageHandle][pixel] = col; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
-
+    //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
+    gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
     /*
     //SDF sphere trace each vertex point.
     float debugHit = DebugMarchVertices(camPos, dirWorld);
