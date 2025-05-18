@@ -2,7 +2,7 @@
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 128
+#define VOXEL_RESOLUTION 256
 #define SCENE_BOUNDS 10.0f
 
 struct Voxel
@@ -55,6 +55,19 @@ float DistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
     return (signTri >= 2.0) ? distToPlane : d;
 }
 
+float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
+{
+    float3 normal = normalize(cross(b - a, c - a));
+    float unsignedDist = DistanceToTriangle(p, a, b, c);
+    float signTri = sign(dot(p - a, normal));
+    return signTri * unsignedDist;
+}
+
+float smin(float a, float b, float k)
+{
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return lerp(b, a, h) - k * h * (1.0 - h);
+}
 
 
 [numthreads(8, 8, 8)]
@@ -90,12 +103,18 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float b = vertexBuffer[cachedIdx.y].texCoord.w;
     float c = vertexBuffer[cachedIdx.z].texCoord.w;
     
+    float3 na = vertexBuffer[cachedIdx.x].normal.xyz;
+    float3 nb = vertexBuffer[cachedIdx.y].normal.xyz;
+    float3 nc = vertexBuffer[cachedIdx.z].normal.xyz;
+
+    float3 normal = normalize((na + nb + nc) / 3.0); // crude average
+    
     //interpolate between vertices.
     float3 interpolant = 0.5f;
     float density = lerp(a, b, 0.5);
     density = lerp(density, c, 0.5);
     
-    voxelsOut[voxelIndex].normalDensity.w = density;
+    voxelsOut[voxelIndex].normalDensity = float4(normal, density);
     
     //voxelsOut[voxelIndex].positionDistance = float4(1, 0, 0, 1);
 }
