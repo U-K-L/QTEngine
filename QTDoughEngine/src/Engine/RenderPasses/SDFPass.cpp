@@ -1,4 +1,5 @@
 #include "SDFPass.h"
+#include "VoxelizerPass.h"
 #include <random>
 
 SDFPass::~SDFPass() {
@@ -6,7 +7,6 @@ SDFPass::~SDFPass() {
 }
 
 SDFPass::SDFPass() {
-    VOXEL_COUNT = VOXEL_RESOLUTION * VOXEL_RESOLUTION * VOXEL_RESOLUTION;
     PassName = "SDFPass";
     PassNames.push_back("SDFPass");
 }
@@ -18,86 +18,10 @@ void SDFPass::CreateMaterials() {
     material.textureNames[0] = "SDFPass";
 }
 
-std::vector<SDFPass::Triangle> SDFPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
-{
-    std::vector<Triangle> triangles;
-
-    for (const auto& tri : triangleIndices)
-    {
-        if (tri.x >= vertices.size() || tri.y >= vertices.size() || tri.z >= vertices.size()) {
-            std::cerr << "[Warning] Skipping invalid triangle: " << tri.x << ", " << tri.y << ", " << tri.z << std::endl;
-            continue;
-        }
-
-        glm::vec3 a = glm::vec3(vertices[tri.x].position);
-        glm::vec3 b = glm::vec3(vertices[tri.y].position);
-        glm::vec3 c = glm::vec3(vertices[tri.z].position);
-        glm::vec3 normal = glm::normalize(glm::cross(b - a, c - a));
-
-        triangles.push_back({ a, b, c, normal });
-    }
-
-    return triangles;
-}
-
-
-float SDFPass::DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
-{
-    // Algorithm based on Inigo Quilez's "Signed distance functions"
-    glm::vec3 ba = b - a, pa = p - a;
-    glm::vec3 cb = c - b, pb = p - b;
-    glm::vec3 ac = a - c, pc = p - c;
-    glm::vec3 nor = glm::cross(ba, ac);
-
-    float sign = glm::sign(glm::dot(glm::cross(ba, nor), pa) +
-        glm::dot(glm::cross(cb, nor), pb) +
-        glm::dot(glm::cross(ac, nor), pc));
-
-    float d = glm::min(glm::min(
-        glm::length(ba * glm::clamp(glm::dot(ba, pa) / glm::dot(ba, ba), 0.0f, 1.0f) - pa),
-        glm::length(cb * glm::clamp(glm::dot(cb, pb) / glm::dot(cb, cb), 0.0f, 1.0f) - pb)),
-        glm::length(ac * glm::clamp(glm::dot(ac, pc) / glm::dot(ac, ac), 0.0f, 1.0f) - pc));
-
-    float distToPlane = glm::abs(glm::dot(nor, pa)) / glm::length(nor);
-    bool inside = sign >= 2.0f;
-
-    return inside ? distToPlane : d;
-}
-
-void SDFPass::BakeSDFFromTriangles()
-{
-    //Get total number of voxels.
-    auto voxelCount = voxels.size();
-    std::cout << "Voxel Count: " << voxelCount << std::endl;
-
-    float currentPercentage = 0.0f;
-
-    for (auto& voxel : voxels)
-    {
-        float minDistance = 100.0f;
-        glm::vec3 voxelCenter = glm::vec3(voxel.positionDistance);
-
-        for (const auto& tri : triangleSoup)
-        {
-            float d = DistanceToTriangle(voxelCenter, tri.a, tri.b, tri.c);
-            minDistance = std::min(minDistance, d);
-        }
-
-        voxel.positionDistance.w = minDistance;
-
-        //If done around 1% of the voxels, print out the progress.
-        float percentage = (float)(&voxel - &voxels[0]) / (float)voxels.size();
-        if (percentage >= currentPercentage)
-		{
-			std::cout << "Voxelization progress: " << percentage * 100.0f << "%" << std::endl;
-			currentPercentage += 0.01f;
-		}
-    }
-}
-
 void SDFPass::CreateComputePipeline()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+    VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
     auto computeShaderCode = readFile("src/shaders/raymarchsdf.spv");
     std::cout << "Creating compute pipeline" << std::endl;
@@ -139,151 +63,11 @@ void SDFPass::CreateComputePipeline()
 
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
     std::cout << "Compute pipeline created" << std::endl;
-
-    readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-    readbackBufferMemories.resize(app->MAX_FRAMES_IN_FLIGHT);
-
-    for (uint32_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; ++i) {
-        app->CreateBuffer(
-            sizeof(Voxel) * VOXEL_COUNT,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-            readbackBuffers[i],
-            readbackBufferMemories[i]
-        );
-    }
-    frameReadbackData.resize(app->MAX_FRAMES_IN_FLIGHT);
-    for (auto& frame : frameReadbackData)
-        frame.resize(VOXEL_COUNT);
-
-
 }
 
 void SDFPass::CreateComputeDescriptorSets()
 {
-    QTDoughApplication* app = QTDoughApplication::instance;
 
-    std::cout << "Creating Compute Descriptor Sets" << std::endl;
-    std::vector<VkDescriptorSetLayout> layouts(app->MAX_FRAMES_IN_FLIGHT, computeDescriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
-
-    computeDescriptorSets.resize(app->MAX_FRAMES_IN_FLIGHT);
-    if (vkAllocateDescriptorSets(app->_logicalDevice, &allocInfo, computeDescriptorSets.data()) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor sets!");
-    }
-
-    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo uniformBufferInfo{};
-        uniformBufferInfo.buffer = _uniformBuffers[i];
-        uniformBufferInfo.offset = 0;
-        uniformBufferInfo.range = sizeof(UniformBufferObject);
-
-        VkDescriptorBufferInfo intArrayBufferInfo{};
-        intArrayBufferInfo.buffer = intArrayBuffer;
-        intArrayBufferInfo.offset = 0;
-        intArrayBufferInfo.range = VK_WHOLE_SIZE;
-
-
-        std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = computeDescriptorSets[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
-
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = computeDescriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pBufferInfo = &intArrayBufferInfo;
-
-
-        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
-        storageBufferInfoLastFrame.offset = 0;
-        storageBufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNT;
-
-        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = computeDescriptorSets[i];
-        descriptorWrites[2].dstBinding = 2;
-        descriptorWrites[2].dstArrayElement = 0;
-        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo = &storageBufferInfoLastFrame;
-
-        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
-        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
-        storageBufferInfoCurrentFrame.offset = 0;
-        storageBufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNT;
-
-        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[3].dstSet = computeDescriptorSets[i];
-        descriptorWrites[3].dstBinding = 3;
-        descriptorWrites[3].dstArrayElement = 0;
-        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].pBufferInfo = &storageBufferInfoCurrentFrame;
-
-        VkDescriptorBufferInfo iInfo{};
-        VkDescriptorBufferInfo vInfo{};
-        vInfo.buffer = vertexBuffer;
-        vInfo.offset = 0;
-        vInfo.range = VK_WHOLE_SIZE;
-
-        iInfo.buffer = indexBuffer;
-        iInfo.offset = 0;
-        iInfo.range = VK_WHOLE_SIZE;
-
-        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[4].dstSet = computeDescriptorSets[i];
-        descriptorWrites[4].dstBinding = 4;
-        descriptorWrites[4].descriptorCount = 1;
-        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[4].pBufferInfo = &vInfo;
-
-        descriptorWrites[5] = descriptorWrites[4];
-        descriptorWrites[5].dstBinding = 5;
-        descriptorWrites[5].pBufferInfo = &iInfo;
-
-        vkUpdateDescriptorSets(app->_logicalDevice, 6, descriptorWrites.data(), 0, nullptr);
-    }
-
-    std::cout << "Created descriptor pools" << std::endl;
-}
-
-void SDFPass::IsOccupiedByVoxel()
-{
-    float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
-    for (auto& voxel : voxels)
-    {
-        voxel.occuipiedInfo = glm::vec4(0.0f);
-        for (auto& vertex : vertices)
-        {
-
-            glm::vec3 pos = voxel.positionDistance;
-            glm::vec3 vPos = vertex.position;
-
-            glm::vec3 halfSize = glm::vec3(voxel.normalDensity.w * 0.5f);
-            glm::vec3 min = pos - halfSize;
-            glm::vec3 max = pos + halfSize;
-
-            if (vPos.x >= min.x && vPos.x <= max.x &&
-                vPos.y >= min.y && vPos.y <= max.y &&
-                vPos.z >= min.z && vPos.z <= max.z)
-            {
-                voxel.occuipiedInfo = glm::vec4(1.0f);
-            }
-
-        }
-    }
 }
 
 void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
@@ -501,81 +285,12 @@ void SDFPass::CreateComputeDescriptorSetLayout()
 void SDFPass::CreateShaderStorageBuffers()
 {
 
-    QTDoughApplication* app = QTDoughApplication::instance;
-
-    //Create the triangle soup first.
-    CreateTriangleSoup();
-    // Initial data. This should create the voxel scene grid.
-    voxels.resize(VOXEL_COUNT); 
-
-    for (int i = 0; i < VOXEL_RESOLUTION; i++)
-    {
-        for (int j = 0; j < VOXEL_RESOLUTION; j++)
-        {
-            for (int k = 0; k < VOXEL_RESOLUTION; k++)
-            {
-                auto& voxel = voxels[i * VOXEL_RESOLUTION * VOXEL_RESOLUTION + j * VOXEL_RESOLUTION + k];
-
-                float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
-
-                voxel.positionDistance = glm::vec4(
-                    (i + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
-                    (j + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
-                    (k + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
-                    defaultDistanceMax
-                );
-
-                voxel.normalDensity = glm::vec4(0.0f, 0.0f, 0.0f, voxelSize);
-
-            }
-        }
-    }
-
-
-    for (auto& voxel : voxels) {
-        /*
-        float x = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-        float y = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-        float z = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-        glm::vec3 dir = glm::normalize(glm::vec3(x, y, z));
-        float r = std::cbrt(std::rand() / (float)RAND_MAX) * 10.0f;
-
-        glm::vec3 pos = abs(dir * r);
-        voxel.positionDistance = glm::vec4(pos, 0.001f);
-		voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
-        */
-
-    }
-
-    VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
-
-    // Create a staging buffer used to upload data to the gpu
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-    std::memcpy(data, voxels.data(), voxels.size() * sizeof(Voxel));
-    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
-
-    shaderStorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-    shaderStorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-
-    // Copy initial data to all storage buffers
-    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-        app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);
-        app->CopyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
-    }
-
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
-
 }
 
 
 void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
+    VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -604,12 +319,12 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 
     VkDescriptorSet sets[] = {
         app->globalDescriptorSets[currentFrame],
-        computeDescriptorSets[currentFrame]
+        voxelizer->computeDescriptorSets[currentFrame]
     };
 
     vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
-        computePipelineLayout,
+        voxelizer->computePipelineLayout,
         0, 2, sets,
         0, nullptr);
 
@@ -636,47 +351,5 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 
 void SDFPass::DebugCompute(uint32_t currentFrame)
 {
-    QTDoughApplication* app = QTDoughApplication::instance;
-    VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
 
-    VkFence& fence = app->computeFences[currentFrame];
-    if (fence != VK_NULL_HANDLE) {
-        if (vkGetFenceStatus(app->_logicalDevice, fence) == VK_NOT_READY)
-        {
-            return;
-        }
-    }
-
-    // Command buffer for async transferdoe
-    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
-
-    // Record copy command, add copy to command buffer!
-    VkBuffer srcBuffer = shaderStorageBuffers[currentFrame];
-    VkBufferCopy copyRegion{};
-    copyRegion.size = sizeof(Voxel) * VOXEL_COUNT;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, readbackBuffers[currentFrame], 1, &copyRegion);
-
-    app->EndSingleTimeCommandsAsync(currentFrame, commandBuffer, [=]() {
-        Voxel* mappedVoxels = nullptr;
-
-        VkMappedMemoryRange range{};
-        range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-        range.memory = readbackBufferMemories[currentFrame];
-        range.offset = 0;
-        range.size = VK_WHOLE_SIZE;
-
-        vkInvalidateMappedMemoryRanges(app->_logicalDevice, 1, &range);
-        vkMapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame], 0, bufferSize, 0, reinterpret_cast<void**>(&mappedVoxels));
-        std::memcpy(frameReadbackData[currentFrame].data(), mappedVoxels, sizeof(Voxel) * VOXEL_COUNT);
-        vkUnmapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame]);
-    });
-
-
-    for (size_t i = 0; i < std::min((size_t)10, (size_t)VOXEL_COUNT); ++i) {
-        std::cout << "Voxel: " << i << "Position: " << frameReadbackData[currentFrame][i].positionDistance.x << ", " << frameReadbackData[currentFrame][i].positionDistance.y << ", " << frameReadbackData[currentFrame][i].positionDistance.z << std::endl;
-        std::cout << "Distance: " << frameReadbackData[currentFrame][i].positionDistance.w << std::endl;
-        std::cout << "Normal: " << frameReadbackData[currentFrame][i].normalDensity.x << ", " << frameReadbackData[currentFrame][i].normalDensity.y << ", " << frameReadbackData[currentFrame][i].normalDensity.z << std::endl;
-        std::cout << "Density: " << frameReadbackData[currentFrame][i].normalDensity.w << std::endl;
-
-    }
 }

@@ -11,6 +11,7 @@
 #include "../Engine/RenderPasses/OutlinePass.h"
 #include "../Engine/RenderPasses/ComputePass.h"
 #include "../Engine/RenderPasses/SDFPass.h"
+#include "../Engine/RenderPasses/VoxelizerPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
 #include <random>
@@ -708,12 +709,18 @@ void QTDoughApplication::AddPasses()
 
     //Compute Passes.
     SDFPass* sdfPass = new SDFPass();
+    VoxelizerPass* voxelizerPass = new VoxelizerPass();
+    VoxelizerPass::SetInstance(voxelizerPass);
 
     //Add objects to compute pass.
+    voxelizerPass->AddObjects(unigmaRenderingObjects);
     sdfPass->AddObjects(unigmaRenderingObjects);
 
+
     //Add the compute pass to the stack.
+    computePassStack.push_back(voxelizerPass);
     computePassStack.push_back(sdfPass);
+
 
 
 
@@ -999,6 +1006,8 @@ void QTDoughApplication::CreateComputeCommandBuffers() {
     if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate compute command buffers!");
     }
+
+    std::cout << "Allocated compute command buffers" << std::endl;
 }
 
 void QTDoughApplication::CreateImages()

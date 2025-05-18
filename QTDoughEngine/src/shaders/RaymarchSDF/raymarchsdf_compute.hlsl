@@ -4,7 +4,7 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 64
+#define VOXEL_RESOLUTION 16
 #define SCENE_BOUNDS 10.0f
 
 struct Voxel
@@ -336,7 +336,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit.x > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
-    gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
+    gBindlessStorage[outputImageHandle][pixel] = col; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
 
     /*
     //SDF sphere trace each vertex point.

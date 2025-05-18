@@ -39,6 +39,7 @@ StructuredBuffer<uint3> indexBuffer : register(t5, space1);
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     int index = DTid.x;
+    /*
     Voxel voxelIn = voxelsIn[index];
 
     Voxel result;
@@ -46,4 +47,5 @@ void main(uint3 DTid : SV_DispatchThreadID)
     result.normalDensity.xyz = float3(1, texelSize.x, texelSize.y);
     result.normalDensity.w = 23312.0f;
     voxelsOut[index] = result;
+*/
 }

@@ -1,19 +1,21 @@
 #include "VoxelizerPass.h"
 #include <random>
 
+VoxelizerPass* VoxelizerPass::instance = nullptr;
+
 VoxelizerPass::~VoxelizerPass() {
-    PassName = "SDFPass";
+    PassName = "VoxelizerPass";
 }
 
 VoxelizerPass::VoxelizerPass() {
     VOXEL_COUNT = VOXEL_RESOLUTION * VOXEL_RESOLUTION * VOXEL_RESOLUTION;
-    PassName = "SDFPass";
-    PassNames.push_back("SDFPass");
+    PassName = "VoxelizerPass";
+    PassNames.push_back("VoxelizerPass");
 }
 
 void VoxelizerPass::CreateMaterials() {
     material.Clean();
-    material.shader = UnigmaShader("raymarchsdf");
+    material.shader = UnigmaShader("voxelizer");
 }
 
 std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
@@ -97,7 +99,7 @@ void VoxelizerPass::CreateComputePipeline()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    auto computeShaderCode = readFile("src/shaders/raymarchsdf.spv");
+    auto computeShaderCode = readFile("src/shaders/voxelizer.spv");
     std::cout << "Creating compute pipeline" << std::endl;
     VkShaderModule computeShaderModule = app->CreateShaderModule(computeShaderCode);
 
@@ -254,7 +256,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         vkUpdateDescriptorSets(app->_logicalDevice, 6, descriptorWrites.data(), 0, nullptr);
     }
 
-    std::cout << "Created descriptor pools" << std::endl;
+    std::cout << "Created descriptor sets" << std::endl;
 }
 
 void VoxelizerPass::IsOccupiedByVoxel()
