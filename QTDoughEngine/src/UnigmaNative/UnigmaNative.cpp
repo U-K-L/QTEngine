@@ -329,6 +329,29 @@ void LoadScene(const char* sceneName) {
             indices[i] = static_cast<uint32_t>(indexBufferData[i]);
         }
 
+        std::vector<Vertex> flatVerts;
+        flatVerts.reserve(indices.size());
+        std::vector<uint32_t> flatIdx;
+        flatIdx.reserve(indices.size());
+
+        for (uint32_t n = 0; n < indices.size(); ++n)
+        {
+            uint32_t i = indices[n];          // original index into attribute arrays
+
+            Vertex v;
+            v.pos = { positions[i][0], positions[i][1], positions[i][2] };
+            v.normal = { normals[i][0],   normals[i][1],   normals[i][2] };
+            v.texCoord = { texcoords[i][0], texcoords[i][1] };
+            v.color = { colors[i][0],    colors[i][1],    colors[i][2] };
+
+            flatVerts.emplace_back(v);
+            flatIdx.emplace_back(n);        // 0,1,2,…  (keeps pipeline happy if it still expects an IBO)
+        }
+
+        // swap into the struct you push to the renderer
+        vertices.swap(flatVerts);
+        indices.swap(flatIdx);
+
         /*
         // 2) Compute the bounding box
         float minX = std::numeric_limits<float>::max();

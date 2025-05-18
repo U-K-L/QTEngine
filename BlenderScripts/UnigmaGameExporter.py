@@ -33,7 +33,8 @@ class UnigmaExporter(bpy.types.Operator):
             filepath=gltf_path,
             export_format='GLTF_SEPARATE',
             use_visible=True,
-            export_yup=False
+            export_yup=False,
+            export_apply=True
         )
 
         print("Unigma Exporter GLTF. Starting Json")

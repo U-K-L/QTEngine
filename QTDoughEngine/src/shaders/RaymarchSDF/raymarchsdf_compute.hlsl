@@ -4,7 +4,7 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 64
+#define VOXEL_RESOLUTION 128
 #define SCENE_BOUNDS 10.0f
 
 struct Voxel
@@ -164,7 +164,7 @@ float SafeSampleSDF(float3 pos)
     float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
-        return voxelSize * 0.5f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
+        return voxelSize*10.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
     
     return TrilinearSampleSDF(pos);
 }
@@ -249,12 +249,13 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
     float minDistance = voxelSize*0.5f;
     float3 pos = ro;
-    int maxSteps = 256;
+    int maxSteps = 1024;
     
     for (int i = 0; i < maxSteps; i++)
     {
         //Find the smallest distance
         //float distance = IntersectionPoint(pos, rd, resultOutput);
+        minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.w;
         float distance = SafeSampleSDF(pos);
         
         //See if it is close enough otherwise continue.
@@ -268,7 +269,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         pos = pos + rd * distance;
     }
     
-    return -1; //Nothing hit.
+    return float4(0, 0, 0, -1.0f); //Nothing hit.
 
 }
 
@@ -339,7 +340,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
-    gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
+    //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
+    gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0) + col*0.25;
     /*
     //SDF sphere trace each vertex point.
     float debugHit = DebugMarchVertices(camPos, dirWorld);

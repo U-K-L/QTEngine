@@ -2470,6 +2470,9 @@ void QTDoughApplication::RecreateSwapChain()
     RecreateResources();
 
     CreateCommandBuffers();
+
+    //Print size of new screen.
+    std::cout << "New screen size: " << width << "x" << height << std::endl;
 }
 
 void QTDoughApplication::RecreateResources()

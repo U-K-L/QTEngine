@@ -2,7 +2,7 @@
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 64
+#define VOXEL_RESOLUTION 128
 #define SCENE_BOUNDS 10.0f
 
 struct Voxel
@@ -68,17 +68,34 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 center = voxelsIn[voxelIndex].positionDistance.xyz;
 
     float minDist = 100.0f;
-    for (uint i = 0; i < 4440; ++i)
+    uint3 cachedIdx = 0;
+    for (uint i = 0; i < 1638*3; i += 3)
     {
-        uint3 idx = indexBuffer[i];
+        uint3 idx = uint3(i, i + 1, i + 2);
         float3 a = vertexBuffer[idx.x].position.xyz;
         float3 b = vertexBuffer[idx.y].position.xyz;
         float3 c = vertexBuffer[idx.z].position.xyz;
 
         float d = DistanceToTriangle(center, a, b, c);
+        if (d < minDist)
+            cachedIdx = idx;
         minDist = min(minDist, d);
+        
+
     }
 
     voxelsOut[voxelIndex].positionDistance.w = minDist;
+    
+    float a = vertexBuffer[cachedIdx.x].texCoord.w;
+    float b = vertexBuffer[cachedIdx.y].texCoord.w;
+    float c = vertexBuffer[cachedIdx.z].texCoord.w;
+    
+    //interpolate between vertices.
+    float3 interpolant = 0.5f;
+    float density = lerp(a, b, 0.5);
+    density = lerp(density, c, 0.5);
+    
+    voxelsOut[voxelIndex].normalDensity.w = density;
+    
     //voxelsOut[voxelIndex].positionDistance = float4(1, 0, 0, 1);
 }
