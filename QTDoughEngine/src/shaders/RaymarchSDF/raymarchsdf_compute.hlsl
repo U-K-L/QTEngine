@@ -4,6 +4,9 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
+#define VOXEL_RESOLUTION 64
+#define SCENE_BOUNDS 10.0f
+
 struct Voxel
 {
     float4 positionDistance;
@@ -77,6 +80,92 @@ float SDFTriangle(float3 p, float3 a, float3 b, float3 c)
     }
 }
 
+int HashPositionToVoxelIndex(float3 pos, float sceneBounds, int voxelResolution)
+{
+    float halfScene = sceneBounds * 0.5f;
+    float3 gridPos = (pos + halfScene) / sceneBounds;
+    int3 voxelCoord = int3(floor(gridPos * voxelResolution));
+
+    //Clamp to avoid invalid access
+    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(voxelResolution - 1, voxelResolution - 1, voxelResolution - 1));
+
+    return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
+}
+
+
+float TrilinearSampleSDF(float3 pos)
+{
+    float3 gridPos = ((pos + SCENE_BOUNDS * 0.5f) / SCENE_BOUNDS) * VOXEL_RESOLUTION;
+    int3 base = int3(floor(gridPos));
+    float3 fracVal = frac(gridPos); // interpolation weights
+
+    base = clamp(base, int3(0, 0, 0), int3(VOXEL_RESOLUTION - 2, VOXEL_RESOLUTION - 2, VOXEL_RESOLUTION - 2));
+
+    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float halfScene = SCENE_BOUNDS * 0.5f;
+
+    // Convert voxel grid coords back to world positions for sampling
+    float3 p000 = (float3(base + int3(0, 0, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p100 = (float3(base + int3(1, 0, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p010 = (float3(base + int3(0, 1, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p110 = (float3(base + int3(1, 1, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p001 = (float3(base + int3(0, 0, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p101 = (float3(base + int3(1, 0, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p011 = (float3(base + int3(0, 1, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p111 = (float3(base + int3(1, 1, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+
+    float c000 = voxelsIn[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c100 = voxelsIn[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c010 = voxelsIn[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c110 = voxelsIn[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c001 = voxelsIn[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c101 = voxelsIn[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c011 = voxelsIn[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+    float c111 = voxelsIn[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w;
+
+    float c00 = lerp(c000, c100, fracVal.x);
+    float c10 = lerp(c010, c110, fracVal.x);
+    float c01 = lerp(c001, c101, fracVal.x);
+    float c11 = lerp(c011, c111, fracVal.x);
+
+    float c0 = lerp(c00, c10, fracVal.y);
+    float c1 = lerp(c01, c11, fracVal.y);
+
+    return lerp(c0, c1, fracVal.z);
+}
+
+float3 CentralDifferenceNormal(float3 p)
+{
+    float eps = 0.01f;
+
+    float dx = TrilinearSampleSDF(p + float3(eps, 0, 0)) - TrilinearSampleSDF(p - float3(eps, 0, 0));
+    float dy = TrilinearSampleSDF(p + float3(0, eps, 0)) - TrilinearSampleSDF(p - float3(0, eps, 0));
+    float dz = TrilinearSampleSDF(p + float3(0, 0, eps)) - TrilinearSampleSDF(p - float3(0, 0, eps));
+
+    return normalize(float3(dx, dy, dz));
+}
+
+
+float SampleSDF(float3 pos)
+{
+    int index = HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION);
+    float sdf = voxelsIn[index].positionDistance.w;
+
+    return sdf;
+}
+
+//Kills anything outside of bounds.
+float SafeSampleSDF(float3 pos)
+{
+    float halfScene = SCENE_BOUNDS * 0.5f;
+    
+    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+
+    if (any(pos < -halfScene) || any(pos > halfScene))
+        return voxelSize * 0.5f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
+    
+    return TrilinearSampleSDF(pos);
+}
 
 float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
 {
@@ -101,11 +190,14 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     //Find the smallest intersection to return.
     float intersection = maxDistance;
     int minIndex = 0;
-    for (int i = 0; i <4096; i++)
+    for (int i = 0; i <512; i++)
     {
-        if(voxelsIn[i].occuipiedInfo.w <= 0)
+        /*
+        if (voxelsIn[i].positionDistance.w >= 0.5)
             continue;
         float hitPoint = SDFRoundBox(pos, voxelsIn[i].positionDistance.xyz, voxelsIn[i].normalDensity.w*0.5f, 0.05f);
+        */
+        float hitPoint = SampleSDF(pos);
         //Remove this when not debugging.
         if (hitPoint < intersection)
         {
@@ -117,6 +209,8 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
             minIndex = i;
 
         }
+
+        
         
         intersection = min(intersection, hitPoint);
     }
@@ -147,22 +241,25 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     return intersection;
 }
 
-float SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
+float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 {
+    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
     float maxDistance = 100.0f;
-    float minDistance = 0.01f;
+    float minDistance = voxelSize*0.5f;
     float3 pos = ro;
-    int maxSteps = 64;
+    int maxSteps = 128;
     
     for (int i = 0; i < maxSteps; i++)
     {
         //Find the smallest distance
-        float distance = IntersectionPoint(pos, rd, resultOutput);
+        //float distance = IntersectionPoint(pos, rd, resultOutput);
+        float distance = SafeSampleSDF(pos);
         
         //See if it is close enough otherwise continue.
         if(distance < minDistance)
         {
-            return distance; //Something was hit.
+            float3 normal = CentralDifferenceNormal(pos);
+            return float4(normal, distance); //Something was hit.
         }
         
         //update position to the nearest point. effectively a sphere trace.
@@ -236,10 +333,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
 
     float4 result = 0;
-    float hit = SphereMarch(camPos, dirWorld, result);
-    float4 col = (hit > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
+    float4 hit = SphereMarch(camPos, dirWorld, result);
+    float4 col = (hit.x > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
-    gBindlessStorage[outputImageHandle][pixel] += saturate(result * col);
+    gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
 
     /*
     //SDF sphere trace each vertex point.

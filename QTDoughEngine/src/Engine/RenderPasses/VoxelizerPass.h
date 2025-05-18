@@ -5,17 +5,17 @@
 #include "../Camera/UnigmaCamera.h"
 #include "ComputePass.h"
 
-class SDFPass : public ComputePass
+class VoxelizerPass : public ComputePass
 {
 public:
     //This information will be passed into a specialized Voxel compute pass. And a voxel header.
     //We're trying to keep the grid at 1 GB VRAM maximum. This gives us around 512 bytes, or 32 float4s.
     struct Voxel
-	{
-		glm::vec4 positionDistance;
-		glm::vec4 normalDensity;
+    {
+        glm::vec4 positionDistance;
+        glm::vec4 normalDensity;
         glm::vec4 occuipiedInfo;
-	};
+    };
     int VOXEL_COUNT = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTION = 64; //This is the resolution of the 3D texture. n^3
     float SCENE_BOUNDS = 10; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
@@ -32,10 +32,10 @@ public:
     std::vector<Triangle> triangleSoup;
 
     // Constructor
-    SDFPass();
+    VoxelizerPass();
 
     // Destructor
-    ~SDFPass();
+    ~VoxelizerPass();
 
     void CreateComputeDescriptorSets() override;
     void CreateComputeDescriptorSetLayout() override;

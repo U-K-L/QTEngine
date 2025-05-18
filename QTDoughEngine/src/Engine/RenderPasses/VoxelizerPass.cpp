@@ -1,24 +1,22 @@
-#include "SDFPass.h"
+#include "VoxelizerPass.h"
 #include <random>
 
-SDFPass::~SDFPass() {
+VoxelizerPass::~VoxelizerPass() {
     PassName = "SDFPass";
 }
 
-SDFPass::SDFPass() {
+VoxelizerPass::VoxelizerPass() {
     VOXEL_COUNT = VOXEL_RESOLUTION * VOXEL_RESOLUTION * VOXEL_RESOLUTION;
     PassName = "SDFPass";
     PassNames.push_back("SDFPass");
 }
 
-void SDFPass::CreateMaterials() {
+void VoxelizerPass::CreateMaterials() {
     material.Clean();
     material.shader = UnigmaShader("raymarchsdf");
-
-    material.textureNames[0] = "SDFPass";
 }
 
-std::vector<SDFPass::Triangle> SDFPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
+std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
 {
     std::vector<Triangle> triangles;
 
@@ -41,7 +39,7 @@ std::vector<SDFPass::Triangle> SDFPass::ExtractTrianglesFromMeshFromTriplets(con
 }
 
 
-float SDFPass::DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
+float VoxelizerPass::DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
 {
     // Algorithm based on Inigo Quilez's "Signed distance functions"
     glm::vec3 ba = b - a, pa = p - a;
@@ -64,7 +62,7 @@ float SDFPass::DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const 
     return inside ? distToPlane : d;
 }
 
-void SDFPass::BakeSDFFromTriangles()
+void VoxelizerPass::BakeSDFFromTriangles()
 {
     //Get total number of voxels.
     auto voxelCount = voxels.size();
@@ -88,14 +86,14 @@ void SDFPass::BakeSDFFromTriangles()
         //If done around 1% of the voxels, print out the progress.
         float percentage = (float)(&voxel - &voxels[0]) / (float)voxels.size();
         if (percentage >= currentPercentage)
-		{
-			std::cout << "Voxelization progress: " << percentage * 100.0f << "%" << std::endl;
-			currentPercentage += 0.01f;
-		}
+        {
+            std::cout << "Voxelization progress: " << percentage * 100.0f << "%" << std::endl;
+            currentPercentage += 0.01f;
+        }
     }
 }
 
-void SDFPass::CreateComputePipeline()
+void VoxelizerPass::CreateComputePipeline()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -159,7 +157,7 @@ void SDFPass::CreateComputePipeline()
 
 }
 
-void SDFPass::CreateComputeDescriptorSets()
+void VoxelizerPass::CreateComputeDescriptorSets()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -259,7 +257,7 @@ void SDFPass::CreateComputeDescriptorSets()
     std::cout << "Created descriptor pools" << std::endl;
 }
 
-void SDFPass::IsOccupiedByVoxel()
+void VoxelizerPass::IsOccupiedByVoxel()
 {
     float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
     for (auto& voxel : voxels)
@@ -286,7 +284,7 @@ void SDFPass::IsOccupiedByVoxel()
     }
 }
 
-void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
+void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -322,7 +320,6 @@ void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, 
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
-    /*
     if (UpdateOnce <= 2)
     {
         vertices.clear();
@@ -415,11 +412,10 @@ void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, 
         // MOVE TO GPU ----------------------------------------------
         UpdateOnce += 1;
     }
-    */
 }
 
 
-void SDFPass::CreateComputeDescriptorSetLayout()
+void VoxelizerPass::CreateComputeDescriptorSetLayout()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -498,15 +494,14 @@ void SDFPass::CreateComputeDescriptorSetLayout()
 
 }
 
-void SDFPass::CreateShaderStorageBuffers()
+void VoxelizerPass::CreateShaderStorageBuffers()
 {
-
     QTDoughApplication* app = QTDoughApplication::instance;
 
     //Create the triangle soup first.
     CreateTriangleSoup();
     // Initial data. This should create the voxel scene grid.
-    voxels.resize(VOXEL_COUNT); 
+    voxels.resize(VOXEL_COUNT);
 
     for (int i = 0; i < VOXEL_RESOLUTION; i++)
     {
@@ -542,7 +537,7 @@ void SDFPass::CreateShaderStorageBuffers()
 
         glm::vec3 pos = abs(dir * r);
         voxel.positionDistance = glm::vec4(pos, 0.001f);
-		voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
+        voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
         */
 
     }
@@ -574,7 +569,7 @@ void SDFPass::CreateShaderStorageBuffers()
 }
 
 
-void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
+void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
     VkImageMemoryBarrier barrier{};
@@ -634,7 +629,7 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
-void SDFPass::DebugCompute(uint32_t currentFrame)
+void VoxelizerPass::DebugCompute(uint32_t currentFrame)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
@@ -669,7 +664,7 @@ void SDFPass::DebugCompute(uint32_t currentFrame)
         vkMapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame], 0, bufferSize, 0, reinterpret_cast<void**>(&mappedVoxels));
         std::memcpy(frameReadbackData[currentFrame].data(), mappedVoxels, sizeof(Voxel) * VOXEL_COUNT);
         vkUnmapMemory(app->_logicalDevice, readbackBufferMemories[currentFrame]);
-    });
+        });
 
 
     for (size_t i = 0; i < std::min((size_t)10, (size_t)VOXEL_COUNT); ++i) {
