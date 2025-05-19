@@ -19,7 +19,7 @@ StructuredBuffer<Voxel> voxelsL2In : register(t4, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
 
 StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
-RWStructuredBuffer<Voxel> voxels3Out : register(u7, space1); // write
+RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
@@ -103,29 +103,29 @@ float4 TrilinearSampleSDF(float3 pos)
     float3 p111 = (float3(base + int3(1, 1, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
 
     float4 c000 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c100 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c010 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c110 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c001 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c101 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c011 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c111 = float4(
-    voxelsL1In[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL1In[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    voxelsL2In[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsL2In[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
 
 
     float4 c00 = lerp(c000, c100, fracVal.x);
@@ -156,7 +156,7 @@ float3 CentralDifferenceNormal(float3 p)
 float SampleSDF(float3 pos)
 {
     int index = HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION);
-    float sdf = voxelsL1In[index].normalDistance.w;
+    float sdf = voxelsL2In[index].normalDistance.w;
 
     return sdf;
 }
@@ -402,6 +402,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
     gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0);// + col*0.25;
+    //gBindlessStorage[outputImageHandle][pixel] = voxelsL2In[0].normalDistance;
     /*
     //SDF sphere trace each vertex point.
     float debugHit = DebugMarchVertices(camPos, dirWorld);

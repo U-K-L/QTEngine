@@ -18,7 +18,7 @@ StructuredBuffer<Voxel> voxelsL2In : register(t4, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
 
 StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
-RWStructuredBuffer<Voxel> voxels3Out : register(u7, space1); // write
+RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
@@ -66,8 +66,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (any(DTid >= gridSize))
         return;
 
-    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
-    //float3 center = voxelsIn[voxelIndex].positionDistance.xyz; //Find implicit position center.
     float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
     float halfScene = SCENE_BOUNDS * 0.5f;
 
@@ -116,7 +114,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float density = lerp(a, b, 0.5);
     density = lerp(density, c, 0.5);
     */
-    voxelsL1Out[voxelIndex].normalDistance = float4(normal, minDist);
+    uint voxelIndexL1 = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+    uint voxelIndexL2 = floor(voxelIndexL1 / 2);
+    uint voxelIndexL3 = floor(voxelIndexL2 / 2);
+    
+    voxelsL1Out[voxelIndexL1].normalDistance = float4(normal, minDist);
+    voxelsL2Out[voxelIndexL2].normalDistance = float4(normal, minDist);
+    voxelsL3Out[voxelIndexL3].normalDistance = float4(normal, minDist);
     
     //voxelsOut[voxelIndex].positionDistance = float4(1, 0, 0, 1);
 }
