@@ -106,8 +106,14 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 na = vertexBuffer[cachedIdx.x].normal.xyz;
     float3 nb = vertexBuffer[cachedIdx.y].normal.xyz;
     float3 nc = vertexBuffer[cachedIdx.z].normal.xyz;
+    
+    float3 pa = vertexBuffer[cachedIdx.x].position.xyz;
+    float3 pb = vertexBuffer[cachedIdx.y].position.xyz;
+    float3 pc = vertexBuffer[cachedIdx.z].position.xyz;
 
-    float3 normal = normalize((na + nb + nc) / 3.0); // crude average
+    float3 bary = Barycentric(pa, pb, pc, center);
+
+    float3 normal = normalize(na * bary.x + nb * bary.y + nc * bary.z);
     
     //interpolate between vertices.
     float3 interpolant = 0.5f;

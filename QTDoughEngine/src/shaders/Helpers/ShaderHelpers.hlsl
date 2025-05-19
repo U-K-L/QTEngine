@@ -284,3 +284,25 @@ float3 GammaEncode(float3 color, float gamma)
     float3 gammaCorrected = 1.0 / gamma;
     return pow(color, gammaCorrected);
 }
+
+float3 Barycentric(float3 a, float3 b, float3 c, float3 p)
+{
+    float3 v0 = b - a, v1 = c - a, v2 = p - a;
+    float d00 = dot(v0, v0);
+    float d01 = dot(v0, v1);
+    float d11 = dot(v1, v1);
+    float d20 = dot(v2, v0);
+    float d21 = dot(v2, v1);
+    float denom = d00 * d11 - d01 * d01;
+    float3 bary;
+    bary.y = (d11 * d20 - d01 * d21) / denom;
+    bary.z = (d00 * d21 - d01 * d20) / denom;
+    bary.x = 1.0 - bary.y - bary.z;
+    
+    if (abs(denom) < 1e-6f || !all(isfinite(bary)))
+    {
+        bary = float3(1.0, 0.0, 0.0); // fallback to a
+    }
+    
+    return bary;
+}
