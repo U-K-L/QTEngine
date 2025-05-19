@@ -2410,17 +2410,25 @@ void QTDoughApplication::CreateLogicalDevice()
     }
 
 
-    // Bindless Texture support.
+    // Setup feature structs
+    VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures{};
+    scalarBlockLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+    scalarBlockLayoutFeatures.scalarBlockLayout = VK_TRUE;
+
     VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
     descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
     descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+
+    // Chain them
+    descriptorIndexingFeatures.pNext = &scalarBlockLayoutFeatures;
 
     VkPhysicalDeviceFeatures2 deviceFeatures2{};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures2.features = deviceFeatures;
     deviceFeatures2.pNext = &descriptorIndexingFeatures;
 
+    // Plug into VkDeviceCreateInfo
     _createInfo.pNext = &deviceFeatures2;
 
 

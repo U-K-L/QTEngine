@@ -22,6 +22,7 @@ void PedestrianComp::Update()
 {
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
 	UnigmaInputStruct* Controller0 = &UnigmaGameManager::instance->Controller0;
+
 	UnigmaPhysicsComp* physicsComp = gameManager->GetObjectComponent<UnigmaPhysicsComp>(*gameObjectClass);
 
 	//Should only be dynamic.

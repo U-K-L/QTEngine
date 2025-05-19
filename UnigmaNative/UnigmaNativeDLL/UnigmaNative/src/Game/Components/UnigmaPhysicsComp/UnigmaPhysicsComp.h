@@ -50,4 +50,5 @@ public:
 	float dynamicFriction = 0.5f;
 	float restitution = 0.6f;
 	float denisty = 1.0f;
+	bool useGravity = true;
 };

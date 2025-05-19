@@ -23,13 +23,20 @@ public:
     static VoxelizerPass* instance;
     //This information will be passed into a specialized Voxel compute pass. And a voxel header.
     //We're trying to keep the grid at 1 GB VRAM maximum. This gives us around 512 bytes, or 32 float4s.
-    struct Voxel
-    {
-        glm::vec4 normalDistance;
+    struct Voxel {
+        glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
     };
     int VOXEL_COUNT = 1; //Set in the creation of the pass.
-    int VOXEL_RESOLUTION = 256; //This is the resolution of the 3D texture. n^3
-    float SCENE_BOUNDS = 10; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
+    int VOXEL_RESOLUTION = 400; //This is the resolution of the 3D texture. n^3
+    //Mips.
+    int VOXEL_RESOLUTIONL2 = 128;
+    int VOXEL_RESOLUTIONL3 = 32;
+    float SCENE_BOUNDSL2 = 16;
+    float SCENE_BOUNDSL3 = 32;
+    int VOXEL_COUNTL2 = 1;
+    int VOXEL_COUNTL3 = 1;
+
+    float SCENE_BOUNDS = 8; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
     std::vector<std::vector<Voxel>> frameReadbackData; //Generic readback data for the SDF pass.
     std::vector<Voxel> voxels; //The canonical voxel data for all passes.
@@ -41,6 +48,15 @@ public:
         glm::vec3 normal;
     };
     std::vector<Triangle> triangleSoup;
+
+    std::vector<VkBuffer> voxelL1StorageBuffers;
+    std::vector<VkDeviceMemory> voxelL1shaderStorageBuffersMemory;
+
+    std::vector<VkBuffer> voxelL2StorageBuffers;
+    std::vector<VkDeviceMemory> voxelL2shaderStorageBuffersMemory;
+
+    std::vector<VkBuffer> voxelL3StorageBuffers;
+    std::vector<VkDeviceMemory> voxelL3shaderStorageBuffersMemory;
 
     // Constructor
     VoxelizerPass();

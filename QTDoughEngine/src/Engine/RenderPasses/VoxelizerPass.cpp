@@ -534,7 +534,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
                     defaultDistanceMax
                 );
                 */
-                voxel.normalDistance = glm::vec4(0.0f, 0.0f, 0.0f, voxelSize);
+                //voxel.normalDistance = glm::packHalf2x16(glm::vec4(0.0f, 0.0f, 0.0f, voxelSize));
 
             }
         }

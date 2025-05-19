@@ -63,6 +63,20 @@ void UnigmaPhysicsComp::InitializeData(nlohmann::json& componentData)
 		bounds.z = componentData["Bounds"][2];
 	}
 
+	if(componentData.contains("UseGravity"))
+	{
+		if(componentData["UseGravity"] == true)
+		{
+			//Use gravity.
+			useGravity = true;
+		}
+		else
+		{
+			useGravity = false;
+		}
+	}
+
+
 	PxQuat qx(gobj->transform.rotation.x, PxVec3(1, 0, 0));
 	PxQuat qy(gobj->transform.rotation.y, PxVec3(0, 1, 0));
 	PxQuat qz(gobj->transform.rotation.z, PxVec3(0, 0, 1));
@@ -132,6 +146,8 @@ void UnigmaPhysicsComp::Init()
 		break;
 
 	}
+
+	actor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !useGravity);
 }
 
 void UnigmaPhysicsComp::Update()
