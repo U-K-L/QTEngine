@@ -302,7 +302,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     {
         //Find the smallest distance
         //float distance = IntersectionPoint(pos, rd, resultOutput);
-        minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w;
+        //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w;
         
         float4 currentSDF = SampleNormalSDF(pos);
         //currentSDF.yzw = CentralDifferenceNormal(pos);
