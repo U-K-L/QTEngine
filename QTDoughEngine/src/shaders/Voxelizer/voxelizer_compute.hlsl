@@ -11,12 +11,17 @@ cbuffer UniformBufferObject : register(b0, space1)
     float2 texelSize;
 }
 
-StructuredBuffer<Voxel> voxelsIn : register(t2, space1); // readonly
-RWStructuredBuffer<Voxel> voxelsOut : register(u3, space1); // write
+StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
+RWStructuredBuffer<Voxel> voxelsL1Out : register(u3, space1); // write
+
+StructuredBuffer<Voxel> voxelsL2In : register(t4, space1); // readonly
+RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
+
+StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
+RWStructuredBuffer<Voxel> voxels3Out : register(u7, space1); // write
 
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t4, space1);
-StructuredBuffer<uint3> indexBuffer : register(t5, space1);
+StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 float DistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {
@@ -111,7 +116,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float density = lerp(a, b, 0.5);
     density = lerp(density, c, 0.5);
     */
-    voxelsOut[voxelIndex].normalDistance = float4(normal, minDist);
+    voxelsL1Out[voxelIndex].normalDistance = float4(normal, minDist);
     
     //voxelsOut[voxelIndex].positionDistance = float4(1, 0, 0, 1);
 }

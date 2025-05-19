@@ -238,39 +238,62 @@ void SDFPass::CreateComputeDescriptorSetLayout()
     intArrayLayoutBinding.pImmutableSamplers = nullptr;
 
     //Third binding is for storage buffer. General purpose.
-    VkDescriptorSetLayoutBinding generalBinding{};
-    generalBinding.binding = 2;
-    generalBinding.descriptorCount = 1;
-    generalBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    generalBinding.pImmutableSamplers = nullptr;
-    generalBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayoutBinding voxelL1Binding{};
+    voxelL1Binding.binding = 2;
+    voxelL1Binding.descriptorCount = 1;
+    voxelL1Binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL1Binding.pImmutableSamplers = nullptr;
+    voxelL1Binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     //Fourth binding is for storage buffer. General purpose.
-    VkDescriptorSetLayoutBinding generalBinding2{};
-    generalBinding2.binding = 3;
-    generalBinding2.descriptorCount = 1;
-    generalBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    generalBinding2.pImmutableSamplers = nullptr;
-    generalBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayoutBinding voxelL1Binding2{};
+    voxelL1Binding2.binding = 3;
+    voxelL1Binding2.descriptorCount = 1;
+    voxelL1Binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL1Binding2.pImmutableSamplers = nullptr;
+    voxelL1Binding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Do L2 and L3
+    //Fifth binding for storage buffer.
+    VkDescriptorSetLayoutBinding voxelL2Binding{};
+    voxelL2Binding.binding = 4;
+    voxelL2Binding.descriptorCount = 1;
+    voxelL2Binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL2Binding.pImmutableSamplers = nullptr;
+    voxelL2Binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding voxelL2Binding2{};
+    voxelL2Binding2.binding = 5;
+    voxelL2Binding2.descriptorCount = 1;
+    voxelL2Binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL2Binding2.pImmutableSamplers = nullptr;
+    voxelL2Binding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding voxelL3Binding{};
+    voxelL3Binding.binding = 6;
+    voxelL3Binding.descriptorCount = 1;
+    voxelL3Binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL3Binding.pImmutableSamplers = nullptr;
+    voxelL3Binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding voxelL3Binding2{};
+    voxelL3Binding2.binding = 7;
+    voxelL3Binding2.descriptorCount = 1;
+    voxelL3Binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL3Binding2.pImmutableSamplers = nullptr;
+    voxelL3Binding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
 
     //Fith binding for vertex buffer.
     VkDescriptorSetLayoutBinding vertexBinding{};
-    vertexBinding.binding = 4;
+    vertexBinding.binding = 8;
     vertexBinding.descriptorCount = 1;
     vertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     vertexBinding.pImmutableSamplers = nullptr;
     vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    //sixth binding for index buffer.
-    VkDescriptorSetLayoutBinding indexBinding{};
-    indexBinding.binding = 5;
-    indexBinding.descriptorCount = 1;
-    indexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    indexBinding.pImmutableSamplers = nullptr;
-    indexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2, vertexBinding, indexBinding };
+    std::array<VkDescriptorSetLayoutBinding, 9> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());

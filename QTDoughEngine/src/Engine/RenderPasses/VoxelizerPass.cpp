@@ -8,7 +8,9 @@ VoxelizerPass::~VoxelizerPass() {
 }
 
 VoxelizerPass::VoxelizerPass() {
-    VOXEL_COUNT = VOXEL_RESOLUTION * VOXEL_RESOLUTION * VOXEL_RESOLUTION;
+    VOXEL_COUNTL1 = VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1;
+    VOXEL_COUNTL2 = VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2;
+    VOXEL_COUNTL3 = VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3;
     PassName = "VoxelizerPass";
     PassNames.push_back("VoxelizerPass");
 }
@@ -142,7 +144,9 @@ void VoxelizerPass::CreateComputePipeline()
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
     std::cout << "Compute pipeline created" << std::endl;
 
-    std::cout << "Memory of voxels: " << sizeof(Voxel) * VOXEL_COUNT / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of voxels in L1: " << sizeof(Voxel) * VOXEL_COUNTL1 / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of voxels in L2: " << sizeof(Voxel) * VOXEL_COUNTL2 / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of voxels in L3: " << sizeof(Voxel) * VOXEL_COUNTL3 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Size of voxel: " << sizeof(Voxel) << " bytes" << std::endl;
 
     readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
@@ -150,7 +154,7 @@ void VoxelizerPass::CreateComputePipeline()
 
     for (uint32_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; ++i) {
         app->CreateBuffer(
-            sizeof(Voxel) * VOXEL_COUNT,
+            sizeof(Voxel) * VOXEL_COUNTL3, //L3 is the readable one.
             VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
             readbackBuffers[i],
@@ -159,7 +163,7 @@ void VoxelizerPass::CreateComputePipeline()
     }
     frameReadbackData.resize(app->MAX_FRAMES_IN_FLIGHT);
     for (auto& frame : frameReadbackData)
-        frame.resize(VOXEL_COUNT);
+        frame.resize(VOXEL_COUNTL3);
 
     std::cout << "Readback created: " << PassName << std::endl;
 }
@@ -193,7 +197,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 9> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -210,11 +214,11 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pBufferInfo = &intArrayBufferInfo;
 
-
-        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-        storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
-        storageBufferInfoLastFrame.offset = 0;
-        storageBufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNT;
+        //L1
+        VkDescriptorBufferInfo voxelL1BufferInfoLastFrame{};
+        voxelL1BufferInfoLastFrame.buffer = voxelL1StorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        voxelL1BufferInfoLastFrame.offset = 0;
+        voxelL1BufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNTL1;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = computeDescriptorSets[i];
@@ -222,12 +226,12 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[2].dstArrayElement = 0;
         descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo = &storageBufferInfoLastFrame;
+        descriptorWrites[2].pBufferInfo = &voxelL1BufferInfoLastFrame;
 
-        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
-        storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
-        storageBufferInfoCurrentFrame.offset = 0;
-        storageBufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNT;
+        VkDescriptorBufferInfo voxelL1BufferInfoCurrentFrame{};
+        voxelL1BufferInfoCurrentFrame.buffer = voxelL1StorageBuffers[i];
+        voxelL1BufferInfoCurrentFrame.offset = 0;
+        voxelL1BufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNTL1;
 
         descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[3].dstSet = computeDescriptorSets[i];
@@ -235,62 +239,181 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[3].dstArrayElement = 0;
         descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].pBufferInfo = &storageBufferInfoCurrentFrame;
+        descriptorWrites[3].pBufferInfo = &voxelL1BufferInfoCurrentFrame;
 
-        VkDescriptorBufferInfo iInfo{};
+        //L2
+        VkDescriptorBufferInfo voxel21BufferInfoLastFrame{};
+        voxel21BufferInfoLastFrame.buffer = voxelL2StorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        voxel21BufferInfoLastFrame.offset = 0;
+        voxel21BufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNTL2;
+
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = computeDescriptorSets[i];
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].dstArrayElement = 0;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[4].descriptorCount = 1;
+        descriptorWrites[4].pBufferInfo = &voxel21BufferInfoLastFrame;
+
+        VkDescriptorBufferInfo voxelL2BufferInfoCurrentFrame{};
+        voxelL2BufferInfoCurrentFrame.buffer = voxelL2StorageBuffers[i];
+        voxelL2BufferInfoCurrentFrame.offset = 0;
+        voxelL2BufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNTL2;
+
+        descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[5].dstSet = computeDescriptorSets[i];
+        descriptorWrites[5].dstBinding = 5;
+        descriptorWrites[5].dstArrayElement = 0;
+        descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[5].descriptorCount = 1;
+        descriptorWrites[5].pBufferInfo = &voxelL2BufferInfoCurrentFrame;
+
+        //L3
+        VkDescriptorBufferInfo voxelL3BufferInfoLastFrame{};
+        voxelL3BufferInfoLastFrame.buffer = voxelL3StorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        voxelL3BufferInfoLastFrame.offset = 0;
+        voxelL3BufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNTL3;
+
+        descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[6].dstSet = computeDescriptorSets[i];
+        descriptorWrites[6].dstBinding = 6;
+        descriptorWrites[6].dstArrayElement = 0;
+        descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[6].descriptorCount = 1;
+        descriptorWrites[6].pBufferInfo = &voxelL3BufferInfoLastFrame;
+
+        VkDescriptorBufferInfo voxelL3BufferInfoCurrentFrame{};
+        voxelL3BufferInfoCurrentFrame.buffer = voxelL3StorageBuffers[i];
+        voxelL3BufferInfoCurrentFrame.offset = 0;
+        voxelL3BufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNTL3;
+
+        descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[7].dstSet = computeDescriptorSets[i];
+        descriptorWrites[7].dstBinding = 7;
+        descriptorWrites[7].dstArrayElement = 0;
+        descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[7].descriptorCount = 1;
+        descriptorWrites[7].pBufferInfo = &voxelL3BufferInfoCurrentFrame;
+
+        //Vertex info.
         VkDescriptorBufferInfo vInfo{};
         vInfo.buffer = vertexBuffer;
         vInfo.offset = 0;
         vInfo.range = VK_WHOLE_SIZE;
 
-        iInfo.buffer = indexBuffer;
-        iInfo.offset = 0;
-        iInfo.range = VK_WHOLE_SIZE;
+        descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[8].dstSet = computeDescriptorSets[i];
+        descriptorWrites[8].dstBinding = 8;
+        descriptorWrites[8].descriptorCount = 1;
+        descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[8].pBufferInfo = &vInfo;
 
-        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[4].dstSet = computeDescriptorSets[i];
-        descriptorWrites[4].dstBinding = 4;
-        descriptorWrites[4].descriptorCount = 1;
-        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[4].pBufferInfo = &vInfo;
-
-        descriptorWrites[5] = descriptorWrites[4];
-        descriptorWrites[5].dstBinding = 5;
-        descriptorWrites[5].pBufferInfo = &iInfo;
-
-        vkUpdateDescriptorSets(app->_logicalDevice, 6, descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
     std::cout << "Created descriptor sets" << std::endl;
 }
 
-void VoxelizerPass::IsOccupiedByVoxel()
+void VoxelizerPass::CreateComputeDescriptorSetLayout()
 {
-    /*
-    float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
-    for (auto& voxel : voxels)
-    {
-        //voxel.occuipiedInfo = glm::vec4(0.0f);
-        for (auto& vertex : vertices)
-        {
+    QTDoughApplication* app = QTDoughApplication::instance;
 
-            glm::vec3 pos = voxel.positionDistance;
-            glm::vec3 vPos = vertex.position;
+    //Create required buffers.
+    //Create Texture IDs
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+    app->CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        intArrayBuffer,
+        intArrayBufferMemory
+    );
 
-            glm::vec3 halfSize = glm::vec3(voxel.normalDensity.w * 0.5f);
-            glm::vec3 min = pos - halfSize;
-            glm::vec3 max = pos + halfSize;
 
-            if (vPos.x >= min.x && vPos.x <= max.x &&
-                vPos.y >= min.y && vPos.y <= max.y &&
-                vPos.z >= min.z && vPos.z <= max.z)
-            {
-                //voxel.occuipiedInfo = glm::vec4(1.0f);
-            }
+    //Bindings for our uniform buffer. Which is things like transform information.
+    //Create the actual buffers.
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
-        }
+
+    //For texture IDs the second binding.
+    VkDescriptorSetLayoutBinding intArrayLayoutBinding{};
+    intArrayLayoutBinding.binding = 1;
+    intArrayLayoutBinding.descriptorCount = 1;
+    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    intArrayLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    intArrayLayoutBinding.pImmutableSamplers = nullptr;
+
+    //Third binding is for storage buffer. General purpose.
+    VkDescriptorSetLayoutBinding voxelL1Binding{};
+    voxelL1Binding.binding = 2;
+    voxelL1Binding.descriptorCount = 1;
+    voxelL1Binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL1Binding.pImmutableSamplers = nullptr;
+    voxelL1Binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Fourth binding is for storage buffer. General purpose.
+    VkDescriptorSetLayoutBinding voxelL1Binding2{};
+    voxelL1Binding2.binding = 3;
+    voxelL1Binding2.descriptorCount = 1;
+    voxelL1Binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL1Binding2.pImmutableSamplers = nullptr;
+    voxelL1Binding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Do L2 and L3
+    //Fifth binding for storage buffer.
+    VkDescriptorSetLayoutBinding voxelL2Binding{};
+    voxelL2Binding.binding = 4;
+    voxelL2Binding.descriptorCount = 1;
+    voxelL2Binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL2Binding.pImmutableSamplers = nullptr;
+    voxelL2Binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding voxelL2Binding2{};
+    voxelL2Binding2.binding = 5;
+    voxelL2Binding2.descriptorCount = 1;
+    voxelL2Binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL2Binding2.pImmutableSamplers = nullptr;
+    voxelL2Binding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding voxelL3Binding{};
+    voxelL3Binding.binding = 6;
+    voxelL3Binding.descriptorCount = 1;
+    voxelL3Binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL3Binding.pImmutableSamplers = nullptr;
+    voxelL3Binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding voxelL3Binding2{};
+    voxelL3Binding2.binding = 7;
+    voxelL3Binding2.descriptorCount = 1;
+    voxelL3Binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    voxelL3Binding2.pImmutableSamplers = nullptr;
+    voxelL3Binding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+
+    //Fith binding for vertex buffer.
+    VkDescriptorSetLayoutBinding vertexBinding{};
+    vertexBinding.binding = 8;
+    vertexBinding.descriptorCount = 1;
+    vertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexBinding.pImmutableSamplers = nullptr;
+    vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Bind the buffers we specified.
+    std::array<VkDescriptorSetLayoutBinding, 9> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding};
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(app->_logicalDevice, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create compute descriptor set layout!");
     }
-    */
+
 }
 
 void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
@@ -338,7 +461,8 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     {
         //std::cout << "Index: " << i << "count: " << renderingObjects[i]->_renderer.vertices.size() << std::endl;
 
-        float density = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
+        
+        float density = SCENE_BOUNDSL1 / (float)VOXEL_RESOLUTIONL1;
         density *= 0.5f; // half the size of the voxel.
 
         if(i == 4)
@@ -360,26 +484,6 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
         }
     }
 
-    //std::cout << "Vertices count " << vertices.size() << std::endl;
-
-
-    /*
-    //All of BELOW will move to GPU side ------------------------------------
-    // MOVE TO GPU ----------------------------------------------
-
-    triangleIndices.resize(indices.size() / 3);
-    for (size_t i = 0; i < triangleIndices.size(); ++i)
-    {
-        triangleIndices[i] = glm::uvec3(indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]);
-    }
-    auto meshTriangles = ExtractTrianglesFromMeshFromTriplets(vertices, triangleIndices);
-    triangleSoup.insert(triangleSoup.end(), meshTriangles.begin(), meshTriangles.end());
-    */
-    //Bake SDF from triangles.
-    //BakeSDFFromTriangles();
-
-    //std::cout << "Indices count " << indices.size() << std::endl;
-
     VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
@@ -399,186 +503,90 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
 
 
-    //Update Voxel Information
-    //IsOccupiedByVoxel();
-
-    /*
-    //Update voxels.
-    VkDeviceSize voxelBufferSize = sizeof(Voxel) * VOXEL_COUNT;
-    VkBuffer stagingBuffer2;
-    VkDeviceMemory stagingMemory2;
-    app->CreateBuffer(voxelBufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer2, stagingMemory2);
-
-    void* mapped2;
-    vkMapMemory(app->_logicalDevice, stagingMemory2, 0, voxelBufferSize, 0, &mapped2);
-    memcpy(mapped2, voxels.data(), voxelBufferSize);
-    vkUnmapMemory(app->_logicalDevice, stagingMemory2);
-
-    app->CopyBuffer(stagingBuffer2, shaderStorageBuffers[currentFrame], voxelBufferSize);
-
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingMemory2, nullptr);
-    */
-    //All of ABOVE will move to GPU side ------------------------------------
-    // MOVE TO GPU ----------------------------------------------
-
-}
-
-
-void VoxelizerPass::CreateComputeDescriptorSetLayout()
-{
-    QTDoughApplication* app = QTDoughApplication::instance;
-
-    //Create required buffers.
-    //Create Texture IDs
-    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
-    app->CreateBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        intArrayBuffer,
-        intArrayBufferMemory
-    );
-
-
-    //Bindings for our uniform buffer. Which is things like transform information.
-    //Create the actual buffers.
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-
-
-    //For texture IDs the second binding.
-    VkDescriptorSetLayoutBinding intArrayLayoutBinding{};
-    intArrayLayoutBinding.binding = 1;
-    intArrayLayoutBinding.descriptorCount = 1;
-    intArrayLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    intArrayLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    intArrayLayoutBinding.pImmutableSamplers = nullptr;
-
-    //Third binding is for storage buffer. General purpose.
-    VkDescriptorSetLayoutBinding generalBinding{};
-    generalBinding.binding = 2;
-    generalBinding.descriptorCount = 1;
-    generalBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    generalBinding.pImmutableSamplers = nullptr;
-    generalBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    //Fourth binding is for storage buffer. General purpose.
-    VkDescriptorSetLayoutBinding generalBinding2{};
-    generalBinding2.binding = 3;
-    generalBinding2.descriptorCount = 1;
-    generalBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    generalBinding2.pImmutableSamplers = nullptr;
-    generalBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    //Fith binding for vertex buffer.
-    VkDescriptorSetLayoutBinding vertexBinding{};
-    vertexBinding.binding = 4;
-    vertexBinding.descriptorCount = 1;
-    vertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    vertexBinding.pImmutableSamplers = nullptr;
-    vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    //sixth binding for index buffer.
-    VkDescriptorSetLayoutBinding indexBinding{};
-    indexBinding.binding = 5;
-    indexBinding.descriptorCount = 1;
-    indexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    indexBinding.pImmutableSamplers = nullptr;
-    indexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { uboLayoutBinding, intArrayLayoutBinding, generalBinding, generalBinding2, vertexBinding, indexBinding };
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    layoutInfo.pBindings = bindings.data();
-
-    if (vkCreateDescriptorSetLayout(app->_logicalDevice, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create compute descriptor set layout!");
-    }
-
 }
 
 void VoxelizerPass::CreateShaderStorageBuffers()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    std::cout << "Creating Shader Storage Buffers " << PassName << std::endl;
+
     //Create the triangle soup first.
     CreateTriangleSoup();
     // Initial data. This should create the voxel scene grid.
-    voxels.resize(VOXEL_COUNT);
+    voxelsL1.resize(VOXEL_COUNTL1);
+    voxelsL2.resize(VOXEL_COUNTL2);
+    voxelsL3.resize(VOXEL_COUNTL3);
 
-    for (int i = 0; i < VOXEL_RESOLUTION; i++)
-    {
-        for (int j = 0; j < VOXEL_RESOLUTION; j++)
-        {
-            for (int k = 0; k < VOXEL_RESOLUTION; k++)
-            {
-                auto& voxel = voxels[i * VOXEL_RESOLUTION * VOXEL_RESOLUTION + j * VOXEL_RESOLUTION + k];
-
-                float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
-
-                /*
-                voxel.positionDistance = glm::vec4(
-                    (i + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
-                    (j + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
-                    (k + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
-                    defaultDistanceMax
-                );
-                */
-                //voxel.normalDistance = glm::packHalf2x16(glm::vec4(0.0f, 0.0f, 0.0f, voxelSize));
-
-            }
-        }
-    }
-
-
-    for (auto& voxel : voxels) {
-        /*
-        float x = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-        float y = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-        float z = (std::rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-        glm::vec3 dir = glm::normalize(glm::vec3(x, y, z));
-        float r = std::cbrt(std::rand() / (float)RAND_MAX) * 10.0f;
-
-        glm::vec3 pos = abs(dir * r);
-        voxel.positionDistance = glm::vec4(pos, 0.001f);
-        voxel.normalDensity = glm::vec4(0.5f, 1.0f, 0.0f, 2.0f);
-        */
-
-    }
-
-    VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
+    VkDeviceSize bufferSizeL1 = sizeof(Voxel) * VOXEL_COUNTL1;
+    VkDeviceSize bufferSizeL2 = sizeof(Voxel) * VOXEL_COUNTL2;
+    VkDeviceSize bufferSizeL3 = sizeof(Voxel) * VOXEL_COUNTL3;
 
     // Create a staging buffer used to upload data to the gpu
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
+    app->CreateBuffer(bufferSizeL1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-    std::memcpy(data, voxels.data(), voxels.size() * sizeof(Voxel));
+    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSizeL1, 0, &data);
+    std::memcpy(data, voxelsL1.data(), voxelsL1.size() * sizeof(Voxel));
     vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
 
-    shaderStorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-    shaderStorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL1StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL1StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
 
     // Copy initial data to all storage buffers
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-        app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);
-        app->CopyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
+        app->CreateBuffer(bufferSizeL1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL1StorageBuffers[i], voxelL1StorageBuffersMemory[i]);
+        app->CopyBuffer(stagingBuffer, voxelL1StorageBuffers[i], bufferSizeL1);
     }
 
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
+
+    std::cout << "Voxel L1 Storage Buffers created" << std::endl;
+
+    //Do this for next level mips.
+    // Create a staging buffer used to upload data to the gpu
+    VkBuffer stagingBuffer2;
+    VkDeviceMemory stagingBufferMemory2;
+    app->CreateBuffer(bufferSizeL2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer2, stagingBufferMemory2);
+
+    void* data2;
+    vkMapMemory(app->_logicalDevice, stagingBufferMemory2, 0, bufferSizeL2, 0, &data2);
+    std::memcpy(data2, voxelsL2.data(), voxelsL2.size() * sizeof(Voxel));
+    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory2);
+    voxelL2StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL2StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    // Copy initial data to all storage buffers
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+		app->CreateBuffer(bufferSizeL2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL2StorageBuffers[i], voxelL2StorageBuffersMemory[i]);
+		app->CopyBuffer(stagingBuffer2, voxelL2StorageBuffers[i], bufferSizeL2);
+	}
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
+	vkFreeMemory(app->_logicalDevice, stagingBufferMemory2, nullptr);
+
+	//Do this for next level mips.
+	// Create a staging buffer used to upload data to the gpu
+	VkBuffer stagingBuffer3;
+	VkDeviceMemory stagingBufferMemory3;
+	app->CreateBuffer(bufferSizeL3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer3, stagingBufferMemory3);
+
+	void* data3;
+	vkMapMemory(app->_logicalDevice, stagingBufferMemory3, 0, bufferSizeL3, 0, &data3);
+	std::memcpy(data3, voxelsL3.data(), voxelsL3.size() * sizeof(Voxel));
+	vkUnmapMemory(app->_logicalDevice, stagingBufferMemory3);
+	voxelL3StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+	voxelL3StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+	// Copy initial data to all storage buffers
+	for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+		app->CreateBuffer(bufferSizeL3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL3StorageBuffers[i], voxelL3StorageBuffersMemory[i]);
+		app->CopyBuffer(stagingBuffer3, voxelL3StorageBuffers[i], bufferSizeL3);
+	}
+
+	vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
+	vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
 
 }
 
@@ -622,9 +630,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, 2, sets,
         0, nullptr);
 
-    uint32_t groupCountX = (VOXEL_RESOLUTION + 7) / 8;
-    uint32_t groupCountY = (VOXEL_RESOLUTION + 7) / 8;
-    uint32_t groupCountZ = (VOXEL_RESOLUTION + 7) / 8;
+    uint32_t groupCountX = (VOXEL_RESOLUTIONL1 + 7) / 8;
+    uint32_t groupCountY = (VOXEL_RESOLUTIONL1 + 7) / 8;
+    uint32_t groupCountZ = (VOXEL_RESOLUTIONL1 + 7) / 8;
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
@@ -642,6 +650,35 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dep.pImageMemoryBarriers = &barrier2;
 
     vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void VoxelizerPass::IsOccupiedByVoxel()
+{
+    /*
+    float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
+    for (auto& voxel : voxels)
+    {
+        //voxel.occuipiedInfo = glm::vec4(0.0f);
+        for (auto& vertex : vertices)
+        {
+
+            glm::vec3 pos = voxel.positionDistance;
+            glm::vec3 vPos = vertex.position;
+
+            glm::vec3 halfSize = glm::vec3(voxel.normalDensity.w * 0.5f);
+            glm::vec3 min = pos - halfSize;
+            glm::vec3 max = pos + halfSize;
+
+            if (vPos.x >= min.x && vPos.x <= max.x &&
+                vPos.y >= min.y && vPos.y <= max.y &&
+                vPos.z >= min.z && vPos.z <= max.z)
+            {
+                //voxel.occuipiedInfo = glm::vec4(1.0f);
+            }
+
+        }
+    }
+    */
 }
 
 void VoxelizerPass::DebugCompute(uint32_t currentFrame)
