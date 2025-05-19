@@ -66,6 +66,7 @@ float VoxelizerPass::DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, 
 
 void VoxelizerPass::BakeSDFFromTriangles()
 {
+    /*
     //Get total number of voxels.
     auto voxelCount = voxels.size();
     std::cout << "Voxel Count: " << voxelCount << std::endl;
@@ -93,6 +94,7 @@ void VoxelizerPass::BakeSDFFromTriangles()
             currentPercentage += 0.01f;
         }
     }
+    */
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -264,6 +266,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
 
 void VoxelizerPass::IsOccupiedByVoxel()
 {
+    /*
     float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
     for (auto& voxel : voxels)
     {
@@ -287,6 +290,7 @@ void VoxelizerPass::IsOccupiedByVoxel()
 
         }
     }
+    */
 }
 
 void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
@@ -522,14 +526,15 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
                 float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
 
+                /*
                 voxel.positionDistance = glm::vec4(
                     (i + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
                     (j + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
                     (k + 0.5f) * voxelSize - SCENE_BOUNDS * 0.5f,
                     defaultDistanceMax
                 );
-
-                voxel.normalDensity = glm::vec4(0.0f, 0.0f, 0.0f, voxelSize);
+                */
+                voxel.normalDistance = glm::vec4(0.0f, 0.0f, 0.0f, voxelSize);
 
             }
         }
@@ -641,6 +646,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 void VoxelizerPass::DebugCompute(uint32_t currentFrame)
 {
+    /*
     QTDoughApplication* app = QTDoughApplication::instance;
     VkDeviceSize bufferSize = sizeof(Voxel) * VOXEL_COUNT;
 
@@ -684,4 +690,5 @@ void VoxelizerPass::DebugCompute(uint32_t currentFrame)
         std::cout << "Density: " << frameReadbackData[currentFrame][i].normalDensity.w << std::endl;
 
     }
+    */
 }

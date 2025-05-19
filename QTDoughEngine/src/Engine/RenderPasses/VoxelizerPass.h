@@ -25,8 +25,7 @@ public:
     //We're trying to keep the grid at 1 GB VRAM maximum. This gives us around 512 bytes, or 32 float4s.
     struct Voxel
     {
-        glm::vec4 positionDistance;
-        glm::vec4 normalDensity;
+        glm::vec4 normalDistance;
     };
     int VOXEL_COUNT = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTION = 256; //This is the resolution of the 3D texture. n^3

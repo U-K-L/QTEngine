@@ -62,7 +62,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
 
     uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
-    float3 center = voxelsIn[voxelIndex].positionDistance.xyz;
+    //float3 center = voxelsIn[voxelIndex].positionDistance.xyz; //Find implicit position center.
+    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float halfScene = SCENE_BOUNDS * 0.5f;
+
+    // Convert grid index to world-space center position
+    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
+
 
     float minDist = 100.0f;
     uint3 cachedIdx = 0;
@@ -81,7 +87,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     }
 
-    voxelsOut[voxelIndex].positionDistance.w = minDist;
+    //voxelsOut[voxelIndex].positionDistance.w = minDist;
     
     float a = vertexBuffer[cachedIdx.x].texCoord.w;
     float b = vertexBuffer[cachedIdx.y].texCoord.w;
@@ -99,12 +105,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3 normal = normalize(na * bary.x + nb * bary.y + nc * bary.z);
     
-    //interpolate between vertices.
+    //interpolate between vertices. Do this for another mip level.
+    /*
     float3 interpolant = 0.5f;
     float density = lerp(a, b, 0.5);
     density = lerp(density, c, 0.5);
-    
-    voxelsOut[voxelIndex].normalDensity = float4(normal, density);
+    */
+    voxelsOut[voxelIndex].normalDistance = float4(normal, minDist);
     
     //voxelsOut[voxelIndex].positionDistance = float4(1, 0, 0, 1);
 }

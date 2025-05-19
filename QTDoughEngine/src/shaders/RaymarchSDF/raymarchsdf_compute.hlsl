@@ -98,29 +98,29 @@ float4 TrilinearSampleSDF(float3 pos)
     float3 p111 = (float3(base + int3(1, 1, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
 
     float4 c000 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c100 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c010 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c110 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c001 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c101 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c011 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
     float4 c111 = float4(
-    voxelsIn[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].positionDistance.w,
-    voxelsIn[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.xyz);
+    voxelsIn[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
+    voxelsIn[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
 
 
     float4 c00 = lerp(c000, c100, fracVal.x);
@@ -151,7 +151,7 @@ float3 CentralDifferenceNormal(float3 p)
 float SampleSDF(float3 pos)
 {
     int index = HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION);
-    float sdf = voxelsIn[index].positionDistance.w;
+    float sdf = voxelsIn[index].normalDistance.w;
 
     return sdf;
 }
@@ -180,6 +180,7 @@ float4 SampleNormalSDF(float3 pos)
     
     return TrilinearSampleSDF(pos);
 }
+
 
 float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
 {
@@ -213,6 +214,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
         */
         float hitPoint = SampleSDF(pos);
         //Remove this when not debugging.
+        /*
         if (hitPoint < intersection)
         {
             float index = i;
@@ -224,7 +226,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
 
         }
 
-        
+        */
         
         intersection = min(intersection, hitPoint);
     }
@@ -300,7 +302,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     {
         //Find the smallest distance
         //float distance = IntersectionPoint(pos, rd, resultOutput);
-        minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDensity.w;
+        minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w;
         
         float4 currentSDF = SampleNormalSDF(pos);
         //currentSDF.yzw = CentralDifferenceNormal(pos);
@@ -334,6 +336,7 @@ bool RayIntersectsSphere(float3 ro, float3 rd, float3 center, float radius)
     return discriminant > 0.0f;
 }
 
+/*
 float DebugMarchVertices(float3 ro, float3 rd)
 {
     const float radius = 0.05f;
@@ -351,6 +354,7 @@ float DebugMarchVertices(float3 ro, float3 rd)
 
     return 0.0f;
 }
+*/
 
 
 [numthreads(8, 8, 1)]

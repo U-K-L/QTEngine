@@ -11,8 +11,7 @@
 
 struct Voxel
 {
-    float4 positionDistance;
-    float4 normalDensity;
+    float4 normalDistance;
 };
 
 struct ComputeVertex
