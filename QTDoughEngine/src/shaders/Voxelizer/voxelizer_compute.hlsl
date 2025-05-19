@@ -2,22 +2,6 @@
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 256
-#define SCENE_BOUNDS 10.0f
-
-struct Voxel
-{
-    float4 positionDistance;
-    float4 normalDensity;
-    float4 occuipiedInfo;
-};
-
-struct ComputeVertex
-{
-    float4 position;
-    float4 texCoord;
-    float4 normal;
-};
 
 cbuffer UniformBufferObject : register(b0, space1)
 {
@@ -82,7 +66,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float minDist = 100.0f;
     uint3 cachedIdx = 0;
-    for (uint i = 0; i < 1638*3; i += 3)
+    for (uint i = 0; i < 36; i += 3)
     {
         uint3 idx = uint3(i, i + 1, i + 2);
         float3 a = vertexBuffer[idx.x].position.xyz;

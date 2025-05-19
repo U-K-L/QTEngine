@@ -5,6 +5,23 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
+#define VOXEL_RESOLUTION 256
+#define SCENE_BOUNDS 10.0f
+
+
+struct Voxel
+{
+    float4 positionDistance;
+    float4 normalDensity;
+};
+
+struct ComputeVertex
+{
+    float4 position;
+    float4 texCoord;
+    float4 normal;
+};
+
 float mod289(float x)
 {
     return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0;

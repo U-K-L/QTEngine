@@ -4,23 +4,6 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 
 #include "../Helpers/ShaderHelpers.hlsl"
 
-#define VOXEL_RESOLUTION 256
-#define SCENE_BOUNDS 10.0f
-
-struct Voxel
-{
-    float4 positionDistance;
-    float4 normalDensity;
-    float4 occuipiedInfo;
-};
-
-struct ComputeVertex
-{
-    float4 position;
-    float4 texCoord;
-    float4 normal;
-};
-
 cbuffer UniformBufferObject : register(b0, space1)
 {
     float4x4 model; // Model matrix

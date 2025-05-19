@@ -9,6 +9,13 @@ class VoxelizerPass : public ComputePass
 {
 public:
 
+    struct UniformBufferObject {
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
+        alignas(16) glm::vec2 texelSize;
+    };
+
     static void SetInstance(VoxelizerPass* voxelizer)
     {
         instance = voxelizer;
@@ -20,7 +27,6 @@ public:
     {
         glm::vec4 positionDistance;
         glm::vec4 normalDensity;
-        glm::vec4 occuipiedInfo;
     };
     int VOXEL_COUNT = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTION = 256; //This is the resolution of the 3D texture. n^3

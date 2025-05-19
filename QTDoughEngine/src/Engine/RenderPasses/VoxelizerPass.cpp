@@ -140,6 +140,9 @@ void VoxelizerPass::CreateComputePipeline()
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
     std::cout << "Compute pipeline created" << std::endl;
 
+    std::cout << "Memory of voxels: " << sizeof(Voxel) * VOXEL_COUNT / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Size of voxel: " << sizeof(Voxel) << " bytes" << std::endl;
+
     readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
     readbackBufferMemories.resize(app->MAX_FRAMES_IN_FLIGHT);
 
@@ -156,7 +159,7 @@ void VoxelizerPass::CreateComputePipeline()
     for (auto& frame : frameReadbackData)
         frame.resize(VOXEL_COUNT);
 
-
+    std::cout << "Readback created: " << PassName << std::endl;
 }
 
 void VoxelizerPass::CreateComputeDescriptorSets()
@@ -264,7 +267,7 @@ void VoxelizerPass::IsOccupiedByVoxel()
     float voxelSize = SCENE_BOUNDS / (float)VOXEL_RESOLUTION;
     for (auto& voxel : voxels)
     {
-        voxel.occuipiedInfo = glm::vec4(0.0f);
+        //voxel.occuipiedInfo = glm::vec4(0.0f);
         for (auto& vertex : vertices)
         {
 
@@ -279,7 +282,7 @@ void VoxelizerPass::IsOccupiedByVoxel()
                 vPos.y >= min.y && vPos.y <= max.y &&
                 vPos.z >= min.z && vPos.z <= max.z)
             {
-                voxel.occuipiedInfo = glm::vec4(1.0f);
+                //voxel.occuipiedInfo = glm::vec4(1.0f);
             }
 
         }
@@ -353,7 +356,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
         }
     }
 
-    std::cout << "Vertices count " << vertices.size() << std::endl;
+    //std::cout << "Vertices count " << vertices.size() << std::endl;
 
 
     /*
