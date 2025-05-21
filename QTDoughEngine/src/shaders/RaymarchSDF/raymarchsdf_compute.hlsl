@@ -25,6 +25,11 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 
+float4 GetVoxelValue(float sampleLevel, int index)
+{
+    return voxelsL1In[index].normalDistance;
+}
+
 float SDFSphere(float3 position, float3 spherePos, float radius)
 {
     return length(position - spherePos) -  radius;
@@ -83,49 +88,68 @@ int HashPositionToVoxelIndex(float3 pos, float sceneBounds, int voxelResolution)
 
 float4 TrilinearSampleSDF(float3 pos)
 {
-    float3 gridPos = ((pos + SCENE_BOUNDS * 0.5f) / SCENE_BOUNDS) * VOXEL_RESOLUTION;
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    
+    float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
 
-    base = clamp(base, int3(0, 0, 0), int3(VOXEL_RESOLUTION - 2, VOXEL_RESOLUTION - 2, VOXEL_RESOLUTION - 2));
+    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
 
-    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
-    float halfScene = SCENE_BOUNDS * 0.5f;
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.y;
+    float halfScene = voxelSceneBounds.y * 0.5f;
 
     // Convert voxel grid coords back to world positions for sampling
-    float3 p000 = (float3(base + int3(0, 0, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p100 = (float3(base + int3(1, 0, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p010 = (float3(base + int3(0, 1, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p110 = (float3(base + int3(1, 1, 0)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p001 = (float3(base + int3(0, 0, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p101 = (float3(base + int3(1, 0, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p011 = (float3(base + int3(0, 1, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
-    float3 p111 = (float3(base + int3(1, 1, 1)) / VOXEL_RESOLUTION) * SCENE_BOUNDS - halfScene;
+    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p100 = (float3(base + int3(1, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p010 = (float3(base + int3(0, 1, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p110 = (float3(base + int3(1, 1, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p001 = (float3(base + int3(0, 0, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p101 = (float3(base + int3(1, 0, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p011 = (float3(base + int3(0, 1, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p111 = (float3(base + int3(1, 1, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
 
     float4 c000 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p000, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p000, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p000, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c100 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p100, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p100, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p100, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c010 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p010, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p010, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p010, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c110 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p110, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p110, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p110, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c001 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p001, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p001, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p001, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c101 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p101, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p101, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p101, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c011 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p011, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p011, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p011, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
     float4 c111 = float4(
-    voxelsL2In[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w,
-    voxelsL2In[HashPositionToVoxelIndex(p111, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.xyz);
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p111, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p111, voxelSceneBounds.y, voxelSceneBounds.x)).xyz
+    );
+
 
 
     float4 c00 = lerp(c000, c100, fracVal.x);
@@ -141,7 +165,9 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormal(float3 p)
 {
-    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float eps = voxelSize *0.5f;
 
     float dx = TrilinearSampleSDF(p + float3(eps, 0, 0)).x - TrilinearSampleSDF(p - float3(eps, 0, 0)).x;
@@ -155,7 +181,9 @@ float3 CentralDifferenceNormal(float3 p)
 
 float SampleSDF(float3 pos)
 {
-    int index = HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION);
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    int index = HashPositionToVoxelIndex(pos, voxelSceneBounds.y, voxelSceneBounds.x);
     float sdf = voxelsL2In[index].normalDistance.w;
 
     return sdf;
@@ -164,9 +192,11 @@ float SampleSDF(float3 pos)
 //Kills anything outside of bounds.
 float SafeSampleSDF(float3 pos)
 {
-    float halfScene = SCENE_BOUNDS * 0.5f;
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    float halfScene = voxelSceneBounds.y * 0.5f;
     
-    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
         return voxelSize*10.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
@@ -176,9 +206,11 @@ float SafeSampleSDF(float3 pos)
 
 float4 SampleNormalSDF(float3 pos)
 {
-    float halfScene = SCENE_BOUNDS * 0.5f;
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    float halfScene = voxelSceneBounds.y * 0.5f;
     
-    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
         return voxelSize * 10.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
@@ -296,7 +328,10 @@ float minFunction(float a, float b)
 
 float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 {
-    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float maxDistance = 100.0f;
     float minDistance = voxelSize*0.5f;
     float3 pos = ro;
@@ -307,7 +342,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     {
         //Find the smallest distance
         //float distance = IntersectionPoint(pos, rd, resultOutput);
-        //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDS, VOXEL_RESOLUTION)].normalDistance.w;
+        //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
         
         float4 currentSDF = SampleNormalSDF(pos);
         //currentSDF.yzw = CentralDifferenceNormal(pos);

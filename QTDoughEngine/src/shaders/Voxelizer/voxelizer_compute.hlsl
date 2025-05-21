@@ -62,12 +62,14 @@ float smin(float a, float b, float k)
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    uint3 gridSize = uint3(VOXEL_RESOLUTION, VOXEL_RESOLUTION, VOXEL_RESOLUTION);
+    float sampleLevel = GetSampleLevel(0, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     if (any(DTid >= gridSize))
         return;
 
-    float voxelSize = SCENE_BOUNDS / VOXEL_RESOLUTION;
-    float halfScene = SCENE_BOUNDS * 0.5f;
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.y;
+    float halfScene = voxelSceneBounds.y * 0.5f;
 
     // Convert grid index to world-space center position
     float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;

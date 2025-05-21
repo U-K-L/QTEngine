@@ -31,7 +31,7 @@ public:
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTIONL1 = 256; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL2 = 128;
-    int VOXEL_RESOLUTIONL3 = 32;
+    int VOXEL_RESOLUTIONL3 = 64;
     float SCENE_BOUNDSL1 = 8; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
     float SCENE_BOUNDSL2 = 16;
     float SCENE_BOUNDSL3 = 32;

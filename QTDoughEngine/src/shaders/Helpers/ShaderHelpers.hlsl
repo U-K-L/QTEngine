@@ -5,8 +5,14 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
-#define VOXEL_RESOLUTION 256
-#define SCENE_BOUNDS 8.0f
+#define VOXEL_RESOLUTIONL1 256.0f
+#define SCENE_BOUNDSL1 8.0f
+
+#define VOXEL_RESOLUTIONL2 128.0f
+#define SCENE_BOUNDSL2 16.0f
+
+#define VOXEL_RESOLUTIONL3 64.0f
+#define SCENE_BOUNDSL3 32.0f
 
 
 struct Voxel
@@ -20,6 +26,17 @@ struct ComputeVertex
     float4 texCoord;
     float4 normal;
 };
+
+float GetSampleLevel(float3 pos, float3 camPos)
+{
+    return 1.0f;
+}
+
+float2 GetVoxelResolution(float sampleLevel)
+{
+    float2 resBound = float2(VOXEL_RESOLUTIONL1, SCENE_BOUNDSL1);
+    return resBound;
+}
 
 float mod289(float x)
 {
