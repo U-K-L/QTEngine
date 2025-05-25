@@ -11,10 +11,14 @@ cbuffer UniformBufferObject : register(b0, space1)
     float2 texelSize;
 }
 
-cbuffer PushConstants : register(b1)
+struct PushConsts
 {
     float lod;
 };
+
+[[vk::push_constant]]
+PushConsts pc;
+
 
 StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL1Out : register(u3, space1); // write
@@ -68,7 +72,7 @@ float3 BarycentricNormals(float3 center, uint3 index)
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    float sampleLevelL = lod;
+    float sampleLevelL = pc.lod;
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevelL);
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     

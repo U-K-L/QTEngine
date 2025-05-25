@@ -623,7 +623,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, nullptr,
         1, &barrier);
 
-    DispatchLOD(commandBuffer, currentFrame, 1); // LOD1
+    DispatchLOD(commandBuffer, currentFrame, 1);
+    DispatchLOD(commandBuffer, currentFrame, 2);
+    DispatchLOD(commandBuffer, currentFrame, 3);
+
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -647,6 +650,16 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     QTDoughApplication* app = QTDoughApplication::instance;
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+
+    float lod = static_cast<float>(lodLevel);
+    vkCmdPushConstants(
+        commandBuffer,
+        computePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(float),
+        &lod
+    );
 
     VkDescriptorSet sets[] = {
         app->globalDescriptorSets[currentFrame],
@@ -677,16 +690,8 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &label);
     */
 
-    /*
-    vkCmdPushConstants(
-        commandBuffer,
-        computePipelineLayout,
-        VK_SHADER_STAGE_COMPUTE_BIT,
-        0,
-        sizeof(uint32_t),
-        &lodLevel
-    );
-    */
+
+    
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer);
