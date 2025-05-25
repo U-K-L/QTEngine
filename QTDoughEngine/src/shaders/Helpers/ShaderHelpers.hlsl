@@ -27,15 +27,74 @@ struct ComputeVertex
     float4 normal;
 };
 
-float GetSampleLevel(float3 pos, float3 camPos)
-{
-    return 1.0f;
-}
 
 float2 GetVoxelResolution(float sampleLevel)
 {
-    float2 resBound = float2(VOXEL_RESOLUTIONL1, SCENE_BOUNDSL1);
-    return resBound;
+    float2 v1 = float2(VOXEL_RESOLUTIONL1, SCENE_BOUNDSL1);
+    float2 v2 = float2(VOXEL_RESOLUTIONL2, SCENE_BOUNDSL2);
+    float2 v3 = float2(VOXEL_RESOLUTIONL3, SCENE_BOUNDSL3);
+
+    float s1 = step(sampleLevel, 1.01f);
+    float s2 = step(sampleLevel, 2.01f) - s1;
+    float s3 = 1.0f - s1 - s2;
+
+    return v1 * s1 + v2 * s2 + v3 * s3;
+}
+
+
+float GetSampleLevel(float3 pos, float3 camPos)
+{
+
+    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
+    float halfScene = voxelSceneBounds.y * 0.5f;
+
+    if (all(pos >= -halfScene) && all(pos <= halfScene))
+        return 1.0f;
+    
+    voxelSceneBounds = GetVoxelResolution(2.0f);
+    halfScene = voxelSceneBounds.y * 0.5f;
+    
+    if (all(pos >= -halfScene) && all(pos <= halfScene))
+        return 2.0f;
+    
+    voxelSceneBounds = GetVoxelResolution(3.0f);
+    halfScene = voxelSceneBounds.y * 0.5f;
+    
+    if (all(pos >= -halfScene) && all(pos <= halfScene))
+        return 3.0f;
+    
+    return 1.0f;
+    
+    /*
+    float d = length(pos);
+    float level1 = step(d, SCENE_BOUNDSL1 * 0.5f);
+    float level2 = step(d, SCENE_BOUNDSL2 * 0.5f);
+    return 3.0f - level2 - level1;
+    */
+}
+
+
+float DistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
+{
+    float3 ba = b - a, pa = p - a;
+    float3 cb = c - b, pb = p - b;
+    float3 ac = a - c, pc = p - c;
+    float3 nor = cross(ba, ac);
+
+    float signTri =
+        sign(dot(cross(ba, nor), pa)) +
+        sign(dot(cross(cb, nor), pb)) +
+        sign(dot(cross(ac, nor), pc));
+
+    float d = min(min(
+        length(ba * clamp(dot(ba, pa) / dot(ba, ba), 0.0, 1.0) - pa),
+        length(cb * clamp(dot(cb, pb) / dot(cb, cb), 0.0, 1.0) - pb)),
+        length(ac * clamp(dot(ac, pc) / dot(ac, ac), 0.0, 1.0) - pc));
+
+    float distToPlane = abs(dot(nor, pa)) / length(nor);
+    float distResult = (signTri >= 2.0) ? distToPlane : d;
+    
+    return distResult - 0.025f;
 }
 
 float mod289(float x)
