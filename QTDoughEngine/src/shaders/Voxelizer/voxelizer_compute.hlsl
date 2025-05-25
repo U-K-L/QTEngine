@@ -11,6 +11,11 @@ cbuffer UniformBufferObject : register(b0, space1)
     float2 texelSize;
 }
 
+cbuffer PushConstants : register(b1)
+{
+    float lod;
+};
+
 StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL1Out : register(u3, space1); // write
 
@@ -63,9 +68,11 @@ float3 BarycentricNormals(float3 center, uint3 index)
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
+    float sampleLevelL = lod;
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevelL);
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     
+    /*
     float2 voxelSceneBoundsL2 = GetVoxelResolution(2.0f);
     uint3 gridSizeL2 = uint3(voxelSceneBoundsL2.x, voxelSceneBoundsL2.x, voxelSceneBoundsL2.x);
     
@@ -78,14 +85,32 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     if (any(DTid >= gridSize))
         return;
-
+    */
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
 
     // Convert grid index to world-space center position
     float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
 
+    float minDist = 100.0f;
+    uint3 cachedIdx = 0;
+    for (uint i = 0; i < 2580; i += 3)
+    {
+        uint3 idx = uint3(i, i + 1, i + 2);
+        float3 a = vertexBuffer[idx.x].position.xyz;
+        float3 b = vertexBuffer[idx.y].position.xyz;
+        float3 c = vertexBuffer[idx.z].position.xyz;
+
+        float d = DistanceToTriangle(center, a, b, c);
+        
+        if (d < minDist)
+            cachedIdx = idx;
+        
+        minDist = min(minDist, d);
+
+    }
     
+/*    
     float voxelSizeL2 = voxelSceneBoundsL2.y / voxelSceneBoundsL2.x;
     float halfSceneL2 = voxelSceneBoundsL2.y * 0.5f;
 
@@ -112,8 +137,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
         float3 c = vertexBuffer[idx.z].position.xyz;
 
         float d = DistanceToTriangle(center, a, b, c);
-        float dL2 = DistanceToTriangle(centerL2, a, b, c);
-        float dL3 = DistanceToTriangle(centerL3, a, b, c);
+        float dL2 = 1; //DistanceToTriangle(centerL2, a, b, c);
+        float dL3 = 1; //DistanceToTriangle(centerL3, a, b, c);
         
         if (d < minDist)
             cachedIdx = idx;
@@ -127,13 +152,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
         minDistL3 = min(minDistL3, dL3);
 
     }
-
+    */
     //voxelsOut[voxelIndex].positionDistance.w = minDist;
 
     
     float3 normal = BarycentricNormals(center, cachedIdx);
+    /*
     float3 normalL2 = BarycentricNormals(centerL2, cachedIdxL2);
     float3 normalL3 = BarycentricNormals(centerL3, cachedIdxL3);
+    */
 
     
     //interpolate between vertices. Do this for another mip level.
@@ -143,12 +170,17 @@ void main(uint3 DTid : SV_DispatchThreadID)
     density = lerp(density, c, 0.5);
     */
 
-    uint voxelIndexL1 = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+    /*
     uint voxelIndexL2 = DTidL2.x * gridSizeL2.y * gridSizeL2.z + DTidL2.y * gridSizeL2.z + DTidL2.z;
     uint voxelIndexL3 = DTidL3.x * gridSizeL3.y * gridSizeL3.z + DTidL3.y * gridSizeL3.z + DTidL3.z;
+*/
     
-    voxelsL1Out[voxelIndexL1].normalDistance = float4(normal, minDist);
-    voxelsL2Out[voxelIndexL2].normalDistance = float4(normalL2, minDistL2);
-    voxelsL3Out[voxelIndexL3].normalDistance = float4(normalL3, minDistL3);
+    if (sampleLevelL == 1.0f)
+        voxelsL1Out[voxelIndex].normalDistance = float4(normal, minDist);
+    if (sampleLevelL == 2.0f)
+        voxelsL2Out[voxelIndex].normalDistance = float4(normal, minDist);
+    if (sampleLevelL == 3.0f)
+        voxelsL3Out[voxelIndex].normalDistance = float4(normal, minDist);
 
 }

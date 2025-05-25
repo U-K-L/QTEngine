@@ -113,6 +113,11 @@ void VoxelizerPass::CreateComputePipeline()
     computeShaderStageInfo.module = computeShaderModule;
     computeShaderStageInfo.pName = "main";
 
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(float);
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
@@ -126,7 +131,8 @@ void VoxelizerPass::CreateComputePipeline()
     VkPipelineLayoutCreateInfo pli{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
     pli.setLayoutCount = static_cast<uint32_t>(layouts.size());
     pli.pSetLayouts = layouts.data();
-
+    pli.pushConstantRangeCount = 1;
+    pli.pPushConstantRanges = &pushConstantRange;
 
     if (vkCreatePipelineLayout(app->_logicalDevice, &pli, nullptr, &computePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline layout!");
@@ -617,23 +623,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, nullptr,
         1, &barrier);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-
-    VkDescriptorSet sets[] = {
-        app->globalDescriptorSets[currentFrame],
-        computeDescriptorSets[currentFrame]
-    };
-
-    vkCmdBindDescriptorSets(commandBuffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        computePipelineLayout,
-        0, 2, sets,
-        0, nullptr);
-
-    uint32_t groupCountX = (VOXEL_RESOLUTIONL1 + 7) / 8;
-    uint32_t groupCountY = (VOXEL_RESOLUTIONL1 + 7) / 8;
-    uint32_t groupCountZ = (VOXEL_RESOLUTIONL1 + 7) / 8;
-    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+    DispatchLOD(commandBuffer, currentFrame, 1); // LOD1
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -651,6 +641,57 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
+
+void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        computePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    // Each LOD uses a different resolution
+    uint32_t res = (lodLevel == 1) ? VOXEL_RESOLUTIONL1 :
+        (lodLevel == 2) ? VOXEL_RESOLUTIONL2 :
+        VOXEL_RESOLUTIONL3;
+
+    uint32_t groupCountX = (res + 7) / 8;
+    uint32_t groupCountY = (res + 7) / 8;
+    uint32_t groupCountZ = (res + 7) / 8;
+
+    /*
+    // Add debug label for Nsight
+    VkDebugUtilsLabelEXT label{};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = (lodLevel == 1) ? "LOD1 Dispatch" :
+        (lodLevel == 2) ? "LOD2 Dispatch" : "LOD3 Dispatch";
+    vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &label);
+    */
+
+    /*
+    vkCmdPushConstants(
+        commandBuffer,
+        computePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(uint32_t),
+        &lodLevel
+    );
+    */
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+
+    //vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+}
+
 
 void VoxelizerPass::IsOccupiedByVoxel()
 {
