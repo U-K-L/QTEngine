@@ -74,8 +74,39 @@ float GetSampleLevel(float3 pos, float3 camPos)
 }
 
 
+float dot2(in float3 v)
+{
+    return dot(v, v);
+}
+
+float udTriangle(in float3 v1, in float3 v2, in float3 v3, in float3 p)
+{
+    float3 v21 = v2 - v1;
+    float3 p1 = p - v1;
+    float3 v32 = v3 - v2;
+    float3 p2 = p - v2;
+    float3 v13 = v1 - v3;
+    float3 p3 = p - v3;
+    float3 nor = cross(v21, v13);
+
+    return sqrt( // inside/outside test    
+                 (sign(dot(cross(v21, nor), p1)) +
+                  sign(dot(cross(v32, nor), p2)) +
+                  sign(dot(cross(v13, nor), p3)) < 2.0)
+                  ?
+                  // 3 edges    
+                  min(min(
+                  dot2(v21 * clamp(dot(v21, p1) / dot2(v21), 0.0, 1.0) - p1),
+                  dot2(v32 * clamp(dot(v32, p2) / dot2(v32), 0.0, 1.0) - p2)),
+                  dot2(v13 * clamp(dot(v13, p3) / dot2(v13), 0.0, 1.0) - p3))
+                  :
+                  // 1 face    
+                  dot(nor, p1) * dot(nor, p1) / dot2(nor));
+}
+
 float DistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {
+    /*
     float3 ba = b - a, pa = p - a;
     float3 cb = c - b, pb = p - b;
     float3 ac = a - c, pc = p - c;
@@ -95,6 +126,8 @@ float DistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
     float distResult = (signTri >= 2.0) ? distToPlane : d;
     
     return distResult - 0.025f;
+*/
+    return udTriangle(a, b, c, p);
 }
 
 float mod289(float x)
