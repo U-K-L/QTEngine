@@ -90,39 +90,44 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
     uint triangleIndex = DTid.x;
     if (triangleIndex >= triangleCount)
         return;
-
-    uint baseIndex = triangleIndex * 3;
-
-    float3 a = vertexBuffer[baseIndex + 0].position.xyz;
-    float3 b = vertexBuffer[baseIndex + 1].position.xyz;
-    float3 c = vertexBuffer[baseIndex + 2].position.xyz;
+    //for (uint triangleIndex = 0; triangleIndex < triangleCount; triangleIndex++)
+    //{
     
-    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
-    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
-    
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
-    
-    float3 triMin = min(a, min(b, c));
-    float3 triMax = max(a, max(b, c));
+        uint baseIndex = 0 * 3;
 
-    int3 vMin = WorldToVoxel(triMin, -halfScene, voxelSize, voxelSceneBounds.x);
-    int3 vMax = WorldToVoxel(triMax, -halfScene, voxelSize, voxelSceneBounds.x);
+        float3 a = vertexBuffer[baseIndex + 0].position.xyz;
+        float3 b = vertexBuffer[baseIndex + 1].position.xyz;
+        float3 c = vertexBuffer[baseIndex + 2].position.xyz;
     
-    for (int z = vMin.z; z <= vMax.z; ++z)
-        for (int y = vMin.y; y <= vMax.y; ++y)
-            for (int x = vMin.x; x <= vMax.x; ++x)
-            {
-                int3 v = int3(x, y, z);
-                uint index = Flatten3D(v, voxelSceneBounds.x);
-                float3 center = ((float3) v + 0.5f) * voxelSize - halfScene;
+        float2 voxelSceneBounds = GetVoxelResolution(1.0f);
+        uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+    
+        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+        float3 halfScene = voxelSceneBounds.y * 0.5f;
+    
+    //Max and min bounding point, the two corners in world space.
+        float3 triMin = min(a, min(b, c));
+        float3 triMax = max(a, max(b, c));
 
-                float d = DistanceToTriangle(center, a, b, c);
-                voxelsL1Out[index].distance = asuint(0.0f);
+    //Convert the two corners into max and min indices to iterate over.
+        int3 vMin = WorldToVoxel(triMin, -halfScene, voxelSize, voxelSceneBounds.x);
+        int3 vMax = WorldToVoxel(triMax, -halfScene, voxelSize, voxelSceneBounds.x);
+    
+        for (int z = vMin.z; z <= vMax.z; ++z)
+            for (int y = vMin.y; y <= vMax.y; ++y)
+                for (int x = vMin.x; x <= vMax.x; ++x)
+                {
+                    int3 v = int3(x, y, z);
+                    uint index = Flatten3D(v, voxelSceneBounds.x);
+                    float3 center = ((float3) v + 0.5f) * voxelSize - halfScene;
+
+                    float d = DistanceToTriangle(center, a, b, c);
+                    voxelsL1Out[index].distance = asuint(0.0f);
                 //InterlockedMin(voxelsL1Out[index].distance, asuint(0.0f));
                 //voxelsL1Out[index].normalDistance = float4(0, 0, 0, 0);
 
-            }
+                }
+    //}
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -161,14 +166,14 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //Per triangle:
     if (sampleLevelL == 1.0f)
     {
-        ComputePerTriangle(DTid);
-        return;
+        //ComputePerTriangle(DTid);
+        //return;
     }
     
     if(sampleLevelL == 0.0f)
     {
-        ClearVoxelData(DTid);
-        return;
+        //ClearVoxelData(DTid);
+        //return;
     }
     float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
     uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
@@ -202,10 +207,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (sampleLevelL < 3.0f)
         if (voxelsL3Out[voxelIndexL3].normalDistance.w > 25.0f)
         {
-            return;
+            //return;
         }
     
-    for (uint i = 0; i < triangleCount; i += 1)
+    for (uint i = 0; i < 36/3; i += 1)
     {
         uint3 idx = uint3(i*3, i*3 + 1, i*3 + 2);
         float3 a = vertexBuffer[idx.x].position.xyz;
