@@ -17,6 +17,10 @@
 
 struct Voxel
 {
+    uint distance;
+    uint pad;
+    uint pad2;
+    uint pad3;
     float4 normalDistance;
 };
 
@@ -103,6 +107,55 @@ float udTriangle(in float3 v1, in float3 v2, in float3 v3, in float3 p)
                   // 1 face    
                   dot(nor, p1) * dot(nor, p1) / dot2(nor));
 }
+
+float udTrianglePlaneOnly(float3 v1, float3 v2, float3 v3, float3 p)
+{
+    float3 n = normalize(cross(v2 - v1, v3 - v1));
+    return abs(dot(n, p - v1)); // unsigned distance to triangle's plane
+}
+
+int HashPositionToVoxelIndex(float3 pos, float sceneBounds, int voxelResolution)
+{
+    float halfScene = sceneBounds * 0.5f;
+    float3 gridPos = (pos + halfScene) / sceneBounds;
+    int3 voxelCoord = int3(floor(gridPos * voxelResolution));
+
+    //Clamp to avoid invalid access
+    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(voxelResolution - 1, voxelResolution - 1, voxelResolution - 1));
+
+    return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
+}
+
+int Flatten3D(int3 voxelCoord, int voxelResolution)
+{
+    return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
+}
+
+float3 VoxelCenter(int3 v, float3 gridOrigin, float voxelSize)
+{
+    return gridOrigin + (float3(v) + 0.5f) * voxelSize;
+}
+
+int3 WorldToVoxel(float3 p, float3 gridOrigin, float voxelSize, float voxelResolution)
+{
+    // offset into the grid, then convert to voxel index
+    float3 fp = (p - gridOrigin) / voxelSize;
+    int3 ip = (int3) floor(fp);
+
+    // clamp so we never read/write out of bounds
+    ip = clamp(ip, 0, voxelResolution - 1);
+    return ip;
+}
+
+bool TriangleAABBOverlap(float3 a, float3 b, float3 c, float3 voxelMin, float3 voxelMax)
+{
+    float3 triMin = min(a, min(b, c));
+    float3 triMax = max(a, max(b, c));
+    return !(triMin.x > voxelMax.x || triMax.x < voxelMin.x ||
+             triMin.y > voxelMax.y || triMax.y < voxelMin.y ||
+             triMin.z > voxelMax.z || triMax.z < voxelMin.z);
+}
+
 
 float DistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {

@@ -26,8 +26,17 @@ public:
     
     //This voxel is for L1, in the future we also want a Voxel struct with more information but higher MIP.
     struct Voxel {
+        uint32_t distance;
+        uint32_t pad;
+        uint32_t pad2;
+        uint32_t pad3;
         glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
     };
+    struct PushConsts {
+        float lod;
+        uint32_t triangleCount;
+    };
+
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTIONL1 = 256; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL2 = 128;

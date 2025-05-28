@@ -623,9 +623,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, nullptr,
         1, &barrier);
 
-    DispatchLOD(commandBuffer, currentFrame, 1);
+    DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+    DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
     DispatchLOD(commandBuffer, currentFrame, 2);
-    DispatchLOD(commandBuffer, currentFrame, 3);
+    DispatchLOD(commandBuffer, currentFrame, 1); //Per triangle.
+
+
 
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
@@ -651,14 +654,17 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
-    float lod = static_cast<float>(lodLevel);
+    PushConsts pc{};
+    pc.lod = static_cast<float>(lodLevel);
+    pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
+
     vkCmdPushConstants(
         commandBuffer,
         computePipelineLayout,
         VK_SHADER_STAGE_COMPUTE_BIT,
         0,
-        sizeof(float),
-        &lod
+        sizeof(PushConsts),
+        &pc
     );
 
     VkDescriptorSet sets[] = {
@@ -680,6 +686,23 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     uint32_t groupCountX = (res + 7) / 8;
     uint32_t groupCountY = (res + 7) / 8;
     uint32_t groupCountZ = (res + 7) / 8;
+
+
+    if (lodLevel == 1)
+    {
+        groupCountX = (pc.triangleCount + 7) / 8;
+        groupCountY = 1;
+        groupCountZ = 1;
+    }
+
+    if (lodLevel == 0)
+    {
+        res = VOXEL_RESOLUTIONL1;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
 
     /*
     // Add debug label for Nsight

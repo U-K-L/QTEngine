@@ -27,9 +27,9 @@ StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 float4 GetVoxelValue(float sampleLevel, int index)
 {
-    float4 v1 = voxelsL1In[index].normalDistance;
-    float4 v2 = voxelsL2In[index].normalDistance;
-    float4 v3 = voxelsL3In[index].normalDistance;
+    float4 v1 = float4(voxelsL1In[index].normalDistance.xyz, asfloat(voxelsL1In[index].distance));
+    float4 v2 = float4(voxelsL2In[index].normalDistance.xyz, asfloat(voxelsL2In[index].distance));
+    float4 v3 = float4(voxelsL3In[index].normalDistance.xyz, asfloat(voxelsL3In[index].distance));
 
     float s1 = step(sampleLevel, 1.01f);
     float s2 = step(sampleLevel, 2.01f) - s1;
@@ -78,17 +78,7 @@ float SDFTriangle(float3 p, float3 a, float3 b, float3 c)
     }
 }
 
-int HashPositionToVoxelIndex(float3 pos, float sceneBounds, int voxelResolution)
-{
-    float halfScene = sceneBounds * 0.5f;
-    float3 gridPos = (pos + halfScene) / sceneBounds;
-    int3 voxelCoord = int3(floor(gridPos * voxelResolution));
 
-    //Clamp to avoid invalid access
-    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(voxelResolution - 1, voxelResolution - 1, voxelResolution - 1));
-
-    return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
-}
 
 
 float4 TrilinearSampleSDF(float3 pos)
@@ -184,14 +174,13 @@ float3 CentralDifferenceNormal(float3 p)
 }
 
 
-float SampleSDF(float3 pos)
+float4 SampleSDF(float3 pos)
 {
     float sampleLevel = GetSampleLevel(pos, 0);
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
-    int index = HashPositionToVoxelIndex(pos, voxelSceneBounds.y, voxelSceneBounds.x);
-    float sdf = voxelsL2In[index].normalDistance.w;
+    
+    return GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(pos, voxelSceneBounds.y, voxelSceneBounds.x));
 
-    return sdf;
 }
 
 //Kills anything outside of bounds.
@@ -254,7 +243,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
             continue;
         float hitPoint = SDFRoundBox(pos, voxelsIn[i].positionDistance.xyz, voxelsIn[i].normalDensity.w*0.5f, 0.05f);
         */
-        float hitPoint = SampleSDF(pos);
+        float hitPoint = SampleSDF(pos).x;
         //Remove this when not debugging.
         /*
         if (hitPoint < intersection)
@@ -375,8 +364,9 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         bool inL2 = sampleLevel == 2.0f;
         bool inL3 = sampleLevel == 3.0f;
 
-        float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.25f);
-        closesSDF = lerp(currentSDF, mixedSDF, sameLevel);
+        //float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.0025f);
+        closesSDF = currentSDF; //lerp(currentSDF, mixedSDF, sameLevel);
+        
         /*
         if(sameLevel == true)
             closesSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.25f);
@@ -392,7 +382,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         if (canTerminate)
         {
             float len = length(closesSDF.yzw);
-            closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            closesSDF.yzw = float3(1, 0, 0); //(len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
             return closesSDF;
         }
 
