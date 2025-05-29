@@ -90,44 +90,41 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
     uint triangleIndex = DTid.x;
     if (triangleIndex >= triangleCount)
         return;
-    //for (uint triangleIndex = 0; triangleIndex < triangleCount; triangleIndex++)
-    //{
     
-        uint baseIndex = 0 * 3;
+    uint baseIndex = triangleIndex * 3;
 
-        float3 a = vertexBuffer[baseIndex + 0].position.xyz;
-        float3 b = vertexBuffer[baseIndex + 1].position.xyz;
-        float3 c = vertexBuffer[baseIndex + 2].position.xyz;
+    float3 a = vertexBuffer[baseIndex + 0].position.xyz;
+    float3 b = vertexBuffer[baseIndex + 1].position.xyz;
+    float3 c = vertexBuffer[baseIndex + 2].position.xyz;
     
-        float2 voxelSceneBounds = GetVoxelResolution(1.0f);
-        uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
     
-        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-        float3 halfScene = voxelSceneBounds.y * 0.5f;
+    float voxelSize = 0.03125f;
+    float3 gridOrigin = float3(-4, -4, -4);
     
     //Max and min bounding point, the two corners in world space.
-        float3 triMin = min(a, min(b, c));
-        float3 triMax = max(a, max(b, c));
+    float3 triMin = min(a, min(b, c));
+    float3 triMax = max(a, max(b, c));
 
+    float3 p0 = float3(-1, -1, -1);
+    float3 p1 = float3(1, 1, 1);
     //Convert the two corners into max and min indices to iterate over.
-        int3 vMin = WorldToVoxel(triMin, -halfScene, voxelSize, voxelSceneBounds.x);
-        int3 vMax = WorldToVoxel(triMax, -halfScene, voxelSize, voxelSceneBounds.x);
+    int3 vMin = HashPositionToVoxelIndex3(triMin, voxelSceneBounds.y, voxelSceneBounds.x); 
+
+    int3 vMax = HashPositionToVoxelIndex3(triMax, voxelSceneBounds.y, voxelSceneBounds.x);
     
-        for (int z = vMin.z; z <= vMax.z; ++z)
-            for (int y = vMin.y; y <= vMax.y; ++y)
-                for (int x = vMin.x; x <= vMax.x; ++x)
-                {
-                    int3 v = int3(x, y, z);
-                    uint index = Flatten3D(v, voxelSceneBounds.x);
-                    float3 center = ((float3) v + 0.5f) * voxelSize - halfScene;
+    for (int z = vMin.z; z <= vMax.z; ++z)
+        for (int y = vMin.y; y <= vMax.y; ++y)
+            for (int x = vMin.x; x <= vMax.x; ++x)
+            {
+                int3 v = int3(x, y, z);
+                uint index = Flatten3D(v, voxelSceneBounds.x);
+                float3 center = ((float3) v + 0.5f) * voxelSize - gridOrigin;
 
-                    float d = DistanceToTriangle(center, a, b, c);
-                    voxelsL1Out[index].distance = asuint(0.0f);
-                //InterlockedMin(voxelsL1Out[index].distance, asuint(0.0f));
-                //voxelsL1Out[index].normalDistance = float4(0, 0, 0, 0);
-
-                }
-    //}
+                float d = DistanceToTriangle(center, a, b, c);
+                InterlockedMin(voxelsL1Out[index].distance, d);
+                voxelsL1Out[index].normalDistance = float4(1, 0, 0, 0);
+            }
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -136,23 +133,31 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
     
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    
     float2 voxelSceneBoundsL2 = GetVoxelResolution(2.0f);
     uint3 gridSizeL2 = uint3(voxelSceneBoundsL2.x, voxelSceneBoundsL2.x, voxelSceneBoundsL2.x);
     uint voxelIndexL2 = DTid.x * gridSizeL2.y * gridSizeL2.z + DTid.y * gridSizeL2.z + DTid.z;
+    
+    float voxelsizeL2 = voxelSceneBoundsL2.y / voxelSceneBoundsL2.x;
 
     float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
     uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
     uint voxelIndexL3 = DTid.x * gridSizeL3.y * gridSizeL3.z + DTid.y * gridSizeL3.z + DTid.z;
     
+    float voxelsizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
     
     const float BIG = 1e30f;
-    voxelsL1Out[voxelIndex].distance = asuint(BIG);
+    voxelsL1Out[voxelIndex].distance = asuint(voxelSize);
     voxelsL1Out[voxelIndex].normalDistance = 0;
     
-    voxelsL2Out[voxelIndexL2].distance = asuint(BIG);
+    //if (voxelIndex > 6310128 && voxelIndex < 10568197)
+        //voxelsL1Out[voxelIndex].distance = asuint(0.0f);
+    
+    voxelsL2Out[voxelIndexL2].distance = asuint(voxelsizeL2);
     voxelsL2Out[voxelIndexL2].normalDistance = 0;
     
-    voxelsL3Out[voxelIndexL3].distance = asuint(BIG);
+    voxelsL3Out[voxelIndexL3].distance = asuint(voxelsizeL3);
     voxelsL3Out[voxelIndexL3].normalDistance = 0;
 }
 
@@ -161,19 +166,20 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     
+    
     float sampleLevelL = pc.lod;
     uint triangleCount = pc.triangleCount;
     //Per triangle:
     if (sampleLevelL == 1.0f)
     {
-        //ComputePerTriangle(DTid);
-        //return;
+        ComputePerTriangle(DTid);
+        return;
     }
     
     if(sampleLevelL == 0.0f)
     {
-        //ClearVoxelData(DTid);
-        //return;
+        ClearVoxelData(DTid);
+        return;
     }
     float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
     uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
@@ -210,7 +216,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
             //return;
         }
     
-    for (uint i = 0; i < 36/3; i += 1)
+    for (uint i = 0; i < triangleCount; i += 1)
     {
         uint3 idx = uint3(i*3, i*3 + 1, i*3 + 2);
         float3 a = vertexBuffer[idx.x].position.xyz;

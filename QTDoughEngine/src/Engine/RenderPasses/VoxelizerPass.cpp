@@ -687,14 +687,13 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     uint32_t groupCountY = (res + 7) / 8;
     uint32_t groupCountZ = (res + 7) / 8;
 
-    /*
     if (lodLevel == 1)
     {
         groupCountX = (pc.triangleCount + 7) / 8;
         groupCountY = 1;
         groupCountZ = 1;
     }
-    */
+
     if (lodLevel == 0)
     {
         res = VOXEL_RESOLUTIONL1;
@@ -702,7 +701,6 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
     }
-
 
     /*
     // Add debug label for Nsight

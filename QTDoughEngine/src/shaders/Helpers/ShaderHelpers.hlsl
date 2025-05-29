@@ -67,7 +67,7 @@ float GetSampleLevel(float3 pos, float3 camPos)
     if (all(pos >= -halfScene) && all(pos <= halfScene))
         return 3.0f;
     
-    return 1.0f;
+    return 3.0f;
     
     /*
     float d = length(pos);
@@ -126,6 +126,18 @@ int HashPositionToVoxelIndex(float3 pos, float sceneBounds, int voxelResolution)
     return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
 }
 
+int3 HashPositionToVoxelIndex3(float3 pos, float sceneBounds, int voxelResolution)
+{
+    float halfScene = sceneBounds * 0.5f;
+    float3 gridPos = (pos + halfScene) / sceneBounds;
+    int3 voxelCoord = int3(floor(gridPos * voxelResolution));
+
+    //Clamp to avoid invalid access
+    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(voxelResolution - 1, voxelResolution - 1, voxelResolution - 1));
+
+    return voxelCoord;
+}
+
 int Flatten3D(int3 voxelCoord, int voxelResolution)
 {
     return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
@@ -136,7 +148,7 @@ float3 VoxelCenter(int3 v, float3 gridOrigin, float voxelSize)
     return gridOrigin + (float3(v) + 0.5f) * voxelSize;
 }
 
-int3 WorldToVoxel(float3 p, float3 gridOrigin, float voxelSize, float voxelResolution)
+int3 WorldToVoxel(float3 p, float3 gridOrigin, float voxelSize, int voxelResolution)
 {
     // offset into the grid, then convert to voxel index
     float3 fp = (p - gridOrigin) / voxelSize;

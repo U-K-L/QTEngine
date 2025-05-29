@@ -178,8 +178,17 @@ float4 SampleSDF(float3 pos)
 {
     float sampleLevel = GetSampleLevel(pos, 0);
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     
-    return GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(pos, voxelSceneBounds.y, voxelSceneBounds.x));
+    if (any(pos < -halfScene) || any(pos > halfScene))
+        return voxelSize * 2.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
+    
+    int3 fakeNormal = HashPositionToVoxelIndex3(pos, voxelSceneBounds.y, voxelSceneBounds.x);
+    float4 result = GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(pos, voxelSceneBounds.y, voxelSceneBounds.x)).wxyz;
+    result.yzw = fakeNormal / 256.0f;
+    
+    return result;
 
 }
 
@@ -193,7 +202,7 @@ float SafeSampleSDF(float3 pos)
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
-        return voxelSize*10.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
+        return voxelSize*2.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
     
     return TrilinearSampleSDF(pos).x;
 }
@@ -353,7 +362,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         //float distance = IntersectionPoint(pos, rd, resultOutput);
         //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
         
-        float4 currentSDF = SampleNormalSDF(pos);
+        float4 currentSDF = SampleSDF(pos);
         //currentSDF.yzw = CentralDifferenceNormal(pos);
         //closesSDF = currentSDF;
         
@@ -382,7 +391,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         if (canTerminate)
         {
             float len = length(closesSDF.yzw);
-            closesSDF.yzw = float3(1, 0, 0); //(len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            //closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
             return closesSDF;
         }
 

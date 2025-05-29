@@ -60,6 +60,7 @@ void ComputePass::CreateTriangleSoup()
     std::cout << "Vertex count: " << vertices.size() << std::endl;
     std::cout << "Vertex size: " << vertexSize << std::endl;
 
+
     // Create staging buffers
     VkBuffer stagingVertexBuffer, stagingIndexBuffer;
     VkDeviceMemory stagingVertexMemory, stagingIndexMemory;
