@@ -32,6 +32,17 @@ public:
         uint32_t pad3;
         glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
     };
+
+    struct Brush
+    {
+        uint32_t type;
+        uint32_t pad;
+        uint32_t pad2;
+        uint32_t pad3;
+        glm::mat4 model;
+
+    };
+
     struct PushConsts {
         float lod;
         uint32_t triangleCount;
@@ -46,6 +57,10 @@ public:
     float SCENE_BOUNDSL3 = 32;
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
+
+    uint32_t TILE_SIZE = 16;          // voxels per edge
+    uint32_t TILE_MAX_BRUSHES = 64;     // cap of brushes per tile
+
 
     uint32_t dispatchCount = 0;
 
