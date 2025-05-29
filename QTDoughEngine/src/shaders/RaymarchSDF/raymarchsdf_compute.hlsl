@@ -163,7 +163,7 @@ float3 CentralDifferenceNormal(float3 p)
     float sampleLevel = GetSampleLevel(p, 0);
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float eps = voxelSize *0.5f;
+    float eps = voxelSize *0.75f;
 
     float dx = TrilinearSampleSDF(p + float3(eps, 0, 0)).x - TrilinearSampleSDF(p - float3(eps, 0, 0)).x;
     float dy = TrilinearSampleSDF(p + float3(0, eps, 0)).x - TrilinearSampleSDF(p - float3(0, eps, 0)).x;
@@ -171,6 +171,48 @@ float3 CentralDifferenceNormal(float3 p)
 
     float3 n = float3(dx, dy, dz);
     return (length(n) > 1e-5f) ? normalize(n) : float3(0, 0, 0);
+}
+
+float3 CentralDifferenceNormalBrush(float3 p, float3 center, float size)
+{
+    float eps = 0.075f;
+
+    float dx = sdSphere(p + float3(eps, 0, 0), center, size).x - sdSphere(p - float3(eps, 0, 0), center, size).x;
+    float dy = sdSphere(p + float3(0, eps, 0), center, size).x - sdSphere(p - float3(0, eps, 0), center, size).x;
+    float dz = sdSphere(p + float3(0, 0, eps), center, size).x - sdSphere(p - float3(0, 0, eps), center, size).x;
+
+    float3 n = float3(dx, dy, dz);
+    return (length(n) > 1e-5f) ? normalize(n) : float3(0, 0, 0);
+}
+
+float3 Normal4Point(float3 p, float eps)
+{
+    float dx = (-TrilinearSampleSDF(p + 2 * float3(eps, 0, 0)).x +
+                 8 * TrilinearSampleSDF(p + float3(eps, 0, 0)).x -
+                 8 * TrilinearSampleSDF(p - float3(eps, 0, 0)).x +
+                 TrilinearSampleSDF(p - 2 * float3(eps, 0, 0)).x) / (12.0 * eps);
+
+    float dy = (-TrilinearSampleSDF(p + 2 * float3(0, eps, 0)).x +
+                 8 * TrilinearSampleSDF(p + float3(0, eps, 0)).x -
+                 8 * TrilinearSampleSDF(p - float3(0, eps, 0)).x +
+                 TrilinearSampleSDF(p - 2 * float3(0, eps, 0)).x) / (12.0 * eps);
+
+    float dz = (-TrilinearSampleSDF(p + 2 * float3(0, 0, eps)).x +
+                 8 * TrilinearSampleSDF(p + float3(0, 0, eps)).x -
+                 8 * TrilinearSampleSDF(p - float3(0, 0, eps)).x +
+                 TrilinearSampleSDF(p - 2 * float3(0, 0, eps)).x) / (12.0 * eps);
+
+    return normalize(float3(dx, dy, dz));
+}
+
+
+float3 GetHighQualityNormal(float3 p)
+{
+    float sampleLevel = GetSampleLevel(p, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float eps = max(1e-4f, voxelSize * 0.5f);
+    return Normal4Point(p, eps);
 }
 
 
@@ -351,7 +393,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
 
     float3 pos = ro;
-    int maxSteps = 1024;
+    int maxSteps = 128;
     float4 closesSDF = maxDistance;
     
     float sampleLevel = GetSampleLevel(pos, 0);
@@ -362,8 +404,13 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         //float distance = IntersectionPoint(pos, rd, resultOutput);
         //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
         
-        float4 currentSDF = SampleSDF(pos);
-        //currentSDF.yzw = CentralDifferenceNormal(pos);
+        float3 sdf = sdSphere(pos, 0, 2.0f);
+        float4 sdf2 = 0;
+        sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
+        sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
+        float4 brushSDF = float4(sdf, 1.0);
+        float4 currentSDF = SampleNormalSDF(pos);
+        currentSDF.yzw = CentralDifferenceNormal(pos);
         //closesSDF = currentSDF;
         
         float newSampleLevel = GetSampleLevel(pos, 0);
@@ -373,8 +420,10 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         bool inL2 = sampleLevel == 2.0f;
         bool inL3 = sampleLevel == 3.0f;
 
-        //float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.0025f);
-        closesSDF = currentSDF; //lerp(currentSDF, mixedSDF, sameLevel);
+        float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.025f);
+        //mixedSDF = smin(mixedSDF, brushSDF, 0.524f);
+        mixedSDF = smin(sdf2, mixedSDF, 0.024f);
+        closesSDF = mixedSDF; //lerp(currentSDF, mixedSDF, sameLevel);
         
         /*
         if(sameLevel == true)
@@ -391,7 +440,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         if (canTerminate)
         {
             float len = length(closesSDF.yzw);
-            //closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
             return closesSDF;
         }
 

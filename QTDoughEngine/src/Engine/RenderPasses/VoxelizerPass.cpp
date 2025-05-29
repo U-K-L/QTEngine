@@ -623,11 +623,18 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, nullptr,
         1, &barrier);
 
-    DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-    DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
-    DispatchLOD(commandBuffer, currentFrame, 2);
-    DispatchLOD(commandBuffer, currentFrame, 1); //Per triangle.
+    if (dispatchCount < 2)
+    {
+        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+        DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
+        DispatchLOD(commandBuffer, currentFrame, 2);
+        DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.
 
+        //This needs to become a jump fill algorithm that propagates the triangle values.
+        DispatchLOD(commandBuffer, currentFrame, 1);
+    }
+
+    dispatchCount += 1;
 
 
 
@@ -687,7 +694,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     uint32_t groupCountY = (res + 7) / 8;
     uint32_t groupCountZ = (res + 7) / 8;
 
-    if (lodLevel == 1)
+    if (lodLevel == 5)
     {
         groupCountX = (pc.triangleCount + 7) / 8;
         groupCountY = 1;

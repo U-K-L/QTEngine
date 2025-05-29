@@ -47,6 +47,8 @@ public:
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
 
+    uint32_t dispatchCount = 0;
+
 
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
     std::vector<std::vector<Voxel>> frameReadbackData; //Generic readback data for the SDF pass.

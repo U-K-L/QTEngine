@@ -92,15 +92,17 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
         return;
     
     uint baseIndex = triangleIndex * 3;
+    
+    uint3 idx = uint3(baseIndex, baseIndex + 1, baseIndex + 2);
 
-    float3 a = vertexBuffer[baseIndex + 0].position.xyz;
-    float3 b = vertexBuffer[baseIndex + 1].position.xyz;
-    float3 c = vertexBuffer[baseIndex + 2].position.xyz;
+    float3 a = vertexBuffer[idx.x].position.xyz;
+    float3 b = vertexBuffer[idx.y].position.xyz;
+    float3 c = vertexBuffer[idx.z].position.xyz;
     
     float2 voxelSceneBounds = GetVoxelResolution(1.0f);
     
     float voxelSize = 0.03125f;
-    float3 gridOrigin = float3(-4, -4, -4);
+    float3 gridOrigin = voxelSceneBounds.y * 0.5;
     
     //Max and min bounding point, the two corners in world space.
     float3 triMin = min(a, min(b, c));
@@ -122,8 +124,9 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
                 float3 center = ((float3) v + 0.5f) * voxelSize - gridOrigin;
 
                 float d = DistanceToTriangle(center, a, b, c);
-                InterlockedMin(voxelsL1Out[index].distance, d);
-                voxelsL1Out[index].normalDistance = float4(1, 0, 0, 0);
+                InterlockedMin(voxelsL1Out[index].distance, asuint(d));
+                voxelsL1Out[index].normalDistance = float4(1, 0, 0, 1);
+                
             }
 }
 
@@ -161,6 +164,40 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL3Out[voxelIndexL3].normalDistance = 0;
 }
 
+float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 gridSize)
+{
+    float blurredDist = 0.0f;
+
+    [unroll]
+    for (int z = -1; z <= 1; z++)
+    [unroll]
+        for (int y = -1; y <= 1; y++)
+    [unroll]
+            for (int x = -1; x <= 1; x++)
+            {
+                int3 offset = int3(x, y, z);
+                int3 sampleCoord = coord + offset;
+
+        // Clamp to valid range
+                sampleCoord = clamp(sampleCoord, int3(0, 0, 0), gridSize - 1);
+
+                uint flatIndex = sampleCoord.x * gridSize.y * gridSize.z + sampleCoord.y * gridSize.z + sampleCoord.z;
+                float sdfValue = asfloat(inputBuffer[flatIndex].distance);
+
+        // Separable Gaussian: 1-2-1 per axis
+                float wx = (x == 0) ? 2.0f : 1.0f;
+                float wy = (y == 0) ? 2.0f : 1.0f;
+                float wz = (z == 0) ? 2.0f : 1.0f;
+                float weight = wx * wy * wz;
+
+                blurredDist += sdfValue * weight;
+            }
+
+    return blurredDist / 64.0f; // Total kernel weight
+}
+
+
+
 
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
@@ -169,8 +206,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float sampleLevelL = pc.lod;
     uint triangleCount = pc.triangleCount;
-    //Per triangle:
-    if (sampleLevelL == 1.0f)
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevelL);
+    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+    
+    if (sampleLevelL == 5.0f)
     {
         ComputePerTriangle(DTid);
         return;
@@ -181,6 +221,20 @@ void main(uint3 DTid : SV_DispatchThreadID)
         ClearVoxelData(DTid);
         return;
     }
+    
+    if (sampleLevelL == 1.0f)
+    {
+        /*
+        int3 gridSize = int3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+        int3 coord = int3(DTid);
+        uint flatIndex = coord.x * gridSize.y * gridSize.z + coord.y * gridSize.z + coord.z;
+
+        float blurred = GaussianBlurSDF(coord, voxelsL1In, gridSize);
+        voxelsL1Out[flatIndex].distance = asuint(blurred);
+        voxelsL1Out[flatIndex].normalDistance = voxelsL1In[flatIndex].normalDistance;
+        */
+        //return;
+    }
     float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
     uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
     uint voxelIndexL3 = DTid.x * gridSizeL3.y * gridSizeL3.z + DTid.y * gridSizeL3.z + DTid.z;
@@ -190,9 +244,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 
     
-    float2 voxelSceneBounds = GetVoxelResolution(sampleLevelL);
-    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
-    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+
     
     
 
@@ -213,7 +265,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (sampleLevelL < 3.0f)
         if (voxelsL3Out[voxelIndexL3].normalDistance.w > 25.0f)
         {
-            //return;
+            return;
         }
     
     for (uint i = 0; i < triangleCount; i += 1)
