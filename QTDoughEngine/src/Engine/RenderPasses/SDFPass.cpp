@@ -347,7 +347,7 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 
     vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
-        voxelizer->computePipelineLayout,
+        voxelizer->voxelizeComputePipelineLayout,
         0, 2, sets,
         0, nullptr);
 

@@ -410,7 +410,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
         float4 brushSDF = float4(sdf, 1.0);
         float4 currentSDF = SampleNormalSDF(pos);
-        currentSDF.yzw = CentralDifferenceNormal(pos);
+        //currentSDF.yzw = CentralDifferenceNormal(pos);
         //closesSDF = currentSDF;
         
         float newSampleLevel = GetSampleLevel(pos, 0);

@@ -105,8 +105,8 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
     float3 gridOrigin = voxelSceneBounds.y * 0.5;
     
     //Max and min bounding point, the two corners in world space.
-    float3 triMin = min(a, min(b, c));
-    float3 triMax = max(a, max(b, c));
+    float3 triMin = min(a, min(b, c)) - voxelSize*4;
+    float3 triMax = max(a, max(b, c)) + voxelSize*4;
 
     float3 p0 = float3(-1, -1, -1);
     float3 p1 = float3(1, 1, 1);

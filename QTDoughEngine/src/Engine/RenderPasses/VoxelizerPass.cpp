@@ -11,6 +11,7 @@ VoxelizerPass::VoxelizerPass() {
     VOXEL_COUNTL1 = VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1;
     VOXEL_COUNTL2 = VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2;
     VOXEL_COUNTL3 = VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3;
+    TILE_COUNTL1 = VOXEL_RESOLUTIONL1 / TILE_SIZE;
     PassName = "VoxelizerPass";
     PassNames.push_back("VoxelizerPass");
 }
@@ -99,11 +100,11 @@ void VoxelizerPass::BakeSDFFromTriangles()
     */
 }
 
-void VoxelizerPass::CreateComputePipeline()
-{
+void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout) {
+
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    auto computeShaderCode = readFile("src/shaders/voxelizer.spv");
+    auto computeShaderCode = readFile("src/shaders/" + shaderPass + ".spv");
     std::cout << "Creating compute pipeline" << std::endl;
     VkShaderModule computeShaderModule = app->CreateShaderModule(computeShaderCode);
 
@@ -134,20 +135,28 @@ void VoxelizerPass::CreateComputePipeline()
     pli.pushConstantRangeCount = 1;
     pli.pPushConstantRanges = &pushConstantRange;
 
-    if (vkCreatePipelineLayout(app->_logicalDevice, &pli, nullptr, &computePipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(app->_logicalDevice, &pli, nullptr, &rcomputePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline layout!");
     }
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = computePipelineLayout;
+    pipelineInfo.layout = rcomputePipelineLayout;
     pipelineInfo.stage = computeShaderStageInfo;
 
-    if (vkCreateComputePipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
+    if (vkCreateComputePipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &rcomputePipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline!");
     }
 
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
+}
+
+void VoxelizerPass::CreateComputePipeline()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    CreateComputePipelineName("voxelizer", voxelizeComputePipeline, voxelizeComputePipelineLayout);
+    CreateComputePipelineName("tilesdf", tileGenerationComputePipeline, tileGenerationComputePipelineLayout);
     std::cout << "Compute pipeline created" << std::endl;
 
     std::cout << "Memory of voxels in L1: " << sizeof(Voxel) * VOXEL_COUNTL1 / 1024.0f / 1024.0f << " MB" << std::endl;
@@ -636,7 +645,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     dispatchCount += 1;
 
-
+    DispatchTile(commandBuffer, currentFrame, 0);
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -655,11 +664,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
-void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
+void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, tileGenerationComputePipeline);
 
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
@@ -667,7 +676,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     vkCmdPushConstants(
         commandBuffer,
-        computePipelineLayout,
+        tileGenerationComputePipelineLayout,
         VK_SHADER_STAGE_COMPUTE_BIT,
         0,
         sizeof(PushConsts),
@@ -681,7 +690,45 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
-        computePipelineLayout,
+        tileGenerationComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    uint32_t groupCountX = (VOXEL_COUNTL1 + 7) / 8;
+    uint32_t groupCountY = (1 + 7) / 8;
+    uint32_t groupCountZ = (1 + 7) / 8;
+
+
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    PushConsts pc{};
+    pc.lod = static_cast<float>(lodLevel);
+    pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
         0, 2, sets,
         0, nullptr);
 

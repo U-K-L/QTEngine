@@ -33,6 +33,8 @@ public:
         glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
     };
 
+    //Struct of brushes. These brushes can be combined to make a single CSG (Constructive Solid Geometry) object. Can also be loaded from MagicaCSG.
+    //There is an array of brushes. 
     struct Brush
     {
         uint32_t type;
@@ -58,8 +60,9 @@ public:
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
 
-    uint32_t TILE_SIZE = 16;          // voxels per edge
+    uint32_t TILE_SIZE = 8;          // voxels per edge
     uint32_t TILE_MAX_BRUSHES = 64;     // cap of brushes per tile
+    uint32_t TILE_COUNTL1 = 0;
 
 
     uint32_t dispatchCount = 0;
@@ -88,6 +91,11 @@ public:
     std::vector<VkBuffer> voxelL3StorageBuffers;
     std::vector<VkDeviceMemory> voxelL3StorageBuffersMemory;
 
+    VkPipeline voxelizeComputePipeline;
+    VkPipelineLayout voxelizeComputePipelineLayout;
+    VkPipeline tileGenerationComputePipeline;
+    VkPipelineLayout tileGenerationComputePipelineLayout;
+
     // Constructor
     VoxelizerPass();
 
@@ -106,6 +114,8 @@ public:
     void BakeSDFFromTriangles();
     float DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
     void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
+    void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
+    void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
 
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
