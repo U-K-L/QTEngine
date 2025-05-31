@@ -33,16 +33,15 @@ public:
         glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
     };
 
-    //Struct of brushes. These brushes can be combined to make a single CSG (Constructive Solid Geometry) object. Can also be loaded from MagicaCSG.
-    //There is an array of brushes. 
+    //Struct of brushes. Most brushes are meshes with a model matrix. However, analytical brushes can be provided as well.
+    //Brushes are basically tied to gameObjects.
     struct Brush
     {
-        uint32_t type;
-        uint32_t pad;
-        uint32_t pad2;
-        uint32_t pad3;
+        uint32_t type; 
+        uint32_t vertexCount;
+        uint32_t vertexOffset;
+        uint32_t textureID;
         glm::mat4 model;
-
     };
 
     struct PushConsts {
@@ -67,12 +66,20 @@ public:
 
     uint32_t dispatchCount = 0;
 
+    bool flagSDFBaker = false; //This is a flag to bake the SDF from triangles.
+
 
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
     std::vector<std::vector<Voxel>> frameReadbackData; //Generic readback data for the SDF pass.
     std::vector<Voxel> voxelsL1; 
     std::vector<Voxel> voxelsL2; 
     std::vector<Voxel> voxelsL3;
+
+    //This is the list of brushes. Brushes are basically gameObjects with a model matrix.
+    //Some fields only updated once per generation which can take multiple frames. However, the vector itself updates every frame.
+    std::vector<Brush> brushes; 
+    std::vector<VkBuffer> brushesStorageBuffers;
+    std::vector<VkDeviceMemory> brushesStorageMemory;
 
     int UpdateOnce = 0;
 
@@ -116,6 +123,8 @@ public:
     void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
+    void CreateImages() override;
+    void Create3DTextures();
 
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);

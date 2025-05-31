@@ -431,6 +431,152 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
 
 }
 
+void VoxelizerPass::Create3DTextures()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Hard code some volume textures for now.
+    Unigma3DTexture volumeTexture1 = Unigma3DTexture(128,128,128);
+
+    app->CreateImages3D(volumeTexture1.WIDTH, volumeTexture1.HEIGHT, volumeTexture1.DEPTH,
+        VK_FORMAT_R8_UNORM, 
+        VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		volumeTexture1.u_image, volumeTexture1.u_imageMemory);
+
+    volumeTexture1.u_imageView = app->Create3DImageView(
+        volumeTexture1.u_image,
+        VK_FORMAT_R8_UNORM,
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
+
+    // Transition the 3D image layout to GENERAL for compute write
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = volumeTexture1.u_image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr,
+        1, &barrier);
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    app->textures3D.insert({ "volumeTexture1", volumeTexture1 });
+}
+
+void VoxelizerPass::CreateImages() {
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Get the images path tied to this material.
+    for (int i = 0; i < material.textures.size(); i++) {
+        app->LoadTexture(material.textures[i].TEXTURE_PATH);
+    }
+
+    //Load all textures for all objects within this pass.
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+        for (int j = 0; j < renderingObjects[i]->_material.textures.size(); j++)
+        {
+            app->LoadTexture(renderingObjects[i]->_material.textures[j].TEXTURE_PATH);
+        }
+    }
+
+    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;//app->_swapChainImageFormat;
+
+    // Create the offscreen image
+    app->CreateImage(
+        app->swapChainExtent.width,
+        app->swapChainExtent.height,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        image,
+        imageMemory
+    );
+
+    Create3DTextures();
+
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    // Create the image view for the offscreen image
+    imageView = app->CreateImageView(image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    commandBuffer = app->BeginSingleTimeCommands();
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    // Store the offscreen texture for future references
+    UnigmaTexture offscreenTexture;
+    offscreenTexture.u_image = image;
+    offscreenTexture.u_imageView = imageView;
+    offscreenTexture.u_imageMemory = imageMemory;
+    offscreenTexture.TEXTURE_PATH = PassName;
+
+    // Use a unique key for the offscreen image
+    std::string textureKey = PassName;
+    app->textures.insert({ textureKey, offscreenTexture });
+}
+
 void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -467,7 +613,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
-
+    /*
     vertices.clear();
     //triangleSoup.clear();
     //indices.clear();
@@ -500,6 +646,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     }
 
     VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
+
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
     app->CreateBuffer(vertexBufferSize,
@@ -516,6 +663,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
 
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+        */
 
 
 }
@@ -609,6 +757,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+
+    //Image is transitioned to WRITE.
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.srcAccessMask = 0;
@@ -632,6 +782,35 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, nullptr,
         1, &barrier);
 
+
+    //Volume textures to WRITE.
+    std::vector<VkImageMemoryBarrier> volumeBarriers(app->textures3D.size());
+
+    for (auto it = app->textures3D.begin(); it != app->textures3D.end(); ++it) {
+        const std::string& key = it->first;
+        Unigma3DTexture& texture = it->second;
+        size_t i = std::distance(app->textures3D.begin(), it); // Get the index of the current texture
+
+        volumeBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        volumeBarriers[i].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        volumeBarriers[i].newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        volumeBarriers[i].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        volumeBarriers[i].dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        volumeBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        volumeBarriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        volumeBarriers[i].image = texture.u_image;
+        volumeBarriers[i].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    }
+
+    // Execute barrier
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr,
+        static_cast<uint32_t>(volumeBarriers.size()), volumeBarriers.data()
+    );
+
     if (dispatchCount < 2)
     {
         DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
@@ -645,7 +824,32 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     dispatchCount += 1;
 
-    DispatchTile(commandBuffer, currentFrame, 0);
+    std::vector<VkImageMemoryBarrier> volumeToRead(app->textures3D.size());
+
+    for (auto it = app->textures3D.begin(); it != app->textures3D.end(); ++it) {
+        const std::string& key = it->first;
+        Unigma3DTexture& texture = it->second;
+        size_t i = std::distance(app->textures3D.begin(), it); // Get the index of the current texture
+
+        volumeToRead[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        volumeToRead[i].oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        volumeToRead[i].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        volumeToRead[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        volumeToRead[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        volumeToRead[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        volumeToRead[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        volumeToRead[i].image = texture.u_image;
+        volumeToRead[i].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    }
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr,
+        static_cast<uint32_t>(volumeToRead.size()), volumeToRead.data()
+    );
+
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -654,7 +858,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     barrier2.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
     barrier2.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier2.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier2.image = image;                 // SDFPass target
+    barrier2.image = image;
     barrier2.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1 };
 
     VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };

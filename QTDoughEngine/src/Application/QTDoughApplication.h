@@ -204,6 +204,7 @@ public:
     VK_DYNAMIC_STATE_SCISSOR
     };
     std::unordered_map<std::string, UnigmaTexture> textures;
+    std::unordered_map<std::string, Unigma3DTexture> textures3D;
     std::vector<UnigmaLight*> lights;
 
     //Quads
@@ -235,6 +236,8 @@ public:
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
     void EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback);
     void CreateGlobalSamplers(uint32_t samplerCount);
+    void CreateImages3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    VkImageView Create3DImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
 
     VkImage albedoImage;

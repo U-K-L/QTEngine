@@ -21,6 +21,7 @@ std::vector<RenderPassObject*> renderPassStack;
 std::vector<ComputePass*> computePassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
+std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
 uint32_t currentFrame = 0;
 
@@ -1216,6 +1217,43 @@ void QTDoughApplication::CreateImage(uint32_t width, uint32_t height, VkFormat f
     vkBindImageMemory(_logicalDevice, image, imageMemory, 0);
 }
 
+void QTDoughApplication::CreateImages3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+{
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;                         
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = depth;                                 
+    imageInfo.mipLevels = 5;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(_logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create 3D image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(_logicalDevice, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate 3D image memory!");
+    }
+
+    vkBindImageMemory(_logicalDevice, image, imageMemory, 0);
+}
+
+
 void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 {
     vkEndCommandBuffer(commandBuffer);
@@ -1312,40 +1350,6 @@ void QTDoughApplication::CreateDescriptorSets()
     }
 }
 
-void QTDoughApplication::CreateDescriptorPool()
-{
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
-
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 2;
-    poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor pool!");
-    }
-
-    for (int i = 0; i < renderPassStack.size(); i++)
-    {
-        renderPassStack[i]->CreateDescriptorPool();
-    }
-    //Create descriptor pool for compute pass.
-    for (int i = 0; i < computePassStack.size(); i++)
-    {
-		computePassStack[i]->CreateDescriptorPool();
-	}
-    for (int i = 0; i < NUM_OBJECTS; i++)
-    {
-        if (unigmaRenderingObjects[i].isRendering)
-            unigmaRenderingObjects[i].CreateDescriptorPool(*this);
-    }
-}
 
 void QTDoughApplication::CreateUniformBuffers()
 {
@@ -1383,6 +1387,42 @@ void QTDoughApplication::CreateDescriptorSetLayout()
     }
 }
 
+void QTDoughApplication::CreateDescriptorPool()
+{
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 2;
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+
+    for (int i = 0; i < renderPassStack.size(); i++)
+    {
+        renderPassStack[i]->CreateDescriptorPool();
+    }
+    //Create descriptor pool for compute pass.
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+        computePassStack[i]->CreateDescriptorPool();
+    }
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        if (unigmaRenderingObjects[i].isRendering)
+            unigmaRenderingObjects[i].CreateDescriptorPool(*this);
+    }
+}
+
+
 void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 {
 
@@ -1418,18 +1458,36 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     imgStorage.binding = 3;
     imgStorage.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     imgStorage.descriptorCount = MAX_BINDLESS_IMAGES;
-    imgStorage.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    imgStorage.stageFlags = VK_SHADER_STAGE_ALL;
+
+    //3D texture sampler.
+    VkDescriptorSetLayoutBinding sampled3DImageBinding{};
+    sampled3DImageBinding.binding = 4;
+    sampled3DImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    sampled3DImageBinding.descriptorCount = MAX_BINDLESS_IMAGES;
+    sampled3DImageBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    sampled3DImageBinding.pImmutableSamplers = nullptr;
+
+    // 3D Textures for reading and writing.
+    VkDescriptorSetLayoutBinding img3DStorage{};
+    img3DStorage.binding = 5;
+    img3DStorage.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    img3DStorage.descriptorCount = MAX_BINDLESS_IMAGES;
+    img3DStorage.stageFlags = VK_SHADER_STAGE_ALL;
 
     // We now have two bindings
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding, imgStorage };
+    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding, imgStorage, sampled3DImageBinding, img3DStorage };
 
     // For descriptor indexing flags
-    VkDescriptorBindingFlags bindingFlags[4] = {
+    VkDescriptorBindingFlags bindingFlags[6] = {
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
         0,
-        0,
-        0,
-        0
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
     };
+
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
     bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
@@ -1455,20 +1513,31 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
     std::cout << "Creating Descriptor Pool" << std::endl;
-    std::array<VkDescriptorPoolSize, 4> poolSizes{};
+    std::array<VkDescriptorPoolSize, 6> poolSizes{};
 
+    // Sampled 2D textures
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     poolSizes[0].descriptorCount = MAX_BINDLESS_IMAGES;
 
+    // Samplers
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
     poolSizes[1].descriptorCount = MAX_BINDLESS_IMAGES;
 
-    // Uniform buffer
+    // Uniform buffers
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[2].descriptorCount = MAX_FRAMES_IN_FLIGHT;
 
+    // Storage 2D images
     poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[3].descriptorCount = MAX_BINDLESS_IMAGES;
+
+    // Sampled 3D textures
+    poolSizes[4].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    poolSizes[4].descriptorCount = MAX_BINDLESS_IMAGES;
+
+    // Storage 3D images
+    poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[5].descriptorCount = MAX_BINDLESS_IMAGES;
 
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -1502,6 +1571,51 @@ void QTDoughApplication::CreateGlobalUniformBuffers() {
     }
 }
 
+void QTDoughApplication::CreateGlobalDescriptorSet()
+{
+    std::cout << "Creating Global Descriptor Set" << std::endl;
+    globalDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, globalDescriptorSetLayout);
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = globalDescriptorPool;
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+    allocInfo.pSetLayouts = layouts.data();  // 2 layouts for 2 descriptor sets
+
+    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, globalDescriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate global descriptor set!");
+    }
+
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = globalUniformBufferObject[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(GlobalUniformBufferObject);
+
+        VkWriteDescriptorSet uboWrite{};
+        uboWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        uboWrite.dstSet = globalDescriptorSets[i];
+        uboWrite.dstBinding = 2;
+        uboWrite.dstArrayElement = 0;
+        uboWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboWrite.descriptorCount = 1;
+        uboWrite.pBufferInfo = &bufferInfo;
+
+        std::vector<VkWriteDescriptorSet> writes = { uboWrite };
+        vkUpdateDescriptorSets(_logicalDevice,
+            static_cast<uint32_t>(writes.size()),
+            writes.data(),
+            0,
+            nullptr);
+    }
+
+    std::cout << "Created Global Descriptor Set" << std::endl;
+}
+
 
 void QTDoughApplication::UpdateGlobalDescriptorSet()
 {
@@ -1530,6 +1644,32 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
         storageInfos[i].sampler = VK_NULL_HANDLE;
     }
 
+    //3D images
+    std::vector<Unigma3DTexture> keys3D;
+    index = 0;
+    for (auto& pair : textures3D) {
+		pair.second.ID = index;
+		keys3D.push_back(pair.second);
+		index++;
+	}
+
+    auto sizeTextures3D = keys3D.size();
+    std::vector<VkDescriptorImageInfo> imageInfos3D(sizeTextures3D);
+    for (size_t i = 0; i < sizeTextures3D; ++i) {
+		imageInfos3D[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfos3D[i].imageView = keys3D[i].u_imageView;
+		imageInfos3D[i].sampler = VK_NULL_HANDLE; // Samplers handled separately
+	}
+
+    //Writable 3D textures
+    std::vector<VkDescriptorImageInfo> storageInfos3D(sizeTextures3D);
+    for (size_t i = 0; i < sizeTextures3D; ++i) {
+		storageInfos3D[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;   // UAV layout
+		storageInfos3D[i].imageView = keys3D[i].u_imageView;
+		storageInfos3D[i].sampler = VK_NULL_HANDLE;
+	}
+
+
     VkWriteDescriptorSet imageWrite{};
     imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     imageWrite.dstSet = globalDescriptorSets[currentFrame];
@@ -1546,7 +1686,24 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     writeStorage.descriptorCount = static_cast<uint32_t>(storageInfos.size());
     writeStorage.pImageInfo = storageInfos.data();
 
-    std::array<VkWriteDescriptorSet, 2> writes = { imageWrite, writeStorage };
+    VkWriteDescriptorSet imageWrite3D{};
+    imageWrite3D.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    imageWrite3D.dstSet = globalDescriptorSets[currentFrame];
+    imageWrite3D.dstBinding = 4; // Binding for sampled 3D images
+    imageWrite3D.dstArrayElement = 0;
+    imageWrite3D.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    imageWrite3D.descriptorCount = static_cast<uint32_t>(imageInfos3D.size());
+    imageWrite3D.pImageInfo = imageInfos3D.data();
+
+
+    VkWriteDescriptorSet writeStorage3D{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    writeStorage3D.dstSet = globalDescriptorSets[currentFrame];
+    writeStorage3D.dstBinding = 5;
+    writeStorage3D.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writeStorage3D.descriptorCount = static_cast<uint32_t>(storageInfos3D.size());
+    writeStorage3D.pImageInfo = storageInfos3D.data();
+
+    std::array<VkWriteDescriptorSet, 4> writes = { imageWrite, writeStorage, imageWrite3D, writeStorage3D };
 
     vkUpdateDescriptorSets(_logicalDevice,static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 
@@ -1666,51 +1823,6 @@ void QTDoughApplication::LoadTexture(const std::string& filename) {
     //Pick the removed .png and path to get name, else use the full path.
     std::string textureName = tokens.empty() ? filename : tokens.back();
     textures.insert({ textureName, texture });
-}
-
-void QTDoughApplication::CreateGlobalDescriptorSet()
-{
-    std::cout << "Creating Global Descriptor Set" << std::endl;
-    globalDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, globalDescriptorSetLayout);
-
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = globalDescriptorPool;
-    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-    allocInfo.pSetLayouts = layouts.data();  // 2 layouts for 2 descriptor sets
-
-    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, globalDescriptorSets.data()) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate global descriptor set!");
-    }
-
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = globalUniformBufferObject[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(GlobalUniformBufferObject);
-
-        VkWriteDescriptorSet uboWrite{};
-        uboWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        uboWrite.dstSet = globalDescriptorSets[i];
-        uboWrite.dstBinding = 2; 
-        uboWrite.dstArrayElement = 0;
-        uboWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboWrite.descriptorCount = 1;
-        uboWrite.pBufferInfo = &bufferInfo;
-
-        std::vector<VkWriteDescriptorSet> writes = { uboWrite };
-        vkUpdateDescriptorSets(_logicalDevice,
-            static_cast<uint32_t>(writes.size()),
-            writes.data(),
-            0,
-            nullptr);
-    }
-
-    std::cout << "Created Global Descriptor Set" << std::endl;
 }
 
 
@@ -2024,20 +2136,20 @@ void QTDoughApplication::CreateGlobalSamplers(uint32_t samplerCount)
     // Define common sampler settings
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_NEAREST;
-    samplerInfo.minFilter = VK_FILTER_NEAREST;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.anisotropyEnable = VK_TRUE;           
-    samplerInfo.maxAnisotropy = 16.0f;               
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;      
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;   
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = 0.0f;       
-    samplerInfo.maxLod = 0.0f;
+    samplerInfo.maxLod = 5.0f;
     samplerInfo.mipLodBias = 0.0f;
 
     globalSamplers.resize(samplerCount);
@@ -2068,6 +2180,27 @@ VkImageView QTDoughApplication::CreateImageView(VkImage image, VkFormat format, 
 
     return imageView;
 }
+
+VkImageView QTDoughApplication::Create3DImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = aspectFlags;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 5;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VkImageView imageView;
+    if (vkCreateImageView(_logicalDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create 3D image view!");
+    }
+
+    return imageView;
+}
+
 
 void QTDoughApplication::CreateImageViews() {
     swapChainImageViews.resize(swapChainImages.size());

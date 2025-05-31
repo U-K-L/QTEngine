@@ -173,6 +173,7 @@ void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFra
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
+    /*
     vertices.clear();
     //Update all vertices world positions.
     for (int i = 0; i < renderingObjects.size(); i++)
@@ -191,6 +192,7 @@ void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFra
             vertices.push_back(computeVertex);
         }
     }
+    */
 
     VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
     VkBuffer stagingBuffer;
@@ -225,17 +227,16 @@ void ComputePass::UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint
 void ComputePass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    //Get the images path tied to this material.
     for (int i = 0; i < material.textures.size(); i++) {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);
     }
 
-    //Load all textures for all objects.
+    //Load all textures for all objects within this pass.
     for (int i = 0; i < renderingObjects.size(); i++)
     {
         for (int j = 0; j < renderingObjects[i]->_material.textures.size(); j++)
         {
-            //print path
-            std::cout << "Loading texture from file folders: " << renderingObjects[i]->_material.textures[j].TEXTURE_PATH << std::endl;
             app->LoadTexture(renderingObjects[i]->_material.textures[j].TEXTURE_PATH);
         }
     }

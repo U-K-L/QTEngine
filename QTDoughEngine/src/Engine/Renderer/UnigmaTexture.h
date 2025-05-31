@@ -32,3 +32,20 @@ struct UnigmaTexture {
         return *this;
     }
 };
+
+struct Unigma3DTexture
+{
+    uint32_t WIDTH;
+    uint32_t HEIGHT;
+    uint32_t DEPTH;
+    VkImage u_image;
+    VkDeviceMemory u_imageMemory;
+    VkImageView u_imageView;
+    VkSampler u_sampler;
+    uint32_t ID;
+
+    Unigma3DTexture(uint32_t width, uint32_t height, uint32_t depth)
+        : WIDTH(width), HEIGHT(height), DEPTH(depth) {}
+
+    Unigma3DTexture() : WIDTH(0), HEIGHT(0), DEPTH(0), u_image(), u_imageMemory(), u_sampler() {}
+};

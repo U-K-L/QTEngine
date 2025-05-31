@@ -30,9 +30,24 @@ RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
 StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
+// Bindless 3D textures
+Texture3D<float4> gBindless3D[] : register(t4, space0); // Read-only 3D textures
+RWTexture3D<float4> gBindless3DStorage[] : register(u5, space0); // Read-write 3D textures
+
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
+// Simple read from 3D texture
+float4 Read3D(uint textureIndex, int3 coord)
+{
+    return gBindless3DStorage[textureIndex][coord];
+}
+
+// Simple write to 3D texture
+void Write3D(uint textureIndex, int3 coord, float4 value)
+{
+    gBindless3DStorage[textureIndex][coord] = value;
+}
 
 float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {
