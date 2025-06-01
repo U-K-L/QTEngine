@@ -41,6 +41,7 @@ public:
         uint32_t vertexCount;
         uint32_t vertexOffset;
         uint32_t textureID;
+        uint32_t resolution;
         glm::mat4 model;
     };
 
@@ -78,8 +79,8 @@ public:
     //This is the list of brushes. Brushes are basically gameObjects with a model matrix.
     //Some fields only updated once per generation which can take multiple frames. However, the vector itself updates every frame.
     std::vector<Brush> brushes; 
-    std::vector<VkBuffer> brushesStorageBuffers;
-    std::vector<VkDeviceMemory> brushesStorageMemory;
+    VkBuffer brushesStorageBuffers;
+    VkDeviceMemory brushesStorageMemory;
 
     int UpdateOnce = 0;
 
@@ -125,7 +126,7 @@ public:
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void CreateImages() override;
     void Create3DTextures();
-
+    void CreateBrushes();
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 };

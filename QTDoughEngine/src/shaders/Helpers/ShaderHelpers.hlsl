@@ -14,7 +14,6 @@
 #define VOXEL_RESOLUTIONL3 64.0f
 #define SCENE_BOUNDSL3 32.0f
 
-
 struct Voxel
 {
     uint distance;
@@ -22,6 +21,16 @@ struct Voxel
     uint pad2;
     uint pad3;
     float4 normalDistance;
+};
+
+struct Brush
+{
+    uint type;
+    uint vertexCount;
+    uint vertexOffset;
+    uint textureID;
+    uint resolution;
+    float4x4 model;
 };
 
 struct ComputeVertex

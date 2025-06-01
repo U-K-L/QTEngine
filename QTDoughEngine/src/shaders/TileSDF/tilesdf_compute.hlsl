@@ -32,12 +32,105 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Brush> Brushes : register(t9, space1);
+
+RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
+
+// Unfiltered write to RWTexture3D
+void Write3D(uint textureIndex, int3 coord, float value)
+{
+    gBindless3DStorage[textureIndex][coord] = value;
+}
 
 
+void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
+{
+    //int3 volumeIndex = int3(DTid);
+    
+    //Write3D(0, volumeIndex, 1.0f);
+    uint triangleCount = pc.triangleCount;
+    uint triangleIndex = DTid.x;
+    if (triangleIndex >= triangleCount)
+        return;
+    
+    uint baseIndex = triangleIndex * 3;
+    
+    uint3 idx = uint3(baseIndex, baseIndex + 1, baseIndex + 2);
 
-[numthreads(64, 1, 1)]
+    float3 a = vertexBuffer[idx.x].position.xyz;
+    float3 b = vertexBuffer[idx.y].position.xyz;
+    float3 c = vertexBuffer[idx.z].position.xyz;
+    
+    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
+    
+    float voxelSize = 0.03125f;
+    float3 gridOrigin = voxelSceneBounds.y * 0.5;
+    
+    //Max and min bounding point, the two corners in world space.
+    float3 triMin = min(a, min(b, c)) - voxelSize;
+    float3 triMax = max(a, max(b, c)) + voxelSize;
+
+    float3 p0 = float3(-1, -1, -1);
+    float3 p1 = float3(1, 1, 1);
+    //Convert the two corners into max and min indices to iterate over.
+    int3 vMin = HashPositionToVoxelIndex3(triMin, voxelSceneBounds.y, voxelSceneBounds.x);
+
+    int3 vMax = HashPositionToVoxelIndex3(triMax, voxelSceneBounds.y, voxelSceneBounds.x);
+    
+    for (int z = vMin.z; z <= vMax.z; ++z)
+        for (int y = vMin.y; y <= vMax.y; ++y)
+            for (int x = vMin.x; x <= vMax.x; ++x)
+            {
+                int3 v = int3(x, y, z);
+                uint index = Flatten3D(v, voxelSceneBounds.x);
+                float3 center = ((float3) v + 0.5f) * voxelSize - gridOrigin;
+
+                float d = DistanceToTriangle(center, a, b, c);
+                //voxelsL1Out[index].distance = asuint(0.0f);
+                //InterlockedMin(voxelsL1Out[index].distance, asuint(d));
+                //voxelsL1Out[index].normalDistance = float4(1, 0, 0, 1);
+                int3 volumeIndex = v;
+    
+                Write3D(0, volumeIndex, 0.0f);
+                //gBindless3DStorage[0]
+                
+            }
+}
+
+[numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    voxelsL1Out[DTid.x].normalDistance = float4(1, 1, 0, 1);
+    
+    uint index = pc.lod;
+    
+    Brush brush = Brushes[index];
+    
+    float2 voxelSceneBounds = float2(256.0f, 8.0f);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+
+    // Convert grid index to world-space center position
+    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
+        
+    float3 voxelMin = center - voxelSize * 0.5f;
+    float3 voxelMax = center + voxelSize * 0.5f;
+
+    
+    float minDist = 1.0f;
+    
+    for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
+    {
+        uint3 idx = uint3(i, i + 1, i + 2);
+        float3 a = vertexBuffer[idx.x].position.xyz;
+        float3 b = vertexBuffer[idx.y].position.xyz;
+        float3 c = vertexBuffer[idx.z].position.xyz;
+
+        float d = DistanceToTriangle(center, a, b, c);
+        
+        minDist = min(minDist, d);
+
+    }
+
+    Write3D(brush.textureID, int3(DTid), minDist);
 
 }

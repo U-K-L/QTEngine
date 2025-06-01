@@ -16,6 +16,7 @@ VoxelizerPass::VoxelizerPass() {
     PassNames.push_back("VoxelizerPass");
 }
 
+
 void VoxelizerPass::CreateMaterials() {
     material.Clean();
     material.shader = UnigmaShader("voxelizer");
@@ -195,10 +196,18 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     allocInfo.descriptorSetCount = static_cast<uint32_t>(app->MAX_FRAMES_IN_FLIGHT);
     allocInfo.pSetLayouts = layouts.data();
 
+
     computeDescriptorSets.resize(app->MAX_FRAMES_IN_FLIGHT);
     if (vkAllocateDescriptorSets(app->_logicalDevice, &allocInfo, computeDescriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
+
+    // Brush buffer shared across all frames
+    VkDescriptorBufferInfo brushBufferInfo{};
+    brushBufferInfo.buffer = brushesStorageBuffers;
+    brushBufferInfo.offset = 0;
+    brushBufferInfo.range = VK_WHOLE_SIZE;
+
 
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo uniformBufferInfo{};
@@ -212,7 +221,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 9> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 10> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -323,6 +332,13 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[8].pBufferInfo = &vInfo;
 
+        descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[9].dstSet = computeDescriptorSets[i];
+        descriptorWrites[9].dstBinding = 9;
+        descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[9].descriptorCount = 1;
+        descriptorWrites[9].pBufferInfo = &brushBufferInfo;
+
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
@@ -418,8 +434,14 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     vertexBinding.pImmutableSamplers = nullptr;
     vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    VkDescriptorSetLayoutBinding brushBinding{};
+    brushBinding.binding = 9;
+    brushBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    brushBinding.descriptorCount = 1;
+    brushBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 9> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding};
+    std::array<VkDescriptorSetLayoutBinding, 10> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -429,6 +451,32 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
         throw std::runtime_error("failed to create compute descriptor set layout!");
     }
 
+}
+
+void VoxelizerPass::CreateBrushes()
+{
+    int vertexOffset = 0;
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+        UnigmaRenderingObject* obj = renderingObjects[i];
+        Brush brush;
+        brush.type = 0; //Mesh type
+        brush.vertexCount = obj->_renderer.vertices.size();
+
+        std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
+        brush.vertexOffset = vertexOffset;
+        brush.textureID = i;
+
+        //Create the model matrix for the brush.
+        brush.model = obj->_transform.GetModelMatrix();
+        //Set the resolution for the brush.
+        brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
+        //Add the brush to the list.
+        brushes.push_back(brush);
+
+        vertexOffset += brush.vertexCount;
+
+    }
 }
 
 void VoxelizerPass::Create3DTextures()
@@ -446,51 +494,57 @@ void VoxelizerPass::Create3DTextures()
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
 
+    for (int i = 0; i < brushes.size(); i++)
+    {
+        Brush& brush = brushes[i];
 
-    //Hard code some volume textures for now.
-    Unigma3DTexture volumeTexture1 = Unigma3DTexture(256, 256, 256);
+        if(brush.type != 0) {
+			continue;
+		}
 
-    app->CreateImages3D(volumeTexture1.WIDTH, volumeTexture1.HEIGHT, volumeTexture1.DEPTH,
-        sdfFormat,
-        VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		volumeTexture1.u_image, volumeTexture1.u_imageMemory);
+        Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
+		app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
+			sdfFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			brushTexture.u_image, brushTexture.u_imageMemory);
 
-    volumeTexture1.u_imageView = app->Create3DImageView(
-        volumeTexture1.u_image,
-        VK_FORMAT_R8_SNORM,
-        VK_IMAGE_ASPECT_COLOR_BIT
-    );
+		brushTexture.u_imageView = app->Create3DImageView(
+			brushTexture.u_image,
+			sdfFormat,
+			VK_IMAGE_ASPECT_COLOR_BIT
+		);
 
-    // Transition the 3D image layout to GENERAL for compute write
-    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+		// Transition the 3D image layout to GENERAL for compute write
+		VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = volumeTexture1.u_image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 5;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = brushTexture.u_image;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = 5;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    vkCmdPipelineBarrier(
-        commandBuffer,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        0, 0, nullptr, 0, nullptr,
-        1, &barrier);
+		vkCmdPipelineBarrier(
+			commandBuffer,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0, 0, nullptr, 0, nullptr,
+			1, &barrier);
 
-    app->EndSingleTimeCommands(commandBuffer);
+		app->EndSingleTimeCommands(commandBuffer);
 
-    app->textures3D.insert({ "volumeTexture1", volumeTexture1 });
+		app->textures3D.insert({ "brush_" + std::to_string(i), brushTexture });
+    }
 }
 
 void VoxelizerPass::CreateImages() {
@@ -524,6 +578,7 @@ void VoxelizerPass::CreateImages() {
         imageMemory
     );
 
+    CreateBrushes();
     Create3DTextures();
 
     VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
@@ -763,6 +818,36 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 	vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
 	vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
 
+    //Create brushes buffers
+    app->CreateBuffer(
+		sizeof(Brush) * brushes.size(),
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		brushesStorageBuffers,
+        brushesStorageMemory
+	);
+
+    // Copy initial data to the brushes storage buffer
+	VkBuffer stagingBrushBuffer;
+	VkDeviceMemory stagingBrushMemory;
+	app->CreateBuffer(
+		sizeof(Brush) * brushes.size(),
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBrushBuffer, stagingBrushMemory
+	);
+
+	void* brushData;
+	vkMapMemory(app->_logicalDevice, stagingBrushMemory, 0, sizeof(Brush) * brushes.size(), 0, &brushData);
+	memcpy(brushData, brushes.data(), sizeof(Brush) * brushes.size());
+	vkUnmapMemory(app->_logicalDevice, stagingBrushMemory);
+
+	app->CopyBuffer(stagingBrushBuffer, brushesStorageBuffers, sizeof(Brush) * brushes.size());
+
+	vkDestroyBuffer(app->_logicalDevice, stagingBrushBuffer, nullptr);
+	vkFreeMemory(app->_logicalDevice, stagingBrushMemory, nullptr);
+
+	std::cout << "Shader Storage Buffers created" << std::endl;
 }
 
 
@@ -823,8 +908,33 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         static_cast<uint32_t>(volumeBarriers.size()), volumeBarriers.data()
     );
 
+    //Volume textures by index already processed.
+    std::unordered_map<uint32_t, uint32_t> textureIndexMap;
+    if (dispatchCount < 2)
+    {
+        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+
+        //Write information to volume texture. LOD level acts as which volume texture to write to.
+
+        for(uint32_t i = 0; i < brushes.size(); i++)
+		{
+            uint32_t index = brushes[i].textureID;
+
+            if(textureIndexMap.find(index) != textureIndexMap.end()) {
+				//Already processed this texture.
+				continue;
+			}
+            if (brushes[i].type == 0) { //Mesh type
+
+                std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << "Vertex offset: " << brushes[i].vertexOffset << std::endl;
+                DispatchTile(commandBuffer, currentFrame, index);
+            }
+            textureIndexMap[index] = i; //Mark this texture as processed.
+		}
+    }
 
 
+    //Set Volume textures to READ.
     std::vector<VkImageMemoryBarrier> volumeToRead(app->textures3D.size());
 
     for (auto it = app->textures3D.begin(); it != app->textures3D.end(); ++it) {
@@ -853,20 +963,20 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
 
+
     if (dispatchCount < 2)
     {
-        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
 
 
         //This needs to become a jump fill algorithm that propagates the triangle values.
-        //DispatchLOD(commandBuffer, currentFrame, 1);
+        DispatchLOD(commandBuffer, currentFrame, 1);
     }
 
     if (dispatchCount < 2)
     {
-        DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.
+        //DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.
     }
 
     dispatchCount += 1;
@@ -892,6 +1002,13 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Get the volume texture from the lodlevel.
+    Unigma3DTexture& volumeTexture = app->textures3D["brush_" + std::to_string(lodLevel)];
+
+    uint32_t resolutionx = volumeTexture.WIDTH;
+    uint32_t resolutiony = volumeTexture.HEIGHT;
+    uint32_t resolutionz = volumeTexture.DEPTH;
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, tileGenerationComputePipeline);
 
@@ -919,9 +1036,9 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
         0, 2, sets,
         0, nullptr);
 
-    uint32_t groupCountX = (VOXEL_COUNTL1 + 7) / 8;
-    uint32_t groupCountY = (1 + 7) / 8;
-    uint32_t groupCountZ = (1 + 7) / 8;
+    uint32_t groupCountX = (resolutionx + 7) / 8;
+    uint32_t groupCountY = (resolutiony + 7) / 8;
+    uint32_t groupCountZ = (resolutionz + 7) / 8;
 
 
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);

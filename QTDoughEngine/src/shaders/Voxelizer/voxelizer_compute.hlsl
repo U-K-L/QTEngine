@@ -37,6 +37,7 @@ Texture3D<snorm float> gBindless3D[] : register(t4, space0);
 // For writing
 RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
 
+
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord, float3 resolution)
 {
@@ -184,6 +185,8 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[voxelIndex].distance = asuint(voxelSize);
     voxelsL1Out[voxelIndex].normalDistance = 0;
     
+    Write3D(0, int3(DTid), 1.0f);
+    
     //if (voxelIndex > 6310128 && voxelIndex < 10568197)
         //voxelsL1Out[voxelIndex].distance = asuint(0.0f);
     
@@ -254,6 +257,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     if (sampleLevelL == 1.0f)
     {
+        int3 volumeIndex = int3(DTid);
+        voxelsL1Out[voxelIndex].distance = asuint(Read3D(0, volumeIndex, float3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x)));
+        //voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
+        return;
+    }
+    if (sampleLevelL == 1.0f)
+    {
         /*
         int3 gridSize = int3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
         int3 coord = int3(DTid);
@@ -322,12 +332,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 
 
-    if (sampleLevelL == 1.0f)
-    {
-        //int3 volumeIndex = int3(DTid);
-        //voxelsL1Out[voxelIndex].distance = asuint(Read3D(0, volumeIndex, float3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x)));
-        //voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
-    }
+
     if (sampleLevelL == 2.0f)
     {
         voxelsL2Out[voxelIndex].distance = asuint(minDist);
