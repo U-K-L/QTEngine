@@ -436,7 +436,7 @@ void VoxelizerPass::Create3DTextures()
     QTDoughApplication* app = QTDoughApplication::instance;
 
     //Hard code some volume textures for now.
-    Unigma3DTexture volumeTexture1 = Unigma3DTexture(128,128,128);
+    Unigma3DTexture volumeTexture1 = Unigma3DTexture(256, 256, 256);
 
     app->CreateImages3D(volumeTexture1.WIDTH, volumeTexture1.HEIGHT, volumeTexture1.DEPTH,
         VK_FORMAT_R8_UNORM, 
@@ -813,16 +813,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     if (dispatchCount < 2)
     {
-        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
-        DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.
-
-        //This needs to become a jump fill algorithm that propagates the triangle values.
-        DispatchLOD(commandBuffer, currentFrame, 1);
     }
-
-    dispatchCount += 1;
 
     std::vector<VkImageMemoryBarrier> volumeToRead(app->textures3D.size());
 
@@ -849,6 +841,19 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, 0, nullptr, 0, nullptr,
         static_cast<uint32_t>(volumeToRead.size()), volumeToRead.data()
     );
+
+    if (dispatchCount < 2)
+    {
+        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+        DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
+        DispatchLOD(commandBuffer, currentFrame, 2);
+
+
+        //This needs to become a jump fill algorithm that propagates the triangle values.
+        DispatchLOD(commandBuffer, currentFrame, 1);
+    }
+
+    dispatchCount += 1;
 
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
@@ -947,9 +952,10 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 5)
     {
-        groupCountX = (pc.triangleCount + 7) / 8;
-        groupCountY = 1;
-        groupCountZ = 1;
+        res = VOXEL_RESOLUTIONL1;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
     }
 
     if (lodLevel == 0)

@@ -30,24 +30,26 @@ RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
 StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
-// Bindless 3D textures
-Texture3D<float4> gBindless3D[] : register(t4, space0); // Read-only 3D textures
-RWTexture3D<float4> gBindless3DStorage[] : register(u5, space0); // Read-write 3D textures
+// For reading
+Texture3D<unorm float> gBindless3D[] : register(t4, space0);
 
+// For writing
+RWTexture3D<unorm float> gBindless3DStorage[] : register(u5, space0);
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
-
-// Simple read from 3D texture
-float4 Read3D(uint textureIndex, int3 coord)
+// Simple read/write functions
+float Read3D(uint textureIndex, int3 coord)
 {
     return gBindless3DStorage[textureIndex][coord];
 }
 
-// Simple write to 3D texture
-void Write3D(uint textureIndex, int3 coord, float4 value)
+void Write3D(uint textureIndex, int3 coord, float value)
 {
     gBindless3DStorage[textureIndex][coord] = value;
 }
+
+
+StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+
 
 float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {
@@ -101,6 +103,10 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
 {
+    int3 volumeIndex = int3(DTid);
+    
+    Write3D(0, volumeIndex, 1.0f);
+    /*
     uint triangleCount = pc.triangleCount;
     uint triangleIndex = DTid.x;
     if (triangleIndex >= triangleCount)
@@ -143,6 +149,7 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
                 voxelsL1Out[index].normalDistance = float4(1, 0, 0, 1);
                 
             }
+    */
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -309,7 +316,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     if (sampleLevelL == 1.0f)
     {
-        voxelsL1Out[voxelIndex].distance = asuint(minDist);
+        int3 volumeIndex = int3(DTid);
+        voxelsL1Out[voxelIndex].distance = asuint(Read3D(0, volumeIndex));
         voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
     }
     if (sampleLevelL == 2.0f)
