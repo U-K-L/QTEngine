@@ -1,7 +1,8 @@
-﻿RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
-
+﻿
 #include "../Helpers/ShaderHelpers.hlsl"
 
+RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
+SamplerState samplers[] : register(s0, space0); //Global
 
 cbuffer UniformBufferObject : register(b0, space1)
 {
@@ -31,17 +32,25 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 // For reading
-Texture3D<unorm float> gBindless3D[] : register(t4, space0);
+Texture3D<snorm float> gBindless3D[] : register(t4, space0);
 
 // For writing
-RWTexture3D<unorm float> gBindless3DStorage[] : register(u5, space0);
+RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
 
-// Simple read/write functions
-float Read3D(uint textureIndex, int3 coord)
+// Filtered read using normalized coordinates and mipmaps
+float Read3D(uint textureIndex, int3 coord, float3 resolution)
 {
-    return gBindless3DStorage[textureIndex][coord];
+    //Implement mips later.
+    /*
+    float3 uvw = (coord + 0.5f) / resolution; // normalize coords for sampling
+    return gBindless3D[textureIndex].Sample(samplers[textureIndex], uvw);
+    */
+    
+    return gBindless3D[textureIndex].Load(int4(coord, 0));
+
 }
 
+// Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
 {
     gBindless3DStorage[textureIndex][coord] = value;
@@ -103,10 +112,9 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
 {
-    int3 volumeIndex = int3(DTid);
+    //int3 volumeIndex = int3(DTid);
     
-    Write3D(0, volumeIndex, 1.0f);
-    /*
+    //Write3D(0, volumeIndex, 1.0f);
     uint triangleCount = pc.triangleCount;
     uint triangleIndex = DTid.x;
     if (triangleIndex >= triangleCount)
@@ -126,8 +134,8 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
     float3 gridOrigin = voxelSceneBounds.y * 0.5;
     
     //Max and min bounding point, the two corners in world space.
-    float3 triMin = min(a, min(b, c)) - voxelSize*4;
-    float3 triMax = max(a, max(b, c)) + voxelSize*4;
+    float3 triMin = min(a, min(b, c)) - voxelSize;
+    float3 triMax = max(a, max(b, c)) + voxelSize;
 
     float3 p0 = float3(-1, -1, -1);
     float3 p1 = float3(1, 1, 1);
@@ -145,11 +153,11 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
                 float3 center = ((float3) v + 0.5f) * voxelSize - gridOrigin;
 
                 float d = DistanceToTriangle(center, a, b, c);
+                //voxelsL1Out[index].distance = asuint(0.0f);
                 InterlockedMin(voxelsL1Out[index].distance, asuint(d));
-                voxelsL1Out[index].normalDistance = float4(1, 0, 0, 1);
+                //voxelsL1Out[index].normalDistance = float4(1, 0, 0, 1);
                 
             }
-    */
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -316,9 +324,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     if (sampleLevelL == 1.0f)
     {
-        int3 volumeIndex = int3(DTid);
-        voxelsL1Out[voxelIndex].distance = asuint(Read3D(0, volumeIndex));
-        voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
+        //int3 volumeIndex = int3(DTid);
+        //voxelsL1Out[voxelIndex].distance = asuint(Read3D(0, volumeIndex, float3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x)));
+        //voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
     }
     if (sampleLevelL == 2.0f)
     {

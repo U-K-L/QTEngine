@@ -238,7 +238,7 @@ public:
     void CreateGlobalSamplers(uint32_t samplerCount);
     void CreateImages3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     VkImageView Create3DImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-
+    VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
     VkImage albedoImage;
     VkDeviceMemory albedoImageMemory;
@@ -325,7 +325,7 @@ private:
     void CreateComputePipeline();
     void DispatchPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void DebugCompute(uint32_t currentFrame);
-    VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
 
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/);

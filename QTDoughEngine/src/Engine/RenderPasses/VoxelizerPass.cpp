@@ -435,11 +435,23 @@ void VoxelizerPass::Create3DTextures()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    VkFormat sdfFormat = app->FindSupportedFormat(
+        {
+            VK_FORMAT_R8_UNORM,
+            VK_FORMAT_R8_SNORM,
+            VK_FORMAT_R16_SFLOAT,
+            VK_FORMAT_R32_SFLOAT
+        },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
+    );
+
+
     //Hard code some volume textures for now.
     Unigma3DTexture volumeTexture1 = Unigma3DTexture(256, 256, 256);
 
     app->CreateImages3D(volumeTexture1.WIDTH, volumeTexture1.HEIGHT, volumeTexture1.DEPTH,
-        VK_FORMAT_R8_UNORM, 
+        sdfFormat,
         VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -447,7 +459,7 @@ void VoxelizerPass::Create3DTextures()
 
     volumeTexture1.u_imageView = app->Create3DImageView(
         volumeTexture1.u_image,
-        VK_FORMAT_R8_UNORM,
+        VK_FORMAT_R8_SNORM,
         VK_IMAGE_ASPECT_COLOR_BIT
     );
 
@@ -463,7 +475,7 @@ void VoxelizerPass::Create3DTextures()
     barrier.image = volumeTexture1.u_image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = 5;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
     barrier.srcAccessMask = 0;
@@ -525,7 +537,7 @@ void VoxelizerPass::CreateImages() {
     barrier.image = image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = 5;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
     barrier.srcAccessMask = 0;
@@ -613,7 +625,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
-    /*
+
     vertices.clear();
     //triangleSoup.clear();
     //indices.clear();
@@ -663,7 +675,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
 
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-        */
+
 
 
 }
@@ -811,10 +823,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         static_cast<uint32_t>(volumeBarriers.size()), volumeBarriers.data()
     );
 
-    if (dispatchCount < 2)
-    {
-        DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.
-    }
+
 
     std::vector<VkImageMemoryBarrier> volumeToRead(app->textures3D.size());
 
@@ -842,6 +851,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         static_cast<uint32_t>(volumeToRead.size()), volumeToRead.data()
     );
 
+
+
     if (dispatchCount < 2)
     {
         DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
@@ -850,7 +861,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
         //This needs to become a jump fill algorithm that propagates the triangle values.
-        DispatchLOD(commandBuffer, currentFrame, 1);
+        //DispatchLOD(commandBuffer, currentFrame, 1);
+    }
+
+    if (dispatchCount < 2)
+    {
+        DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.
     }
 
     dispatchCount += 1;
@@ -952,10 +968,10 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 5)
     {
-        res = VOXEL_RESOLUTIONL1;
+        res = pc.triangleCount;
         groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountY = (1 + 7) / 8;
+        groupCountZ = (1 + 7) / 8;
     }
 
     if (lodLevel == 0)

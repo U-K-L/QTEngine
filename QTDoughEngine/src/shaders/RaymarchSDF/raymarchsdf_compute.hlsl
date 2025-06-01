@@ -393,7 +393,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
 
     float3 pos = ro;
-    int maxSteps = 128;
+    int maxSteps = 1024;
     float4 closesSDF = maxDistance;
     
     float sampleLevel = GetSampleLevel(pos, 0);
@@ -404,11 +404,11 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         //float distance = IntersectionPoint(pos, rd, resultOutput);
         //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
         
-        float3 sdf = sdSphere(pos, 0, 2.0f);
-        float4 sdf2 = 0;
-        sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
-        sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
-        float4 brushSDF = float4(sdf, 1.0);
+        //float3 sdf = sdSphere(pos, 0, 2.0f);
+        //float4 sdf2 = 0;
+        //sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
+        //sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
+        //float4 brushSDF = float4(sdf, 1.0);
         float4 currentSDF = SampleNormalSDF(pos);
         //currentSDF.yzw = CentralDifferenceNormal(pos);
         //closesSDF = currentSDF;
@@ -422,8 +422,8 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 
         float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.025f);
         //mixedSDF = smin(mixedSDF, brushSDF, 0.524f);
-        mixedSDF = smin(sdf2, mixedSDF, 0.024f);
-        closesSDF = mixedSDF; //lerp(currentSDF, mixedSDF, sameLevel);
+        //mixedSDF = smin(sdf2, mixedSDF, 0.024f);
+        closesSDF = lerp(currentSDF, mixedSDF, sameLevel);
         
         /*
         if(sameLevel == true)
