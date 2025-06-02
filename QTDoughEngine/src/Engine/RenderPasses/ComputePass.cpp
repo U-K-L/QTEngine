@@ -35,7 +35,7 @@ void ComputePass::CreateTriangleSoup()
         for (auto& vertex : renderingObjects[i]->_renderer.vertices)
         {
             ComputeVertex computeVertex;
-            computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
+            computeVertex.position = glm::vec4(vertex.pos, 1.0f);
             computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, 0.0f);
             computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
 

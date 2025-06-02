@@ -54,6 +54,38 @@ struct UnigmaTransform
 		return translationMatrix * rotationMatrix * scaleMatrix;
 	}
 
+	glm::mat4 GetModelMatrixBrush() const {
+		// Build standard TRS matrix from position, rotation, and scale
+		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+		glm::quat rotY = glm::angleAxis(rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::quat rotZ = glm::angleAxis(rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+		glm::quat combinedRotation = rotZ * rotY * rotX;
+
+		glm::mat4 rotationMatrix = glm::toMat4(combinedRotation);
+		glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
+		glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
+
+		return translationMatrix * rotationMatrix * scaleMatrix;
+	}
+
+	glm::mat4 GetModelMatrixBrush(float desiredWorldSize) const {
+		glm::vec3 finalScale = this->scale * (desiredWorldSize * 0.5f);
+
+		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1, 0, 0));
+		glm::quat rotY = glm::angleAxis(rotation.y, glm::vec3(0, 1, 0));
+		glm::quat rotZ = glm::angleAxis(rotation.z, glm::vec3(0, 0, 1));
+		glm::quat rotationQuat = rotZ * rotY * rotX;
+
+		glm::mat4 rotationMatrix = glm::toMat4(rotationQuat);
+		glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
+		glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), finalScale);
+
+		return translationMatrix * rotationMatrix * scaleMatrix;
+	}
+
+
+
+
 
 
 	void UpdateTransform()

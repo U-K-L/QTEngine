@@ -97,6 +97,24 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
             }
 }
 
+float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
+{
+    minBounds = float3(1e30, 1e30, 1e30);
+    maxBounds = float3(-1e30, -1e30, -1e30);
+    
+    for (uint i = 0; i < vertexCount; i += 3) // Skip by 3 for triangles
+    {
+        for (uint j = 0; j < 3; j++) // Process each vertex of the triangle
+        {
+            float3 pos = vertexBuffer[vertexOffset + i + j].position.xyz;
+            minBounds = min(minBounds, pos);
+            maxBounds = max(maxBounds, pos);
+        }
+    }
+    
+    return maxBounds - minBounds;
+}
+
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
@@ -109,13 +127,19 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
 
-    // Convert grid index to world-space center position
-    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
-        
-    float3 voxelMin = center - voxelSize * 0.5f;
-    float3 voxelMax = center + voxelSize * 0.5f;
-
+    // Get actual AABB from vertices
+    float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
+    float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
+    float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
     
+
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
+    float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
+    
+    // Transform from normalized [-1,1] space to vertex space
+    float3 worldPos = samplePos * (maxExtent * 0.5f) + center;
+
     float minDist = 1.0f;
     
     for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
@@ -125,12 +149,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
         float3 b = vertexBuffer[idx.y].position.xyz;
         float3 c = vertexBuffer[idx.z].position.xyz;
 
-        float d = DistanceToTriangle(center, a, b, c);
+        float d = DistanceToTriangle(worldPos, a, b, c);
         
         minDist = min(minDist, d);
 
     }
 
+    //We have successfully writen all values to the volume texture centered at the mesh center.
     Write3D(brush.textureID, int3(DTid), minDist);
-
+    
 }

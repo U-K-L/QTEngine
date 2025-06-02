@@ -37,6 +37,8 @@ Texture3D<snorm float> gBindless3D[] : register(t4, space0);
 // For writing
 RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
 
+StructuredBuffer<Brush> Brushes : register(t9, space1);
+
 
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord, float3 resolution)
@@ -50,6 +52,33 @@ float Read3D(uint textureIndex, int3 coord, float3 resolution)
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 
 }
+
+float Read3DTransformed(in Brush brush, float3 worldPos)
+{
+    int3 voxelCoord = int3(worldPos);
+    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
+    /*
+    float3 localPos = mul(inverse(brush.model), float4(worldPos, 1.0f)).xyz;
+    
+    // The SDF is stored normalized, so we need to check against normalized bounds
+    if (any(abs(localPos) > 1.0f))
+        return 1.0f;
+    
+    float3 uvw = (localPos + 1.0f) * 0.5f;
+    int3 res = brush.resolution;
+    int3 voxelCoord = int3(uvw * res);
+    
+    // Clamp to valid texture coordinates
+    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(res - 1));
+    
+    float normalizedDist = gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
+
+    return normalizedDist * 8; 
+    */
+}
+
+
+
 
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
@@ -255,13 +284,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
     }
     
-    if (sampleLevelL == 1.0f)
-    {
-        int3 volumeIndex = int3(DTid);
-        voxelsL1Out[voxelIndex].distance = asuint(Read3D(0, volumeIndex, float3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x)));
-        //voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
-        return;
-    }
+
     if (sampleLevelL == 1.0f)
     {
         /*
@@ -299,8 +322,30 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 voxelMax = center + voxelSize * 0.5f;
 
     
-    float minDist = 100.0f;
+    float minDist = 1.0f;
     uint3 cachedIdx = 0;
+    
+    
+    if (sampleLevelL == 1.0f)
+    {
+        //This becomes brush count now.
+        uint brushCount = triangleCount;
+        int3 volumeIndex = int3(DTid);
+        //Find the distance field closes to this voxel.
+        for (uint i = 0; i < brushCount; i++)
+        {
+            Brush brush = Brushes[i];
+            
+            float d = Read3DTransformed(brush, float3(DTid));
+
+            minDist = min(minDist, d);
+        }
+        
+
+        voxelsL1Out[voxelIndex].distance = asuint(minDist);
+        //voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
+        return;
+    }
     
     if (sampleLevelL < 3.0f)
         if (voxelsL3Out[voxelIndexL3].normalDistance.w > 25.0f)

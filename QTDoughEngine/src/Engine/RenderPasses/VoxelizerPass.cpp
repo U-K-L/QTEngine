@@ -453,6 +453,36 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
 
 }
 
+float Read3DTransformedDebug(const glm::mat4& modelMatrix, int resolution, const glm::vec3& worldPos)
+{
+    // Inverse transform to get local position
+    glm::mat4 invModel = glm::inverse(modelMatrix);
+    glm::vec4 local = invModel * glm::vec4(worldPos, 1.0f);
+    glm::vec3 localPos = glm::vec3(local);
+
+    // Map from [-4, 4] to [0, resolution)
+    glm::vec3 uvw = (localPos + glm::vec3(1.0f)) * 0.5f;
+    glm::ivec3 voxelCoord = glm::ivec3(uvw * static_cast<float>(resolution));
+
+    // Debug print
+    std::cout << "World Pos: " << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << "\n";
+    std::cout << "Local Pos: " << localPos.x << ", " << localPos.y << ", " << localPos.z << "\n";
+    std::cout << "Voxel Coord: " << voxelCoord.x << ", " << voxelCoord.y << ", " << voxelCoord.z << "\n";
+
+    // Bounds check
+    if (voxelCoord.x < 0 || voxelCoord.y < 0 || voxelCoord.z < 0 ||
+        voxelCoord.x >= resolution || voxelCoord.y >= resolution || voxelCoord.z >= resolution)
+    {
+        std::cout << "Out of bounds — returning 1.0f\n";
+        return 1.0f; // Outside brush volume
+    }
+
+    std::cout << "Within bounds — would sample texture here\n";
+
+    // NOTE: This is a debug function, so we return dummy 0
+    return 0.0f; // Replace with actual texture sampling if you want
+}
+
 void VoxelizerPass::CreateBrushes()
 {
     int vertexOffset = 0;
@@ -463,14 +493,49 @@ void VoxelizerPass::CreateBrushes()
         brush.type = 0; //Mesh type
         brush.vertexCount = obj->_renderer.vertices.size();
 
-        std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
+        //std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
         brush.vertexOffset = vertexOffset;
         brush.textureID = i;
 
-        //Create the model matrix for the brush.
-        brush.model = obj->_transform.GetModelMatrix();
         //Set the resolution for the brush.
         brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
+
+        //Create the model matrix for the brush.
+        obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
+        brush.model = obj->_transform.GetModelMatrixBrush();
+
+        glm::mat4x4 inverseModel = glm::inverse(brush.model);
+        std::cout << "Model Matrix:\n";
+        for (int row = 0; row < 4; ++row) {
+            std::cout << "[ ";
+            for (int col = 0; col < 4; ++col) {
+                std::cout << brush.model[col][row]; // GLM is column-major
+                if (col < 3) std::cout << ", ";
+            }
+            std::cout << " ]\n";
+        }
+        std::cout << "Inverse Model Matrix:\n";
+        for (int row = 0; row < 4; ++row) {
+            std::cout << "[ ";
+            for (int col = 0; col < 4; ++col) {
+                std::cout << inverseModel[col][row]; // GLM is column-major
+                if (col < 3) std::cout << ", ";
+            }
+            std::cout << " ]\n";
+        }
+
+        /*
+        //Print out all vertices positions.
+        std::cout << "Vertices positions:\n";
+        for (const auto& vertex : obj->_renderer.vertices)
+		{
+			glm::vec3 pos = glm::vec3(vertex.pos);
+			std::cout << "Vertex Position: " << pos.x << ", " << pos.y << ", " << pos.z << "\n";
+		}
+        */
+
+        Read3DTransformedDebug(brush.model, brush.resolution, glm::vec3(0.0f, 0.0f, 0.0f));
+
         //Add the brush to the list.
         brushes.push_back(brush);
 
@@ -680,37 +745,9 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
-
+    /*
     vertices.clear();
-    //triangleSoup.clear();
-    //indices.clear();
-    //Update all vertices world positions.
-    for (int i = 0; i < renderingObjects.size(); i++)
-    {
-        //std::cout << "Index: " << i << "count: " << renderingObjects[i]->_renderer.vertices.size() << std::endl;
 
-        
-        float density = SCENE_BOUNDSL1 / (float)VOXEL_RESOLUTIONL1;
-        density *= 0.5f; // half the size of the voxel.
-
-        if(i == 4)
-			density *= 4.5f;
-        if (i == 3)
-            density *= 4.5f;
-
-        glm::mat4 model = renderingObjects[i]->_transform.GetModelMatrix();
-        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model))); // for correct normal transform
-
-        for (auto& vertex : renderingObjects[i]->_renderer.vertices)
-        {
-            ComputeVertex computeVertex;
-            computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
-            computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, density);
-            computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
-
-            vertices.push_back(computeVertex);
-        }
-    }
 
     VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
 
@@ -730,7 +767,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
 
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-
+    */
 
 
 }
@@ -908,6 +945,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         static_cast<uint32_t>(volumeBarriers.size()), volumeBarriers.data()
     );
 
+    //Dispatch only for unique volume textures as they might be shared between brushes.
     //Volume textures by index already processed.
     std::unordered_map<uint32_t, uint32_t> textureIndexMap;
     if (dispatchCount < 2)
