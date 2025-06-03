@@ -40,6 +40,9 @@ RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 
 
+StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+
+
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord, float3 resolution)
 {
@@ -53,29 +56,50 @@ float Read3D(uint textureIndex, int3 coord, float3 resolution)
 
 }
 
+float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
+{
+    minBounds = float3(1e30, 1e30, 1e30);
+    maxBounds = float3(-1e30, -1e30, -1e30);
+    
+    for (uint i = 0; i < vertexCount; i += 3) // Skip by 3 for triangles
+    {
+        for (uint j = 0; j < 3; j++) // Process each vertex of the triangle
+        {
+            float3 pos = vertexBuffer[vertexOffset + i + j].position.xyz;
+            minBounds = min(minBounds, pos);
+            maxBounds = max(maxBounds, pos);
+        }
+    }
+    
+    return maxBounds - minBounds;
+}
+
 float Read3DTransformed(in Brush brush, float3 worldPos)
 {
-    int3 voxelCoord = int3(worldPos);
-    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
-    /*
-    float3 localPos = mul(inverse(brush.model), float4(worldPos, 1.0f)).xyz;
     
-    // The SDF is stored normalized, so we need to check against normalized bounds
-    if (any(abs(localPos) > 1.0f))
-        return 1.0f;
+    // Get actual AABB from vertices
+    float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
+    float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
+    float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
     
-    float3 uvw = (localPos + 1.0f) * 0.5f;
     int3 res = brush.resolution;
-    int3 voxelCoord = int3(uvw * res);
-    
-    // Clamp to valid texture coordinates
-    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(res - 1));
-    
-    float normalizedDist = gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
 
-    return normalizedDist * 8; 
-    */
+    // Transform world pos into normalized texture space [-1, 1]
+    float3 local = (worldPos - center) / (0.5f * extent); // inverse of write step
+
+    // Map from [-1,1] to [0,1] to voxel coords
+    float3 uvw = (local + 1.0f) * 0.5f;
+    float3 voxelCoordf = uvw * res;
+
+    int3 voxelCoord = int3(voxelCoordf);
+
+    if (any(voxelCoord < 0) || any(voxelCoord >= res))
+        return 0.03125f;
+
+    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
 }
+
 
 
 
@@ -86,8 +110,6 @@ void Write3D(uint textureIndex, int3 coord, float value)
     gBindless3DStorage[textureIndex][coord] = value;
 }
 
-
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 
 float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
@@ -315,7 +337,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
 
-    // Convert grid index to world-space center position
+    // Convert grid index to world-space center position. center = dtid * vs - hs => (center + hs) / vs = dtid
     float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
         
     float3 voxelMin = center - voxelSize * 0.5f;
@@ -336,7 +358,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         {
             Brush brush = Brushes[i];
             
-            float d = Read3DTransformed(brush, float3(DTid));
+            float d = Read3DTransformed(brush, center);
 
             minDist = min(minDist, d);
         }

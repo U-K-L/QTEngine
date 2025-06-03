@@ -501,7 +501,7 @@ void VoxelizerPass::CreateBrushes()
         brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
 
         //Create the model matrix for the brush.
-        obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
+        //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
         brush.model = obj->_transform.GetModelMatrixBrush();
 
         glm::mat4x4 inverseModel = glm::inverse(brush.model);
@@ -523,7 +523,6 @@ void VoxelizerPass::CreateBrushes()
             }
             std::cout << " ]\n";
         }
-
         /*
         //Print out all vertices positions.
         std::cout << "Vertices positions:\n";
@@ -533,7 +532,6 @@ void VoxelizerPass::CreateBrushes()
 			std::cout << "Vertex Position: " << pos.x << ", " << pos.y << ", " << pos.z << "\n";
 		}
         */
-
         Read3DTransformedDebug(brush.model, brush.resolution, glm::vec3(0.0f, 0.0f, 0.0f));
 
         //Add the brush to the list.
