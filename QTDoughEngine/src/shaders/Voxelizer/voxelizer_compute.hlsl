@@ -71,35 +71,36 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
         }
     }
     
-    return maxBounds - minBounds;
+    return abs(maxBounds - minBounds);
 }
+
+
 
 float Read3DTransformed(in Brush brush, float3 worldPos)
 {
-    
-    // Get actual AABB from vertices
-    float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
-    float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
-    float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
-    
-    int3 res = brush.resolution;
+    // 1. Transform from world space to local mesh space
+    float3 localPos = mul(inverse(brush.model), float4(worldPos, 1.0f)).xyz;
 
-    // Transform world pos into normalized texture space [-1, 1]
-    float3 local = (worldPos - center) / (0.5f * extent); // inverse of write step
+    // 2. Get AABB in local mesh space
+    float3 minBounds, maxBounds;
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds);
+    float3 center = 0.5f * (minBounds + maxBounds);
 
-    // Map from [-1,1] to [0,1] to voxel coords
-    float3 uvw = (local + 1.0f) * 0.5f;
-    float3 voxelCoordf = uvw * res;
+    // 3. Normalize localPos using AABB
+    float3 normalized = (localPos - center) / (0.5f * extent);
 
+    // 4. Convert to voxel coord space
+    float3 uvw = (normalized + 1.0f) * 0.5f;
+    float3 voxelCoordf = uvw * brush.resolution;
     int3 voxelCoord = int3(voxelCoordf);
-
+    
+    
+    int3 res = int3(brush.resolution, brush.resolution, brush.resolution);
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
-        return 0.03125f;
-
-    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
+        return 1;
+    
+    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0)) *0.1f;
 }
-
 
 
 
@@ -233,7 +234,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     float voxelsizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
     
     const float BIG = 1e30f;
-    voxelsL1Out[voxelIndex].distance = asuint(voxelSize);
+    voxelsL1Out[voxelIndex].distance = asuint(1.0f);
     voxelsL1Out[voxelIndex].normalDistance = 0;
     
     Write3D(0, int3(DTid), 1.0f);
@@ -241,10 +242,10 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     //if (voxelIndex > 6310128 && voxelIndex < 10568197)
         //voxelsL1Out[voxelIndex].distance = asuint(0.0f);
     
-    voxelsL2Out[voxelIndexL2].distance = asuint(voxelsizeL2);
+    voxelsL2Out[voxelIndexL2].distance = asuint(1.0f);
     voxelsL2Out[voxelIndexL2].normalDistance = 0;
     
-    voxelsL3Out[voxelIndexL3].distance = asuint(voxelsizeL3);
+    voxelsL3Out[voxelIndexL3].distance = asuint(1.0f);
     voxelsL3Out[voxelIndexL3].normalDistance = 0;
 }
 
@@ -347,25 +348,38 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float minDist = 1.0f;
     uint3 cachedIdx = 0;
     
+    //This becomes brush count now.
+    uint brushCount = triangleCount;
+    int3 volumeIndex = int3(DTid);
+        //Find the distance field closes to this voxel.
+    for (uint i = 0; i < brushCount; i++)
+    {
+        Brush brush = Brushes[i];
+            
+        float d = Read3DTransformed(brush, center);
+
+        minDist = min(minDist, d);
+    }
     
     if (sampleLevelL == 1.0f)
     {
-        //This becomes brush count now.
-        uint brushCount = triangleCount;
-        int3 volumeIndex = int3(DTid);
-        //Find the distance field closes to this voxel.
-        for (uint i = 0; i < brushCount; i++)
-        {
-            Brush brush = Brushes[i];
-            
-            float d = Read3DTransformed(brush, center);
-
-            minDist = min(minDist, d);
-        }
-        
 
         voxelsL1Out[voxelIndex].distance = asuint(minDist);
-        //voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
+        voxelsL1Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
+        return;
+    }
+    
+    if (sampleLevelL == 2.0f)
+    {
+        voxelsL2Out[voxelIndex].distance = asuint(minDist);
+        voxelsL2Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
+        return;
+    }
+    
+    if (sampleLevelL == 3.0f)
+    {
+        voxelsL3Out[voxelIndex].distance = asuint(minDist);
+        voxelsL3Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
         return;
     }
     

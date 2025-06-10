@@ -42,6 +42,25 @@ void Write3D(uint textureIndex, int3 coord, float value)
     gBindless3DStorage[textureIndex][coord] = value;
 }
 
+float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
+{
+    minBounds = float3(1e30, 1e30, 1e30);
+    maxBounds = float3(-1e30, -1e30, -1e30);
+    
+    for (uint i = 0; i < vertexCount; i += 3) // Skip by 3 for triangles
+    {
+        for (uint j = 0; j < 3; j++) // Process each vertex of the triangle
+        {
+            float3 pos = vertexBuffer[vertexOffset + i + j].position.xyz;
+            minBounds = min(minBounds, pos);
+            maxBounds = max(maxBounds, pos);
+        }
+    }
+    
+    return abs(maxBounds - minBounds);
+}
+
+
 
 void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
 {
@@ -97,23 +116,6 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
             }
 }
 
-float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
-{
-    minBounds = float3(1e30, 1e30, 1e30);
-    maxBounds = float3(-1e30, -1e30, -1e30);
-    
-    for (uint i = 0; i < vertexCount; i += 3) // Skip by 3 for triangles
-    {
-        for (uint j = 0; j < 3; j++) // Process each vertex of the triangle
-        {
-            float3 pos = vertexBuffer[vertexOffset + i + j].position.xyz;
-            minBounds = min(minBounds, pos);
-            maxBounds = max(maxBounds, pos);
-        }
-    }
-    
-    return maxBounds - minBounds;
-}
 
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
@@ -123,10 +125,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     Brush brush = Brushes[index];
     
-    float2 voxelSceneBounds = float2(256.0f, 8.0f);
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
-
     // Get actual AABB from vertices
     float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
     float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
@@ -140,6 +138,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     // Transform from normalized [-1,1] space to vertex space
     float3 worldPos = samplePos * (maxExtent * 0.5f) + center;
 
+
     float minDist = 1.0f;
     
     for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
@@ -150,6 +149,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
         float3 c = vertexBuffer[idx.z].position.xyz;
 
         float d = DistanceToTriangle(worldPos, a, b, c);
+        
+        d = saturate(d);
         
         minDist = min(minDist, d);
 
