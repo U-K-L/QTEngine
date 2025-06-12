@@ -36,6 +36,10 @@ StructuredBuffer<Brush> Brushes : register(t9, space1);
 
 RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
+RWStructuredBuffer<uint> BrushesIndices : register(u10, space1);
+
+RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
+
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
 {
@@ -117,46 +121,45 @@ void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
 }
 
 
-[numthreads(8, 8, 8)]
+[numthreads(8, 1, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    
-    uint index = pc.lod;
-    
-    Brush brush = Brushes[index];
+   //Do this per brush.
+    uint brushID = DTid.x;
+    Brush brush = Brushes[brushID];
     
     // Get actual AABB from vertices
-    float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
-    float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
-    float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
+    float3 minBounds, maxBounds;
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds);
     
-
-    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
-    float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
+    float3 brushMin = minBounds;
+    float3 brushMax = maxBounds;
     
-    // Transform from normalized [-1,1] space to vertex space
-    float3 worldPos = samplePos * (maxExtent * 0.5f) + center;
-
-
-    float minDist = 100.0f;
+    float3 worldHalfExtent = SCENE_BOUNDSL1 * 0.5f;
+    float voxelSize = SCENE_BOUNDSL1 / VOXEL_RESOLUTIONL1;
+    float tileWorldSize = TILE_SIZE * voxelSize;
+    int numOfTilesDim = (int) (VOXEL_RESOLUTIONL1 / TILE_SIZE);
     
-    for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
-    {
-        uint3 idx = uint3(i, i + 1, i + 2);
-        float3 a = vertexBuffer[idx.x].position.xyz;
-        float3 b = vertexBuffer[idx.y].position.xyz;
-        float3 c = vertexBuffer[idx.z].position.xyz;
+    int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
+    int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);
 
-        float d = DistanceToTriangle(worldPos, a, b, c);
-        
-        //d = saturate(d);
-        
-        minDist = min(minDist, d);
+    uint indexCount = 0;
+    for (int z = minTile.z; z <= maxTile.z; ++z)
+        for (int y = minTile.y; y <= maxTile.y; ++y)
+            for (int x = minTile.x; x <= maxTile.x; ++x)
+            {
+                int3 tileCoord = int3(x, y, z);
+                uint tileIndex = Flatten3D(tileCoord, numOfTilesDim);
+                
+                // Atomically reserve a slot in this tile's brush list
+                uint writeIndex;
+                InterlockedAdd(TileBrushCounts[tileIndex], 1, writeIndex);
 
-    }
+                if (writeIndex < TILE_MAX_BRUSHES)
+                {
+                    uint offset = tileIndex * TILE_MAX_BRUSHES + writeIndex;
+                    BrushesIndices[offset] = brushID;
+                }
 
-    //We have successfully writen all values to the volume texture centered at the mesh center.
-    Write3D(brush.textureID, int3(DTid), minDist);
-    
+            }
 }

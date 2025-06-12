@@ -45,6 +45,14 @@ public:
         glm::mat4 model;
     };
 
+    struct Tile
+    {
+        uint32_t brushCount;
+        uint32_t brushOffset;
+    };
+
+
+
     struct PushConsts {
         float lod;
         uint32_t triangleCount;
@@ -60,7 +68,7 @@ public:
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
 
-    uint32_t TILE_SIZE = 8;          // voxels per edge
+    uint32_t TILE_SIZE = 16;          // voxels per edge
     uint32_t TILE_MAX_BRUSHES = 64;     // cap of brushes per tile
     uint32_t TILE_COUNTL1 = 0;
 
@@ -81,6 +89,16 @@ public:
     std::vector<Brush> brushes; 
     VkBuffer brushesStorageBuffers;
     VkDeviceMemory brushesStorageMemory;
+
+    //This is the list of tiles. Tiles are basically a collection of brushes.
+    std::vector<uint32_t> BrushesIndices;
+    VkBuffer brushIndicesStorageBuffers;
+    VkDeviceMemory brushIndicesStorageMemory;
+
+    //Tile brush counts.
+    std::vector<uint32_t> TilesBrushCounts;
+    VkBuffer tileBrushCountStorageBuffers;
+    VkDeviceMemory tileBrushCountStorageMemory;
 
     int UpdateOnce = 0;
 
@@ -127,6 +145,7 @@ public:
     void CreateImages() override;
     void Create3DTextures();
     void CreateBrushes();
+    void DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 };

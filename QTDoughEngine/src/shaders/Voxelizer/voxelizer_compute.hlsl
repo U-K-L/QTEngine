@@ -42,6 +42,8 @@ StructuredBuffer<Brush> Brushes : register(t9, space1);
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
+StructuredBuffer<uint> BrushesIndices : register(t10, space1);
+
 
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord, float3 resolution)
@@ -283,6 +285,46 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
 }
 
 
+void CreateBrush(uint3 DTid : SV_DispatchThreadID)
+{
+    uint index = pc.triangleCount;
+    
+    Brush brush = Brushes[index];
+    
+    // Get actual AABB from vertices
+    float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
+    float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
+    float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
+    
+
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
+    float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
+    
+    // Transform from normalized [-1,1] space to vertex space
+    float3 worldPos = samplePos * (maxExtent * 0.5f) + center;
+
+
+    float minDist = 100.0f;
+    
+    for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
+    {
+        uint3 idx = uint3(i, i + 1, i + 2);
+        float3 a = vertexBuffer[idx.x].position.xyz;
+        float3 b = vertexBuffer[idx.y].position.xyz;
+        float3 c = vertexBuffer[idx.z].position.xyz;
+
+        float d = DistanceToTriangle(worldPos, a, b, c);
+        
+        //d = saturate(d);
+        
+        minDist = min(minDist, d);
+
+    }
+
+    //We have successfully writen all values to the volume texture centered at the mesh center.
+    Write3D(brush.textureID, int3(DTid), minDist);
+}
 
 
 [numthreads(8, 8, 8)]
@@ -298,7 +340,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     if (sampleLevelL == 5.0f)
     {
-        ComputePerTriangle(DTid);
+        CreateBrush(DTid);
         return;
     }
     
@@ -349,13 +391,29 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float minDist = 1.0f;
     uint3 cachedIdx = 0;
     
+    
+    float tileWorldSize = TILE_SIZE * voxelSize;
+    int numTilesPerAxis = VOXEL_RESOLUTIONL1 / TILE_SIZE;
+
+    int3 tileCoord = floor((center + halfScene) / tileWorldSize);
+
+    tileCoord = clamp(tileCoord, int3(0, 0, 0), int3(numTilesPerAxis - 1, numTilesPerAxis - 1, numTilesPerAxis - 1));
+
+    uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
+    
     //This becomes brush count now.
     uint brushCount = triangleCount;
     int3 volumeIndex = int3(DTid);
         //Find the distance field closes to this voxel.
-    for (uint i = 0; i < brushCount; i++)
+    for (uint i = 0; i < TILE_MAX_BRUSHES; i++)
     {
-        Brush brush = Brushes[i];
+        uint offset = tileIndex * TILE_MAX_BRUSHES + i;
+        uint index = BrushesIndices[offset];
+        
+        if (index >= 4294967295)
+            continue;
+        
+        Brush brush = Brushes[index];
             
         float d = Read3DTransformed(brush, center);
 
