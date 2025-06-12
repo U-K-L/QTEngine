@@ -34,7 +34,7 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 
-RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
+RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
@@ -139,7 +139,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 worldPos = samplePos * (maxExtent * 0.5f) + center;
 
 
-    float minDist = 1.0f;
+    float minDist = 100.0f;
     
     for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
     {
@@ -150,7 +150,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         float d = DistanceToTriangle(worldPos, a, b, c);
         
-        d = saturate(d);
+        //d = saturate(d);
         
         minDist = min(minDist, d);
 

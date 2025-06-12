@@ -548,9 +548,6 @@ void VoxelizerPass::Create3DTextures()
 
     VkFormat sdfFormat = app->FindSupportedFormat(
         {
-            VK_FORMAT_R8_UNORM,
-            VK_FORMAT_R8_SNORM,
-            VK_FORMAT_R16_SFLOAT,
             VK_FORMAT_R32_SFLOAT
         },
         VK_IMAGE_TILING_OPTIMAL,
@@ -1002,6 +999,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     if (dispatchCount < 2)
     {
+        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
 

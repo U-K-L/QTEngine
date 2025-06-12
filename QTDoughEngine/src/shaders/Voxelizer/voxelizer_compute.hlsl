@@ -32,10 +32,10 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 // For reading
-Texture3D<snorm float> gBindless3D[] : register(t4, space0);
+Texture3D<float> gBindless3D[] : register(t4, space0);
 
 // For writing
-RWTexture3D<snorm float> gBindless3DStorage[] : register(u5, space0);
+RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 
@@ -84,10 +84,11 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
     // 2. Get AABB in local mesh space
     float3 minBounds, maxBounds;
     float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds);
+    float maxExtent = max(extent.x, max(extent.y, extent.z));
     float3 center = 0.5f * (minBounds + maxBounds);
 
     // 3. Normalize localPos using AABB
-    float3 normalized = (localPos - center) / (0.5f * extent);
+    float3 normalized = (localPos - center) / (0.5f * maxExtent);
 
     // 4. Convert to voxel coord space
     float3 uvw = (normalized + 1.0f) * 0.5f;
@@ -99,7 +100,7 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
         return 1;
     
-    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0)) *0.1f;
+    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
 }
 
 
@@ -237,7 +238,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[voxelIndex].distance = asuint(1.0f);
     voxelsL1Out[voxelIndex].normalDistance = 0;
     
-    Write3D(0, int3(DTid), 1.0f);
+    //Write3D(0, int3(DTid), 1.0f);
     
     //if (voxelIndex > 6310128 && voxelIndex < 10568197)
         //voxelsL1Out[voxelIndex].distance = asuint(0.0f);
