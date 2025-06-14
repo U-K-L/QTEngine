@@ -64,73 +64,50 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     return abs(maxBounds - minBounds);
 }
 
-
-
-void ComputePerTriangle(uint3 DTid : SV_DispatchThreadID)
+void ClearTileCount(uint3 DTid : SV_DispatchThreadID)
 {
-    //int3 volumeIndex = int3(DTid);
-    
-    //Write3D(0, volumeIndex, 1.0f);
-    uint triangleCount = pc.triangleCount;
-    uint triangleIndex = DTid.x;
-    if (triangleIndex >= triangleCount)
-        return;
-    
-    uint baseIndex = triangleIndex * 3;
-    
-    uint3 idx = uint3(baseIndex, baseIndex + 1, baseIndex + 2);
+    TileBrushCounts[DTid.x] = 0;
+}
 
-    float3 a = vertexBuffer[idx.x].position.xyz;
-    float3 b = vertexBuffer[idx.y].position.xyz;
-    float3 c = vertexBuffer[idx.z].position.xyz;
-    
-    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
-    
-    float voxelSize = 0.03125f;
-    float3 gridOrigin = voxelSceneBounds.y * 0.5;
-    
-    //Max and min bounding point, the two corners in world space.
-    float3 triMin = min(a, min(b, c)) - voxelSize;
-    float3 triMax = max(a, max(b, c)) + voxelSize;
 
-    float3 p0 = float3(-1, -1, -1);
-    float3 p1 = float3(1, 1, 1);
-    //Convert the two corners into max and min indices to iterate over.
-    int3 vMin = HashPositionToVoxelIndex3(triMin, voxelSceneBounds.y, voxelSceneBounds.x);
+float3 getAABBWorld(uint vertexOffset, uint vertexCount,
+               out float3 minBounds, out float3 maxBounds, in Brush brush)
+{
+    minBounds = float3(1e30, 1e30, 1e30);
+    maxBounds = float3(-1e30, -1e30, -1e30);
 
-    int3 vMax = HashPositionToVoxelIndex3(triMax, voxelSceneBounds.y, voxelSceneBounds.x);
-    
-    for (int z = vMin.z; z <= vMax.z; ++z)
-        for (int y = vMin.y; y <= vMax.y; ++y)
-            for (int x = vMin.x; x <= vMax.x; ++x)
-            {
-                int3 v = int3(x, y, z);
-                uint index = Flatten3D(v, voxelSceneBounds.x);
-                float3 center = ((float3) v + 0.5f) * voxelSize - gridOrigin;
+    for (uint i = 0; i < vertexCount; i += 3)
+        for (uint j = 0; j < 3; ++j)
+        {
+            float4 lp = float4(vertexBuffer[vertexOffset + i + j].position.xyz, 1.0);
+            float3 pos = mul(brush.model, lp).xyz;
+            minBounds = min(minBounds, pos);
+            maxBounds = max(maxBounds, pos);
+        }
 
-                float d = DistanceToTriangle(center, a, b, c);
-                //voxelsL1Out[index].distance = asuint(0.0f);
-                //InterlockedMin(voxelsL1Out[index].distance, asuint(d));
-                //voxelsL1Out[index].normalDistance = float4(1, 0, 0, 1);
-                int3 volumeIndex = v;
-    
-                Write3D(0, volumeIndex, 0.0f);
-                //gBindless3DStorage[0]
-                
-            }
+    return abs(maxBounds - minBounds);
 }
 
 
 [numthreads(8, 1, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
+    
+    float level = pc.lod;
+    if(level > 4.0f)
+    {
+        ClearTileCount(DTid);
+        return;
+    }
+    
    //Do this per brush.
     uint brushID = DTid.x;
     Brush brush = Brushes[brushID];
     
+    
     // Get actual AABB from vertices
     float3 minBounds, maxBounds;
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds);
+    float3 extent = getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
     
     float3 brushMin = minBounds;
     float3 brushMax = maxBounds;
@@ -143,7 +120,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
     int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);
 
-    uint indexCount = 0;
     for (int z = minTile.z; z <= maxTile.z; ++z)
         for (int y = minTile.y; y <= maxTile.y; ++y)
             for (int x = minTile.x; x <= maxTile.x; ++x)

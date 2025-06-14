@@ -411,7 +411,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         uint index = BrushesIndices[offset];
         
         if (index >= 4294967295)
-            continue;
+            break;
         
         Brush brush = Brushes[index];
             
@@ -419,6 +419,26 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         minDist = min(minDist, d);
     }
+    
+    /*
+    if (sampleLevelL >= 2.0f)
+    {
+        for (uint i = 0; i < 3; i++)
+        {
+        //uint offset = tileIndex * TILE_MAX_BRUSHES + i;
+        //uint index = BrushesIndices[offset];
+        
+        //if (index >= 4294967295)
+        //    continue;
+        
+            Brush brush = Brushes[i];
+            
+            float d = Read3DTransformed(brush, center);
+
+            minDist = min(minDist, d);
+        }
+    }
+    */
     
     if (sampleLevelL == 1.0f)
     {

@@ -754,6 +754,14 @@ void VoxelizerPass::CreateImages() {
     app->textures.insert({ textureKey, offscreenTexture });
 }
 
+void VoxelizerPass::UpdateBrushesCPU()
+{
+    for (size_t i = 0; i < renderingObjects.size(); ++i)
+    {
+        brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
+    }
+}
+
 void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -789,6 +797,26 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
+
+    //Update brushes.
+    UpdateBrushesCPU();
+
+    //Update the brushes storage buffer.
+    VkDeviceSize brushBufferSize = sizeof(Brush) * brushes.size();
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    app->CreateBuffer(brushBufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingMemory);
+    void* mapped;
+    vkMapMemory(app->_logicalDevice, stagingMemory, 0, brushBufferSize, 0, &mapped);
+    memcpy(mapped, brushes.data(), brushBufferSize);
+    vkUnmapMemory(app->_logicalDevice, stagingMemory);
+    app->CopyBuffer(stagingBuffer, brushesStorageBuffers, brushBufferSize);
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
 
     /*
     vertices.clear();
@@ -1116,13 +1144,14 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
 
-    if(dispatchCount < 1)
+    if(dispatchCount > 1)
 	{
 		//Dispatch the tile generation.
+        DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
 	}
 
-    if (dispatchCount < 2)
+    if (dispatchCount > 2)
     {
         
         DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
@@ -1208,9 +1237,6 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    //Get the volume texture from the lodlevel.
-    Unigma3DTexture& volumeTexture = app->textures3D["brush_" + std::to_string(lodLevel)];
-
     uint32_t resolutionx = brushes.size();
     uint32_t resolutiony = 1;
     uint32_t resolutionz = 1;
@@ -1241,12 +1267,29 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
         0, 2, sets,
         0, nullptr);
 
+    if( lodLevel == 5) {
+		//This is the clear dispatch.
+        resolutionx = TilesBrushCounts.size();
+	}
+
     uint32_t groupCountX = (resolutionx + 7) / 8;
     uint32_t groupCountY = (resolutiony + 7) / 8;
     uint32_t groupCountZ = (resolutionz + 7) / 8;
 
 
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+
+    VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.memoryBarrierCount = 1;
+    dep.pMemoryBarriers = &mem;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
 void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)

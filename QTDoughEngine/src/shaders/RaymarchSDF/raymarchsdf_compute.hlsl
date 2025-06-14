@@ -393,7 +393,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
 
     float3 pos = ro;
-    int maxSteps = 1024;
+    int maxSteps = 128;
     float4 closesSDF = maxDistance;
     
     float sampleLevel = GetSampleLevel(pos, 0);
@@ -441,7 +441,6 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         {
             float len = length(closesSDF.yzw);
             closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
-            return float4(1, 0, 1, 1);
             return closesSDF;
         }
 
@@ -457,8 +456,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
         */
         //update position to the nearest point. effectively a sphere trace.
-        float moveDist = 0.03125f;
-        pos = pos + rd * moveDist; //closesSDF.x;
+        pos = pos + rd * closesSDF.x;
 
     }
     
