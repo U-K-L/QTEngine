@@ -409,7 +409,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         //sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
         //sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
         //float4 brushSDF = float4(sdf, 1.0);
-        float4 currentSDF = SampleNormalSDF(pos);
+        float4 currentSDF = SampleSDF(pos);
         currentSDF.yzw = CentralDifferenceNormal(pos);
         //closesSDF = currentSDF;
         
@@ -477,6 +477,107 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 
 }
 
+
+float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
+{
+    float sampleLevelL1 = 1.0f;
+    float2 voxelSceneBoundsL1 = GetVoxelResolution(sampleLevelL1);
+    float voxelSizeL1 = voxelSceneBoundsL1.y / voxelSceneBoundsL1.x;
+    float minDistanceL1 = voxelSizeL1 * 2.0f;
+    
+    //L2
+    float sampleLevelL2 = 2.0f;
+    float2 voxelSceneBoundsL2 = GetVoxelResolution(sampleLevelL2);
+    float voxelSizeL2 = voxelSceneBoundsL2.y / voxelSceneBoundsL2.x;
+    float minDistanceL2 = voxelSizeL2 * 2.0f;
+    
+    //L3
+    float sampleLevelL3 = 3.0f;
+    float2 voxelSceneBoundsL3 = GetVoxelResolution(sampleLevelL3);
+    float voxelSizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
+    float minDistanceL3 = voxelSizeL3 * 0.5;
+
+    float maxDistance = 32.0f;
+
+    float3 pos = ro;
+    int maxSteps = 128;
+    float4 closesSDF = maxDistance;
+    
+    float sampleLevel = GetSampleLevel(pos, 0);
+    for (int i = 0; i < maxSteps; i++)
+    {
+        
+        //Find the smallest distance
+        //float distance = IntersectionPoint(pos, rd, resultOutput);
+        //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
+        
+        //float3 sdf = sdSphere(pos, 0, 2.0f);
+        //float4 sdf2 = 0;
+        //sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
+        //sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
+        //float4 brushSDF = float4(sdf, 1.0);
+        float4 currentSDF = SampleSDF(pos);
+        currentSDF.yzw = CentralDifferenceNormal(pos);
+        
+        float newSampleLevel = GetSampleLevel(pos, 0);
+        bool sameLevel = sampleLevel == newSampleLevel;
+        sampleLevel = newSampleLevel;
+        bool inL1 = sampleLevel == 1.0f;
+
+        if (abs(currentSDF.x) < abs(closesSDF.x))
+            closesSDF = currentSDF;
+
+        
+        /*
+        if(sameLevel == true)
+            closesSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.25f);
+        else
+            closesSDF = currentSDF;
+        */
+        
+        bool canTerminate =
+        (inL1 && abs(closesSDF.x) < minDistanceL1);
+
+        if (canTerminate)
+        {
+            float len = length(closesSDF.yzw);
+            closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            return closesSDF;
+        }
+
+
+        
+        //See if it is close enough otherwise continue.
+        /*
+        if (abs(closesSDF.x) < minDistanceL1)
+        {
+                    
+            closesSDF.yzw = normalize(closesSDF.yzw);
+            return closesSDF; //Something was hit.
+        }
+        */
+        //update position to the nearest point. effectively a sphere trace.
+        pos = pos + rd * closesSDF.x;
+
+    }
+    
+    /*    
+    float sampleLevel = GetSampleLevel(pos, 0);
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float minDistance = voxelSize * 0.5f;
+    
+    if (closesSDF.x < minDistance)
+    {
+                    
+        closesSDF.yzw = normalize(closesSDF.yzw);
+        return closesSDF; //Something was hit.
+    }
+    */
+    return closesSDF; //Nothing hit.
+
+}
+
 bool RayIntersectsSphere(float3 ro, float3 rd, float3 center, float radius)
 {
     float3 oc = ro - center;
@@ -506,6 +607,15 @@ float DebugMarchVertices(float3 ro, float3 rd)
     return 0.0f;
 }
 */
+float3 turboColor(float t)
+{
+    t = saturate(t);
+    return float3(
+        saturate(1.0 - abs(1.0 - 4.0 * t)),
+        saturate(1.0 - abs(2.0 - 4.0 * t)),
+        saturate(1.0 - abs(3.0 - 4.0 * t))
+    );
+}
 
 
 [numthreads(8, 8, 1)]
@@ -542,13 +652,23 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
 
     float4 result = 0;
-    float4 hit = SphereMarch(camPos, dirWorld, result);
+    float4 hit = FullMarch(camPos, dirWorld, result);
     float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0);// * col; // + col*0.25;
+    
+    
+    float maxRange = 2.0f;    
+    
+    float dist = abs(hit.x);
+    float t = 1.0 - exp(-dist * (1.0f / maxRange));
+    float3 color = lerp(float3(0, 0.2, 1), float3(1, 0.2, 0), t);
+    gBindlessStorage[outputImageHandle][pixel] = float4(color, 1.0);
+
+    
     //gBindlessStorage[outputImageHandle][pixel] = voxelsL2In[0].normalDistance;
     /*
     //SDF sphere trace each vertex point.
