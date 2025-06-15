@@ -652,7 +652,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
 
     float4 result = 0;
-    float4 hit = FullMarch(camPos, dirWorld, result);
+    float4 hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);

@@ -349,7 +349,21 @@ void main(uint3 DTid : SV_DispatchThreadID)
         ClearVoxelData(DTid);
         return;
     }
+    
 
+    if (sampleLevelL == 1.0f)
+    {
+        /*
+        int3 gridSize = int3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+        int3 coord = int3(DTid);
+        uint flatIndex = coord.x * gridSize.y * gridSize.z + coord.y * gridSize.z + coord.z;
+
+        float blurred = GaussianBlurSDF(coord, voxelsL1In, gridSize);
+        voxelsL1Out[flatIndex].distance = asuint(blurred);
+        voxelsL1Out[flatIndex].normalDistance = voxelsL1In[flatIndex].normalDistance;
+        */
+        //return;
+    }
     float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
     uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
     uint voxelIndexL3 = DTid.x * gridSizeL3.y * gridSizeL3.z + DTid.y * gridSizeL3.z + DTid.z;
@@ -374,7 +388,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 voxelMax = center + voxelSize * 0.5f;
 
     
-    float minDist = 64.0f;
+    float minDist = 1.0f;
     uint3 cachedIdx = 0;
     
     
@@ -387,7 +401,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
     
-    /*
+
     //This becomes brush count now.
     uint brushCount = triangleCount;
     int3 volumeIndex = int3(DTid);
@@ -406,7 +420,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         minDist = min(minDist, d);
     }
-    */
+    
     /*
     if (sampleLevelL >= 2.0f)
     {
@@ -427,7 +441,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
     */
     
-    /*
     if (sampleLevelL == 1.0f)
     {
 
@@ -455,7 +468,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         {
             return;
         }
-    */
+    
     for (uint i = 0; i < triangleCount; i += 1)
     {
         uint3 idx = uint3(i*3, i*3 + 1, i*3 + 2);
@@ -479,11 +492,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 normal = BarycentricNormals(center, cachedIdx);
 
 
-    if (sampleLevelL == 1.0f)
-    {
-        voxelsL1Out[voxelIndex].distance = asuint(minDist);
-        voxelsL1Out[voxelIndex].normalDistance = float4(normal, 0);
-    }
+
 
     if (sampleLevelL == 2.0f)
     {
