@@ -26,7 +26,7 @@ public:
     
     //This voxel is for L1, in the future we also want a Voxel struct with more information but higher MIP.
     struct Voxel {
-        uint32_t distance;
+        float distance;
         uint32_t pad;
         uint32_t pad2;
         uint32_t pad3;
@@ -122,6 +122,15 @@ public:
     VkPipeline tileGenerationComputePipeline;
     VkPipelineLayout tileGenerationComputePipelineLayout;
 
+    VkBuffer  voxL1PingPong[2]{};
+    VkBuffer  voxL2PingPong[2]{};
+    VkBuffer  voxL3PingPong[2]{};
+    VkDeviceMemory voxL1PingPongMem[2]{};
+    VkDeviceMemory voxL2PingPongMem[2]{};
+    VkDeviceMemory voxL3PingPongMem[2]{};
+
+    VkDescriptorSet sweepSets[2]{};
+
     // Constructor
     VoxelizerPass();
 
@@ -139,14 +148,18 @@ public:
     void IsOccupiedByVoxel();
     void BakeSDFFromTriangles();
     float DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
-    void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
+    void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false);
     void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void CreateImages() override;
     void Create3DTextures();
     void CreateBrushes();
     void DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
-    void VoxelizerPass::UpdateBrushesCPU();
+    void UpdateBrushesCPU();
+    void BindVoxelBuffers(uint32_t curFrame, uint32_t prevFrame, bool pingFlag);
+    void CreateSweepDescriptorSets();
+    void PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame);
+    void CreateDescriptorPool() override;
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 };

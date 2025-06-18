@@ -19,7 +19,7 @@
 
 struct Voxel
 {
-    uint distance;
+    float distance;
     uint pad;
     uint pad2;
     uint pad3;

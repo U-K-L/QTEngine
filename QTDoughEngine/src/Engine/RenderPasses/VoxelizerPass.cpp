@@ -2,6 +2,9 @@
 #include <random>
 
 VoxelizerPass* VoxelizerPass::instance = nullptr;
+// --- keep ping local to this translation unit ---
+static bool ping = false;
+
 
 VoxelizerPass::~VoxelizerPass() {
     PassName = "VoxelizerPass";
@@ -183,6 +186,34 @@ void VoxelizerPass::CreateComputePipeline()
 
     std::cout << "Readback created: " << PassName << std::endl;
 }
+
+void VoxelizerPass::CreateDescriptorPool()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    const uint32_t kFrameSets = app->MAX_FRAMES_IN_FLIGHT;
+    const uint32_t kSweepSets = 2;                       // ping + pong
+    const uint32_t kTotalSets = kFrameSets + kSweepSets;
+
+    VkDescriptorPoolSize poolSizes[2]{};
+
+    // one UBO per set (binding 0)
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = kTotalSets * 1;
+
+    // twelve storage buffers per set (bindings 1-11)
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].descriptorCount = kTotalSets * 12;
+
+    VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+    poolInfo.poolSizeCount = 2;
+    poolInfo.pPoolSizes = poolSizes;
+    poolInfo.maxSets = kTotalSets;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT; // handy for hot-reloads
+
+    VK_CHECK(vkCreateDescriptorPool(app->_logicalDevice, &poolInfo, nullptr, &descriptorPool));
+}
+
 
 void VoxelizerPass::CreateComputeDescriptorSets()
 {
@@ -375,7 +406,10 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
+    CreateSweepDescriptorSets();
+
     std::cout << "Created descriptor sets" << std::endl;
+
 }
 
 void VoxelizerPass::CreateComputeDescriptorSetLayout()
@@ -881,8 +915,6 @@ void VoxelizerPass::CreateShaderStorageBuffers()
         app->CopyBuffer(stagingBuffer, voxelL1StorageBuffers[i], bufferSizeL1);
     }
 
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
 
     std::cout << "Voxel L1 Storage Buffers created" << std::endl;
 
@@ -904,8 +936,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 		app->CopyBuffer(stagingBuffer2, voxelL2StorageBuffers[i], bufferSizeL2);
 	}
 
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
-	vkFreeMemory(app->_logicalDevice, stagingBufferMemory2, nullptr);
+
 
 	//Do this for next level mips.
 	// Create a staging buffer used to upload data to the gpu
@@ -925,8 +956,39 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 		app->CopyBuffer(stagingBuffer3, voxelL3StorageBuffers[i], bufferSizeL3);
 	}
 
-	vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
-	vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
+
+
+    //Create two buffer per frame:
+
+    for (int pp = 0; pp < 2; ++pp)
+    {
+        app->CreateBuffer(bufferSizeL1,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            voxL1PingPong[pp], voxL1PingPongMem[pp]);
+        app->CopyBuffer(stagingBuffer, voxL1PingPong[pp], bufferSizeL1);
+
+        app->CreateBuffer(bufferSizeL2,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            voxL2PingPong[pp], voxL2PingPongMem[pp]);
+        app->CopyBuffer(stagingBuffer2, voxL2PingPong[pp], bufferSizeL2);
+
+        app->CreateBuffer(bufferSizeL3,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            voxL3PingPong[pp], voxL3PingPongMem[pp]);
+        app->CopyBuffer(stagingBuffer3, voxL3PingPong[pp], bufferSizeL3);
+    }
+
+
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory2, nullptr);
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
 
     //Create brushes buffers
     app->CreateBuffer(
@@ -1030,10 +1092,156 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 	std::cout << "Shader Storage Buffers created" << std::endl;
 }
 
+void VoxelizerPass::CreateSweepDescriptorSets()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    /* --- allocate the two descriptor sets --------------------------------- */
+    VkDescriptorSetAllocateInfo ai{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+    ai.descriptorPool = descriptorPool;
+    ai.descriptorSetCount = 2;
+    VkDescriptorSetLayout layouts[2] = { computeDescriptorSetLayout,
+                                         computeDescriptorSetLayout };
+    ai.pSetLayouts = layouts;
+    VK_CHECK(vkAllocateDescriptorSets(app->_logicalDevice, &ai, sweepSets));
+
+    /* build a buffer-info for binding 1 (texture-ID array) ------------------ */
+    VkDescriptorBufferInfo texIDInfo{};
+    texIDInfo.buffer = intArrayBuffer;   // member variable created earlier
+    texIDInfo.offset = 0;
+    texIDInfo.range = VK_WHOLE_SIZE;
+
+    /* helper to fill one of the two sets ----------------------------------- */
+    auto fill = [&](uint32_t setIdx, bool pingIsRead)
+        {
+            /* ping-pong voxel buffers */
+            VkDescriptorBufferInfo r1{ voxL1PingPong[pingIsRead ? 0 : 1], 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo w1{ voxL1PingPong[pingIsRead ? 1 : 0], 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo r2{ voxL2PingPong[pingIsRead ? 0 : 1], 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo w2{ voxL2PingPong[pingIsRead ? 1 : 0], 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo r3{ voxL3PingPong[pingIsRead ? 0 : 1], 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo w3{ voxL3PingPong[pingIsRead ? 1 : 0], 0, VK_WHOLE_SIZE };
+
+            /* the other bindings we keep identical to earlier sets */
+            VkDescriptorBufferInfo uboInfo{ _uniformBuffers[0],           0, sizeof(UniformBufferObject) };
+            VkDescriptorBufferInfo vtxInfo{ vertexBuffer,                 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo brushInfo{ brushesStorageBuffers,        0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo idxInfo{ brushIndicesStorageBuffers,   0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo cntInfo{ tileBrushCountStorageBuffers, 0, VK_WHOLE_SIZE };
+
+            VkWriteDescriptorSet ws[12]{};
+            for (int i = 0; i < 12; ++i)
+            {
+                ws[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                ws[i].dstSet = sweepSets[setIdx];
+                ws[i].descriptorCount = 1;
+                ws[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // overwritten for UBO below
+            }
+
+            /* binding 0 : UBO */
+            ws[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            ws[0].dstBinding = 0;  ws[0].pBufferInfo = &uboInfo;
+
+            /* binding 1 : texture-ID array */
+            ws[1].dstBinding = 1;  ws[1].pBufferInfo = &texIDInfo;
+
+            /* bindings 2-7 : ping-pong voxel buffers */
+            ws[2].dstBinding = 2;  ws[2].pBufferInfo = &r1;
+            ws[3].dstBinding = 3;  ws[3].pBufferInfo = &w1;
+            ws[4].dstBinding = 4;  ws[4].pBufferInfo = &r2;
+            ws[5].dstBinding = 5;  ws[5].pBufferInfo = &w2;
+            ws[6].dstBinding = 6;  ws[6].pBufferInfo = &r3;
+            ws[7].dstBinding = 7;  ws[7].pBufferInfo = &w3;
+
+            /* bindings 8-11 : vertex + brush data */
+            ws[8].dstBinding = 8;  ws[8].pBufferInfo = &vtxInfo;
+            ws[9].dstBinding = 9;  ws[9].pBufferInfo = &brushInfo;
+            ws[10].dstBinding = 10; ws[10].pBufferInfo = &idxInfo;
+            ws[11].dstBinding = 11; ws[11].pBufferInfo = &cntInfo;
+
+            vkUpdateDescriptorSets(app->_logicalDevice,
+                static_cast<uint32_t>(std::size(ws)), ws,
+                0, nullptr);
+        };
+
+    fill(/* set 0 -> ping buffer is READ */ 0u, true  /*pingIsRead*/);
+    fill(/* set 1 -> pong buffer is READ */ 1u, false /*pingIsRead*/);
+}
+
+
+
+void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame) 
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    bool pingRead = false;
+
+    for (int sweep = 0; sweep < 8; ++sweep)
+    {
+        VkDescriptorSet sets[2] = {
+            app->globalDescriptorSets[curFrame],          // set 0
+            sweepSets[pingRead ? 0 : 1]                 // set 1 (ping-pong)
+        };
+
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+            voxelizeComputePipelineLayout,
+            /*firstSet*/0, /*setCount*/2,
+            sets, 0, nullptr);
+
+        PushConsts pc{ float(6 + sweep),
+                       uint32_t(vertices.size() / 3) };
+        vkCmdPushConstants(cmd, voxelizeComputePipelineLayout,
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0, sizeof(pc), &pc);
+
+        const uint32_t groups = (VOXEL_RESOLUTIONL1 + 7) / 8;
+        vkCmdDispatch(cmd, groups, groups, groups);
+
+        /* visibility barrier */
+        VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+        mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+        VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        dep.memoryBarrierCount = 1;
+        dep.pMemoryBarriers = &mem;
+        vkCmdPipelineBarrier2(cmd, &dep);
+
+        pingRead = !pingRead;
+    }
+}
+
 
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+
+    float  f = 100.0f;
+    uint32_t pattern;
+    memcpy(&pattern, &f, sizeof(pattern));   // generate the bit pattern once
+
+    const VkDeviceSize whole = VK_WHOLE_SIZE;         // fill the entire buf
+
+    for (int pp = 0; pp < 2; ++pp) {
+        vkCmdFillBuffer(commandBuffer, voxL1PingPong[pp], 0, whole, pattern);
+        vkCmdFillBuffer(commandBuffer, voxL2PingPong[pp], 0, whole, pattern);
+        vkCmdFillBuffer(commandBuffer, voxL3PingPong[pp], 0, whole, pattern);
+    }
+
+    /*  <-- INSERT THIS BARRIER ---------------------------------------------- */
+    VkMemoryBarrier2 mem{};
+    mem.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;            //  writes
+    mem.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;      //  reads
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT |
+        VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+    VkDependencyInfo dep2{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep2.memoryBarrierCount = 1;
+    dep2.pMemoryBarriers = &mem;
+    vkCmdPipelineBarrier2(commandBuffer, &dep2);
+    /* ----------------------------------------------------------------------- */
 
     //Image is transitioned to WRITE.
     VkImageMemoryBarrier barrier{};
@@ -1147,6 +1355,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     if(dispatchCount > 1)
 	{
 		//Dispatch the tile generation.
+
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
 	}
@@ -1154,13 +1363,23 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     if (dispatchCount > 2)
     {
         
-        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+        //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+        //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
-
-
-        //This needs to become a jump fill algorithm that propagates the triangle values.
         DispatchLOD(commandBuffer, currentFrame, 1);
+        //PerformEikonalSweeps(commandBuffer, currentFrame);
+        //Finally use Eikonal Equation to propagate the SDF. 6-13
+        //DispatchLOD(commandBuffer, currentFrame, 6);
+        //DispatchLOD(commandBuffer, currentFrame, 7, true);
+        /*
+        DispatchLOD(commandBuffer, currentFrame, 8);
+        DispatchLOD(commandBuffer, currentFrame, 9, true);
+        DispatchLOD(commandBuffer, currentFrame, 10);
+        DispatchLOD(commandBuffer, currentFrame, 11, true);
+        DispatchLOD(commandBuffer, currentFrame, 12);
+        DispatchLOD(commandBuffer, currentFrame, 13, true);
+        */
     }
 
     if (dispatchCount < 2)
@@ -1292,9 +1511,17 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
-void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
+void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    uint32_t prevFrame = (currentFrame + app->MAX_FRAMES_IN_FLIGHT - 1) %
+        app->MAX_FRAMES_IN_FLIGHT;
+
+    //if (lodLevel >= 6.0f)
+        //ping = !ping;
+
+    //BindVoxelBuffers(currentFrame, prevFrame, ping);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
 
@@ -1347,6 +1574,15 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res + 7) / 8;
     }
 
+    if (lodLevel >= 6)
+    {
+        res = VOXEL_RESOLUTIONL1;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
+
     /*
     // Add debug label for Nsight
     VkDebugUtilsLabelEXT label{};
@@ -1360,7 +1596,50 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 
+    /*
+    VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.memoryBarrierCount = 1;
+    dep.pMemoryBarriers = &mem;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
+    */
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+}
+
+
+void VoxelizerPass::BindVoxelBuffers(uint32_t curFrame, uint32_t prevFrame, bool pingFlag)     
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    auto buf = [&](std::vector<VkBuffer>& v, uint32_t i) { return v[i]; };
+
+    VkDescriptorBufferInfo rL1{ buf(voxelL1StorageBuffers, pingFlag ? prevFrame : curFrame), 0, VK_WHOLE_SIZE };
+    VkDescriptorBufferInfo wL1{ buf(voxelL1StorageBuffers, pingFlag ? curFrame : prevFrame), 0, VK_WHOLE_SIZE };
+    VkDescriptorBufferInfo rL2{ buf(voxelL2StorageBuffers, pingFlag ? prevFrame : curFrame), 0, VK_WHOLE_SIZE };
+    VkDescriptorBufferInfo wL2{ buf(voxelL2StorageBuffers, pingFlag ? curFrame : prevFrame), 0, VK_WHOLE_SIZE };
+    VkDescriptorBufferInfo rL3{ buf(voxelL3StorageBuffers, pingFlag ? prevFrame : curFrame), 0, VK_WHOLE_SIZE };
+    VkDescriptorBufferInfo wL3{ buf(voxelL3StorageBuffers, pingFlag ? curFrame : prevFrame), 0, VK_WHOLE_SIZE };
+
+    VkWriteDescriptorSet ws[6]{};
+    for (int i = 0; i < 6; ++i) {
+        ws[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        ws[i].dstSet = computeDescriptorSets[curFrame];
+        ws[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        ws[i].descriptorCount = 1;
+    }
+    ws[0].dstBinding = 2; ws[0].pBufferInfo = &rL1;
+    ws[1].dstBinding = 3; ws[1].pBufferInfo = &wL1;
+    ws[2].dstBinding = 4; ws[2].pBufferInfo = &rL2;
+    ws[3].dstBinding = 5; ws[3].pBufferInfo = &wL2;
+    ws[4].dstBinding = 6; ws[4].pBufferInfo = &rL3;
+    ws[5].dstBinding = 7; ws[5].pBufferInfo = &wL3;
+
+    vkUpdateDescriptorSets(app->_logicalDevice, 6, ws, 0, nullptr);
 }
 
 

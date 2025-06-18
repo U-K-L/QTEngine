@@ -27,9 +27,9 @@ StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 float4 GetVoxelValue(float sampleLevel, int index)
 {
-    float4 v1 = float4(voxelsL1In[index].normalDistance.xyz, asfloat(voxelsL1In[index].distance));
-    float4 v2 = float4(voxelsL2In[index].normalDistance.xyz, asfloat(voxelsL2In[index].distance));
-    float4 v3 = float4(voxelsL3In[index].normalDistance.xyz, asfloat(voxelsL3In[index].distance));
+    float4 v1 = float4(voxelsL1In[index].normalDistance.xyz, voxelsL1In[index].distance);
+    float4 v2 = float4(voxelsL2In[index].normalDistance.xyz, voxelsL2In[index].distance);
+    float4 v3 = float4(voxelsL3In[index].normalDistance.xyz, voxelsL3In[index].distance);
 
     float s1 = step(sampleLevel, 1.01f);
     float s2 = step(sampleLevel, 2.01f) - s1;
@@ -456,7 +456,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
         */
         //update position to the nearest point. effectively a sphere trace.
-        pos = pos + rd * closesSDF.x;
+        pos = pos + rd * 0.03125f;
 
     }
     
@@ -660,14 +660,14 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0);// * col; // + col*0.25;
     
-    
-    float maxRange = 2.0f;    
+    /*
+    float maxRange = 4.0f;    
     
     float dist = abs(hit.x);
     float t = 1.0 - exp(-dist * (1.0f / maxRange));
     float3 color = lerp(float3(0, 0.2, 1), float3(1, 0.2, 0), t);
     gBindlessStorage[outputImageHandle][pixel] = float4(color, 1.0);
-
+    */
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsL2In[0].normalDistance;
     /*
