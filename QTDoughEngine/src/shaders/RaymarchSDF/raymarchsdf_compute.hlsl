@@ -441,6 +441,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         {
             float len = length(closesSDF.yzw);
             closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            closesSDF.yzw = float3(1, 0, 0);
             return closesSDF;
         }
 

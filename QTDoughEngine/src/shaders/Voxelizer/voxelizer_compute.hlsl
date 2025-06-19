@@ -564,10 +564,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
         
     
-    //This becomes brush count now.
-    uint brushCount = triangleCount;
-    int3 volumeIndex = int3(DTid);
-        //Find the distance field closes to this voxel.
+    //Find the distance field closes to this voxel.
     for (uint i = 0; i < TILE_MAX_BRUSHES; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
