@@ -1173,7 +1173,7 @@ void VoxelizerPass::CreateSweepDescriptorSets()
 void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame) 
 {
     QTDoughApplication* app = QTDoughApplication::instance;
-    bool pingRead = false;
+    bool pingRead = true;
 
     for (int sweep = 0; sweep < 8; ++sweep)
     {
@@ -1181,6 +1181,7 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
             app->globalDescriptorSets[curFrame],          // set 0
             sweepSets[pingRead ? 0 : 1]                 // set 1 (ping-pong)
         };
+
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
             voxelizeComputePipelineLayout,
@@ -1209,6 +1210,9 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
 
         pingRead = !pingRead;
     }
+
+
+    currentSdfSet = sweepSets[pingRead];
 }
 
 
@@ -1368,7 +1372,37 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
-        //PerformEikonalSweeps(commandBuffer, currentFrame);
+
+        auto copyToPing = [&](VkBuffer src, VkBuffer dst, VkDeviceSize sz)
+            {
+                VkBufferCopy region{};
+                region.srcOffset = 0;
+                region.dstOffset = 0;
+                region.size = sz;
+                vkCmdCopyBuffer(commandBuffer, src, dst, 1, &region);
+            };
+
+        copyToPing(voxelL1StorageBuffers[currentFrame], voxL1PingPong[0],
+            sizeof(Voxel) * VOXEL_COUNTL1);
+        copyToPing(voxelL2StorageBuffers[currentFrame], voxL2PingPong[0],
+            sizeof(Voxel) * VOXEL_COUNTL2);
+        copyToPing(voxelL3StorageBuffers[currentFrame], voxL3PingPong[0],
+            sizeof(Voxel) * VOXEL_COUNTL3);
+
+        /* barrier so the sweeps can READ what we just copied */
+        VkMemoryBarrier2 mb{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        mb.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        mb.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        mb.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        mb.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+        VkDependencyInfo di{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        di.memoryBarrierCount = 1;
+        di.pMemoryBarriers = &mb;
+        vkCmdPipelineBarrier2(commandBuffer, &di);
+
+
+        PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
         //DispatchLOD(commandBuffer, currentFrame, 6);
         //DispatchLOD(commandBuffer, currentFrame, 7, true);
@@ -1405,6 +1439,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dep.pImageMemoryBarriers = &barrier2;
 
     vkCmdPipelineBarrier2(commandBuffer, &dep);
+
 }
 
 void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)

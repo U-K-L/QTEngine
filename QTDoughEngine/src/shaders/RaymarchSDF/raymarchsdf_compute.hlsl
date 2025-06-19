@@ -1,4 +1,5 @@
-﻿RWTexture2D<float4> OutputImage;
+﻿﻿
+RWTexture2D<float4> OutputImage;
 RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 StructuredBuffer<uint> intArray : register(t1, space1);
 
@@ -27,9 +28,9 @@ StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 float4 GetVoxelValue(float sampleLevel, int index)
 {
-    float4 v1 = float4(voxelsL1In[index].normalDistance.xyz, voxelsL1In[index].distance);
-    float4 v2 = float4(voxelsL2In[index].normalDistance.xyz, voxelsL2In[index].distance);
-    float4 v3 = float4(voxelsL3In[index].normalDistance.xyz, voxelsL3In[index].distance);
+    float4 v1 = float4(voxelsL1In[index].normalDistance.xyz, asfloat(voxelsL1In[index].distance));
+    float4 v2 = float4(voxelsL2In[index].normalDistance.xyz, asfloat(voxelsL2In[index].distance));
+    float4 v3 = float4(voxelsL3In[index].normalDistance.xyz, asfloat(voxelsL3In[index].distance));
 
     float s1 = step(sampleLevel, 1.01f);
     float s2 = step(sampleLevel, 2.01f) - s1;
@@ -41,7 +42,7 @@ float4 GetVoxelValue(float sampleLevel, int index)
 
 float SDFSphere(float3 position, float3 spherePos, float radius)
 {
-    return length(position - spherePos) -  radius;
+    return length(position - spherePos) - radius;
 }
 
 float SDFRoundBox(float3 position, float3 boxPosition, float3 halfSize, float radius)
@@ -163,7 +164,7 @@ float3 CentralDifferenceNormal(float3 p)
     float sampleLevel = GetSampleLevel(p, 0);
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float eps = voxelSize *0.75f;
+    float eps = voxelSize * 0.75f;
 
     float dx = TrilinearSampleSDF(p + float3(eps, 0, 0)).x - TrilinearSampleSDF(p - float3(eps, 0, 0)).x;
     float dy = TrilinearSampleSDF(p + float3(0, eps, 0)).x - TrilinearSampleSDF(p - float3(0, eps, 0)).x;
@@ -244,7 +245,7 @@ float SafeSampleSDF(float3 pos)
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
-        return voxelSize*2.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
+        return voxelSize * 2.0f; //Let's move carefully until we approach the actual scene bounding. Move one voxel at a time.
     
     return TrilinearSampleSDF(pos).x;
 }
@@ -287,7 +288,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     //Find the smallest intersection to return.
     float intersection = maxDistance;
     int minIndex = 0;
-    for (int i = 0; i <512; i++)
+    for (int i = 0; i < 512; i++)
     {
         /*
         if (voxelsIn[i].positionDistance.w >= 0.5)
@@ -388,7 +389,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float sampleLevelL3 = 3.0f;
     float2 voxelSceneBoundsL3 = GetVoxelResolution(sampleLevelL3);
     float voxelSizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
-    float minDistanceL3 = voxelSizeL3*0.5;
+    float minDistanceL3 = voxelSizeL3 * 0.5;
 
     float maxDistance = 100.0f;
 
@@ -434,14 +435,13 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         
         bool canTerminate =
         (inL1 && abs(closesSDF.x) < minDistanceL1) ||
-        (inL2 && abs(closesSDF.x) < minDistanceL2) || 
+        (inL2 && abs(closesSDF.x) < minDistanceL2) ||
         (inL3 && abs(closesSDF.x) < minDistanceL3);
 
         if (canTerminate)
         {
             float len = length(closesSDF.yzw);
             closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
-            closesSDF.yzw = float3(1, 0, 0);
             return closesSDF;
         }
 
@@ -457,7 +457,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
         */
         //update position to the nearest point. effectively a sphere trace.
-        pos = pos + rd * 0.03125f;
+        pos = pos + rd * closesSDF.x;
 
     }
     
@@ -653,22 +653,22 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
 
     float4 result = 0;
-    float4 hit = SphereMarch(camPos, dirWorld, result);
+    float4 hit = FullMarch(camPos, dirWorld, result);
     float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
-    gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0);// * col; // + col*0.25;
+    gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
-    /*
-    float maxRange = 4.0f;    
+    
+    float maxRange = 2.0f;
     
     float dist = abs(hit.x);
     float t = 1.0 - exp(-dist * (1.0f / maxRange));
     float3 color = lerp(float3(0, 0.2, 1), float3(1, 0.2, 0), t);
     gBindlessStorage[outputImageHandle][pixel] = float4(color, 1.0);
-    */
+
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsL2In[0].normalDistance;
     /*

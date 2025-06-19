@@ -130,6 +130,7 @@ public:
     VkDeviceMemory voxL3PingPongMem[2]{};
 
     VkDescriptorSet sweepSets[2]{};
+    VkDescriptorSet currentSdfSet = VK_NULL_HANDLE;
 
     // Constructor
     VoxelizerPass();

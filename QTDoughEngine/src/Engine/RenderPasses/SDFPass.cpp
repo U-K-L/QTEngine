@@ -342,7 +342,7 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 
     VkDescriptorSet sets[] = {
         app->globalDescriptorSets[currentFrame],
-        voxelizer->computeDescriptorSets[currentFrame]
+        voxelizer->currentSdfSet
     };
 
     vkCmdBindDescriptorSets(commandBuffer,
