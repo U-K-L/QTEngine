@@ -70,7 +70,7 @@ void SDFPass::CreateComputeDescriptorSets()
 
 }
 
-void SDFPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
+void SDFPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 

@@ -147,7 +147,7 @@ public:
     void CreateShaderStorageBuffers() override;
     void DebugCompute(uint32_t currentFrame) override;
     void CreateMaterials() override;
-    void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) override;
+    void UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) override;
     void IsOccupiedByVoxel();
     void BakeSDFFromTriangles();
     float DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
@@ -158,7 +158,7 @@ public:
     void Create3DTextures();
     void CreateBrushes();
     void DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
-    void UpdateBrushesCPU();
+    void UpdateBrushesGPU(VkCommandBuffer commandBuffer);
     void BindVoxelBuffers(uint32_t curFrame, uint32_t prevFrame, bool pingFlag);
     void CreateSweepDescriptorSets();
     void PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame);

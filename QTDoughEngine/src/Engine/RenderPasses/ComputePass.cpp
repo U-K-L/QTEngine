@@ -137,7 +137,7 @@ void ComputePass::CreateUniformBuffers()
 
 }
 
-void ComputePass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
+void ComputePass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 

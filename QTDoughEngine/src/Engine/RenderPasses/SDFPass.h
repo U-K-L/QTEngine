@@ -21,5 +21,5 @@ public:
     void CreateShaderStorageBuffers() override;
     void DebugCompute(uint32_t currentFrame) override;
     void CreateMaterials() override;
-    void UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) override;
+    void UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) override;
 };

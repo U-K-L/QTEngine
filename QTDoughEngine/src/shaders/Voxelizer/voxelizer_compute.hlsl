@@ -235,8 +235,8 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
     Brush brush = Brushes[1];
     
     
-    //Brushes[1].aabbmax *= 1.00001f;
-    //Brushes[1].aabbmin *= 1.00001f;
+    Brushes[1].aabbmax *= 1.0001f;
+    Brushes[1].aabbmin *= 1.0001f;
     
     //Brushes[1].aabbmax = float3(3, 3, 3);
     //Brushes[1].aabbmin = float3(-3, -3, -3);
@@ -261,7 +261,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
     
     //Write3D(brush.textureID, int3(DTid), 100); //Delete.
     
-    //Write3D(brush.textureID, coords, 0); //Add old value here.
+    Write3D(brush.textureID, coords, 0); //Add old value here.
     
 
 }

@@ -788,15 +788,43 @@ void VoxelizerPass::CreateImages() {
     app->textures.insert({ textureKey, offscreenTexture });
 }
 
-void VoxelizerPass::UpdateBrushesCPU()
+void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 {
+    // Update CPU-side brushes first
     for (size_t i = 0; i < renderingObjects.size(); ++i)
     {
         brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
     }
+
+    // Use vkCmdUpdateBuffer to update GPU buffer
+    for (size_t i = 0; i < brushes.size(); ++i)
+    {
+        VkDeviceSize offset = sizeof(Brush) * i + offsetof(Brush, model);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(glm::mat4),
+            &brushes[i].model
+        );
+    }
+
+    // Memory barrier after all updates
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 1, &barrier, 0, nullptr
+    );
 }
 
-void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
+void VoxelizerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -833,25 +861,8 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
     //Update brushes.
-    //UpdateBrushesCPU();
 
-    /*
-    //Update the brushes storage buffer.
-    VkDeviceSize brushBufferSize = sizeof(Brush) * brushes.size();
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    app->CreateBuffer(brushBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingMemory);
-    void* mapped;
-    vkMapMemory(app->_logicalDevice, stagingMemory, 0, brushBufferSize, 0, &mapped);
-    memcpy(mapped, brushes.data(), brushBufferSize);
-    vkUnmapMemory(app->_logicalDevice, stagingMemory);
-    app->CopyBuffer(stagingBuffer, brushesStorageBuffers, brushBufferSize);
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-    */
+
 
     /*
     vertices.clear();
@@ -1226,7 +1237,7 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-
+    UpdateBrushesGPU(commandBuffer);
     float  f = 100.0f;
     uint32_t pattern;
     memcpy(&pattern, &f, sizeof(pattern));   // generate the bit pattern once
