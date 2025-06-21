@@ -43,6 +43,8 @@ public:
         uint32_t textureID;
         uint32_t resolution;
         glm::mat4 model;
+        glm::vec3 aabbmin;
+        glm::vec3 aabbmax;
     };
 
     struct Tile
@@ -161,6 +163,7 @@ public:
     void CreateSweepDescriptorSets();
     void PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame);
     void CreateDescriptorPool() override;
+    void DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 };

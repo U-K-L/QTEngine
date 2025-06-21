@@ -1,3 +1,5 @@
+@echo off
+cd /d %~dp0
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv tests/basicFragHLSL.hlsl -Fo frag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv tests/basicVertHLSL.hlsl -Fo vert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv tests/particleTest_compute.hlsl -Fo particletestcompute.spv
@@ -16,4 +18,3 @@ C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Outline/outline_
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Outline/outline_vert.hlsl -Fo outlinevert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Composition/composition_frag.hlsl -Fo compositionfrag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Composition/composition_vert.hlsl -Fo compositionvert.spv
-pause

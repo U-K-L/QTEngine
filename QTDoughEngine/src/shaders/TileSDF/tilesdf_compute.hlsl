@@ -106,8 +106,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     
     // Get actual AABB from vertices
-    float3 minBounds, maxBounds;
-    float3 extent = getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
+    float3 minBounds = brush.aabbmin;
+    float3 maxBounds = brush.aabbmax;
+    float3 extent = abs(maxBounds - minBounds);
     
     float3 brushMin = minBounds;
     float3 brushMax = maxBounds;

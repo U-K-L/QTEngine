@@ -37,7 +37,7 @@ Texture3D<float> gBindless3D[] : register(t4, space0);
 // For writing
 RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
-StructuredBuffer<Brush> Brushes : register(t9, space1);
+RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
@@ -45,18 +45,7 @@ StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<uint> BrushesIndices : register(t10, space1);
 
 
-// Filtered read using normalized coordinates and mipmaps
-float Read3D(uint textureIndex, int3 coord, float3 resolution)
-{
-    //Implement mips later.
-    /*
-    float3 uvw = (coord + 0.5f) / resolution; // normalize coords for sampling
-    return gBindless3D[textureIndex].Sample(samplers[textureIndex], uvw);
-    */
-    
-    return gBindless3D[textureIndex].Load(int4(coord, 0));
 
-}
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
 {
@@ -84,8 +73,9 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
     float3 localPos = mul(inverse(brush.model), float4(worldPos, 1.0f)).xyz;
 
     // 2. Get AABB in local mesh space
-    float3 minBounds, maxBounds;
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds);
+    float3 minBounds = brush.aabbmin;
+    float3 maxBounds = brush.aabbmax;
+    float3 extent = abs(maxBounds - minBounds);
     float maxExtent = max(extent.x, max(extent.y, extent.z));
     float3 center = 0.5f * (minBounds + maxBounds);
 
@@ -106,7 +96,11 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
 }
 
 
-
+// Filtered read using normalized coordinates and mipmaps
+float Read3D(uint textureIndex, int3 coord)
+{    
+    return gBindless3D[textureIndex].Load(int4(coord, 0));
+}
 
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
@@ -234,6 +228,45 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
 }
 
 
+void DeformBrush(uint3 DTid : SV_DispatchThreadID)
+{
+    uint index = pc.triangleCount;
+    
+    Brush brush = Brushes[1];
+    
+    
+    //Brushes[1].aabbmax *= 1.00001f;
+    //Brushes[1].aabbmin *= 1.00001f;
+    
+    //Brushes[1].aabbmax = float3(3, 3, 3);
+    //Brushes[1].aabbmin = float3(-3, -3, -3);
+    
+    
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
+    float3 samplePos = uvw * 2.0f - 1.0f;
+
+    // Reconstruct voxel coordinate (floating point):
+    float3 voxelCoordF = ((samplePos + 1.0f) * 0.5f) * brush.resolution - 0.5f;
+    
+    // Round to nearest integer
+    int3 coords = int3(voxelCoordF);
+
+    
+    float minDist = 100.0f;
+
+
+    
+    //We have successfully writen all values to the volume texture centered at the mesh center.
+    //float oldminDist = Read3D(brush.textureID, int3(DTid));
+    
+    //Write3D(brush.textureID, int3(DTid), 100); //Delete.
+    
+    //Write3D(brush.textureID, coords, 0); //Add old value here.
+    
+
+}
+
+
 void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 {
     uint index = pc.triangleCount;
@@ -246,6 +279,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
     float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
     
+    Brushes[index].aabbmax = maxBounds;
+    Brushes[index].aabbmin = minBounds;
 
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
     float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
@@ -294,6 +329,7 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
     float neighbors[3];
 
     // Choose direction based on sweepDirection
+    
     int3 dx = (sweepDirection & 1) != 0 ? int3(1, 0, 0) : int3(-1, 0, 0);
     int3 dy = (sweepDirection & 2) != 0 ? int3(0, 1, 0) : int3(0, -1, 0);
     int3 dz = (sweepDirection & 4) != 0 ? int3(0, 0, 1) : int3(0, 0, -1);
@@ -301,6 +337,7 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+   
     
     int3 px = clamp(pos + dx, 0, gridSize - 1);
     uint nIdx = Flatten3D(px, gridSize.x);
@@ -355,7 +392,7 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
         }
     }
 
-    return u;
+    return min(u, 1.0f);
 }
 
 
@@ -374,6 +411,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
     {
         CreateBrush(DTid);
         return;
+    }
+    
+    if (sampleLevelL == 14.0f)
+    {
+        //DeformBrush(DTid);
+        //return;
     }
     
     if(sampleLevelL == 0.0f)
@@ -403,7 +446,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     // Convert grid index to world-space center position. center = dtid * vs - hs => (center + hs) / vs = dtid
     float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
-        
+
     float3 voxelMin = center - voxelSize * 0.5f;
     float3 voxelMax = center + voxelSize * 0.5f;
 
@@ -425,13 +468,24 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //Every value after 6 is a sweep direction until 13.
     if (sampleLevelL >= 6.0f && sampleLevelL < 13.0f)
     {
+        int3 dx = ((int)(pc.lod - 6.0f) & 1) != 0 ? int3(1, 0, 0) : int3(-1, 0, 0);
+        int3 dy = ((int)(pc.lod - 6.0f) & 2) != 0 ? int3(0, 1, 0) : int3(0, -1, 0);
+        int3 dz = ((int)(pc.lod - 6.0f) & 4) != 0 ? int3(0, 0, 1) : int3(0, 0, -1);
+        
+        int3 coord;
+        coord.x = (dx.x > 0) ? DTid.x : (gridSize.x - 1 - DTid.x);
+        coord.y = (dy.y > 0) ? DTid.y : (gridSize.y - 1 - DTid.y);
+        coord.z = (dz.z > 0) ? DTid.z : (gridSize.z - 1 - DTid.z);
+
+        
+        
         float dl1Old = voxelsL1In[voxelIndexL1].distance;
         float dl2Old = voxelsL2In[voxelIndexL2].distance;
         float dl3Old = voxelsL3In[voxelIndexL3].distance;
         
-        float dl1 = FSMUpdate(DTid, pc.lod - 6.0f, 1.0f);
-        float dl2 = FSMUpdate(DTid, pc.lod - 6.0f, 2.0f);
-        float dl3 = FSMUpdate(DTid, pc.lod - 6.0f, 3.0f);
+        float dl1 = FSMUpdate(coord, pc.lod - 6.0f, 1.0f);
+        float dl2 = FSMUpdate(coord, pc.lod - 6.0f, 2.0f);
+        float dl3 = FSMUpdate(coord, pc.lod - 6.0f, 3.0f);
         
         voxelsL1Out[voxelIndexL1].distance = min(dl1, dl1Old);
         voxelsL2Out[voxelIndexL2].distance = min(dl2, dl2Old);
@@ -451,10 +505,18 @@ void main(uint3 DTid : SV_DispatchThreadID)
             break;
         
         Brush brush = Brushes[index];
-            
+                
         float d = Read3DTransformed(brush, center);
 
         minDist = min(minDist, d);
+        /*
+        if (index == 1)
+            minDist = max(-minDist, d);
+        else
+            minDist = min(minDist, d);
+        */
+        
+
     }
 
     if (sampleLevelL == 1.0f)

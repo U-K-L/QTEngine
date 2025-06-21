@@ -82,8 +82,22 @@ void UpdateRenderApplication()
 
 }
 
+int CompileShader()
+{
+    int result = std::system("src\\shaders\\Compile.bat");
+    if (result != 0) {
+        // Optional: handle error
+        printf("Shader compilation failed with exit code %d\n", result);
+    }
+    else {
+        printf("Shader compilation succeeded.\n");
+    }
+    return 0;
+}
+
 int main(int argc, char* args[]) {
 
+    CompileShader();
     QTDoughApplication::SetInstance(&qtDoughApp);
 
     //Create the window.

@@ -833,8 +833,9 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
     //Update brushes.
-    UpdateBrushesCPU();
+    //UpdateBrushesCPU();
 
+    /*
     //Update the brushes storage buffer.
     VkDeviceSize brushBufferSize = sizeof(Brush) * brushes.size();
     VkBuffer stagingBuffer;
@@ -850,7 +851,7 @@ void VoxelizerPass::UpdateUniformBuffer(uint32_t currentImage, uint32_t currentF
     app->CopyBuffer(stagingBuffer, brushesStorageBuffers, brushBufferSize);
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-
+    */
 
     /*
     vertices.clear();
@@ -1174,44 +1175,50 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     bool pingRead = true;
+    int iterations = 0;
 
-    for (int sweep = 0; sweep < 8; ++sweep)
+    if (iterations == 0)
+        pingRead = false;
+
+    for (; iterations < 0; ++iterations)
     {
-        VkDescriptorSet sets[2] = {
-            app->globalDescriptorSets[curFrame],          // set 0
-            sweepSets[pingRead ? 0 : 1]                 // set 1 (ping-pong)
-        };
+        for (int sweep = 0; sweep < 8; ++sweep)
+        {
+            VkDescriptorSet sets[2] = {
+                app->globalDescriptorSets[curFrame],          // set 0
+                sweepSets[pingRead ? 0 : 1]                 // set 1 (ping-pong)
+            };
 
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-            voxelizeComputePipelineLayout,
-            /*firstSet*/0, /*setCount*/2,
-            sets, 0, nullptr);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                voxelizeComputePipelineLayout,
+                /*firstSet*/0, /*setCount*/2,
+                sets, 0, nullptr);
 
-        PushConsts pc{ float(6 + sweep),
-                       uint32_t(vertices.size() / 3) };
-        vkCmdPushConstants(cmd, voxelizeComputePipelineLayout,
-            VK_SHADER_STAGE_COMPUTE_BIT,
-            0, sizeof(pc), &pc);
+            PushConsts pc{ float(6 + (sweep % 8)),
+                           uint32_t(vertices.size() / 3) };
+            vkCmdPushConstants(cmd, voxelizeComputePipelineLayout,
+                VK_SHADER_STAGE_COMPUTE_BIT,
+                0, sizeof(pc), &pc);
 
-        const uint32_t groups = (VOXEL_RESOLUTIONL1 + 7) / 8;
-        vkCmdDispatch(cmd, groups, groups, groups);
+            const uint32_t groups = (VOXEL_RESOLUTIONL1 + 7) / 8;
+            vkCmdDispatch(cmd, groups, groups, groups);
 
-        /* visibility barrier */
-        VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
-        mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-        mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-        mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-        mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
-        VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
-        dep.memoryBarrierCount = 1;
-        dep.pMemoryBarriers = &mem;
-        vkCmdPipelineBarrier2(cmd, &dep);
+            /* visibility barrier */
+            VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+            mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+            mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+            VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+            dep.memoryBarrierCount = 1;
+            dep.pMemoryBarriers = &mem;
+            vkCmdPipelineBarrier2(cmd, &dep);
 
-        pingRead = !pingRead;
+            pingRead = !pingRead;
+        }
+
     }
-
-
     currentSdfSet = sweepSets[pingRead];
 }
 
@@ -1361,6 +1368,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 		//Dispatch the tile generation.
 
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
+        //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
 	}
 
@@ -1458,6 +1466,51 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     PushConsts pc{};
     pc.lod = 5;
     pc.triangleCount = lodLevel;
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    uint32_t groupCountX = (resolutionx + 7) / 8;
+    uint32_t groupCountY = (resolutiony + 7) / 8;
+    uint32_t groupCountZ = (resolutionz + 7) / 8;
+
+
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void VoxelizerPass::DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Get the volume texture from the lodlevel.
+    Unigma3DTexture& volumeTexture = app->textures3D["brush_" + std::to_string(brushID)];
+
+    uint32_t resolutionx = volumeTexture.WIDTH;
+    uint32_t resolutiony = volumeTexture.HEIGHT;
+    uint32_t resolutionz = volumeTexture.DEPTH;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    PushConsts pc{};
+    pc.lod = 14;
+    pc.triangleCount = brushID;
 
     vkCmdPushConstants(
         commandBuffer,

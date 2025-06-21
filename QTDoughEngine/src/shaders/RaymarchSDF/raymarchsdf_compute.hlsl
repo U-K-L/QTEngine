@@ -377,7 +377,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float sampleLevelL1 = 1.0f;
     float2 voxelSceneBoundsL1 = GetVoxelResolution(sampleLevelL1);
     float voxelSizeL1 = voxelSceneBoundsL1.y / voxelSceneBoundsL1.x;
-    float minDistanceL1 = voxelSizeL1 * 2.0f;
+    float minDistanceL1 = voxelSizeL1;
     
     //L2
     float sampleLevelL2 = 2.0f;
@@ -394,7 +394,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
 
     float3 pos = ro;
-    int maxSteps = 128;
+    int maxSteps = 1024;
     float4 closesSDF = maxDistance;
     
     float sampleLevel = GetSampleLevel(pos, 0);
@@ -434,9 +434,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         */
         
         bool canTerminate =
-        (inL1 && abs(closesSDF.x) < minDistanceL1) ||
-        (inL2 && abs(closesSDF.x) < minDistanceL2) ||
-        (inL3 && abs(closesSDF.x) < minDistanceL3);
+        (inL1 && abs(closesSDF.x) < minDistanceL1);
 
         if (canTerminate)
         {
@@ -457,7 +455,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
         */
         //update position to the nearest point. effectively a sphere trace.
-        pos = pos + rd * closesSDF.x;
+        pos = pos + rd * 0.03125f;
 
     }
     
@@ -501,7 +499,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 32.0f;
 
     float3 pos = ro;
-    int maxSteps = 128;
+    int maxSteps = 1024;
     float4 closesSDF = maxDistance;
     
     float sampleLevel = GetSampleLevel(pos, 0);
@@ -558,7 +556,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
         */
         //update position to the nearest point. effectively a sphere trace.
-        pos = pos + rd * closesSDF.x;
+        pos = pos + rd * 0.03125f;
 
     }
     
@@ -653,7 +651,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
 
     float4 result = 0;
-    float4 hit = FullMarch(camPos, dirWorld, result);
+    float4 hit = SphereMarch(camPos, dirWorld, result);
     float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
@@ -661,7 +659,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
-    
+    /*
     float maxRange = 2.0f;
     
     float dist = abs(hit.x);
@@ -669,7 +667,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 color = lerp(float3(0, 0.2, 1), float3(1, 0.2, 0), t);
     gBindlessStorage[outputImageHandle][pixel] = float4(color, 1.0);
 
-    
+    */
     //gBindlessStorage[outputImageHandle][pixel] = voxelsL2In[0].normalDistance;
     /*
     //SDF sphere trace each vertex point.

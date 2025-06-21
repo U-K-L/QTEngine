@@ -34,6 +34,8 @@ struct Brush
     uint textureID;
     uint resolution;
     float4x4 model;
+    float3 aabbmin;
+    float3 aabbmax;
 };
 
 struct ComputeVertex
