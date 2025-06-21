@@ -214,6 +214,248 @@ void VoxelizerPass::CreateDescriptorPool()
     VK_CHECK(vkCreateDescriptorPool(app->_logicalDevice, &poolInfo, nullptr, &descriptorPool));
 }
 
+void VoxelizerPass::CreateShaderStorageBuffers()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    std::cout << "Creating Shader Storage Buffers " << PassName << std::endl;
+
+    //Create the triangle soup first.
+    CreateTriangleSoup();
+    // Initial data. This should create the voxel scene grid.
+    voxelsL1.resize(VOXEL_COUNTL1);
+    voxelsL2.resize(VOXEL_COUNTL2);
+    voxelsL3.resize(VOXEL_COUNTL3);
+
+    VkDeviceSize bufferSizeL1 = sizeof(Voxel) * VOXEL_COUNTL1;
+    VkDeviceSize bufferSizeL2 = sizeof(Voxel) * VOXEL_COUNTL2;
+    VkDeviceSize bufferSizeL3 = sizeof(Voxel) * VOXEL_COUNTL3;
+
+    // Create a staging buffer used to upload data to the gpu
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    app->CreateBuffer(bufferSizeL1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSizeL1, 0, &data);
+    std::memcpy(data, voxelsL1.data(), voxelsL1.size() * sizeof(Voxel));
+    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
+
+    voxelL1StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL1StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    // Copy initial data to all storage buffers
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(bufferSizeL1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL1StorageBuffers[i], voxelL1StorageBuffersMemory[i]);
+        app->CopyBuffer(stagingBuffer, voxelL1StorageBuffers[i], bufferSizeL1);
+    }
+
+
+    std::cout << "Voxel L1 Storage Buffers created" << std::endl;
+
+    //Do this for next level mips.
+    // Create a staging buffer used to upload data to the gpu
+    VkBuffer stagingBuffer2;
+    VkDeviceMemory stagingBufferMemory2;
+    app->CreateBuffer(bufferSizeL2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer2, stagingBufferMemory2);
+
+    void* data2;
+    vkMapMemory(app->_logicalDevice, stagingBufferMemory2, 0, bufferSizeL2, 0, &data2);
+    std::memcpy(data2, voxelsL2.data(), voxelsL2.size() * sizeof(Voxel));
+    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory2);
+    voxelL2StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL2StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    // Copy initial data to all storage buffers
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(bufferSizeL2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL2StorageBuffers[i], voxelL2StorageBuffersMemory[i]);
+        app->CopyBuffer(stagingBuffer2, voxelL2StorageBuffers[i], bufferSizeL2);
+    }
+
+
+
+    //Do this for next level mips.
+    // Create a staging buffer used to upload data to the gpu
+    VkBuffer stagingBuffer3;
+    VkDeviceMemory stagingBufferMemory3;
+    app->CreateBuffer(bufferSizeL3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer3, stagingBufferMemory3);
+
+    void* data3;
+    vkMapMemory(app->_logicalDevice, stagingBufferMemory3, 0, bufferSizeL3, 0, &data3);
+    std::memcpy(data3, voxelsL3.data(), voxelsL3.size() * sizeof(Voxel));
+    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory3);
+    voxelL3StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL3StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    // Copy initial data to all storage buffers
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(bufferSizeL3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL3StorageBuffers[i], voxelL3StorageBuffersMemory[i]);
+        app->CopyBuffer(stagingBuffer3, voxelL3StorageBuffers[i], bufferSizeL3);
+    }
+
+
+
+    //Create two buffer per frame:
+
+    for (int pp = 0; pp < 2; ++pp)
+    {
+        app->CreateBuffer(bufferSizeL1,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            voxL1PingPong[pp], voxL1PingPongMem[pp]);
+        app->CopyBuffer(stagingBuffer, voxL1PingPong[pp], bufferSizeL1);
+
+        app->CreateBuffer(bufferSizeL2,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            voxL2PingPong[pp], voxL2PingPongMem[pp]);
+        app->CopyBuffer(stagingBuffer2, voxL2PingPong[pp], bufferSizeL2);
+
+        app->CreateBuffer(bufferSizeL3,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            voxL3PingPong[pp], voxL3PingPongMem[pp]);
+        app->CopyBuffer(stagingBuffer3, voxL3PingPong[pp], bufferSizeL3);
+    }
+
+
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory2, nullptr);
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
+
+    //Create brushes buffers
+    app->CreateBuffer(
+        sizeof(Brush) * brushes.size(),
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        brushesStorageBuffers,
+        brushesStorageMemory
+    );
+
+    // Copy initial data to the brushes storage buffer
+    VkBuffer stagingBrushBuffer;
+    VkDeviceMemory stagingBrushMemory;
+    app->CreateBuffer(
+        sizeof(Brush) * brushes.size(),
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBrushBuffer, stagingBrushMemory
+    );
+
+    void* brushData;
+    vkMapMemory(app->_logicalDevice, stagingBrushMemory, 0, sizeof(Brush) * brushes.size(), 0, &brushData);
+    memcpy(brushData, brushes.data(), sizeof(Brush) * brushes.size());
+    vkUnmapMemory(app->_logicalDevice, stagingBrushMemory);
+
+    app->CopyBuffer(stagingBrushBuffer, brushesStorageBuffers, sizeof(Brush) * brushes.size());
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBrushBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBrushMemory, nullptr);
+
+    //Create Tiles Storage Buffers.
+    VkBuffer stagingBrushIndicesBuffer;
+    VkDeviceMemory stagingBrushIndicesMemory;
+
+    uint32_t brushListSize = (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * TILE_MAX_BRUSHES;
+
+    BrushesIndices.resize(brushListSize, 4294967295); // Initialize with max uint32_t value
+    app->CreateBuffer(
+        sizeof(uint32_t) * brushListSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBrushIndicesBuffer, stagingBrushIndicesMemory
+    );
+
+    void* brushIndicesData;
+
+    vkMapMemory(app->_logicalDevice, stagingBrushIndicesMemory, 0, sizeof(uint32_t) * brushListSize, 0, &brushIndicesData);
+    memcpy(brushIndicesData, BrushesIndices.data(), sizeof(uint32_t) * brushListSize);
+    vkUnmapMemory(app->_logicalDevice, stagingBrushIndicesMemory);
+
+    app->CreateBuffer(
+        sizeof(uint32_t) * brushListSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        brushIndicesStorageBuffers, brushIndicesStorageMemory
+    );
+
+    app->CopyBuffer(stagingBrushIndicesBuffer, brushIndicesStorageBuffers, sizeof(uint32_t) * brushListSize);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBrushIndicesBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBrushIndicesMemory, nullptr);
+
+    //Tile Brush Counts.
+    VkBuffer stagingBrushCountsBuffer;
+    VkDeviceMemory stagingBrushCountsMemory;
+    uint32_t brushCountsSize = (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE);
+    TilesBrushCounts.resize(brushCountsSize, 0); // Initialize with 0
+
+    app->CreateBuffer(
+        sizeof(uint32_t) * brushCountsSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBrushCountsBuffer, stagingBrushCountsMemory
+    );
+
+    void* brushCountsData;
+    vkMapMemory(app->_logicalDevice, stagingBrushCountsMemory, 0, sizeof(uint32_t) * brushCountsSize, 0, &brushCountsData);
+    memcpy(brushCountsData, TilesBrushCounts.data(), sizeof(uint32_t) * brushCountsSize);
+    vkUnmapMemory(app->_logicalDevice, stagingBrushCountsMemory);
+
+    app->CreateBuffer(
+        sizeof(uint32_t) * brushCountsSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        tileBrushCountStorageBuffers, tileBrushCountStorageMemory
+    );
+
+    app->CopyBuffer(stagingBrushCountsBuffer, tileBrushCountStorageBuffers, sizeof(uint32_t) * brushCountsSize);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBrushCountsBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBrushCountsMemory, nullptr);
+
+    //Create the storage buffers for L2 and L3.
+    voxelL2StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL2StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL3StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    voxelL3StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    std::cout << "VoxelizerPass: " << PassName << " - ";
+
+
+    //Create Particles.
+
+    uint32_t particleBufferSize = sizeof(Particle) * PARTICLE_COUNT;
+
+    //Initialize particles data.
+    particles.resize(PARTICLE_COUNT);
+    for (uint32_t i = 0; i < PARTICLE_COUNT; ++i) {
+        particles[i].position = glm::vec3(0.0f, 0.0f, 0.0f);
+    }
+
+    VkBuffer pStagingBuffer;
+    VkDeviceMemory pStagingBufferMemory;
+    app->CreateBuffer(particleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, pStagingBuffer, pStagingBufferMemory);
+
+    void* pdata;
+    vkMapMemory(app->_logicalDevice, pStagingBufferMemory, 0, particleBufferSize, 0, &pdata);
+    std::memcpy(pdata, particles.data(), particles.size() * sizeof(Voxel));
+    vkUnmapMemory(app->_logicalDevice, pStagingBufferMemory);
+
+    particlesStorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    particlesStorageMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    // Copy initial data to all storage buffers
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(particleBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, particlesStorageBuffers[i], particlesStorageMemory[i]);
+        app->CopyBuffer(pStagingBuffer, particlesStorageBuffers[i], particleBufferSize);
+    }
+
+    std::cout << "Shader Storage Buffers created" << std::endl;
+}
+
 
 void VoxelizerPass::CreateComputeDescriptorSets()
 {
@@ -266,7 +508,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 12> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 14> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -402,6 +644,34 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[11].descriptorCount = 1;
         descriptorWrites[11].pBufferInfo = &tileBrushCountBufferInfo;
 
+        //Particles.
+
+        VkDescriptorBufferInfo particleBufferInfoLastFrame{};
+        particleBufferInfoLastFrame.buffer = particlesStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        particleBufferInfoLastFrame.offset = 0;
+        particleBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+        descriptorWrites[12].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[12].dstSet = computeDescriptorSets[i];
+        descriptorWrites[12].dstBinding = 2;
+        descriptorWrites[12].dstArrayElement = 0;
+        descriptorWrites[12].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[12].descriptorCount = 1;
+        descriptorWrites[12].pBufferInfo = &particleBufferInfoLastFrame;
+
+        VkDescriptorBufferInfo particleBufferInfoCurrentFrame{};
+        particleBufferInfoCurrentFrame.buffer = particlesStorageBuffers[i];
+        particleBufferInfoCurrentFrame.offset = 0;
+        particleBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+        descriptorWrites[13].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[13].dstSet = computeDescriptorSets[i];
+        descriptorWrites[13].dstBinding = 3;
+        descriptorWrites[13].dstArrayElement = 0;
+        descriptorWrites[13].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[13].descriptorCount = 1;
+        descriptorWrites[13].pBufferInfo = &particleBufferInfoCurrentFrame;
+
 
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
@@ -521,9 +791,22 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     tileBrushCountBinding.descriptorCount = 1;
     tileBrushCountBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    VkDescriptorSetLayoutBinding particleBinding1{};
+    particleBinding1.binding = 12;
+    particleBinding1.descriptorCount = 1;
+    particleBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    particleBinding1.pImmutableSamplers = nullptr;
+    particleBinding1.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding particleBinding2{};
+    particleBinding2.binding = 13;
+    particleBinding2.descriptorCount = 1;
+    particleBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    particleBinding2.pImmutableSamplers = nullptr;
+    particleBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 12> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding };
+    std::array<VkDescriptorSetLayoutBinding, 14> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2 };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -891,219 +1174,6 @@ void VoxelizerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t 
 
 }
 
-void VoxelizerPass::CreateShaderStorageBuffers()
-{
-    QTDoughApplication* app = QTDoughApplication::instance;
-
-    std::cout << "Creating Shader Storage Buffers " << PassName << std::endl;
-
-    //Create the triangle soup first.
-    CreateTriangleSoup();
-    // Initial data. This should create the voxel scene grid.
-    voxelsL1.resize(VOXEL_COUNTL1);
-    voxelsL2.resize(VOXEL_COUNTL2);
-    voxelsL3.resize(VOXEL_COUNTL3);
-
-    VkDeviceSize bufferSizeL1 = sizeof(Voxel) * VOXEL_COUNTL1;
-    VkDeviceSize bufferSizeL2 = sizeof(Voxel) * VOXEL_COUNTL2;
-    VkDeviceSize bufferSizeL3 = sizeof(Voxel) * VOXEL_COUNTL3;
-
-    // Create a staging buffer used to upload data to the gpu
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    app->CreateBuffer(bufferSizeL1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSizeL1, 0, &data);
-    std::memcpy(data, voxelsL1.data(), voxelsL1.size() * sizeof(Voxel));
-    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
-
-    voxelL1StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-    voxelL1StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-
-    // Copy initial data to all storage buffers
-    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-        app->CreateBuffer(bufferSizeL1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL1StorageBuffers[i], voxelL1StorageBuffersMemory[i]);
-        app->CopyBuffer(stagingBuffer, voxelL1StorageBuffers[i], bufferSizeL1);
-    }
-
-
-    std::cout << "Voxel L1 Storage Buffers created" << std::endl;
-
-    //Do this for next level mips.
-    // Create a staging buffer used to upload data to the gpu
-    VkBuffer stagingBuffer2;
-    VkDeviceMemory stagingBufferMemory2;
-    app->CreateBuffer(bufferSizeL2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer2, stagingBufferMemory2);
-
-    void* data2;
-    vkMapMemory(app->_logicalDevice, stagingBufferMemory2, 0, bufferSizeL2, 0, &data2);
-    std::memcpy(data2, voxelsL2.data(), voxelsL2.size() * sizeof(Voxel));
-    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory2);
-    voxelL2StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-    voxelL2StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-    // Copy initial data to all storage buffers
-    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-		app->CreateBuffer(bufferSizeL2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL2StorageBuffers[i], voxelL2StorageBuffersMemory[i]);
-		app->CopyBuffer(stagingBuffer2, voxelL2StorageBuffers[i], bufferSizeL2);
-	}
-
-
-
-	//Do this for next level mips.
-	// Create a staging buffer used to upload data to the gpu
-	VkBuffer stagingBuffer3;
-	VkDeviceMemory stagingBufferMemory3;
-	app->CreateBuffer(bufferSizeL3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer3, stagingBufferMemory3);
-
-	void* data3;
-	vkMapMemory(app->_logicalDevice, stagingBufferMemory3, 0, bufferSizeL3, 0, &data3);
-	std::memcpy(data3, voxelsL3.data(), voxelsL3.size() * sizeof(Voxel));
-	vkUnmapMemory(app->_logicalDevice, stagingBufferMemory3);
-	voxelL3StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-	voxelL3StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-	// Copy initial data to all storage buffers
-	for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-		app->CreateBuffer(bufferSizeL3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, voxelL3StorageBuffers[i], voxelL3StorageBuffersMemory[i]);
-		app->CopyBuffer(stagingBuffer3, voxelL3StorageBuffers[i], bufferSizeL3);
-	}
-
-
-
-    //Create two buffer per frame:
-
-    for (int pp = 0; pp < 2; ++pp)
-    {
-        app->CreateBuffer(bufferSizeL1,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            voxL1PingPong[pp], voxL1PingPongMem[pp]);
-        app->CopyBuffer(stagingBuffer, voxL1PingPong[pp], bufferSizeL1);
-
-        app->CreateBuffer(bufferSizeL2,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            voxL2PingPong[pp], voxL2PingPongMem[pp]);
-        app->CopyBuffer(stagingBuffer2, voxL2PingPong[pp], bufferSizeL2);
-
-        app->CreateBuffer(bufferSizeL3,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            voxL3PingPong[pp], voxL3PingPongMem[pp]);
-        app->CopyBuffer(stagingBuffer3, voxL3PingPong[pp], bufferSizeL3);
-    }
-
-
-
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingBufferMemory2, nullptr);
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
-
-    //Create brushes buffers
-    app->CreateBuffer(
-		sizeof(Brush) * brushes.size(),
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		brushesStorageBuffers,
-        brushesStorageMemory
-	);
-
-    // Copy initial data to the brushes storage buffer
-	VkBuffer stagingBrushBuffer;
-	VkDeviceMemory stagingBrushMemory;
-	app->CreateBuffer(
-		sizeof(Brush) * brushes.size(),
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBrushBuffer, stagingBrushMemory
-	);
-
-	void* brushData;
-	vkMapMemory(app->_logicalDevice, stagingBrushMemory, 0, sizeof(Brush) * brushes.size(), 0, &brushData);
-	memcpy(brushData, brushes.data(), sizeof(Brush) * brushes.size());
-	vkUnmapMemory(app->_logicalDevice, stagingBrushMemory);
-
-	app->CopyBuffer(stagingBrushBuffer, brushesStorageBuffers, sizeof(Brush) * brushes.size());
-
-	vkDestroyBuffer(app->_logicalDevice, stagingBrushBuffer, nullptr);
-	vkFreeMemory(app->_logicalDevice, stagingBrushMemory, nullptr);
-
-    //Create Tiles Storage Buffers.
-    VkBuffer stagingBrushIndicesBuffer;
-    VkDeviceMemory stagingBrushIndicesMemory;
-
-    uint32_t brushListSize = (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * TILE_MAX_BRUSHES;
-
-    BrushesIndices.resize(brushListSize, 4294967295); // Initialize with max uint32_t value
-    app->CreateBuffer(
-		sizeof(uint32_t) * brushListSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBrushIndicesBuffer, stagingBrushIndicesMemory
-	);
-
-    void* brushIndicesData;
-
-    vkMapMemory(app->_logicalDevice, stagingBrushIndicesMemory, 0, sizeof(uint32_t) * brushListSize, 0, &brushIndicesData);
-	memcpy(brushIndicesData, BrushesIndices.data(), sizeof(uint32_t) * brushListSize);
-	vkUnmapMemory(app->_logicalDevice, stagingBrushIndicesMemory);
-
-	app->CreateBuffer(
-		sizeof(uint32_t) * brushListSize,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        brushIndicesStorageBuffers, brushIndicesStorageMemory
-	);
-
-	app->CopyBuffer(stagingBrushIndicesBuffer, brushIndicesStorageBuffers, sizeof(uint32_t) * brushListSize);
-
-	vkDestroyBuffer(app->_logicalDevice, stagingBrushIndicesBuffer, nullptr);
-	vkFreeMemory(app->_logicalDevice, stagingBrushIndicesMemory, nullptr);
-
-    //Tile Brush Counts.
-    VkBuffer stagingBrushCountsBuffer;
-    VkDeviceMemory stagingBrushCountsMemory;
-    uint32_t brushCountsSize = (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE);
-    TilesBrushCounts.resize(brushCountsSize, 0); // Initialize with 0
-
-    app->CreateBuffer(
-        sizeof(uint32_t) * brushCountsSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBrushCountsBuffer, stagingBrushCountsMemory
-        );
-
-    void* brushCountsData;
-    vkMapMemory(app->_logicalDevice, stagingBrushCountsMemory, 0, sizeof(uint32_t) * brushCountsSize, 0, &brushCountsData);
-    memcpy(brushCountsData, TilesBrushCounts.data(), sizeof(uint32_t) * brushCountsSize);
-    vkUnmapMemory(app->_logicalDevice, stagingBrushCountsMemory);
-
-    app->CreateBuffer(
-		sizeof(uint32_t) * brushCountsSize,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		tileBrushCountStorageBuffers, tileBrushCountStorageMemory
-		);
-
-    app->CopyBuffer(stagingBrushCountsBuffer, tileBrushCountStorageBuffers, sizeof(uint32_t) * brushCountsSize);
-
-	vkDestroyBuffer(app->_logicalDevice, stagingBrushCountsBuffer, nullptr);
-	vkFreeMemory(app->_logicalDevice, stagingBrushCountsMemory, nullptr);
-
-	//Create the storage buffers for L2 and L3.
-	voxelL2StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-	voxelL2StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-	voxelL3StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-	voxelL3StorageBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-
-	std::cout << "VoxelizerPass: " << PassName << " - ";
-
-	std::cout << "Shader Storage Buffers created" << std::endl;
-}
-
 void VoxelizerPass::CreateSweepDescriptorSets()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -1379,7 +1449,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 		//Dispatch the tile generation.
 
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
-        //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
+        DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
 	}
 

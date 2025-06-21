@@ -166,4 +166,20 @@ public:
     void DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
+
+    //Some fluid particles test. Move this to its own pass later on.
+    int PARTICLE_COUNT = 100;
+
+    struct Particle {
+        glm::vec3 position;
+        glm::vec3 velocity;
+        glm::vec3 force;
+    };
+
+    std::vector<Particle> particles;
+
+    std::vector<VkBuffer> particlesStorageBuffers;
+    std::vector<VkDeviceMemory> particlesStorageMemory;
+
+
 };

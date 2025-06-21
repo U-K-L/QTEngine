@@ -235,8 +235,8 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
     Brush brush = Brushes[1];
     
     
-    Brushes[1].aabbmax *= 1.0001f;
-    Brushes[1].aabbmin *= 1.0001f;
+    //Brushes[1].aabbmax *= 1.001f;
+    //Brushes[1].aabbmin *= 1.001f;
     
     //Brushes[1].aabbmax = float3(3, 3, 3);
     //Brushes[1].aabbmin = float3(-3, -3, -3);
@@ -244,6 +244,9 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
     
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
     float3 samplePos = uvw * 2.0f - 1.0f;
+    
+    
+    //samplePos.z += 0.085f;
 
     // Reconstruct voxel coordinate (floating point):
     float3 voxelCoordF = ((samplePos + 1.0f) * 0.5f) * brush.resolution - 0.5f;
@@ -257,11 +260,11 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 
     
     //We have successfully writen all values to the volume texture centered at the mesh center.
-    //float oldminDist = Read3D(brush.textureID, int3(DTid));
+    float oldminDist = Read3D(brush.textureID, int3(DTid));
     
     //Write3D(brush.textureID, int3(DTid), 100); //Delete.
     
-    Write3D(brush.textureID, coords, 0); //Add old value here.
+    //Write3D(brush.textureID, coords, oldminDist); //Add old value here.
     
 
 }
