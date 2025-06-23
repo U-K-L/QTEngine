@@ -240,6 +240,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\stb-master;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Lib;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\include;$(IncludePath)</IncludePath>

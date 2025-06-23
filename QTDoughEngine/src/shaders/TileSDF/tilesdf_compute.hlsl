@@ -40,6 +40,9 @@ RWStructuredBuffer<uint> BrushesIndices : register(u10, space1);
 
 RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 
+StructuredBuffer<Particle> particlesL1In : register(t12, space1); // readonly
+RWStructuredBuffer<Particle> particlesL1Out : register(u13, space1); // write
+
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
 {
@@ -73,6 +76,7 @@ void ClearTileCount(uint3 DTid : SV_DispatchThreadID)
 float3 getAABBWorld(uint vertexOffset, uint vertexCount,
                out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
+    
     minBounds = float3(1e30, 1e30, 1e30);
     maxBounds = float3(-1e30, -1e30, -1e30);
 
@@ -88,15 +92,56 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
     return abs(maxBounds - minBounds);
 }
 
+void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
+{
+    Particle particle = particlesL1In[DTid.x];
+    
+    particle.position.xyz += randPos(DTid.x, particle.position.xyz);
+    
+    float pRad = 0.125f;
+    
+    float voxelSize = SCENE_BOUNDSL1 / VOXEL_RESOLUTIONL1;
+    float3 halfScene = SCENE_BOUNDSL1 * 0.5f;
+
+    float3 minPos = particle.position.xyz - pRad;
+    float3 maxPos = particle.position.xyz + pRad;
+
+    int3 minVoxel = floor((minPos + halfScene) / voxelSize);
+    int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
+
+    
+    for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
+        for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
+            for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
+            {
+                int3 voxelIndex = int3(x, y, z);
+                float3 worldPos = voxelSize * (float3(voxelIndex) - 0.5f * VOXEL_RESOLUTIONL1);
+
+                float dist = sdSphere(worldPos, particle.position.xyz, pRad);
+
+                uint flatIndex = Flatten3D(voxelIndex, VOXEL_RESOLUTIONL1);
+                InterlockedMin(voxelsL1Out[flatIndex].distance, asuint(dist));
+
+            }
+
+    particlesL1Out[DTid.x].position = particle.position;
+
+}
 
 [numthreads(8, 1, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     
     float level = pc.lod;
-    if(level > 4.0f)
+    if(level == 4.0f)
     {
         ClearTileCount(DTid);
+        return;
+    }
+    
+    if (level == 2.0f)
+    {
+        ParticlesSDF(DTid);
         return;
     }
     
@@ -111,6 +156,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float3 brushMin = minBounds;
     float3 brushMax = maxBounds;
+    
+    //brush.aabbmax = maxBounds;
+    //brush.aabbmin = minBounds;
     
     float3 worldHalfExtent = SCENE_BOUNDSL1 * 0.5f;
     float voxelSize = SCENE_BOUNDSL1 / VOXEL_RESOLUTIONL1;

@@ -432,7 +432,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     //Initialize particles data.
     particles.resize(PARTICLE_COUNT);
     for (uint32_t i = 0; i < PARTICLE_COUNT; ++i) {
-        particles[i].position = glm::vec3(0.0f, 0.0f, 0.0f);
+        particles[i].position = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        particles[i].velocity = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
     VkBuffer pStagingBuffer;
@@ -441,7 +442,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     void* pdata;
     vkMapMemory(app->_logicalDevice, pStagingBufferMemory, 0, particleBufferSize, 0, &pdata);
-    std::memcpy(pdata, particles.data(), particles.size() * sizeof(Voxel));
+    std::memcpy(pdata, particles.data(), particles.size() * sizeof(Particle));
     vkUnmapMemory(app->_logicalDevice, pStagingBufferMemory);
 
     particlesStorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
@@ -653,7 +654,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
 
         descriptorWrites[12].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[12].dstSet = computeDescriptorSets[i];
-        descriptorWrites[12].dstBinding = 2;
+        descriptorWrites[12].dstBinding = 12;
         descriptorWrites[12].dstArrayElement = 0;
         descriptorWrites[12].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[12].descriptorCount = 1;
@@ -666,7 +667,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
 
         descriptorWrites[13].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[13].dstSet = computeDescriptorSets[i];
-        descriptorWrites[13].dstBinding = 3;
+        descriptorWrites[13].dstBinding = 13;
         descriptorWrites[13].dstArrayElement = 0;
         descriptorWrites[13].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[13].descriptorCount = 1;
@@ -1449,7 +1450,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 		//Dispatch the tile generation.
 
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
-        DispatchBrushDeformation(commandBuffer, currentFrame, 1);
+        //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
 	}
 
@@ -1461,6 +1462,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
+
+        //DispatchTile(commandBuffer, currentFrame, 2); Particle to voxel TEST. 
 
         auto copyToPing = [&](VkBuffer src, VkBuffer dst, VkDeviceSize sz)
             {
@@ -1660,6 +1663,12 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
         resolutionx = TilesBrushCounts.size();
 	}
 
+    if (lodLevel == 2) {
+        //This is the clear dispatch.
+        resolutionx = PARTICLE_COUNT;
+    }
+
+
     uint32_t groupCountX = (resolutionx + 7) / 8;
     uint32_t groupCountY = (resolutiony + 7) / 8;
     uint32_t groupCountZ = (resolutionz + 7) / 8;
@@ -1765,7 +1774,6 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 
-    /*
     VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
     mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
@@ -1777,7 +1785,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     dep.pMemoryBarriers = &mem;
 
     vkCmdPipelineBarrier2(commandBuffer, &dep);
-    */
+
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer);
 }
 

@@ -19,11 +19,22 @@
 
 struct Voxel
 {
-    float distance;
+    uint distance;
     uint pad;
     uint pad2;
     uint pad3;
     float4 normalDistance;
+};
+
+struct Particle
+{
+    float4 position;
+    float4 velocity;
+    float4 force;
+    float4 tbd;
+    float4 tbd2;
+    float4 tbd3;
+    float4 tbd4;
 };
 
 struct Brush
@@ -32,6 +43,7 @@ struct Brush
     uint vertexCount;
     uint vertexOffset;
     uint textureID;
+    uint textureID2;
     uint resolution;
     float4x4 model;
     float3 aabbmin;
@@ -402,6 +414,15 @@ float4 rand4(float4 co)
     return float4(rand(co.x), rand(co.y), rand(co.z), rand(co.w));
 }
 
+float3 randPos(float seed)
+{
+    return float3(rand(seed), rand(seed + 1), rand(seed + 2));
+}
+
+float3 randPos(float seed, float3 pos)
+{
+    return float3(rand(seed + pos.x), rand(seed + pos.y + 1 ), rand(seed + pos.z + 2));
+}
 
 // Returns a pseudorandom number. By Ronja Böhringer
 float rand(float4 value)

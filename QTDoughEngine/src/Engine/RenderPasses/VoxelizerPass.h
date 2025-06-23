@@ -26,7 +26,7 @@ public:
     
     //This voxel is for L1, in the future we also want a Voxel struct with more information but higher MIP.
     struct Voxel {
-        float distance;
+        uint32_t distance;
         uint32_t pad;
         uint32_t pad2;
         uint32_t pad3;
@@ -41,6 +41,7 @@ public:
         uint32_t vertexCount;
         uint32_t vertexOffset;
         uint32_t textureID;
+        uint32_t textureID2;
         uint32_t resolution;
         glm::mat4 model;
         glm::vec3 aabbmin;
@@ -168,12 +169,17 @@ public:
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
     //Some fluid particles test. Move this to its own pass later on.
-    int PARTICLE_COUNT = 100;
+    int PARTICLE_COUNT = 64000;
 
+    //128 particle data fits in a single modern GPU data lane... try to get it to 64, but always keep it multiples of 32 since some lanes are 192.
     struct Particle {
-        glm::vec3 position;
-        glm::vec3 velocity;
-        glm::vec3 force;
+        glm::vec4 position;
+        glm::vec4 velocity;
+        glm::vec4 force;
+        glm::vec4 tbd;
+        glm::vec4 tbd2;
+        glm::vec4 tbd3;
+        glm::vec4 tbd4;
     };
 
     std::vector<Particle> particles;
