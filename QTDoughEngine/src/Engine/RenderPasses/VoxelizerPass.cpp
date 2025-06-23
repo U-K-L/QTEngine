@@ -854,6 +854,7 @@ void VoxelizerPass::CreateBrushes()
     int vertexOffset = 0;
     for (int i = 0; i < renderingObjects.size(); i++)
     {
+        int imageIndex = i * 2;
         UnigmaRenderingObject* obj = renderingObjects[i];
         Brush brush;
         brush.type = 0; //Mesh type
@@ -861,7 +862,8 @@ void VoxelizerPass::CreateBrushes()
 
         //std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
         brush.vertexOffset = vertexOffset;
-        brush.textureID = i;
+        brush.textureID = imageIndex;
+        brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
         brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
@@ -922,9 +924,10 @@ void VoxelizerPass::Create3DTextures()
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
 
-    for (int i = 0; i < brushes.size(); i++)
+    for (int i = 0; i < brushes.size()*2; i++)
     {
-        Brush& brush = brushes[i];
+        int index = i / 2;
+        Brush& brush = brushes[index];
 
         if(brush.type != 0) {
 			continue;
@@ -972,6 +975,7 @@ void VoxelizerPass::Create3DTextures()
 		app->EndSingleTimeCommands(commandBuffer);
 
 		app->textures3D.insert({ "brush_" + std::to_string(i), brushTexture });
+        std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
     }
 }
 
@@ -1409,7 +1413,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             if (brushes[i].type == 0) { //Mesh type
 
                 std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << "Vertex offset: " << brushes[i].vertexOffset << std::endl;
-                DispatchBrushCreation(commandBuffer, currentFrame, index);
+                DispatchBrushCreation(commandBuffer, currentFrame, i);
             }
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
