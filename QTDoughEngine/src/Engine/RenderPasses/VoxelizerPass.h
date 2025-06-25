@@ -165,6 +165,7 @@ public:
     void PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame);
     void CreateDescriptorPool() override;
     void DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
+    void UpdateBrushesTextureIds(VkCommandBuffer commandBuffer);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 

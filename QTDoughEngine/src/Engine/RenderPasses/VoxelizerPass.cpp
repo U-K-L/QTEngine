@@ -1308,6 +1308,53 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
     currentSdfSet = sweepSets[pingRead];
 }
 
+void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
+{
+
+    //Swap read texture ID with write texture ID for each brush.
+    for (auto& brush : brushes) {
+        std::swap(brush.textureID, brush.textureID2);
+    }
+
+    // Use vkCmdUpdateBuffer to update GPU buffer
+    for (size_t i = 0; i < brushes.size(); ++i)
+    {
+        VkDeviceSize offset = sizeof(Brush) * i + offsetof(Brush, textureID);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(glm::mat4),
+            &brushes[i].textureID
+        );
+
+        VkDeviceSize offset2 = sizeof(Brush) * i + offsetof(Brush, textureID2);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset2,
+            sizeof(glm::mat4),
+            &brushes[i].textureID2
+        );
+    }
+
+    // Memory barrier after all updates
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 1, &barrier, 0, nullptr
+    );
+
+}
+
 
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -1396,7 +1443,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     //Dispatch only for unique volume textures as they might be shared between brushes.
     //Volume textures by index already processed.
     std::unordered_map<uint32_t, uint32_t> textureIndexMap;
-    if (dispatchCount < 2)
+    if (dispatchCount < 4)
     {
         DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
 
@@ -1418,6 +1465,22 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
     }
+
+    //Deform brush
+    if (dispatchCount > 3)
+	{
+        //Only update brushes that are flagged dirty in the future!
+        for (uint32_t i = 0; i < brushes.size(); i++)
+        {
+            uint32_t index = brushes[i].textureID;
+            if (brushes[i].type == 0) { //Mesh type
+
+                DispatchBrushDeformation(commandBuffer, currentFrame, i);
+            }
+        }
+	}
+
+    UpdateBrushesTextureIds(commandBuffer);
 
 
     //Set Volume textures to READ.
@@ -1535,6 +1598,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dep.pImageMemoryBarriers = &barrier2;
 
     vkCmdPipelineBarrier2(commandBuffer, &dep);
+
 
 }
 

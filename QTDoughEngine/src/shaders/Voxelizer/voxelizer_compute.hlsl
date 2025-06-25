@@ -242,7 +242,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 {
     uint index = pc.triangleCount;
     
-    Brush brush = Brushes[1];
+    Brush brush = Brushes[index];
     
     
     //Brushes[1].aabbmax *= 1.001f;
@@ -272,9 +272,9 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
     //We have successfully writen all values to the volume texture centered at the mesh center.
     float oldminDist = Read3D(brush.textureID, int3(DTid));
     
-    //Write3D(brush.textureID, int3(DTid), 100); //Delete.
+    //Write3D(brush.textureID2, int3(DTid), 100); //Delete.
     
-    //Write3D(brush.textureID, coords, oldminDist); //Add old value here.
+    Write3D(brush.textureID2, int3(DTid), oldminDist); //Add old value here.
     
 
 }
