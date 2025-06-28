@@ -1261,12 +1261,12 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     bool pingRead = true;
-    int iterations = 0;
+    int iterations = 1;
 
     if (iterations == 0)
         pingRead = false;
 
-    for (; iterations < 0; ++iterations)
+    for (int i = 0; i < iterations; ++i)
     {
         for (int sweep = 0; sweep < 8; ++sweep)
         {
@@ -1305,7 +1305,7 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
         }
 
     }
-    currentSdfSet = sweepSets[pingRead];
+    currentSdfSet = sweepSets[false];
 }
 
 void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
@@ -1561,7 +1561,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &di);
 
 
-        PerformEikonalSweeps(commandBuffer, currentFrame);
+        //PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
         //DispatchLOD(commandBuffer, currentFrame, 6);
         //DispatchLOD(commandBuffer, currentFrame, 7, true);
@@ -1804,6 +1804,13 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     uint32_t groupCountY = (res + 7) / 8;
     uint32_t groupCountZ = (res + 7) / 8;
 
+    if (lodLevel == 1)
+    {
+        res = VOXEL_RESOLUTIONL1 / TILE_SIZE;
+		groupCountX = (res + 7) / 8;
+		groupCountY = (res + 7) / 8;
+		groupCountZ = (res + 7) / 8;
+    }
     if (lodLevel == 5)
     {
         res = pc.triangleCount;

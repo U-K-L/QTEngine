@@ -14,8 +14,8 @@
 #define VOXEL_RESOLUTIONL3 64.0f
 #define SCENE_BOUNDSL3 32.0f
 
-#define TILE_MAX_BRUSHES 64.0f
-#define TILE_SIZE 16.0f
+#define TILE_MAX_BRUSHES 32.0f
+#define TILE_SIZE 8.0f
 
 struct Voxel
 {
