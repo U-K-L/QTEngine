@@ -1804,13 +1804,6 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     uint32_t groupCountY = (res + 7) / 8;
     uint32_t groupCountZ = (res + 7) / 8;
 
-    if (lodLevel == 1)
-    {
-        res = VOXEL_RESOLUTIONL1 / TILE_SIZE;
-		groupCountX = (res + 7) / 8;
-		groupCountY = (res + 7) / 8;
-		groupCountZ = (res + 7) / 8;
-    }
     if (lodLevel == 5)
     {
         res = pc.triangleCount;

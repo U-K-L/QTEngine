@@ -50,6 +50,7 @@ RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 
 StructuredBuffer<uint> BrushesIndices : register(t10, space1);
+RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 
 
 
@@ -86,6 +87,7 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
     float3 extent = abs(maxBounds - minBounds);
     float maxExtent = max(extent.x, max(extent.y, extent.z));
     float3 center = 0.5f * (minBounds + maxBounds);
+
 
     // 3. Normalize localPos using AABB
     float3 normalized = (localPos - center) / (0.5f * maxExtent);
@@ -281,8 +283,12 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
     float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
     
+    //Brushes[index].maxExtent = maxExtent;
+    //Brushes[index].center = center;
+    //Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax = maxBounds;
     Brushes[index].aabbmin = minBounds;
+
 
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
     float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
@@ -395,13 +401,8 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     
+    
     float sampleLevelL = pc.lod;
-    
-    if (sampleLevelL == 1.0f)
-    {
-        DTid *= TILE_SIZE;
-    }
-    
     uint triangleCount = pc.triangleCount;
     float2 voxelSceneBounds = GetVoxelResolution(sampleLevelL);
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
@@ -412,8 +413,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
         CreateBrush(DTid);
         return;
     }
-    
-
     
     if (sampleLevelL == 14.0f)
     {
@@ -505,7 +504,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
 
     //Find the distance field closes to this voxel.
-    for (uint i = 0; i < TILE_MAX_BRUSHES; i++)
+    uint brushCount = TileBrushCounts[tileIndex];
+    for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
         uint index = BrushesIndices[offset];
@@ -526,24 +526,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     if (sampleLevelL == 1.0f)
     {
-        for (int i = 0; i < TILE_SIZE; i++)
-            for (int j = 0; j < TILE_SIZE; j++)
-                for (int k = 0; k < TILE_SIZE; k++)
-                {
-                    uint x = DTid.x + i;
-                    uint y = DTid.y + j;
-                    uint z = DTid.z + k;
 
-                    if (x >= gridSizeL1.x || y >= gridSizeL1.y || z >= gridSizeL1.z)
-                        continue;
-
-                    uint voxelIndexL1n = x * gridSizeL1.y * gridSizeL1.z + y * gridSizeL1.z + z;
-                    voxelsL1Out[voxelIndexL1n].distance = asuint(minDist);
-                    voxelsL1Out[voxelIndexL1n].normalDistance = float4(1, 0, 0, 1);
-                }
+        voxelsL1Out[voxelIndex].distance = asuint(minDist);
+        voxelsL1Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
         return;
     }
-
     
     if (sampleLevelL == 2.0f)
     {
