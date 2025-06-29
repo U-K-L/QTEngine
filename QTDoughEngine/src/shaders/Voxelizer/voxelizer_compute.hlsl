@@ -537,30 +537,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
                     if (x >= gridSizeL1.x || y >= gridSizeL1.y || z >= gridSizeL1.z)
                         continue;
 
-                    // Calculate the world position for THIS specific voxel
-                    float3 voxelCenter = ((float3(x, y, z) + 0.5f) * voxelSize) - halfScene;
-                
-                    // Sample the SDF at this voxel's position
-                    float voxelMinDist = 64.0f;
-                    for (uint brushIdx = 0; brushIdx < TILE_MAX_BRUSHES; brushIdx++)
-                    {
-                        uint offset = tileIndex * TILE_MAX_BRUSHES + brushIdx;
-                        uint index = BrushesIndices[offset];
-                    
-                        if (index >= 4294967295)
-                            break;
-                    
-                        Brush brush = Brushes[index];
-                        float d = Read3DTransformed(brush, voxelCenter);
-                        voxelMinDist = min(voxelMinDist, d);
-                    }
-
                     uint voxelIndexL1n = x * gridSizeL1.y * gridSizeL1.z + y * gridSizeL1.z + z;
-                    voxelsL1Out[voxelIndexL1n].distance = asuint(voxelMinDist);
+                    voxelsL1Out[voxelIndexL1n].distance = asuint(minDist);
                     voxelsL1Out[voxelIndexL1n].normalDistance = float4(1, 0, 0, 1);
                 }
         return;
     }
+
     
     if (sampleLevelL == 2.0f)
     {
