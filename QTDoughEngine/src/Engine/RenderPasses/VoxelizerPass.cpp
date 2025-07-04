@@ -1261,7 +1261,7 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     bool pingRead = true;
-    int iterations = 1;
+    int iterations = 2;
 
     if (iterations == 0)
         pingRead = false;
@@ -1465,7 +1465,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
     }
-
+    /*
     //Deform brush
     if (dispatchCount > 3)
 	{
@@ -1479,7 +1479,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             }
         }
 	}
-
+    */
     UpdateBrushesTextureIds(commandBuffer);
 
 
@@ -1530,7 +1530,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
 
-        //DispatchTile(commandBuffer, currentFrame, 2); Particle to voxel TEST. 
+        //DispatchTile(commandBuffer, currentFrame, 2); //Particle to voxel TEST. 
 
         auto copyToPing = [&](VkBuffer src, VkBuffer dst, VkDeviceSize sz)
             {
@@ -1561,7 +1561,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &di);
 
 
-        //PerformEikonalSweeps(commandBuffer, currentFrame);
+        PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
         //DispatchLOD(commandBuffer, currentFrame, 6);
         //DispatchLOD(commandBuffer, currentFrame, 7, true);

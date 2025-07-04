@@ -17,6 +17,7 @@
 #define TILE_MAX_BRUSHES 32.0f
 #define TILE_SIZE 8.0f
 
+
 struct Voxel
 {
     uint distance;
@@ -46,8 +47,10 @@ struct Brush
     uint textureID2;
     uint resolution;
     float4x4 model;
-    float3 aabbmin;
-    float3 aabbmax;
+    float4x4 invModel;
+    float4 aabbmin;
+    float4 aabbmax;
+    float4 center;
 };
 
 struct ComputeVertex
@@ -192,6 +195,82 @@ bool TriangleAABBOverlap(float3 a, float3 b, float3 c, float3 voxelMin, float3 v
     return !(triMin.x > voxelMax.x || triMax.x < voxelMin.x ||
              triMin.y > voxelMax.y || triMax.y < voxelMin.y ||
              triMin.z > voxelMax.z || triMax.z < voxelMin.z);
+}
+
+
+
+//Moller method.
+bool TriangleTrace(float3 ro, float3 rd, float3 a, float3 b, float3 c, inout float t, inout float u, inout float v)
+{
+    float epsilon = 0.00001;
+    float3 edge1 = b - a;
+    float3 edge2 = c - a;
+
+    float3 pvec = cross(rd, edge2);
+
+    float determinate = dot(edge1, pvec);
+
+    if (determinate < epsilon)
+        return false;
+
+    float3 tvec = ro - a;
+    float inv_det = 1.0 / determinate;
+
+    u = dot(tvec, pvec) * inv_det;
+    if (u < 0.0 || u > 1.0)
+    {
+        return false;
+    }
+
+    float3 qvec = cross(tvec, edge1);
+    v = dot(rd, qvec) * inv_det;
+    if (v < 0.0 || u + v > 1.0)
+    {
+        return false;
+    }
+
+    //Final calculate of T after crammer's rule.
+    t = dot(edge2, qvec) * inv_det;
+
+    return true;
+}
+
+
+// Calculates the signed distance from point p to the triangle (v1, v2, v3)
+float sdTriangle(float3 v1, float3 v2, float3 v3, float3 p)
+{
+    float3 e0 = v2 - v1;
+    float3 e1 = v3 - v2;
+    float3 e2 = v1 - v3;
+    float3 n = cross(e0, -e2);
+    
+    float3 p0 = p - v1;
+    float3 p1 = p - v2;
+    float3 p2 = p - v3;
+
+    float3 n0 = cross(e0, n);
+    float3 n1 = cross(e1, n);
+    float3 n2 = cross(e2, n);
+
+    // Winding-aware inside-triangle test
+    float inside = (dot(n0, p0) >= 0.0 && dot(n1, p1) >= 0.0 && dot(n2, p2) >= 0.0) ? 1.0 : 0.0;
+
+    // Distance to triangle plane (if inside)
+    float distPlane = dot(n, p0) / length(n);
+
+    // Distance to edges (if outside)
+    float edgeDist = min(
+        length(p0 - e0 * clamp(dot(e0, p0) / dot(e0, e0), 0.0, 1.0)),
+        min(
+            length(p1 - e1 * clamp(dot(e1, p1) / dot(e1, e1), 0.0, 1.0)),
+            length(p2 - e2 * clamp(dot(e2, p2) / dot(e2, e2), 0.0, 1.0))
+        )
+    );
+
+    float unsignedDist = lerp(edgeDist, abs(distPlane), inside);
+    float signDist = sign(dot(n, p0));
+
+    return signDist * unsignedDist;
 }
 
 
@@ -475,6 +554,26 @@ float2 rand2dTo2d(float2 value)
         rand2dTo1d(value, float2(39.346, 11.135))
         );
 }
+
+float smin(float a, float b, float k)
+{
+    k *= 16.0 / 3.0;
+    float h = max(k - abs(a - b), 0.0) / k;
+    return min(a, b) - h * h * h * (4.0 - h) * k * (1.0 / 16.0);
+}
+
+float4 smin(float4 a, float4 b, float k)
+{
+    k *= 4.0f;
+    float h = max(k - abs(a.x - b.x), 0.0f) / (2.0f * k);
+
+    float resultDist = min(a.x, b.x) - h * h * k;
+    float3 resultGrad = (a.x < b.x) ? lerp(a.yzw, b.yzw, h)
+                                    : lerp(a.yzw, b.yzw, 1.0f - h);
+
+    return float4(resultDist, resultGrad);
+}
+
 
 float2 voronoiNoise(float2 value)
 {

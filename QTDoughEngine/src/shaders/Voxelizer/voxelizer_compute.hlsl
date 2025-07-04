@@ -70,6 +70,10 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
         }
     }
     
+    float voxelMini = 0.03125;
+    minBounds -= voxelMini * 4;
+    maxBounds += voxelMini * 4;
+    
     return abs(maxBounds - minBounds);
 }
 
@@ -79,14 +83,11 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
 {
     
     // 1. Transform from world space to local mesh space
-    float3 localPos = mul(inverse(brush.model), float4(worldPos, 1.0f)).xyz;
+    float3 localPos = mul(brush.invModel, float4(worldPos, 1.0f)).xyz;
 
     // 2. Get AABB in local mesh space
-    float3 minBounds = brush.aabbmin;
-    float3 maxBounds = brush.aabbmax;
-    float3 extent = abs(maxBounds - minBounds);
-    float maxExtent = max(extent.x, max(extent.y, extent.z));
-    float3 center = 0.5f * (minBounds + maxBounds);
+    float maxExtent = brush.aabbmax.w;
+    float3 center = brush.center.xyz;
 
 
     // 3. Normalize localPos using AABB
@@ -100,7 +101,7 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
     
     int3 res = int3(brush.resolution, brush.resolution, brush.resolution);
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
-        return 1;
+        return 64.0f;
     
     return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
 }
@@ -128,11 +129,6 @@ float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
     return signTri * unsignedDist;
 }
 
-float smin(float a, float b, float k)
-{
-    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-    return lerp(b, a, h) - k * h * (1.0 - h);
-}
 
 float3 BarycentricNormals(float3 center, uint3 index)
 {
@@ -283,11 +279,11 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
     float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
     
-    //Brushes[index].maxExtent = maxExtent;
-    //Brushes[index].center = center;
-    //Brushes[index].invModel = inverse(Brushes[index].model);
-    Brushes[index].aabbmax = maxBounds;
-    Brushes[index].aabbmin = minBounds;
+    Brushes[index].aabbmax.w = maxExtent;
+    Brushes[index].center.xyz = center;
+    Brushes[index].invModel = inverse(Brushes[index].model);
+    Brushes[index].aabbmax.xyz = maxBounds;
+    Brushes[index].aabbmin.xyz = minBounds;
 
 
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
@@ -299,6 +295,9 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     float minDist = 100.0f;
     
+    float4 isHitChecks = 0;
+    float4 isHitChecks2 = 0;
+
     for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
     {
         uint3 idx = uint3(i, i + 1, i + 2);
@@ -306,16 +305,47 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         float3 b = vertexBuffer[idx.y].position.xyz;
         float3 c = vertexBuffer[idx.z].position.xyz;
 
+        // Distance to triangle
         float d = DistanceToTriangle(worldPos, a, b, c);
-        
-        //d = saturate(d);
-        
         minDist = min(minDist, d);
+        
+        //ray intersection test.
+        //Ray origin is the voxel position
+        float3 ro = worldPos;
+        float t, u, v;
+        
+        //8 cardinal directions test. If at any
+        /*
+        bool isHit = 0;
+        isHit = TriangleTrace(ro, float3(0, 0, 1), a, b, c, t,u,v);
+        isHit = min(TriangleTrace(ro, float3(0, 1, 0), a, b, c, t, u, v), isHit);
+        isHit = min(TriangleTrace(ro, float3(0, -1, 0), a, b, c, t, u, v), isHit);
+        
+        isHit = min(TriangleTrace(ro, float3(1, 0, 0), a, b, c, t, u, v), isHit);
+        isHit = min(TriangleTrace(ro, float3(-1, 0, 0), a, b, c, t, u, v), isHit);
+        
+        isHit = min(TriangleTrace(ro, float3(0, 0, -1), a, b, c, t, u, v), isHit);
+        isHit = min(TriangleTrace(ro, float3(1, 0, 1), a, b, c, t, u, v), isHit);
+*/
+        //random direction.
+        
+        isHitChecks.x += TriangleTrace(ro, float3(1, 0, 0), a, b, c, t, u, v);
+        isHitChecks.z += TriangleTrace(ro, float3(0, 1, 0), a, b, c, t, u, v);
+        isHitChecks.y += TriangleTrace(ro, float3(0, 0, 1), a, b, c, t, u, v);
+        isHitChecks.w += TriangleTrace(ro, float3(1, 0, 1), a, b, c, t, u, v);
+        
+        isHitChecks2.x += TriangleTrace(ro, float3(-1, 0, 0), a, b, c, t, u, v);
+        isHitChecks2.z += TriangleTrace(ro, float3(0, -1, 0), a, b, c, t, u, v);
+        isHitChecks2.y += TriangleTrace(ro, float3(0, 0, -1), a, b, c, t, u, v);
+        isHitChecks2.w += TriangleTrace(ro, float3(-1, 0, -1), a, b, c, t, u, v);
 
     }
+    
+    if (all(isHitChecks) > 0 && all(isHitChecks2) > 0)
+        minDist = 0;
 
-    //We have successfully writen all values to the volume texture centered at the mesh center.
     Write3D(brush.textureID, int3(DTid), minDist);
+
 }
 
 float4 GetVoxelValue(float sampleLevel, int index)
@@ -393,7 +423,7 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
         }
     }
 
-    return min(u, 1.0f);
+    return min(u, voxelSize * 4.0f);
 }
 
 
@@ -517,12 +547,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 
         float d = Read3DTransformed(brush, center);
 
-        minDist = min(minDist, d);
+        //if(index == 1)
+         //   minDist = max(-minDist, d);
+        //else
+            minDist = smin(minDist, d, 0);
 
     }
     
-    if(minDist > 63.0f)
-        return;
+    //if(minDist > 63.0f)
+        //return;
 
     if (sampleLevelL == 1.0f)
     {

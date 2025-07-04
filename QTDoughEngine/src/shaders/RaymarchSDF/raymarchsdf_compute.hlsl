@@ -161,10 +161,7 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormal(float3 p)
 {
-    float sampleLevel = GetSampleLevel(p, 0);
-    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float eps = voxelSize * 0.75f;
+    float eps = 0.055f;
 
     float dx = TrilinearSampleSDF(p + float3(eps, 0, 0)).x - TrilinearSampleSDF(p - float3(eps, 0, 0)).x;
     float dy = TrilinearSampleSDF(p + float3(0, eps, 0)).x - TrilinearSampleSDF(p - float3(0, eps, 0)).x;
@@ -340,24 +337,6 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     return intersection;
 }
 
-float smin(float a, float b, float k)
-{
-    k *= 16.0 / 3.0;
-    float h = max(k - abs(a - b), 0.0) / k;
-    return min(a, b) - h * h * h * (4.0 - h) * k * (1.0 / 16.0);
-}
-
-float4 smin(float4 a, float4 b, float k)
-{
-    k *= 4.0f;
-    float h = max(k - abs(a.x - b.x), 0.0f) / (2.0f * k);
-
-    float resultDist = min(a.x, b.x) - h * h * k;
-    float3 resultGrad = (a.x < b.x) ? lerp(a.yzw, b.yzw, h)
-                                    : lerp(a.yzw, b.yzw, 1.0f - h);
-
-    return float4(resultDist, resultGrad);
-}
 
 
 
@@ -377,7 +356,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float sampleLevelL1 = 1.0f;
     float2 voxelSceneBoundsL1 = GetVoxelResolution(sampleLevelL1);
     float voxelSizeL1 = voxelSceneBoundsL1.y / voxelSceneBoundsL1.x;
-    float minDistanceL1 = voxelSizeL1;
+    float minDistanceL1 = voxelSizeL1 * 0.5f;
     
     //L2
     float sampleLevelL2 = 2.0f;
@@ -402,15 +381,8 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     {
         
         //Find the smallest distance
-        //float distance = IntersectionPoint(pos, rd, resultOutput);
-        //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
-        
-        //float3 sdf = sdSphere(pos, 0, 2.0f);
-        //float4 sdf2 = 0;
-        //sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
-        //sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
-        //float4 brushSDF = float4(sdf, 1.0);
-        float4 currentSDF = SampleSDF(pos);
+
+        float4 currentSDF = SampleNormalSDF(pos);
         currentSDF.yzw = CentralDifferenceNormal(pos);
         //closesSDF = currentSDF;
         
@@ -420,21 +392,18 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         bool inL1 = sampleLevel == 1.0f;
         bool inL2 = sampleLevel == 2.0f;
         bool inL3 = sampleLevel == 3.0f;
+        
+        float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
 
-        float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.025f);
+        //float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.025f);
         //mixedSDF = smin(mixedSDF, brushSDF, 0.524f);
         //mixedSDF = smin(sdf2, mixedSDF, 0.024f);
-        closesSDF = mixedSDF; //lerp(currentSDF, mixedSDF, sameLevel);
+        closesSDF = smin(closesSDF, currentSDF, 0.0025f); //lerp(currentSDF, mixedSDF, sameLevel);
         
-        /*
-        if(sameLevel == true)
-            closesSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.25f);
-        else
-            closesSDF = currentSDF;
-        */
         
         bool canTerminate =
-        (inL1 && abs(closesSDF.x) < minDistanceL1);
+        (inL1 && currentSDF.x < minDistanceL1);
 
         if (canTerminate)
         {
@@ -444,34 +413,12 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
 
 
-        
-        //See if it is close enough otherwise continue.
-        /*
-        if (abs(closesSDF.x) < minDistanceL1)
-        {
-                    
-            closesSDF.yzw = normalize(closesSDF.yzw);
-            return closesSDF; //Something was hit.
-        }
-        */
         //update position to the nearest point. effectively a sphere trace.
-        pos = pos + rd * 0.03125f;
+        float stepSize = clamp(currentSDF.x, 0, voxelSizeL1 * 4.0f);
+        pos += rd * stepSize;
 
     }
-    
-    /*    
-    float sampleLevel = GetSampleLevel(pos, 0);
-    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float minDistance = voxelSize * 0.5f;
-    
-    if (closesSDF.x < minDistance)
-    {
-                    
-        closesSDF.yzw = normalize(closesSDF.yzw);
-        return closesSDF; //Something was hit.
-    }
-    */
+
     return float4(0, 0, 0, -1.0f); //Nothing hit.
 
 }
@@ -496,10 +443,12 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float voxelSizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
     float minDistanceL3 = voxelSizeL3 * 0.5;
 
+
+    
     float maxDistance = 32.0f;
 
     float3 pos = ro;
-    int maxSteps = 1024;
+    int maxSteps = 128;
     float4 closesSDF = maxDistance;
     
     float sampleLevel = GetSampleLevel(pos, 0);
@@ -526,7 +475,8 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
         if (abs(currentSDF.x) < abs(closesSDF.x))
             closesSDF = currentSDF;
 
-        
+        float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
         /*
         if(sameLevel == true)
             closesSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.25f);
@@ -556,7 +506,8 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
         }
         */
         //update position to the nearest point. effectively a sphere trace.
-        pos = pos + rd * 0.03125f;
+        float stepSize = clamp(abs(closesSDF.x), voxelSize * 0.25f, voxelSize * 10.0f);
+        pos += rd * stepSize;
 
     }
     
@@ -657,7 +608,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
-    gBindlessStorage[outputImageHandle][pixel] = float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    gBindlessStorage[outputImageHandle][pixel] = light; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
     /*
     float maxRange = 2.0f;

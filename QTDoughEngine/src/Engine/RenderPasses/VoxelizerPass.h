@@ -44,8 +44,10 @@ public:
         uint32_t textureID2;
         uint32_t resolution;
         glm::mat4 model;
-        glm::vec3 aabbmin;
-        glm::vec3 aabbmax;
+        glm::mat4 invModel;
+        glm::vec4 aabbmin;
+        glm::vec4 aabbmax;
+        glm::vec4 center;
     };
 
     struct Tile
@@ -71,8 +73,8 @@ public:
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
 
-    uint32_t TILE_SIZE = 16;          // voxels per edge
-    uint32_t TILE_MAX_BRUSHES = 64;     // cap of brushes per tile
+    uint32_t TILE_SIZE = 8;          // voxels per edge
+    uint32_t TILE_MAX_BRUSHES = 32;     // cap of brushes per tile
     uint32_t TILE_COUNTL1 = 0;
 
 
@@ -170,7 +172,7 @@ public:
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
     //Some fluid particles test. Move this to its own pass later on.
-    int PARTICLE_COUNT = 64000;
+    int PARTICLE_COUNT = 262144;
 
     //128 particle data fits in a single modern GPU data lane... try to get it to 64, but always keep it multiples of 32 since some lanes are 192.
     struct Particle {

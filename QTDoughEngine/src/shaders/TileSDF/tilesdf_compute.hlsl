@@ -32,7 +32,7 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
-StructuredBuffer<Brush> Brushes : register(t9, space1);
+RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
 RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
@@ -88,6 +88,10 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
             minBounds = min(minBounds, pos);
             maxBounds = max(maxBounds, pos);
         }
+    
+    float voxelMini = 0.03125;
+    minBounds -= voxelMini * 4;
+    maxBounds += voxelMini * 4;
 
     return abs(maxBounds - minBounds);
 }
@@ -109,6 +113,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     int3 minVoxel = floor((minPos + halfScene) / voxelSize);
     int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
 
+    if (any(minVoxel > maxVoxel))
+    {
+        return;
+    }
     
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
         for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
@@ -157,6 +165,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 brushMin = minBounds;
     float3 brushMax = maxBounds;
     
+    Brushes[brushID].invModel = inverse(brush.model);
     //brush.aabbmax = maxBounds;
     //brush.aabbmin = minBounds;
     
@@ -167,6 +176,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
     int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);
+    
 
     for (int z = minTile.z; z <= maxTile.z; ++z)
         for (int y = minTile.y; y <= maxTile.y; ++y)
