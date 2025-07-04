@@ -434,7 +434,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float sampleLevelL = pc.lod;
     uint triangleCount = pc.triangleCount;
-    float2 voxelSceneBounds = GetVoxelResolution(sampleLevelL);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevelL);
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
     
@@ -456,7 +456,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
     }
 
-    float2 voxelSceneBoundsL1 = GetVoxelResolution(1.0f);
+    float2 voxelSceneBoundsL1 = GetVoxelResolutionWorldSDF(1.0f);
     uint3 gridSizeL1 = uint3(voxelSceneBoundsL1.x, voxelSceneBoundsL1.x, voxelSceneBoundsL1.x);
     uint voxelIndexL1 = DTid.x * gridSizeL1.y * gridSizeL1.z + DTid.y * gridSizeL1.z + DTid.z;
     
@@ -524,7 +524,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     
     float tileWorldSize = TILE_SIZE * voxelSize;
-    int numTilesPerAxis = VOXEL_RESOLUTIONL1 / TILE_SIZE;
+    int numTilesPerAxis = WORLD_SDF_RESOLUTION / TILE_SIZE;
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 
@@ -559,9 +559,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     if (sampleLevelL == 1.0f)
     {
-
-        voxelsL1Out[voxelIndex].distance = asuint(minDist);
-        voxelsL1Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
+        Write3D(0, DTid, minDist);
+        //voxelsL1Out[voxelIndex].distance = asuint(d);
+        //voxelsL1Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
         return;
     }
     

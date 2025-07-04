@@ -169,10 +169,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //brush.aabbmax = maxBounds;
     //brush.aabbmin = minBounds;
     
-    float3 worldHalfExtent = SCENE_BOUNDSL1 * 0.5f;
-    float voxelSize = SCENE_BOUNDSL1 / VOXEL_RESOLUTIONL1;
+    float3 worldHalfExtent = WORLD_SDF_BOUNDS * 0.5f;
+    float voxelSize = WORLD_SDF_BOUNDS / WORLD_SDF_RESOLUTION;
     float tileWorldSize = TILE_SIZE * voxelSize;
-    int numOfTilesDim = (int) (VOXEL_RESOLUTIONL1 / TILE_SIZE);
+    int numOfTilesDim = (int) (WORLD_SDF_RESOLUTION / TILE_SIZE);
     
     int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
     int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);

@@ -64,10 +64,11 @@ public:
     };
 
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
+    int WORLD_SDF_RESOLUTION = 512;
     int VOXEL_RESOLUTIONL1 = 256; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL2 = 128;
     int VOXEL_RESOLUTIONL3 = 64;
-    float SCENE_BOUNDSL1 = 8; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
+    float SCENE_BOUNDSL1 = 16; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
     float SCENE_BOUNDSL2 = 16;
     float SCENE_BOUNDSL3 = 32;
     int VOXEL_COUNTL2 = 1;
@@ -190,5 +191,8 @@ public:
     std::vector<VkBuffer> particlesStorageBuffers;
     std::vector<VkDeviceMemory> particlesStorageMemory;
 
-
+    VkImage wu_image;
+    VkDeviceMemory wu_imageMemory;
+    VkImageView wu_imageView;
+    VkSampler wu_sampler;
 };

@@ -358,7 +358,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     VkBuffer stagingBrushIndicesBuffer;
     VkDeviceMemory stagingBrushIndicesMemory;
 
-    uint32_t brushListSize = (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * TILE_MAX_BRUSHES;
+    uint32_t brushListSize = (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE) * TILE_MAX_BRUSHES;
 
     BrushesIndices.resize(brushListSize, 4294967295); // Initialize with max uint32_t value
     app->CreateBuffer(
@@ -389,7 +389,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     //Tile Brush Counts.
     VkBuffer stagingBrushCountsBuffer;
     VkDeviceMemory stagingBrushCountsMemory;
-    uint32_t brushCountsSize = (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE) * (VOXEL_RESOLUTIONL1 / TILE_SIZE);
+    uint32_t brushCountsSize = (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE);
     TilesBrushCounts.resize(brushCountsSize, 0); // Initialize with 0
 
     app->CreateBuffer(
@@ -854,7 +854,7 @@ void VoxelizerPass::CreateBrushes()
     int vertexOffset = 0;
     for (int i = 0; i < renderingObjects.size(); i++)
     {
-        int imageIndex = i * 2;
+        int imageIndex = (i * 2) + 1;
         UnigmaRenderingObject* obj = renderingObjects[i];
         Brush brush;
         brush.type = 0; //Mesh type
@@ -923,6 +923,53 @@ void VoxelizerPass::Create3DTextures()
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
+
+    //Create the world SDF.
+
+    Unigma3DTexture worldTexture = Unigma3DTexture(WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION);
+    app->CreateImages3D(WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION,
+        sdfFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        worldTexture.u_image, worldTexture.u_imageMemory);
+
+    worldTexture.u_imageView = app->Create3DImageView(
+        worldTexture.u_image,
+        sdfFormat,
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
+
+    // Transition the 3D image layout to GENERAL for compute write
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = worldTexture.u_image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 5;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr,
+        1, &barrier);
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    app->textures3D.insert({ "worldSDF_", worldTexture });
+
+    //Create per brush.
 
     for (int i = 0; i < brushes.size()*2; i++)
     {
@@ -1287,7 +1334,7 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 0, sizeof(pc), &pc);
 
-            const uint32_t groups = (VOXEL_RESOLUTIONL1 + 7) / 8;
+            const uint32_t groups = (WORLD_SDF_RESOLUTION + 7) / 8;
             vkCmdDispatch(cmd, groups, groups, groups);
 
             /* visibility barrier */
@@ -1483,35 +1530,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     UpdateBrushesTextureIds(commandBuffer);
 
 
-    //Set Volume textures to READ.
-    std::vector<VkImageMemoryBarrier> volumeToRead(app->textures3D.size());
-
-    for (auto it = app->textures3D.begin(); it != app->textures3D.end(); ++it) {
-        const std::string& key = it->first;
-        Unigma3DTexture& texture = it->second;
-        size_t i = std::distance(app->textures3D.begin(), it); // Get the index of the current texture
-
-        volumeToRead[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        volumeToRead[i].oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-        volumeToRead[i].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        volumeToRead[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        volumeToRead[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        volumeToRead[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        volumeToRead[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        volumeToRead[i].image = texture.u_image;
-        volumeToRead[i].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    }
-
-    vkCmdPipelineBarrier(
-        commandBuffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0, 0, nullptr, 0, nullptr,
-        static_cast<uint32_t>(volumeToRead.size()), volumeToRead.data()
-    );
-
-
-
     if(dispatchCount > 1)
 	{
 		//Dispatch the tile generation.
@@ -1583,6 +1601,35 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dispatchCount += 1;
 
 
+    //Set Volume textures to READ.
+    std::vector<VkImageMemoryBarrier> volumeToRead(app->textures3D.size());
+
+    for (auto it = app->textures3D.begin(); it != app->textures3D.end(); ++it) {
+        const std::string& key = it->first;
+        Unigma3DTexture& texture = it->second;
+        size_t i = std::distance(app->textures3D.begin(), it); // Get the index of the current texture
+
+        volumeToRead[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        volumeToRead[i].oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        volumeToRead[i].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        volumeToRead[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        volumeToRead[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        volumeToRead[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        volumeToRead[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        volumeToRead[i].image = texture.u_image;
+        volumeToRead[i].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    }
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr,
+        static_cast<uint32_t>(volumeToRead.size()), volumeToRead.data()
+    );
+
+
+
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     barrier2.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier2.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
@@ -1598,6 +1645,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dep.pImageMemoryBarriers = &barrier2;
 
     vkCmdPipelineBarrier2(commandBuffer, &dep);
+
 
 
 }
@@ -1796,7 +1844,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         0, nullptr);
 
     // Each LOD uses a different resolution
-    uint32_t res = (lodLevel == 1) ? VOXEL_RESOLUTIONL1 :
+    uint32_t res = (lodLevel == 1) ? WORLD_SDF_RESOLUTION :
         (lodLevel == 2) ? VOXEL_RESOLUTIONL2 :
         VOXEL_RESOLUTIONL3;
 
@@ -1814,7 +1862,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 0)
     {
-        res = VOXEL_RESOLUTIONL1;
+        res = WORLD_SDF_RESOLUTION;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -1822,7 +1870,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel >= 6)
     {
-        res = VOXEL_RESOLUTIONL1;
+        res = WORLD_SDF_RESOLUTION;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;

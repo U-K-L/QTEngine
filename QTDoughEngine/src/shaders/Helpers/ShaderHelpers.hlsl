@@ -5,6 +5,9 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
+#define WORLD_SDF_RESOLUTION 512.0f
+#define WORLD_SDF_BOUNDS 16.0f
+
 #define VOXEL_RESOLUTIONL1 256.0f
 #define SCENE_BOUNDSL1 8.0f
 
@@ -60,6 +63,11 @@ struct ComputeVertex
     float4 normal;
 };
 
+float2 GetVoxelResolutionWorldSDF(float sampleLevel)
+{
+    return float2(WORLD_SDF_RESOLUTION, WORLD_SDF_BOUNDS);
+
+}
 
 float2 GetVoxelResolution(float sampleLevel)
 {
