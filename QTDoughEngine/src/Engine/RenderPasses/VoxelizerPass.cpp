@@ -866,7 +866,7 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
@@ -1186,7 +1186,7 @@ void VoxelizerPass::CleanUpGPU(VkCommandBuffer commandBuffer)
     // Update CPU-side brushes first
     for (size_t i = 0; i < renderingObjects.size(); ++i)
     {
-        brushes[i].isDirty = 0;
+        //brushes[i].isDirty = 0;
     }
 
     // Use vkCmdUpdateBuffer to update GPU buffer
@@ -1572,7 +1572,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
     }
-    /*
     //Deform brush
     if (dispatchCount > 3)
 	{
@@ -1582,11 +1581,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             uint32_t index = brushes[i].textureID;
             if (brushes[i].type == 0) { //Mesh type
 
-                DispatchBrushDeformation(commandBuffer, currentFrame, i);
+                if(brushes[i].isDirty == true)
+                    DispatchBrushDeformation(commandBuffer, currentFrame, i);
             }
         }
 	}
-    */
     UpdateBrushesTextureIds(commandBuffer);
 
 
@@ -1762,9 +1761,9 @@ void VoxelizerPass::DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint
     //Get the volume texture from the lodlevel.
     Unigma3DTexture& volumeTexture = app->textures3D["brush_" + std::to_string(brushID)];
 
-    uint32_t resolutionx = volumeTexture.WIDTH;
-    uint32_t resolutiony = volumeTexture.HEIGHT;
-    uint32_t resolutionz = volumeTexture.DEPTH;
+    uint32_t resolutionx = volumeTexture.WIDTH / DeformResolution;
+    uint32_t resolutiony = volumeTexture.HEIGHT / DeformResolution;
+    uint32_t resolutionz = volumeTexture.DEPTH / DeformResolution;
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
 

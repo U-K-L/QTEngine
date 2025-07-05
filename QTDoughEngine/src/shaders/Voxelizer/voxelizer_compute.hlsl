@@ -237,6 +237,10 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
 
 void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 {
+    int3 chunkOrigin = (int3(DTid)) * 8;
+    
+
+
     uint index = pc.triangleCount;
     
     Brush brush = Brushes[index];
@@ -254,17 +258,37 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
     // Round to nearest integer
     int3 coords = int3(voxelCoordF);
 
+    float3 chunkCenterUV = (float3(chunkOrigin) + 4.0f) / brush.resolution;
+    float3 chunkCenterWS = (chunkCenterUV * 2.0f - 1.0f) * (brush.aabbmax.w * 0.5f) + brush.center.xyz;
     
     float minDist = 100.0f;
+    
+    //Get minimum distance from vertices.
+    float3 worldPos = samplePos * (brush.aabbmax.w * 0.5f) + brush.center.xyz;
+    
+    float smallestDistVertex = 100.0f;
+    for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; ++i)
+    {
+        float3 a = vertexBuffer[i].position.xyz;
+        smallestDistVertex = min(length(a - chunkCenterWS) * 0.15f, smallestDistVertex);
+    }
 
-
+        // Fill the chunk with the same value
+    for (int z = 0; z < 8; ++z)
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 8; ++x)
+            {
+                int3 voxelCoord = chunkOrigin + int3(x, y, z);
+                if (all(voxelCoord < brush.resolution))
+                {
+                    Write3D(brush.textureID2, voxelCoord, smallestDistVertex);
+                }
+            }
     
     //We have successfully writen all values to the volume texture centered at the mesh center.
-    float oldminDist = Read3D(brush.textureID, int3(DTid));
+    //float oldminDist = Read3D(brush.textureID, int3(DTid));
     
-    Write3D(brush.textureID2, coords, oldminDist); //Add old value here.
-    
-
+    //Write3D(brush.textureID2, coords, smallestDistVertex); //Add old value here.
 }
 
 
