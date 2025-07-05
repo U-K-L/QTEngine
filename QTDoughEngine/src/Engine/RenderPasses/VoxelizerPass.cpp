@@ -1602,7 +1602,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);

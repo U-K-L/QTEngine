@@ -20,6 +20,7 @@
 #define TILE_MAX_BRUSHES 32.0f
 #define TILE_SIZE 8.0f
 
+#define DEFORMATION_CHUNK 8.0f
 
 struct Voxel
 {

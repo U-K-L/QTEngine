@@ -166,40 +166,8 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
-{
-    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
-    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
-    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
-    
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    
-    float2 voxelSceneBoundsL2 = GetVoxelResolution(2.0f);
-    uint3 gridSizeL2 = uint3(voxelSceneBoundsL2.x, voxelSceneBoundsL2.x, voxelSceneBoundsL2.x);
-    uint voxelIndexL2 = DTid.x * gridSizeL2.y * gridSizeL2.z + DTid.y * gridSizeL2.z + DTid.z;
-    
-    float voxelsizeL2 = voxelSceneBoundsL2.y / voxelSceneBoundsL2.x;
-
-    float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
-    uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
-    uint voxelIndexL3 = DTid.x * gridSizeL3.y * gridSizeL3.z + DTid.y * gridSizeL3.z + DTid.z;
-    
-    float voxelsizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
-    
-    const float BIG = 100;
-    voxelsL1Out[voxelIndex].distance = asuint(BIG);
-    voxelsL1Out[voxelIndex].normalDistance = 0;
-    
-    //Write3D(0, int3(DTid), 1.0f);
-    
-    //if (voxelIndex > 6310128 && voxelIndex < 10568197)
-        //voxelsL1Out[voxelIndex].distance = asuint(0.0f);
-    
-    Write3D(0, DTid, voxelSize * 4.0f);
-    voxelsL2Out[voxelIndexL2].distance = asuint(BIG);
-    voxelsL2Out[voxelIndexL2].normalDistance = 0;
-    
-    voxelsL3Out[voxelIndexL3].distance = asuint(BIG);
-    voxelsL3Out[voxelIndexL3].normalDistance = 0;
+{   
+    Write3D(0, DTid, 0.03125 * 4.0f);
 }
 
 float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 gridSize)
@@ -237,58 +205,51 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
 
 void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 {
-    int3 chunkOrigin = (int3(DTid)) * 8;
-    
-
+    const int chunkSize = DEFORMATION_CHUNK;
+    int3 chunkOrigin = DTid * chunkSize;
 
     uint index = pc.triangleCount;
-    
     Brush brush = Brushes[index];
-    
-    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
-    float3 samplePos = uvw * 2.0f - 1.0f;
-    
-    //float3 _Time = time * 0.1f;
-    
-    //samplePos = float3(cos(_Time.x), sin(_Time.x), sin(_Time.x));
 
-    // Reconstruct voxel coordinate (floating point):
-    float3 voxelCoordF = ((samplePos + 1.0f) * 0.5f) * brush.resolution - 0.5f;
-    
-    // Round to nearest integer
-    int3 coords = int3(voxelCoordF);
+    float scale = brush.aabbmax.w * 0.5f;
 
-    float3 chunkCenterUV = (float3(chunkOrigin) + 4.0f) / brush.resolution;
-    float3 chunkCenterWS = (chunkCenterUV * 2.0f - 1.0f) * (brush.aabbmax.w * 0.5f) + brush.center.xyz;
-    
-    float minDist = 100.0f;
-    
-    //Get minimum distance from vertices.
-    float3 worldPos = samplePos * (brush.aabbmax.w * 0.5f) + brush.center.xyz;
-    
-    float smallestDistVertex = 100.0f;
-    for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; ++i)
-    {
-        float3 a = vertexBuffer[i].position.xyz;
-        smallestDistVertex = min(length(a - chunkCenterWS) * 0.15f, smallestDistVertex);
-    }
+    float3 controlPoint = brush.center.xyz + float3(0, 0, scale * 1.0f); // above the shape
+    float bulgeRadius = scale * 1.5f;
+    float bulgeAmount = scale * 0.3f;
 
-        // Fill the chunk with the same value
-    for (int z = 0; z < 8; ++z)
-        for (int y = 0; y < 8; ++y)
-            for (int x = 0; x < 8; ++x)
+    // Process 8x8x8 block
+    for (int z = 0; z < chunkSize; ++z)
+        for (int y = 0; y < chunkSize; ++y)
+            for (int x = 0; x < chunkSize; ++x)
             {
                 int3 voxelCoord = chunkOrigin + int3(x, y, z);
                 if (all(voxelCoord < brush.resolution))
                 {
-                    Write3D(brush.textureID2, voxelCoord, smallestDistVertex);
+                    // Convert voxel to world space
+                    float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
+                    float3 posWS = (uvw * 2.0f - 1.0f) * scale + brush.center.xyz;
+
+                    // Inverse bulge deformation
+                    float3 dir = posWS - controlPoint;
+
+                    float3 toControl = controlPoint - posWS;
+                    float dist = length(toControl);
+                    if (dist < bulgeRadius && dist > 1e-5f)
+                    {
+                        float falloff = pow(saturate(1.0f - dist / bulgeRadius), 2.0f);
+                        float3 offset = normalize(toControl) * (bulgeAmount * falloff);
+                        posWS -= offset; // ← inverse deformation
+                    }
+
+                    // Sample original SDF at inverse-deformed position
+                    float3 sampleUVW = (posWS - brush.center.xyz) / scale;
+                    sampleUVW = (sampleUVW + 1.0f) * 0.5f;
+                    float3 sampleCoords = sampleUVW * brush.resolution;
+
+                    float sdf = Read3D(brush.textureID, sampleCoords);
+                    Write3D(brush.textureID2, voxelCoord, sdf);
                 }
             }
-    
-    //We have successfully writen all values to the volume texture centered at the mesh center.
-    //float oldminDist = Read3D(brush.textureID, int3(DTid));
-    
-    //Write3D(brush.textureID2, coords, smallestDistVertex); //Add old value here.
 }
 
 
