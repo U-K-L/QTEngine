@@ -194,6 +194,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     //if (voxelIndex > 6310128 && voxelIndex < 10568197)
         //voxelsL1Out[voxelIndex].distance = asuint(0.0f);
     
+    Write3D(0, DTid, voxelSize * 4.0f);
     voxelsL2Out[voxelIndexL2].distance = asuint(BIG);
     voxelsL2Out[voxelIndexL2].normalDistance = 0;
     
@@ -281,6 +282,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     
     Brushes[index].aabbmax.w = maxExtent;
     Brushes[index].center.xyz = center;
+    Brushes[index].isDirty = 1;
     Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
@@ -426,6 +428,62 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
     return min(u, voxelSize * 4.0f);
 }
 
+void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
+{
+    
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+    
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+    // Convert grid index to world-space center position. center = dtid * vs - hs => (center + hs) / vs = dtid
+    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
+
+    float3 voxelMin = center - voxelSize * 0.5f;
+    float3 voxelMax = center + voxelSize * 0.5f;
+
+    
+    float minDist = 64.0f;
+    
+    
+    float tileWorldSize = TILE_SIZE * voxelSize;
+    int numTilesPerAxis = WORLD_SDF_RESOLUTION / TILE_SIZE;
+
+    int3 tileCoord = floor((center + halfScene) / tileWorldSize);
+
+    tileCoord = clamp(tileCoord, int3(0, 0, 0), int3(numTilesPerAxis - 1, numTilesPerAxis - 1, numTilesPerAxis - 1));
+
+    uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
+    
+
+    //Find the distance field closes to this voxel.
+    uint brushCount = TileBrushCounts[tileIndex];
+    if(brushCount == 0)
+    {
+        return;
+    }
+
+    for (uint i = 0; i < brushCount; i++)
+    {
+        uint offset = tileIndex * TILE_MAX_BRUSHES + i;
+        uint index = BrushesIndices[offset];
+        
+        Brush brush = Brushes[index];
+                
+        float d = Read3DTransformed(brush, center);
+
+        //if(index == 1)
+         //   minDist = max(-minDist, d);
+        //else
+        minDist = smin(minDist, d, 0);
+
+    }
+    
+    //if(minDist > 63.0f)
+        //return;
+
+    Write3D(0, DTid, minDist);
+}
 
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
@@ -434,9 +492,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float sampleLevelL = pc.lod;
     uint triangleCount = pc.triangleCount;
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevelL);
-    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
-    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+
+    if(sampleLevelL == 1.0f)
+    {
+        WriteToWorldSDF(DTid);
+        return;
+    }
     
     if (sampleLevelL == 5.0f)
     {
@@ -455,12 +516,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
         ClearVoxelData(DTid);
         return;
     }
-
-    float2 voxelSceneBoundsL1 = GetVoxelResolutionWorldSDF(1.0f);
-    uint3 gridSizeL1 = uint3(voxelSceneBoundsL1.x, voxelSceneBoundsL1.x, voxelSceneBoundsL1.x);
-    uint voxelIndexL1 = DTid.x * gridSizeL1.y * gridSizeL1.z + DTid.y * gridSizeL1.z + DTid.z;
     
-    
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevelL);
+    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
         
     //Every value after 6 is a sweep direction until 13.
     if (sampleLevelL >= 6.0f && sampleLevelL < 14.0f)
@@ -482,32 +541,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
         //float dl2 = FSMUpdate(coord, pc.lod - 6.0f, 2.0f);
         //float dl3 = FSMUpdate(coord, pc.lod - 6.0f, 3.0f);
         
-        float dl1Old = asfloat(voxelsL1In[voxelIndexL1].distance);
-        //float dl2Old = asfloat(voxelsL2In[voxelIndexL2].distance);
-        //float dl3Old = asfloat(voxelsL3In[voxelIndexL3].distance);
+        //float dl1Old = asfloat(voxelsL1In[voxelIndexL1].distance);
         
-
-        
-        voxelsL1Out[voxelIndexL1].distance = asuint(min(dl1, dl1Old));
-        //voxelsL2Out[voxelIndexL2].distance = asuint(min(dl2, dl2Old));
-        //voxelsL3Out[voxelIndexL3].distance = asuint(min(dl3, dl3Old));
+        //voxelsL1Out[voxelIndexL1].distance = asuint(min(dl1, dl1Old));
 
         return;
     }
-
     
-    
-
-    float2 voxelSceneBoundsL2 = GetVoxelResolution(2.0f);
-    uint3 gridSizeL2 = uint3(voxelSceneBoundsL2.x, voxelSceneBoundsL2.x, voxelSceneBoundsL2.x);
-    uint voxelIndexL2 = DTid.x * gridSizeL2.y * gridSizeL2.z + DTid.y * gridSizeL2.z + DTid.z;
-
-    float2 voxelSceneBoundsL3 = GetVoxelResolution(3.0f);
-    uint3 gridSizeL3 = uint3(voxelSceneBoundsL3.x, voxelSceneBoundsL3.x, voxelSceneBoundsL3.x);
-    uint voxelIndexL3 = DTid.x * gridSizeL3.y * gridSizeL3.z + DTid.y * gridSizeL3.z + DTid.z;
-    
-    
-
     
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
@@ -520,7 +560,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     
     float minDist = 64.0f;
-    uint3 cachedIdx = 0;
     
     
     float tileWorldSize = TILE_SIZE * voxelSize;
@@ -559,7 +598,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     if (sampleLevelL == 1.0f)
     {
-        Write3D(0, DTid, minDist);
+        //Write3D(0, DTid, minDist);
         //voxelsL1Out[voxelIndex].distance = asuint(d);
         //voxelsL1Out[voxelIndex].normalDistance = float4(1, 0, 0, 1); //float4(normal, 0);
         return;

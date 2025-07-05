@@ -54,6 +54,7 @@ struct Brush
     float4 aabbmin;
     float4 aabbmax;
     float4 center;
+    uint isDirty;
 };
 
 struct ComputeVertex

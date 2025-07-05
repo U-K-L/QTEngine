@@ -870,7 +870,7 @@ void VoxelizerPass::CreateBrushes()
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
-        brush.model = obj->_transform.GetModelMatrixBrush();
+        //brush.model = obj->_transform.GetModelMatrixBrush();
 
         /*
         glm::mat4x4 inverseModel = glm::inverse(brush.model);
@@ -1057,8 +1057,12 @@ void VoxelizerPass::CreateImages() {
         imageMemory
     );
 
-    CreateBrushes();
-    Create3DTextures();
+    if (VolumeTexturesCreated == false)
+    {
+        CreateBrushes();
+        Create3DTextures();
+        VolumeTexturesCreated = true;
+    }
 
     VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
@@ -1128,7 +1132,14 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
     // Update CPU-side brushes first
     for (size_t i = 0; i < renderingObjects.size(); ++i)
     {
-        brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
+        //Check if model has changed.
+        glm::mat4x4 model = renderingObjects[i]->_transform.GetModelMatrixBrush();
+
+        if (model != brushes[i].model)
+        {
+            brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
+            brushes[i].isDirty = 1;
+        }
     }
 
     // Use vkCmdUpdateBuffer to update GPU buffer
@@ -1142,6 +1153,17 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
             offset,
             sizeof(glm::mat4),
             &brushes[i].model
+        );
+
+
+        offset = sizeof(Brush) * i + offsetof(Brush, isDirty);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(uint32_t),
+            &brushes[i].isDirty
         );
     }
 
@@ -1158,6 +1180,44 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
         0, 0, nullptr, 1, &barrier, 0, nullptr
     );
 }
+
+void VoxelizerPass::CleanUpGPU(VkCommandBuffer commandBuffer)
+{
+    // Update CPU-side brushes first
+    for (size_t i = 0; i < renderingObjects.size(); ++i)
+    {
+        brushes[i].isDirty = 0;
+    }
+
+    // Use vkCmdUpdateBuffer to update GPU buffer
+    for (size_t i = 0; i < brushes.size(); ++i)
+    {
+
+        VkDeviceSize offset = sizeof(Brush) * i + offsetof(Brush, isDirty);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(uint32_t),
+            &brushes[i].isDirty
+        );
+    }
+
+    // Memory barrier after all updates
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 1, &barrier, 0, nullptr
+    );
+}
+
 
 void VoxelizerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
@@ -1578,8 +1638,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         di.pMemoryBarriers = &mb;
         vkCmdPipelineBarrier2(commandBuffer, &di);
 
-
-        PerformEikonalSweeps(commandBuffer, currentFrame);
+        CleanUpGPU(commandBuffer);
+        //PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
         //DispatchLOD(commandBuffer, currentFrame, 6);
         //DispatchLOD(commandBuffer, currentFrame, 7, true);

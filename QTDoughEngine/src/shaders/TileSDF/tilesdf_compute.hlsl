@@ -141,7 +141,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 {
     
     float level = pc.lod;
-    if(level == 4.0f)
+    if(level == 5.0f)
     {
         ClearTileCount(DTid);
         return;
@@ -157,7 +157,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint brushID = DTid.x;
     Brush brush = Brushes[brushID];
     
-    
+    /*
+    bool needUpdate = brush.isDirty;
+    if (needUpdate == false)
+        return;
+    */
+
     // Get actual AABB from vertices
     float3 minBounds, maxBounds;
     float3 extent = getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);

@@ -48,6 +48,7 @@ public:
         glm::vec4 aabbmin;
         glm::vec4 aabbmax;
         glm::vec4 center;
+        uint32_t isDirty; //determines if needs an update.
     };
 
     struct Tile
@@ -169,6 +170,7 @@ public:
     void CreateDescriptorPool() override;
     void DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
     void UpdateBrushesTextureIds(VkCommandBuffer commandBuffer);
+    void CleanUpGPU(VkCommandBuffer commandBuffer);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
@@ -195,4 +197,6 @@ public:
     VkDeviceMemory wu_imageMemory;
     VkImageView wu_imageView;
     VkSampler wu_sampler;
+
+    bool VolumeTexturesCreated = false;
 };
