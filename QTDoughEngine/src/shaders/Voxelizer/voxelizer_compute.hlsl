@@ -71,8 +71,8 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     }
     
     float voxelMini = 0.03125;
-    minBounds -= voxelMini * 4;
-    maxBounds += voxelMini * 4;
+    minBounds -= voxelMini * 12;
+    maxBounds += voxelMini * 12;
     
     return abs(maxBounds - minBounds);
 }
@@ -103,7 +103,7 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
         return 64.0f;
     
-    return gBindless3D[brush.textureID].Load(int4(voxelCoord, 0));
+    return gBindless3D[brush.textureID2].Load(int4(voxelCoord, 0));
 }
 
 
@@ -202,7 +202,6 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
     return blurredDist / 64.0f; // Total kernel weight
 }
 
-
 void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 {
     const int chunkSize = DEFORMATION_CHUNK;
@@ -213,9 +212,274 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 
     float scale = brush.aabbmax.w * 0.5f;
 
-    float3 controlPoint = brush.center.xyz + float3(0, 0, scale * 1.0f); // above the shape
-    float bulgeRadius = scale * 1.5f;
-    float bulgeAmount = scale * 0.3f;
+    float3 controlPoints[8] =
+    {
+        float3(1, 1, 1), // 0
+        float3(-1, 1, 1), // 1
+        float3(1, -1, 1), // 2
+        float3(-1, -1, 1), // 3
+        float3(1, 1, -1), // 4
+        float3(-1, 1, -1), // 5
+        float3(1, -1, -1), // 6
+        float3(-1, -1, -1) // 7
+    };
+    
+    float3 min = brush.aabbmin.xyz;
+    float3 max = brush.aabbmax.xyz;
+
+    controlPoints[0] = float3(max.x, max.y, max.z);
+    controlPoints[1] = float3(min.x, max.y, max.z);
+    controlPoints[2] = float3(max.x, min.y, max.z);
+    controlPoints[3] = float3(min.x, min.y, max.z);
+    controlPoints[4] = float3(max.x, max.y, min.z);
+    controlPoints[5] = float3(min.x, max.y, min.z);
+    controlPoints[6] = float3(max.x, min.y, min.z);
+    controlPoints[7] = float3(min.x, min.y, min.z);
+    
+
+
+
+    static const int3 triangles[12] =
+    {
+        int3(0, 2, 1), int3(1, 2, 3), // Front
+    int3(4, 5, 6), int3(5, 7, 6), // Back
+    int3(0, 4, 2), int3(2, 4, 6), // Right
+    int3(1, 3, 5), int3(3, 7, 5), // Left
+    int3(0, 1, 4), int3(1, 5, 4), // Top
+    int3(2, 6, 3), int3(3, 6, 7) // Bottom
+    };
+
+    // Define canonical cube control points in [-1, 1]
+    float3 canonicalControlPoints[8] =
+    {
+        float3(1, 1, 1),
+        float3(-1, 1, 1),
+        float3(1, -1, 1),
+        float3(-1, -1, 1),
+        float3(1, 1, -1),
+        float3(-1, 1, -1),
+        float3(1, -1, -1),
+        float3(-1, -1, -1)
+    };
+
+
+    //First past pre compute weights.
+    for (int z = 0; z < chunkSize; ++z)
+        for (int y = 0; y < chunkSize; ++y)
+            for (int x = 0; x < chunkSize; ++x)
+            {
+                int3 voxelCoord = chunkOrigin + int3(x, y, z);
+                if (all(voxelCoord < brush.resolution))
+                {
+                    float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
+                    float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
+
+                    // Remap input voxel position into normalized cube space [-1, 1]
+                    float3 posNormalized = (posLocal - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
+                    posNormalized = posNormalized * 2.0f - 1.0f;
+
+
+
+                    float3 p = posNormalized; // point in canonical space
+                    float3 numerator = float3(0, 0, 0);
+                    float denominator = 0;
+
+                    float weights[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+                    
+                    for (int i = 0; i < 12; ++i)
+                    {
+                        int3 tri = triangles[i];
+                        float3 v0 = canonicalControlPoints[tri.x];
+                        float3 v1 = canonicalControlPoints[tri.y];
+                        float3 v2 = canonicalControlPoints[tri.z];
+
+                        float3 r0 = v0 - p;
+                        float3 r1 = v1 - p;
+                        float3 r2 = v2 - p;
+
+
+                        float l0 = length(r0);
+                        float l1 = length(r1);
+                        float l2 = length(r2);
+
+                        float3 n0 = normalize(r0);
+                        float3 n1 = normalize(r1);
+                        float3 n2 = normalize(r2);
+
+                        float alpha0 = acos(dot(n1, n2));
+                        float alpha1 = acos(dot(n2, n0));
+                        float alpha2 = acos(dot(n0, n1));
+
+                        float w0 = (tan(alpha1 * 0.5f) + tan(alpha2 * 0.5f)) / l0;
+                        float w1 = (tan(alpha2 * 0.5f) + tan(alpha0 * 0.5f)) / l1;
+                        float w2 = (tan(alpha0 * 0.5f) + tan(alpha1 * 0.5f)) / l2;
+                        
+                        weights[tri.x] += w0;
+                        weights[tri.y] += w1;
+                        weights[tri.z] += w2;
+
+                    }
+
+                    for (int j = 0; j < 8; ++j)
+                        denominator += weights[j];
+                    
+                    float invDen = rcp(denominator); // safe: denom > 0 inside the cage
+                    [unroll]
+                    for (int k = 0; k < 8; ++k)
+                        weights[k] *= invDen;
+                    
+                    
+                    float3 newControlPoints[8] =
+                    {
+                        float3(1, 1, 1),
+                        float3(-1, 1, 1),
+                        float3(1, -1, 1),
+                        float3(-1, -1, 1),
+                        float3(1, 1, -1),
+                        float3(-1, 1, -1),
+                        float3(1, -1, -1),
+                        float3(-1, -1, -1)
+                    };
+                    
+                    /*
+                    //Breathing or melting a bit.
+                    float a = abs(sin(time * 0.0006f));
+                    for (int c = 0; c < 4; ++c)          // front face  (z = +1)
+                        newControlPoints[c] += float3(0, 0, a);
+                    for (int c = 4; c < 8; ++c)          // back face   (z = –1)
+                        newControlPoints[c] -= float3(0, 0, a);
+                    */
+                    //Test identity
+                    
+                        float3 V0 = canonicalControlPoints[0];
+                    float3 V1 = canonicalControlPoints[1];
+                    float3 V2 = canonicalControlPoints[2];
+                    float3 V3 = canonicalControlPoints[3];
+                    float3 V4 = canonicalControlPoints[4];
+                    float3 V5 = canonicalControlPoints[5];
+                    float3 V6 = canonicalControlPoints[6];
+                    float3 V7 = canonicalControlPoints[7];
+                    
+                    float3 V0n = newControlPoints[0];
+                    float3 V1n = newControlPoints[1];
+                    float3 V2n = newControlPoints[2];
+                    float3 V3n = newControlPoints[3];
+                    float3 V4n = newControlPoints[4];
+                    float3 V5n = newControlPoints[5];
+                    float3 V6n = newControlPoints[6];
+                    float3 V7n = newControlPoints[7];
+                    
+                    float4 w0 = float4(0, 0, 0, 0);
+                    w0.x = weights[0];
+                    w0.y = weights[1];
+                    w0.z = weights[2];
+                    w0.w = weights[3];
+                    
+                    float4 w1 = float4(0, 0, 0, 0);
+                    w1.x = weights[4];
+                    w1.y = weights[5];
+                    w1.z = weights[6];
+                    w1.w = weights[7];
+
+                    float3 delta =
+                      w0.x * (V0n - V0) +
+                      w0.y * (V1n - V1) +
+                      w0.z * (V2n - V2) +
+                      w0.w * (V3n - V3) +
+                      w1.x * (V4n - V4) +
+                      w1.y * (V5n - V5) +
+                      w1.z * (V6n - V6) +
+                      w1.w * (V7n - V7);
+
+                    float3 posSample = posLocal + delta;
+                    
+                    float3 sampleUVW = (posSample - min) / (max - min);
+                    float3 tex = sampleUVW * brush.resolution;
+                    float sdf = Read3D(brush.textureID, tex);
+
+                    Write3D(brush.textureID2, voxelCoord, sdf);
+
+                }
+            }
+    
+    
+
+}
+
+/*
+void DeformBrush(uint3 DTid : SV_DispatchThreadID)
+{
+    float3 controlPoints[8];
+
+    const int chunkSize = DEFORMATION_CHUNK;
+    int3 chunkOrigin = DTid * chunkSize;
+
+    uint index = pc.triangleCount;
+    Brush brush = Brushes[index];
+
+    float scale = brush.aabbmax.w * 0.5f;
+
+    // Identity cage corners in local [-1, 1] space
+    controlPoints[0] = float3( 1,  1,  1);
+    controlPoints[1] = float3(-1,  1,  1);
+    controlPoints[2] = float3( 1, -1,  1);
+    controlPoints[3] = float3(-1, -1,  1);
+    controlPoints[4] = float3( 1,  1, -1);
+    controlPoints[5] = float3(-1,  1, -1);
+    controlPoints[6] = float3( 1, -1, -1);
+    controlPoints[7] = float3(-1, -1, -1);
+
+    for (int z = 0; z < chunkSize; ++z)
+        for (int y = 0; y < chunkSize; ++y)
+            for (int x = 0; x < chunkSize; ++x)
+            {
+                int3 voxelCoord = chunkOrigin + int3(x, y, z);
+                if (all(voxelCoord < brush.resolution))
+                {
+                    float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
+                    float3 posLocal = uvw * 2.0f - 1.0f; // In [-1, 1]
+
+                    float3 t = (posLocal + 1.0f) * 0.5f; // Map to [0,1] for interpolation
+
+                    float3 p000 = lerp(controlPoints[0], controlPoints[1], t.x);
+                    float3 p010 = lerp(controlPoints[2], controlPoints[3], t.x);
+                    float3 p100 = lerp(controlPoints[4], controlPoints[5], t.x);
+                    float3 p110 = lerp(controlPoints[6], controlPoints[7], t.x);
+
+                    float3 p00 = lerp(p000, p010, t.y);
+                    float3 p10 = lerp(p100, p110, t.y);
+
+                    float3 p = lerp(p00, p10, t.z);
+
+
+                    // Apply scale and center to get world space position
+                    float3 posWS = p * scale + brush.center.xyz;
+
+                    float3 sampleUVW = (posWS - brush.center.xyz) / scale;
+                    sampleUVW = (sampleUVW + 1.0f) * 0.5f;
+                    float3 sampleCoords = sampleUVW * brush.resolution;
+
+                    float sdf = Read3D(brush.textureID, sampleCoords);
+                    Write3D(brush.textureID2, voxelCoord, sdf);
+                }
+            }
+}
+*/
+
+/*
+void DeformBrush(uint3 DTid : SV_DispatchThreadID)
+{
+    const int chunkSize = DEFORMATION_CHUNK;
+    int3 chunkOrigin = DTid * chunkSize;
+
+    uint index = pc.triangleCount;
+    Brush brush = Brushes[index];
+
+    float scale = brush.aabbmax.w * 0.5f;
+
+    float3 controlPoint = brush.center.xyz + float3(0, 0, scale * 0.5f); // above the shape
+    float bulgeRadius = scale * 1.21f;
+    float bulgeAmount = scale * 0.1f; // sin(time * 0.01);
 
     // Process 8x8x8 block
     for (int z = 0; z < chunkSize; ++z)
@@ -236,9 +500,10 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
                     float dist = length(toControl);
                     if (dist < bulgeRadius && dist > 1e-5f)
                     {
-                        float falloff = pow(saturate(1.0f - dist / bulgeRadius), 2.0f);
+                        float t = saturate(1.0f - dist / bulgeRadius);
+                        float falloff = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep
                         float3 offset = normalize(toControl) * (bulgeAmount * falloff);
-                        posWS -= offset; // ← inverse deformation
+                        posWS -= offset;
                     }
 
                     // Sample original SDF at inverse-deformed position
@@ -251,7 +516,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
                 }
             }
 }
-
+*/
 
 void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 {

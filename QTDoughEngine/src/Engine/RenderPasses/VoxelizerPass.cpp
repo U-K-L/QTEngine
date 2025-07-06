@@ -1586,7 +1586,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             }
         }
 	}
-    UpdateBrushesTextureIds(commandBuffer);
+    //UpdateBrushesTextureIds(commandBuffer);
 
 
     if(dispatchCount > 1)
