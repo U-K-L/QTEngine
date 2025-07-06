@@ -212,8 +212,13 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 
     float scale = brush.aabbmax.w * 0.5f;
 
-    float3 controlPoints[8] =
+
+    //-----------------------------------
+    // 24-VERTEX CANONICAL CAGE
+    //-----------------------------------
+    static const float3 canonicalControlPoints[CAGE_VERTS] =
     {
+        // 0-7  corners  (+X first, then –X)
         float3(1, 1, 1), // 0
         float3(-1, 1, 1), // 1
         float3(1, -1, 1), // 2
@@ -221,46 +226,69 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
         float3(1, 1, -1), // 4
         float3(-1, 1, -1), // 5
         float3(1, -1, -1), // 6
-        float3(-1, -1, -1) // 7
+        float3(-1, -1, -1), // 7
+
+        // 8-19  edge mid-points   (Z-front edges, then back, then X-edges, then Y-edges)
+        float3(0, 1, 1), //  8  top front
+        float3(0, -1, 1), //  9  bottom front
+        float3(0, 1, -1), // 10  top back
+        float3(0, -1, -1), // 11  bottom back
+        float3(1, 0, 1), // 12  right front
+        float3(-1, 0, 1), // 13  left  front
+        float3(1, 0, -1), // 14  right back
+        float3(-1, 0, -1), // 15  left  back
+        float3(1, 1, 0), // 16  right top
+        float3(-1, 1, 0), // 17  left  top
+        float3(1, -1, 0), // 18  right bottom
+        float3(-1, -1, 0), // 19  left  bottom
+
+        // 20-23  face centres  (front, back, +X, –X)
+        float3(0, 0, 1), // 20
+        float3(0, 0, -1), // 21
+        float3(1, 0, 0), // 22
+        float3(-1, 0, 0) // 23
     };
-    
-    float3 min = brush.aabbmin.xyz;
-    float3 max = brush.aabbmax.xyz;
 
-    controlPoints[0] = float3(max.x, max.y, max.z);
-    controlPoints[1] = float3(min.x, max.y, max.z);
-    controlPoints[2] = float3(max.x, min.y, max.z);
-    controlPoints[3] = float3(min.x, min.y, max.z);
-    controlPoints[4] = float3(max.x, max.y, min.z);
-    controlPoints[5] = float3(min.x, max.y, min.z);
-    controlPoints[6] = float3(max.x, min.y, min.z);
-    controlPoints[7] = float3(min.x, min.y, min.z);
-    
-
-
-
-    static const int3 triangles[12] =
+    //-----------------------------------
+    // 40 TRIANGLES – counter-clockwise
+    //-----------------------------------
+    static const uint3 triangles[] =
     {
-        int3(0, 2, 1), int3(1, 2, 3), // Front
-    int3(4, 5, 6), int3(5, 7, 6), // Back
-    int3(0, 4, 2), int3(2, 4, 6), // Right
-    int3(1, 3, 5), int3(3, 7, 5), // Left
-    int3(0, 1, 4), int3(1, 5, 4), // Top
-    int3(2, 6, 3), int3(3, 6, 7) // Bottom
+        // ----------  FRONT  (+Z)  ----------
+        uint3(0, 8, 20), uint3(8, 1, 20),
+        uint3(1, 13, 20), uint3(13, 3, 20),
+        uint3(3, 9, 20), uint3(9, 2, 20),
+        uint3(2, 12, 20), uint3(12, 0, 20),
+
+        // ----------  BACK  (–Z)  -----------
+        uint3(4, 10, 21), uint3(10, 5, 21),
+        uint3(5, 15, 21), uint3(15, 7, 21),
+        uint3(7, 11, 21), uint3(11, 6, 21),
+        uint3(6, 14, 21), uint3(14, 4, 21),
+
+        // ----------  RIGHT (+X) ------------
+        uint3(0, 16, 22), uint3(16, 4, 22),
+        uint3(4, 14, 22), uint3(14, 6, 22),
+        uint3(6, 18, 22), uint3(18, 2, 22),
+        uint3(2, 12, 22), uint3(12, 0, 22),
+
+        // ----------  LEFT  (–X) ------------
+        uint3(1, 17, 23), uint3(17, 5, 23),
+        uint3(5, 15, 23), uint3(15, 7, 23),
+        uint3(7, 19, 23), uint3(19, 3, 23),
+        uint3(3, 13, 23), uint3(13, 1, 23),
+
+        // ----------  TOP   (+Y) ------------
+        uint3(0, 8, 16), uint3(8, 17, 16),
+        uint3(17, 5, 10), uint3(10, 4, 16),
+
+        // ----------  BOTTOM (–Y) -----------
+        uint3(2, 18, 9), uint3(9, 19, 18),
+        uint3(19, 7, 11), uint3(11, 6, 18)
     };
 
-    // Define canonical cube control points in [-1, 1]
-    float3 canonicalControlPoints[8] =
-    {
-        float3(1, 1, 1),
-        float3(-1, 1, 1),
-        float3(1, -1, 1),
-        float3(-1, -1, 1),
-        float3(1, 1, -1),
-        float3(-1, 1, -1),
-        float3(1, -1, -1),
-        float3(-1, -1, -1)
-    };
+    static const uint TRI_COUNT = 40;
+
 
 
     //First past pre compute weights.
@@ -271,132 +299,86 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
                 int3 voxelCoord = chunkOrigin + int3(x, y, z);
                 if (all(voxelCoord < brush.resolution))
                 {
+                    
                     float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
                     float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
-
-                    // Remap input voxel position into normalized cube space [-1, 1]
-                    float3 posNormalized = (posLocal - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
-                    posNormalized = posNormalized * 2.0f - 1.0f;
-
-
-
-                    float3 p = posNormalized; // point in canonical space
-                    float3 numerator = float3(0, 0, 0);
-                    float denominator = 0;
-
-                    float weights[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+                    float3 p = 2.0f * ((posLocal - brush.aabbmin.xyz) /
+                           (brush.aabbmax.xyz - brush.aabbmin.xyz)) - 1.0f;
                     
-                    for (int i = 0; i < 12; ++i)
+                    
+                    
+                    float weights[CAGE_VERTS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+                    for (uint t = 0; t < TRI_COUNT; ++t)
                     {
-                        int3 tri = triangles[i];
+                        uint3 tri = triangles[t];
                         float3 v0 = canonicalControlPoints[tri.x];
                         float3 v1 = canonicalControlPoints[tri.y];
                         float3 v2 = canonicalControlPoints[tri.z];
 
-                        float3 r0 = v0 - p;
-                        float3 r1 = v1 - p;
-                        float3 r2 = v2 - p;
+                        float3 r0 = v0 - p, r1 = v1 - p, r2 = v2 - p;
+                        float l0 = length(r0), l1 = length(r1), l2 = length(r2);
 
+                        float a0 = acos(dot(normalize(r1), normalize(r2)));
+                        float a1 = acos(dot(normalize(r2), normalize(r0)));
+                        float a2 = acos(dot(normalize(r0), normalize(r1)));
 
-                        float l0 = length(r0);
-                        float l1 = length(r1);
-                        float l2 = length(r2);
+                        float w0 = (tan(a1 * 0.5f) + tan(a2 * 0.5f)) / l0;
+                        float w1 = (tan(a2 * 0.5f) + tan(a0 * 0.5f)) / l1;
+                        float w2 = (tan(a0 * 0.5f) + tan(a1 * 0.5f)) / l2;
 
-                        float3 n0 = normalize(r0);
-                        float3 n1 = normalize(r1);
-                        float3 n2 = normalize(r2);
-
-                        float alpha0 = acos(dot(n1, n2));
-                        float alpha1 = acos(dot(n2, n0));
-                        float alpha2 = acos(dot(n0, n1));
-
-                        float w0 = (tan(alpha1 * 0.5f) + tan(alpha2 * 0.5f)) / l0;
-                        float w1 = (tan(alpha2 * 0.5f) + tan(alpha0 * 0.5f)) / l1;
-                        float w2 = (tan(alpha0 * 0.5f) + tan(alpha1 * 0.5f)) / l2;
-                        
                         weights[tri.x] += w0;
                         weights[tri.y] += w1;
                         weights[tri.z] += w2;
-
                     }
 
-                    for (int j = 0; j < 8; ++j)
-                        denominator += weights[j];
-                    
-                    float invDen = rcp(denominator); // safe: denom > 0 inside the cage
+
+                    //-----------------------------------------------------------------
+                    // normalise so Σw = 1
+                    //-----------------------------------------------------------------
+                    float denom = 0.0f;
                     [unroll]
-                    for (int k = 0; k < 8; ++k)
-                        weights[k] *= invDen;
-                    
-                    
-                    float3 newControlPoints[8] =
-                    {
-                        float3(1, 1, 1),
-                        float3(-1, 1, 1),
-                        float3(1, -1, 1),
-                        float3(-1, -1, 1),
-                        float3(1, 1, -1),
-                        float3(-1, 1, -1),
-                        float3(1, -1, -1),
-                        float3(-1, -1, -1)
-                    };
-                    
-                    /*
-                    //Breathing or melting a bit.
+                    for (uint i = 0; i < CAGE_VERTS; ++i)
+                        denom += weights[i];
+                    float invDen = rcp(denom);
+                    [unroll]
+                    for (uint i = 0; i < CAGE_VERTS; ++i)
+                        weights[i] *= invDen;
+
+                    //-----------------------------------------------------------------
+                    // example deformation: breathing along Z on corner *and* edge verts
+                    //-----------------------------------------------------------------
+                    float3 deformed[CAGE_VERTS];
+                    [unroll]
+                    for (uint i = 0; i < CAGE_VERTS; ++i)      // start rest pose
+                        deformed[i] = canonicalControlPoints[i];
+
                     float a = abs(sin(time * 0.0006f));
-                    for (int c = 0; c < 4; ++c)          // front face  (z = +1)
-                        newControlPoints[c] += float3(0, 0, a);
-                    for (int c = 4; c < 8; ++c)          // back face   (z = –1)
-                        newControlPoints[c] -= float3(0, 0, a);
-                    */
-                    //Test identity
-                    
-                        float3 V0 = canonicalControlPoints[0];
-                    float3 V1 = canonicalControlPoints[1];
-                    float3 V2 = canonicalControlPoints[2];
-                    float3 V3 = canonicalControlPoints[3];
-                    float3 V4 = canonicalControlPoints[4];
-                    float3 V5 = canonicalControlPoints[5];
-                    float3 V6 = canonicalControlPoints[6];
-                    float3 V7 = canonicalControlPoints[7];
-                    
-                    float3 V0n = newControlPoints[0];
-                    float3 V1n = newControlPoints[1];
-                    float3 V2n = newControlPoints[2];
-                    float3 V3n = newControlPoints[3];
-                    float3 V4n = newControlPoints[4];
-                    float3 V5n = newControlPoints[5];
-                    float3 V6n = newControlPoints[6];
-                    float3 V7n = newControlPoints[7];
-                    
-                    float4 w0 = float4(0, 0, 0, 0);
-                    w0.x = weights[0];
-                    w0.y = weights[1];
-                    w0.z = weights[2];
-                    w0.w = weights[3];
-                    
-                    float4 w1 = float4(0, 0, 0, 0);
-                    w1.x = weights[4];
-                    w1.y = weights[5];
-                    w1.z = weights[6];
-                    w1.w = weights[7];
+                    [unroll]
+                    for (uint i = 0; i < CAGE_VERTS; ++i)
+                    {
+                        if (canonicalControlPoints[i].z > 0.99f)
+                            deformed[i].z += a;
+                        if (canonicalControlPoints[i].z < -0.99f)
+                            deformed[i].z -= a;
+                    }
 
-                    float3 delta =
-                      w0.x * (V0n - V0) +
-                      w0.y * (V1n - V1) +
-                      w0.z * (V2n - V2) +
-                      w0.w * (V3n - V3) +
-                      w1.x * (V4n - V4) +
-                      w1.y * (V5n - V5) +
-                      w1.z * (V6n - V6) +
-                      w1.w * (V7n - V7);
+                    //-----------------------------------------------------------------
+                    // blend displacements with the 24 weights
+                    //-----------------------------------------------------------------
+                    float3 delta = float3(0, 0, 0);
+                    [unroll]
+                    for (uint i = 0; i < CAGE_VERTS; ++i)
+                        delta += weights[i] * (deformed[i] - canonicalControlPoints[i]);
 
+                    //-----------------------------------------------------------------
+                    // sample SDF & write
+                    //-----------------------------------------------------------------
                     float3 posSample = posLocal + delta;
-                    
-                    float3 sampleUVW = (posSample - min) / (max - min);
-                    float3 tex = sampleUVW * brush.resolution;
-                    float sdf = Read3D(brush.textureID, tex);
+                    float3 uvwS = (posSample - brush.aabbmin.xyz) /
+                           (brush.aabbmax.xyz - brush.aabbmin.xyz);
+                    float3 texel = uvwS * brush.resolution;
 
+                    float sdf = Read3D(brush.textureID, texel);
                     Write3D(brush.textureID2, voxelCoord, sdf);
 
                 }

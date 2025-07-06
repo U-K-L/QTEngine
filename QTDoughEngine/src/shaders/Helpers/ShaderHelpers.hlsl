@@ -22,6 +22,8 @@
 
 #define DEFORMATION_CHUNK 8.0f
 
+#define CAGE_VERTS 24
+
 struct Voxel
 {
     uint distance;
