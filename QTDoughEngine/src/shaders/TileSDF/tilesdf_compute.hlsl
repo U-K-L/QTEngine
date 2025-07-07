@@ -43,6 +43,9 @@ RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
 RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
+// For reading
+Texture3D<float> gBindless3D[] : register(t4, space0);
+
 RWStructuredBuffer<uint> BrushesIndices : register(u10, space1);
 
 RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
@@ -52,6 +55,31 @@ RWStructuredBuffer<Particle> particlesL1Out : register(u13, space1); // write
 
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
+
+// Filtered read using normalized coordinates and mipmaps
+float Read3D(uint textureIndex, int3 coord)
+{
+    return gBindless3D[textureIndex].Load(int4(coord, 0));
+}
+
+float ReadWorldSDF(float3 worldPos)
+{
+    // Constants defining the world SDF volume (assuming these are defined in a helper)
+    float worldHalfExtent = WORLD_SDF_BOUNDS * 0.5f;
+    float voxelSize = WORLD_SDF_BOUNDS / WORLD_SDF_RESOLUTION;
+
+    // Convert world position to integer texture coordinates
+    int3 texCoord = int3(floor((worldPos + worldHalfExtent) / voxelSize));
+
+    // Bounds check to ensure we don't sample outside the volume
+    if (any(texCoord < 0) || any(texCoord >= WORLD_SDF_RESOLUTION))
+    {
+        return 64.0f; // Return a large distance if outside the world volume
+    }
+
+    // Sample the world SDF texture (assuming it's at bindless index 0)
+    return gBindless3D[0].Load(int4(texCoord, 0));
+}
 
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
@@ -100,8 +128,8 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
         }
     
     float voxelMini = 0.03125;
-    minBounds -= voxelMini * 12;
-    maxBounds += voxelMini * 12;
+    minBounds -= voxelMini * 4;
+    maxBounds += voxelMini * 4;
 
     return abs(maxBounds - minBounds);
 }
@@ -149,16 +177,38 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 void UpdateControlPoints(uint3 DTid : SV_DispatchThreadID)
 {
     uint index = DTid.x;
+    
+    // Determine which brush this control point belongs to
+    // Assumes CAGE_VERTS is defined (e.g., as 26) in a helper header
+    uint brushID = index / CAGE_VERTS;
+    Brush brush = Brushes[brushID];
 
-    float3 canonical = canonicalControlPoints[index % 26];
-    float3 deformed = canonical;
+    // Read the CURRENT local position of the control point from the previous frame
+    float3 local_pos = controlParticlesL1In[index].position.xyz;
 
-    float collapse = 1.0 - 0.25 * abs(sin(time * 0.0006f));
-    deformed.z = -1.0 + (canonical.z + 1.0f) * collapse;
+    // --- Apply physics/animation ---
+    // Applying simple gravity as an example
+    float3 gravity = float3(0.0f, 0.0, 0.0098f);
+    float3 new_local_pos = local_pos + (gravity * (1.0f - brush.stiffness));
+    
+    // --- Collision Detection ---
+    
+    // 1. Transform the new proposed local position to world space
+    float3 new_world_pos = mul(brush.model, float4(new_local_pos, 1.0)).xyz;
 
-    controlParticlesL1Out[index].position.xyz = deformed;
+    // 2. Sample the world SDF at the new world position
+    float sdf_dist = ReadWorldSDF(new_world_pos);
 
-
+    // 3. Collision Response
+    if (sdf_dist <= 0.2f)
+    {
+        // Collision detected! The point is inside or on a surface.
+        // For a simple response, we just stop its movement by reverting to the previous position.
+        new_local_pos = local_pos + (gravity * (1.0f - max(brush.stiffness, 0.9f) ));
+    }
+    
+    // Write the final, validated position back to the output buffer
+    controlParticlesL1Out[index].position.xyz = new_local_pos;
 }
 
 [numthreads(8, 1, 1)]

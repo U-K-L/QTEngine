@@ -71,6 +71,7 @@ struct Brush
     float4 aabbmax;
     float4 center;
     uint isDirty;
+    float stiffness;
 };
 
 struct ComputeVertex

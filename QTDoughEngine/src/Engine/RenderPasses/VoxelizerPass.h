@@ -49,6 +49,7 @@ public:
         glm::vec4 aabbmax;
         glm::vec4 center;
         uint32_t isDirty; //determines if needs an update.
+        float stiffness;
     };
 
     struct Tile

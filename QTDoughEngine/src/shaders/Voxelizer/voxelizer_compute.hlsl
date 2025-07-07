@@ -72,8 +72,8 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     }
     
     float voxelMini = 0.03125;
-    minBounds -= voxelMini * 12;
-    maxBounds += voxelMini * 12;
+    minBounds -= voxelMini * 4;
+    maxBounds += voxelMini * 4;
     
     return abs(maxBounds - minBounds);
 }
@@ -245,7 +245,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
     
     // --- load the 26 diffs once per work-group -----------------------------
     if (gIndex < 26)
-        gDiff[gIndex] = controlParticlesL1In[gIndex].position.xyz -
+        gDiff[gIndex] = controlParticlesL1In[gIndex + CAGE_VERTS * brushID].position.xyz -
                         canonicalControlPoints[gIndex];
     GroupMemoryBarrierWithGroupSync();
 
@@ -320,10 +320,22 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
     // ---- sample SDF & write -----------------------------------------------
     float3 posSample = posLocal + delta;
     float3 uvwS = (posSample - brush.aabbmin.xyz) /
-                       (brush.aabbmax.xyz - brush.aabbmin.xyz);
+                  (brush.aabbmax.xyz - brush.aabbmin.xyz);
     float3 texel = uvwS * brush.resolution;
 
-    float sdf = Read3D(brush.textureID, texel);
+    float sdf;
+    if (any(texel < 0.0f) || any(texel >= brush.resolution))
+    {
+        // This point has been deformed outside the valid area.
+        // Return a large distance value representing empty space.
+        sdf = 64.0f;
+    }
+    else
+    {
+        // The coordinate is valid, so perform the read.
+        sdf = Read3D(brush.textureID, int3(texel));
+    }
+    
     Write3D(brush.textureID2, voxelCoord, sdf);
 }
 
@@ -458,7 +470,11 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
-
+    Brushes[index].stiffness = 1.0;
+    
+    //Remove later.
+    if(index == 1)
+        Brushes[index].stiffness = 0;
 
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
     float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
