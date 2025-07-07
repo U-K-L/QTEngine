@@ -75,7 +75,7 @@ public:
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
 
-    int DeformResolution = 8; //number of voxels per deform thread.
+    int DeformResolution = 1; //number of voxels per deform thread.
 
     uint32_t TILE_SIZE = 8;          // voxels per edge
     uint32_t TILE_MAX_BRUSHES = 32;     // cap of brushes per tile
@@ -194,6 +194,18 @@ public:
 
     std::vector<VkBuffer> particlesStorageBuffers;
     std::vector<VkDeviceMemory> particlesStorageMemory;
+
+    int CAGE_RESOLUTION = 26; //Resolution of the cage for deformation.
+    int CONTROL_PARTICLE_COUNT = 4096 * CAGE_RESOLUTION; //The total amount of particles is the amount of deformable objects multipled by the cage resolution.
+
+    struct ControlParticle {
+        glm::vec4 position;
+    };
+
+    std::vector<Particle> controlParticles;
+
+    std::vector<VkBuffer> controlParticlesStorageBuffers;
+    std::vector<VkDeviceMemory> controlParticlesStorageMemory;
 
     VkImage wu_image;
     VkDeviceMemory wu_imageMemory;

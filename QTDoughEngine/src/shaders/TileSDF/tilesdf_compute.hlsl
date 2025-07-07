@@ -11,6 +11,13 @@ cbuffer UniformBufferObject : register(b0, space1)
     float2 texelSize;
 }
 
+cbuffer Constants : register(b2, space0)
+{
+    float deltaTime; // offset 0
+    float time; // offset 4
+    float2 pad; // offset 8..15, total 16 bytes
+};
+
 struct PushConsts
 {
     float lod;
@@ -42,6 +49,9 @@ RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 
 StructuredBuffer<Particle> particlesL1In : register(t12, space1); // readonly
 RWStructuredBuffer<Particle> particlesL1Out : register(u13, space1); // write
+
+StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
+RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
@@ -136,6 +146,21 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
 }
 
+void UpdateControlPoints(uint3 DTid : SV_DispatchThreadID)
+{
+    uint index = DTid.x;
+
+    float3 canonical = canonicalControlPoints[index % 26];
+    float3 deformed = canonical;
+
+    float collapse = 1.0 - 0.25 * abs(sin(time * 0.0006f));
+    deformed.z = -1.0 + (canonical.z + 1.0f) * collapse;
+
+    controlParticlesL1Out[index].position.xyz = deformed;
+
+
+}
+
 [numthreads(8, 1, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
@@ -151,6 +176,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
     {
         ParticlesSDF(DTid);
         return;
+    }
+    
+    if(level == 8.0f)
+    {
+        UpdateControlPoints(DTid);
     }
     
    //Do this per brush.

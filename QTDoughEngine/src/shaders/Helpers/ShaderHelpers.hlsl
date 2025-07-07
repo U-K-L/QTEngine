@@ -22,7 +22,15 @@
 
 #define DEFORMATION_CHUNK 8.0f
 
-#define CAGE_VERTS 24
+#define CAGE_VERTS 26
+
+// cheap length (dot*rsqrt)
+inline float lenFast(float3 v)
+{
+    float s = dot(v, v) + 1e-6f;
+    return s * rsqrt(s);
+}
+#define TAN_HALF(a,b,la,lb) (lenFast(cross(a,b)) / (la*lb + dot(a,b) + 1e-6f))
 
 struct Voxel
 {
@@ -42,6 +50,11 @@ struct Particle
     float4 tbd2;
     float4 tbd3;
     float4 tbd4;
+};
+
+struct ControlParticle
+{
+    float4 position;
 };
 
 struct Brush
@@ -684,3 +697,83 @@ float opSmoothIntersection(float d1, float d2, float k)
     float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
     return lerp(d2, d1, h) + k * h * (1.0 - h);
 }
+
+        //-----------------------------------
+    // 26-VERTEX CANONICAL CAGE
+    //-----------------------------------
+static const float3 canonicalControlPoints[CAGE_VERTS] =
+{
+        // 0-7  corners  (+X first, then –X)
+        float3(1, 1, 1), // 0
+        float3(-1, 1, 1), // 1
+        float3(1, -1, 1), // 2
+        float3(-1, -1, 1), // 3
+        float3(1, 1, -1), // 4
+        float3(-1, 1, -1), // 5
+        float3(1, -1, -1), // 6
+        float3(-1, -1, -1), // 7
+
+        // 8-19  edge mid-points   (Z-front edges, then back, then X-edges, then Y-edges)
+        float3(0, 1, 1), //  8  top front
+        float3(0, -1, 1), //  9  bottom front
+        float3(0, 1, -1), // 10  top back
+        float3(0, -1, -1), // 11  bottom back
+        float3(1, 0, 1), // 12  right front
+        float3(-1, 0, 1), // 13  left  front
+        float3(1, 0, -1), // 14  right back
+        float3(-1, 0, -1), // 15  left  back
+        float3(1, 1, 0), // 16  right top
+        float3(-1, 1, 0), // 17  left  top
+        float3(1, -1, 0), // 18  right bottom
+        float3(-1, -1, 0), // 19  left  bottom
+
+        // 20-26  face centres
+        float3(0, 0, 1), // 20
+        float3(0, 0, -1), // 21
+        float3(1, 0, 0), // 22
+        float3(-1, 0, 0), // 23
+        float3(0, 1, 0), // 24
+        float3(0, -1, 0) // 25
+};
+
+    // ------------------------------------------
+    // 48 TRIANGLES (6 faces × 8 tris)
+    // ------------------------------------------
+static const uint3 triangles[] =
+{
+        // FRONT (+Z)
+    uint3(0, 8, 20), uint3(8, 1, 20),
+        uint3(1, 13, 20), uint3(13, 3, 20),
+        uint3(3, 9, 20), uint3(9, 2, 20),
+        uint3(2, 12, 20), uint3(12, 0, 20),
+
+        // BACK (–Z)
+        uint3(4, 10, 21), uint3(10, 5, 21),
+        uint3(5, 15, 21), uint3(15, 7, 21),
+        uint3(7, 11, 21), uint3(11, 6, 21),
+        uint3(6, 14, 21), uint3(14, 4, 21),
+
+        // RIGHT (+X)
+        uint3(0, 16, 22), uint3(16, 4, 22),
+        uint3(4, 14, 22), uint3(14, 6, 22),
+        uint3(6, 18, 22), uint3(18, 2, 22),
+        uint3(2, 12, 22), uint3(12, 0, 22),
+
+        // LEFT (–X)
+        uint3(1, 17, 23), uint3(17, 5, 23),
+        uint3(5, 15, 23), uint3(15, 7, 23),
+        uint3(7, 19, 23), uint3(19, 3, 23),
+        uint3(3, 13, 23), uint3(13, 1, 23),
+
+        // TOP (+Y)
+        uint3(0, 8, 24), uint3(8, 1, 24),
+        uint3(1, 17, 24), uint3(17, 5, 24),
+        uint3(5, 10, 24), uint3(10, 4, 24),
+        uint3(4, 16, 24), uint3(16, 0, 24),
+
+        // BOTTOM (–Y)
+        uint3(2, 9, 25), uint3(9, 3, 25),
+        uint3(3, 19, 25), uint3(19, 7, 25),
+        uint3(7, 11, 25), uint3(11, 6, 25),
+        uint3(6, 18, 25), uint3(18, 2, 25)
+};

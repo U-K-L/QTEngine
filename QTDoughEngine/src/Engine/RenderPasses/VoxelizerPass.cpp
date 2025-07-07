@@ -454,6 +454,34 @@ void VoxelizerPass::CreateShaderStorageBuffers()
         app->CopyBuffer(pStagingBuffer, particlesStorageBuffers[i], particleBufferSize);
     }
 
+    //Control Particles.
+
+    uint32_t controlParticleBufferSize = sizeof(ControlParticle) * CONTROL_PARTICLE_COUNT;
+
+    //Initialize particles data.
+    controlParticles.resize(CONTROL_PARTICLE_COUNT);
+    for (uint32_t i = 0; i < CONTROL_PARTICLE_COUNT; ++i) {
+        controlParticles[i].position = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    VkBuffer cpStagingBuffer;
+    VkDeviceMemory cpStagingBufferMemory;
+    app->CreateBuffer(controlParticleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, cpStagingBuffer, cpStagingBufferMemory);
+
+    void* cpdata;
+    vkMapMemory(app->_logicalDevice, cpStagingBufferMemory, 0, controlParticleBufferSize, 0, &cpdata);
+    std::memcpy(cpdata, controlParticles.data(), controlParticles.size() * sizeof(ControlParticle));
+    vkUnmapMemory(app->_logicalDevice, cpStagingBufferMemory);
+
+    controlParticlesStorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    controlParticlesStorageMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    // Copy initial data to all storage buffers
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(controlParticleBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, controlParticlesStorageBuffers[i], controlParticlesStorageMemory[i]);
+        app->CopyBuffer(cpStagingBuffer, controlParticlesStorageBuffers[i], controlParticleBufferSize);
+    }
+
     std::cout << "Shader Storage Buffers created" << std::endl;
 }
 
@@ -509,7 +537,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 14> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 16> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -673,6 +701,33 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[13].descriptorCount = 1;
         descriptorWrites[13].pBufferInfo = &particleBufferInfoCurrentFrame;
 
+        //Control Particles.
+
+        VkDescriptorBufferInfo controlParticleBufferInfoLastFrame{};
+        controlParticleBufferInfoLastFrame.buffer = controlParticlesStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        controlParticleBufferInfoLastFrame.offset = 0;
+        controlParticleBufferInfoLastFrame.range = sizeof(ControlParticle) * CONTROL_PARTICLE_COUNT;
+
+        descriptorWrites[14].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[14].dstSet = computeDescriptorSets[i];
+        descriptorWrites[14].dstBinding = 14;
+        descriptorWrites[14].dstArrayElement = 0;
+        descriptorWrites[14].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[14].descriptorCount = 1;
+        descriptorWrites[14].pBufferInfo = &controlParticleBufferInfoLastFrame;
+
+        VkDescriptorBufferInfo controlParticleBufferInfoCurrentFrame{};
+        controlParticleBufferInfoCurrentFrame.buffer = controlParticlesStorageBuffers[i];
+        controlParticleBufferInfoCurrentFrame.offset = 0;
+        controlParticleBufferInfoCurrentFrame.range = sizeof(ControlParticle) * CONTROL_PARTICLE_COUNT;
+
+        descriptorWrites[15].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[15].dstSet = computeDescriptorSets[i];
+        descriptorWrites[15].dstBinding = 15;
+        descriptorWrites[15].dstArrayElement = 0;
+        descriptorWrites[15].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[15].descriptorCount = 1;
+        descriptorWrites[15].pBufferInfo = &controlParticleBufferInfoCurrentFrame;
 
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
@@ -792,6 +847,7 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     tileBrushCountBinding.descriptorCount = 1;
     tileBrushCountBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    //Fluid Particles.
     VkDescriptorSetLayoutBinding particleBinding1{};
     particleBinding1.binding = 12;
     particleBinding1.descriptorCount = 1;
@@ -806,8 +862,23 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     particleBinding2.pImmutableSamplers = nullptr;
     particleBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    //Control Particles.
+    VkDescriptorSetLayoutBinding controlParticleBinding1{};
+    controlParticleBinding1.binding = 14;
+    controlParticleBinding1.descriptorCount = 1;
+    controlParticleBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    controlParticleBinding1.pImmutableSamplers = nullptr;
+    controlParticleBinding1.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding controlParticleBinding2{};
+    controlParticleBinding2.binding = 15;
+    controlParticleBinding2.descriptorCount = 1;
+    controlParticleBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    controlParticleBinding2.pImmutableSamplers = nullptr;
+    controlParticleBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 14> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2 };
+    std::array<VkDescriptorSetLayoutBinding, 16> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2 };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1596,6 +1667,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
         //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
+        DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
 	}
 
     if (dispatchCount > 2)
@@ -1839,10 +1911,12 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
 	}
 
     if (lodLevel == 2) {
-        //This is the clear dispatch.
         resolutionx = PARTICLE_COUNT;
     }
 
+    if (lodLevel == 8) {
+        resolutionx = brushes.size() * CAGE_RESOLUTION;
+    }
 
     uint32_t groupCountX = (resolutionx + 7) / 8;
     uint32_t groupCountY = (resolutiony + 7) / 8;

@@ -52,7 +52,8 @@ StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<uint> BrushesIndices : register(t10, space1);
 RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 
-
+StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
+RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
@@ -202,191 +203,130 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
     return blurredDist / 64.0f; // Total kernel weight
 }
 
-void DeformBrush(uint3 DTid : SV_DispatchThreadID)
-{
-    const int chunkSize = DEFORMATION_CHUNK;
-    int3 chunkOrigin = DTid * chunkSize;
-
-    uint index = pc.triangleCount;
-    Brush brush = Brushes[index];
-
-    float scale = brush.aabbmax.w * 0.5f;
-
-
-    //-----------------------------------
-    // 24-VERTEX CANONICAL CAGE
-    //-----------------------------------
-    static const float3 canonicalControlPoints[CAGE_VERTS] =
-    {
-        // 0-7  corners  (+X first, then –X)
-        float3(1, 1, 1), // 0
-        float3(-1, 1, 1), // 1
-        float3(1, -1, 1), // 2
-        float3(-1, -1, 1), // 3
-        float3(1, 1, -1), // 4
-        float3(-1, 1, -1), // 5
-        float3(1, -1, -1), // 6
-        float3(-1, -1, -1), // 7
-
-        // 8-19  edge mid-points   (Z-front edges, then back, then X-edges, then Y-edges)
-        float3(0, 1, 1), //  8  top front
-        float3(0, -1, 1), //  9  bottom front
-        float3(0, 1, -1), // 10  top back
-        float3(0, -1, -1), // 11  bottom back
-        float3(1, 0, 1), // 12  right front
-        float3(-1, 0, 1), // 13  left  front
-        float3(1, 0, -1), // 14  right back
-        float3(-1, 0, -1), // 15  left  back
-        float3(1, 1, 0), // 16  right top
-        float3(-1, 1, 0), // 17  left  top
-        float3(1, -1, 0), // 18  right bottom
-        float3(-1, -1, 0), // 19  left  bottom
-
-        // 20-23  face centres  (front, back, +X, –X)
-        float3(0, 0, 1), // 20
-        float3(0, 0, -1), // 21
-        float3(1, 0, 0), // 22
-        float3(-1, 0, 0) // 23
-    };
-
-    //-----------------------------------
-    // 40 TRIANGLES – counter-clockwise
-    //-----------------------------------
-    static const uint3 triangles[] =
-    {
-        // ----------  FRONT  (+Z)  ----------
-        uint3(0, 8, 20), uint3(8, 1, 20),
-        uint3(1, 13, 20), uint3(13, 3, 20),
-        uint3(3, 9, 20), uint3(9, 2, 20),
-        uint3(2, 12, 20), uint3(12, 0, 20),
-
-        // ----------  BACK  (–Z)  -----------
-        uint3(4, 10, 21), uint3(10, 5, 21),
-        uint3(5, 15, 21), uint3(15, 7, 21),
-        uint3(7, 11, 21), uint3(11, 6, 21),
-        uint3(6, 14, 21), uint3(14, 4, 21),
-
-        // ----------  RIGHT (+X) ------------
-        uint3(0, 16, 22), uint3(16, 4, 22),
-        uint3(4, 14, 22), uint3(14, 6, 22),
-        uint3(6, 18, 22), uint3(18, 2, 22),
-        uint3(2, 12, 22), uint3(12, 0, 22),
-
-        // ----------  LEFT  (–X) ------------
-        uint3(1, 17, 23), uint3(17, 5, 23),
-        uint3(5, 15, 23), uint3(15, 7, 23),
-        uint3(7, 19, 23), uint3(19, 3, 23),
-        uint3(3, 13, 23), uint3(13, 1, 23),
-
-        // ----------  TOP   (+Y) ------------
-        uint3(0, 8, 16), uint3(8, 17, 16),
-        uint3(17, 5, 10), uint3(10, 4, 16),
-
-        // ----------  BOTTOM (–Y) -----------
-        uint3(2, 18, 9), uint3(9, 19, 18),
-        uint3(19, 7, 11), uint3(11, 6, 18)
-    };
-
-    static const uint TRI_COUNT = 40;
+// --- helpers ---------------------------------------------------------------
+static const float EPS = 1e-6f;
 
 
 
-    //First past pre compute weights.
-    for (int z = 0; z < chunkSize; ++z)
-        for (int y = 0; y < chunkSize; ++y)
-            for (int x = 0; x < chunkSize; ++x)
-            {
-                int3 voxelCoord = chunkOrigin + int3(x, y, z);
-                if (all(voxelCoord < brush.resolution))
-                {
-                    
-                    float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
-                    float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
-                    float3 p = 2.0f * ((posLocal - brush.aabbmin.xyz) /
-                           (brush.aabbmax.xyz - brush.aabbmin.xyz)) - 1.0f;
-                    
-                    
-                    
-                    float weights[CAGE_VERTS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-                    for (uint t = 0; t < TRI_COUNT; ++t)
-                    {
-                        uint3 tri = triangles[t];
-                        float3 v0 = canonicalControlPoints[tri.x];
-                        float3 v1 = canonicalControlPoints[tri.y];
-                        float3 v2 = canonicalControlPoints[tri.z];
+#define ADD_W(idx, w) { num += (w) * gDiff[idx]; denom += (w); }
 
-                        float3 r0 = v0 - p, r1 = v1 - p, r2 = v2 - p;
-                        float l0 = length(r0), l1 = length(r1), l2 = length(r2);
-
-                        float a0 = acos(dot(normalize(r1), normalize(r2)));
-                        float a1 = acos(dot(normalize(r2), normalize(r0)));
-                        float a2 = acos(dot(normalize(r0), normalize(r1)));
-
-                        float w0 = (tan(a1 * 0.5f) + tan(a2 * 0.5f)) / l0;
-                        float w1 = (tan(a2 * 0.5f) + tan(a0 * 0.5f)) / l1;
-                        float w2 = (tan(a0 * 0.5f) + tan(a1 * 0.5f)) / l2;
-
-                        weights[tri.x] += w0;
-                        weights[tri.y] += w1;
-                        weights[tri.z] += w2;
-                    }
-
-
-                    //-----------------------------------------------------------------
-                    // normalise so Σw = 1
-                    //-----------------------------------------------------------------
-                    float denom = 0.0f;
-                    [unroll]
-                    for (uint i = 0; i < CAGE_VERTS; ++i)
-                        denom += weights[i];
-                    float invDen = rcp(denom);
-                    [unroll]
-                    for (uint i = 0; i < CAGE_VERTS; ++i)
-                        weights[i] *= invDen;
-
-                    //-----------------------------------------------------------------
-                    // example deformation: breathing along Z on corner *and* edge verts
-                    //-----------------------------------------------------------------
-                    float3 deformed[CAGE_VERTS];
-                    [unroll]
-                    for (uint i = 0; i < CAGE_VERTS; ++i)      // start rest pose
-                        deformed[i] = canonicalControlPoints[i];
-
-                    float a = abs(sin(time * 0.0006f));
-                    [unroll]
-                    for (uint i = 0; i < CAGE_VERTS; ++i)
-                    {
-                        if (canonicalControlPoints[i].z > 0.99f)
-                            deformed[i].z += a;
-                        if (canonicalControlPoints[i].z < -0.99f)
-                            deformed[i].z -= a;
-                    }
-
-                    //-----------------------------------------------------------------
-                    // blend displacements with the 24 weights
-                    //-----------------------------------------------------------------
-                    float3 delta = float3(0, 0, 0);
-                    [unroll]
-                    for (uint i = 0; i < CAGE_VERTS; ++i)
-                        delta += weights[i] * (deformed[i] - canonicalControlPoints[i]);
-
-                    //-----------------------------------------------------------------
-                    // sample SDF & write
-                    //-----------------------------------------------------------------
-                    float3 posSample = posLocal + delta;
-                    float3 uvwS = (posSample - brush.aabbmin.xyz) /
-                           (brush.aabbmax.xyz - brush.aabbmin.xyz);
-                    float3 texel = uvwS * brush.resolution;
-
-                    float sdf = Read3D(brush.textureID, texel);
-                    Write3D(brush.textureID2, voxelCoord, sdf);
-
-                }
-            }
-    
-    
-
+// one triangle → three weights
+#define ACCUM_WEIGHTS(idx0, idx1, idx2)                              \
+{                                                          \
+    float3 r0 = relative_positions[idx0];          \
+    float3 r1 = relative_positions[idx1];          \
+    float3 r2 = relative_positions[idx2];          \
+                                                           \
+    float l0 = lenFast(lengths[idx0]);                                \
+    float l1 = lenFast(lengths[idx1]);                                \
+    float l2 = lenFast(lengths[idx2]);                                \
+                                                           \
+    float t01 = TAN_HALF(r0,r1,l0,l1);                     \
+    float t12 = TAN_HALF(r1,r2,l1,l2);                     \
+    float t20 = TAN_HALF(r2,r0,l2,l0);                     \
+                                                           \
+    ADD_W(idx0, (t20 + t01) * rcp(l0));                    \
+    ADD_W(idx1, (t01 + t12) * rcp(l1));                    \
+    ADD_W(idx2, (t12 + t20) * rcp(l2));                    \
 }
+
+
+groupshared float3 gDiff[26];
+void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
+{
+    uint3 voxelCoord = DTid;
+    uint brushID = pc.triangleCount;
+    Brush brush = Brushes[brushID];
+
+    if (any(voxelCoord >= brush.resolution))
+        return;
+    
+
+    
+    // --- load the 26 diffs once per work-group -----------------------------
+    if (gIndex < 26)
+        gDiff[gIndex] = controlParticlesL1In[gIndex].position.xyz -
+                        canonicalControlPoints[gIndex];
+    GroupMemoryBarrierWithGroupSync();
+
+    // Canonical-space point --------------------------------------------------
+    float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
+    float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
+    float3 p = 2.0f * ((posLocal - brush.aabbmin.xyz) /
+                              (brush.aabbmax.xyz - brush.aabbmin.xyz)) - 1.0f;
+    
+    // Local arrays to hold pre-calculated values
+    float3 relative_positions[26];
+    float lengths[26];
+
+    // Pre-calculate all vectors and lengths once
+    for (int i = 0; i < 26; ++i)
+    {
+        relative_positions[i] = canonicalControlPoints[i] - p;
+        lengths[i] = lenFast(relative_positions[i]);
+    }
+
+
+    float3 num = float3(0, 0, 0);
+    float denom = 0.0f;
+    
+    /*
+    // ---- 48 triangles – fully unrolled ------------------------------------
+    ACCUM_WEIGHTS( 0,  8, 20); ACCUM_WEIGHTS( 8,  1, 20);
+    ACCUM_WEIGHTS( 1, 13, 20); ACCUM_WEIGHTS(13,  3, 20);
+    ACCUM_WEIGHTS( 3,  9, 20); ACCUM_WEIGHTS( 9,  2, 20);
+    ACCUM_WEIGHTS( 2, 12, 20); ACCUM_WEIGHTS(12,  0, 20);
+
+    ACCUM_WEIGHTS( 4, 10, 21); ACCUM_WEIGHTS(10,  5, 21);
+    ACCUM_WEIGHTS( 5, 15, 21); ACCUM_WEIGHTS(15,  7, 21);
+    ACCUM_WEIGHTS( 7, 11, 21); ACCUM_WEIGHTS(11,  6, 21);
+    ACCUM_WEIGHTS( 6, 14, 21); ACCUM_WEIGHTS(14,  4, 21);
+
+    ACCUM_WEIGHTS( 0, 16, 22); ACCUM_WEIGHTS(16,  4, 22);
+    ACCUM_WEIGHTS( 4, 14, 22); ACCUM_WEIGHTS(14,  6, 22);
+    ACCUM_WEIGHTS( 6, 18, 22); ACCUM_WEIGHTS(18,  2, 22);
+    ACCUM_WEIGHTS( 2, 12, 22); ACCUM_WEIGHTS(12,  0, 22);
+
+    ACCUM_WEIGHTS( 1, 17, 23); ACCUM_WEIGHTS(17,  5, 23);
+    ACCUM_WEIGHTS( 5, 15, 23); ACCUM_WEIGHTS(15,  7, 23);
+    ACCUM_WEIGHTS( 7, 19, 23); ACCUM_WEIGHTS(19,  3, 23);
+    ACCUM_WEIGHTS( 3, 13, 23); ACCUM_WEIGHTS(13,  1, 23);
+
+    ACCUM_WEIGHTS( 0,  8, 24); ACCUM_WEIGHTS( 8,  1, 24);
+    ACCUM_WEIGHTS( 1, 17, 24); ACCUM_WEIGHTS(17,  5, 24);
+    ACCUM_WEIGHTS( 5, 10, 24); ACCUM_WEIGHTS(10,  4, 24);
+    ACCUM_WEIGHTS( 4, 16, 24); ACCUM_WEIGHTS(16,  0, 24);
+
+    ACCUM_WEIGHTS( 2,  9, 25); ACCUM_WEIGHTS( 9,  3, 25);
+    ACCUM_WEIGHTS( 3, 19, 25); ACCUM_WEIGHTS(19,  7, 25);
+    ACCUM_WEIGHTS( 7, 11, 25); ACCUM_WEIGHTS(11,  6, 25);
+    ACCUM_WEIGHTS( 6, 18, 25); ACCUM_WEIGHTS(18,  2, 25);
+    */
+
+    // --- Alternative main accumulation loop using IDW ---
+    const float power = 2.0f; // A common exponent for IDW
+
+    // Loop through the pre-calculated lengths from Strategy 1
+    for (int i = 0; i < 26; ++i)
+    {
+        // w = 1 / (distance^k)
+        float w = rcp(pow(max(lengths[i], EPS), power));
+    
+        num += w * gDiff[i];
+        denom += w;
+    }
+    float3 delta = num * rcp(max(denom, EPS));
+
+    // ---- sample SDF & write -----------------------------------------------
+    float3 posSample = posLocal + delta;
+    float3 uvwS = (posSample - brush.aabbmin.xyz) /
+                       (brush.aabbmax.xyz - brush.aabbmin.xyz);
+    float3 texel = uvwS * brush.resolution;
+
+    float sdf = Read3D(brush.textureID, texel);
+    Write3D(brush.textureID2, voxelCoord, sdf);
+}
+
 
 /*
 void DeformBrush(uint3 DTid : SV_DispatchThreadID)
@@ -580,6 +520,10 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     Write3D(brush.textureID, int3(DTid), minDist);
 
+    
+    for (int i = 0; i < CAGE_VERTS; i++)
+        controlParticlesL1Out[index * CAGE_VERTS + i].position = float4(canonicalControlPoints[i].xyz, 0);
+
 }
 
 float4 GetVoxelValue(float sampleLevel, int index)
@@ -718,7 +662,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 }
 
 [numthreads(8, 8, 8)]
-void main(uint3 DTid : SV_DispatchThreadID)
+void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
 {
     
     
@@ -739,7 +683,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     if (sampleLevelL == 14.0f)
     {
-        DeformBrush(DTid);
+        DeformBrush(DTid, gIndex, lThreadID);
         return;
     }
     
