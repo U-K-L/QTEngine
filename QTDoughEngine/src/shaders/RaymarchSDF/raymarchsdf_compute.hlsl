@@ -10,7 +10,8 @@ cbuffer UniformBufferObject : register(b0, space1)
     float4x4 model; // Model matrix
     float4x4 view; // View matrix
     float4x4 proj; // Projection matrix
-    float2 texelSize;
+    float4 texelSize;
+    float isOrtho;
 }
 
 StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
@@ -25,16 +26,16 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 // For reading
-Texture3D<float> gBindless3D[] : register(t4, space0);
+Texture3D<float2> gBindless3D[] : register(t4, space0);
 
 
-float4 Read3D(uint textureIndex, int3 coord)
+float2 Read3D(uint textureIndex, int3 coord)
 {
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 }
 
 
-float4 GetVoxelValue(int textureId, int3 coord, float sampleLevel)
+float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 {
     return Read3D(textureId, coord);
 }
@@ -94,7 +95,7 @@ float SDFTriangle(float3 p, float3 a, float3 b, float3 c)
 }
 
 
-float4 TrilinearSampleSDFTexture(float3 pos)
+float2 TrilinearSampleSDFTexture(float3 pos)
 {
     float sampleLevel = 1.0f;
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
@@ -173,7 +174,7 @@ float4 TrilinearSampleSDFTexture(float3 pos)
     return lerp(c0, c1, fracVal.z);
     */
     
-    return GetVoxelValue(0, base, 0);
+    return GetVoxelValueTexture(0, base, 0);
 }
 
 
@@ -369,7 +370,7 @@ float4 SampleNormalSDF(float3 pos)
     return TrilinearSampleSDF(pos);
 }
 
-float4 SampleNormalSDFTexture(float3 pos)
+float2 SampleNormalSDFTexture(float3 pos)
 {
     float sampleLevel = GetSampleLevel(pos, 0);
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
@@ -504,7 +505,9 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         
         //Find the smallest distance
 
-        float4 currentSDF = SampleNormalSDFTexture(pos);
+        float4 currentSDF = 0;
+        float2 sampleId = SampleNormalSDFTexture(pos);
+        currentSDF.x = sampleId.x;
         currentSDF.yzw = CentralDifferenceNormalTexture(pos);
         //closesSDF = currentSDF;
         
@@ -531,6 +534,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         {
             float len = length(closesSDF.yzw);
             closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            resultOutput.xy = sampleId;
             return closesSDF;
         }
 
@@ -693,38 +697,39 @@ float3 turboColor(float t)
 [numthreads(8, 8, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
+    float4x4 invProj = inverse(proj);
+    float4x4 invView = inverse(view);
     
     uint2 pixel = DTid.xy;
     uint2 outputImageIndex = uint2(DTid.x, DTid.y);
     uint outputImageHandle = NonUniformResourceIndex(intArray[0]);
     gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
-    bool ortho = abs(proj[3][3] - 1.0) < 1e-5;
 
-    float4x4 invProj = inverse(proj);
-    float4x4 invView = inverse(view);
-    
-    float2 uv = (float2(pixel) + 0.5) * texelSize * 2.0 - 1.0;
+    //Construct a ray shooting from the camera projection plane.
+    uint3 id = DTid;
+    float2 dim = texelSize.xy;
+    float2 uv = (float2(pixel) + 0.5) * dim * 2.0 - 1.0;
     uv.y = -uv.y; // Flip Y
-
-    float3 camPos, dirWorld;
-
-    if (ortho)
-    {
-        float4 clip = float4(uv, 0.0, 1.0); // no extra scale
-        camPos = mul(invView, mul(invProj, clip)).xyz;
-        dirWorld = normalize(-invView[2].xyz);
-    }
-    else
-    {
-        float4 clip = float4(uv, 1.0, 1.0);
-        float4 viewP = mul(invProj, clip);
-        viewP /= viewP.w;
-        dirWorld = normalize(mul((float3x3) invView, normalize(viewP.xyz)));
-        camPos = mul(invView, float4(0, 0, 0, 1)).xyz;
-    }
-
+    
+    //Convert to camera space.
+    float4 viewPos = mul(invProj, float4(uv.x, uv.y, 0, 1));
+    
+    //Perspective divide.
+    float4 perspectiveViewPos = viewPos / viewPos.w;
+    float3 perspectiveRayDir = normalize(mul((float3x3) invView, normalize(viewPos.xyz)));
+    float3 perspectiveRayOrigin = mul(invView, float4(0, 0, 0, 1)).xyz;
+    
+    //Orthogonal.
+    float3 orthoRayOrigin = mul(invView, float4(viewPos.xyz, 1.0)).xyz;
+    float3 orthoRayDir = mul((float3x3) invView, float3(0.0, 0.0, -1.0));
+    orthoRayDir = normalize(orthoRayDir);
+    
+    //Interpolate.
+    float3 interpRayOrigin = lerp(perspectiveRayOrigin, orthoRayOrigin, isOrtho);
+    float3 interpRayDir = lerp(perspectiveRayDir, orthoRayDir, isOrtho);
+    
     float4 result = 0;
-    float4 hit = SphereMarch(camPos, dirWorld, result);
+    float4 hit = SphereMarch(interpRayOrigin, interpRayDir, result);
     float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
@@ -732,56 +737,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = light; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
-    /*
-    float maxRange = 2.0f;
+    if (result.y == 1)
+        gBindlessStorage[outputImageHandle][pixel] = float4(0, 1, 0, 1);
+    if (result.y == 2)
+        gBindlessStorage[outputImageHandle][pixel] = float4(1, 1, 0, 1);
     
-    float dist = abs(hit.x);
-    float t = 1.0 - exp(-dist * (1.0f / maxRange));
-    float3 color = lerp(float3(0, 0.2, 1), float3(1, 0.2, 0), t);
-    gBindlessStorage[outputImageHandle][pixel] = float4(color, 1.0);
-
-    */
-    //gBindlessStorage[outputImageHandle][pixel] = voxelsL2In[0].normalDistance;
-    /*
-    //SDF sphere trace each vertex point.
-    float debugHit = DebugMarchVertices(camPos, dirWorld);
-    
-    gBindlessStorage[outputImageHandle][pixel] += debugHit * float4(1, 0, 0, 1);
-    */
-    
-    /*
-    uint2 pix = DTid.xy;
-    uint imgId = intArray[0];
-    uint handle = NonUniformResourceIndex(imgId);
-
-    // Shader‑model 6.6 (or later) – texel operator
-    gBindlessStorage[handle][pix] = float4(1, 1, 0, 1);
-
-    // Pre‑6.6 form – Write method
-    // gBindlessStorage[handle].Write(pix, float4(1, 0, 0, 1));
-
-    float4 col = gBindlessStorage[handle][pix]; // read
-    
-    uint index = DTid.x;
-    
-    uint2 imageIndex = uint2(DTid.x, DTid.y);
-    //gBindlessStorage[imageIndex] = 1;
-    
-    if (index >= 64)
-    {
-        return;
-    }
-    
-    Voxel voxelIn = voxelsIn[index];
-
-    Voxel result;
-    result.positionDistance.xyz = col.xyz;
-    result.positionDistance.w = 20.0f;
-    result.normalDensity.xyz = float3(1, texelSize.x, texelSize.y);
-    result.normalDensity.w = 23312.0f;
-
-    voxelsOut[index] = result;
-*/
-    
-
 }

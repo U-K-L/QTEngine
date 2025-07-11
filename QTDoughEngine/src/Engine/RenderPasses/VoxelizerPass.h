@@ -13,7 +13,8 @@ public:
         alignas(16) glm::mat4 model;
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
-        alignas(16) glm::vec2 texelSize;
+        alignas(16) glm::vec4 texelSize;
+        alignas(16) float isOrtho;
     };
 
     static void SetInstance(VoxelizerPass* voxelizer)
@@ -35,6 +36,7 @@ public:
 
     //Struct of brushes. Most brushes are meshes with a model matrix. However, analytical brushes can be provided as well.
     //Brushes are basically tied to gameObjects.
+    //256 bytes is the limit.
     struct Brush
     {
         uint32_t type; 
@@ -50,6 +52,9 @@ public:
         glm::vec4 center;
         uint32_t isDirty; //determines if needs an update.
         float stiffness;
+        float blend;
+        uint32_t opcode;
+        uint32_t id;
     };
 
     struct Tile

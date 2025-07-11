@@ -8,7 +8,8 @@ cbuffer UniformBufferObject : register(b0, space1)
     float4x4 model; // Model matrix
     float4x4 view; // View matrix
     float4x4 proj; // Projection matrix
-    float2 texelSize;
+    float4 texelSize;
+    float isOrtho;
 }
 
 cbuffer Constants : register(b2, space0)
@@ -207,6 +208,7 @@ void UpdateControlPoints(uint3 DTid : SV_DispatchThreadID)
         new_local_pos = local_pos + (gravity * (1.0f - max(brush.stiffness, 0.9f) ));
     }
     
+    new_local_pos = local_pos;
     // Write the final, validated position back to the output buffer
     controlParticlesL1Out[index].position.xyz = new_local_pos;
 }

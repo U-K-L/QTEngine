@@ -72,6 +72,9 @@ struct Brush
     float4 center;
     uint isDirty;
     float stiffness;
+    float blend;
+    uint opcode;
+    uint id;
 };
 
 struct ComputeVertex
@@ -599,7 +602,6 @@ float4 smin(float4 a, float4 b, float k)
 
     return float4(resultDist, resultGrad);
 }
-
 
 float2 voronoiNoise(float2 value)
 {

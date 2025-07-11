@@ -135,7 +135,7 @@ struct UnigmaCameraStruct
 
 
 	glm::mat4 getProjectionMatrix() {
-		float interpolant = std::fmin(0.995f, isOrthogonal);
+		isOrthogonal = std::fmin(0.995f, isOrthogonal);
 		float orthoHeight = orthoWidth / aspectRatio;
 		glm::mat4 ortho = getVulkanOrthoMatrix(
 			-orthoWidth / 2.0f, orthoWidth / 2.0f,
@@ -143,7 +143,7 @@ struct UnigmaCameraStruct
 			nearClip, farClip
 		);
 		glm::mat4 perspective = glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
-		return interpolateProjectionMatrix(perspective, ortho, interpolant);
+		return interpolateProjectionMatrix(perspective, ortho, isOrthogonal);
 	}
 
 

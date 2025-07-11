@@ -39,10 +39,10 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 // For reading
-Texture3D<float> gBindless3D[] : register(t4, space0);
+Texture3D<float2> gBindless3D[] : register(t4, space0);
 
 // For writing
-RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
+RWTexture3D<float2> gBindless3DStorage[] : register(u5, space0);
 
 RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
@@ -80,7 +80,7 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
 
 
 
-float Read3DTransformed(in Brush brush, float3 worldPos)
+float2 Read3DTransformed(in Brush brush, float3 worldPos)
 {
     
     // 1. Transform from world space to local mesh space
@@ -109,7 +109,7 @@ float Read3DTransformed(in Brush brush, float3 worldPos)
 
 
 // Filtered read using normalized coordinates and mipmaps
-float Read3D(uint textureIndex, int3 coord)
+float2 Read3D(uint textureIndex, int3 coord)
 {    
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 }
@@ -120,6 +120,10 @@ void Write3D(uint textureIndex, int3 coord, float value)
     gBindless3DStorage[textureIndex][coord] = value;
 }
 
+void Write3D(uint textureIndex, int3 coord, float2 value)
+{
+    gBindless3DStorage[textureIndex][coord] = value;
+}
 
 
 float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
@@ -333,7 +337,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
     else
     {
         // The coordinate is valid, so perform the read.
-        sdf = Read3D(brush.textureID, int3(texel));
+        sdf = Read3D(brush.textureID, int3(texel)).x;
     }
     
     Write3D(brush.textureID2, voxelCoord, sdf);
@@ -471,10 +475,6 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
     Brushes[index].stiffness = 1.0;
-    
-    //Remove later.
-    if(index == 1)
-        Brushes[index].stiffness = 0;
 
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
     float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
@@ -531,8 +531,9 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     }
     
+    //Its inside the voxel.
     if (all(isHitChecks) > 0 && all(isHitChecks2) > 0)
-        minDist = 0;
+        minDist = -1.0f * minDist;
 
     Write3D(brush.textureID, int3(DTid), minDist);
 
@@ -636,7 +637,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     
     float minDist = 64.0f;
-    
+    float minId = -1;
     
     float tileWorldSize = TILE_SIZE * voxelSize;
     int numTilesPerAxis = WORLD_SDF_RESOLUTION / TILE_SIZE;
@@ -662,19 +663,26 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         
         Brush brush = Brushes[index];
                 
-        float d = Read3DTransformed(brush, center);
+        float d = Read3DTransformed(brush, center).x;
 
-        //if(index == 1)
-         //   minDist = max(-minDist, d);
-        //else
-        minDist = smin(minDist, d, 0);
+        if (brush.opcode == 1)
+            minDist = max(-d, minDist);
+        else if (brush.opcode == 0)
+        {
+            if(minDist > d)
+                minId = brush.id;
+            minDist = smin(minDist, d, brush.blend);
+
+        }
+
+
 
     }
     
     //if(minDist > 63.0f)
         //return;
 
-    Write3D(0, DTid, minDist);
+    Write3D(0, DTid, float2(minDist, minId));
 }
 
 [numthreads(8, 8, 8)]
@@ -762,28 +770,6 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     tileCoord = clamp(tileCoord, int3(0, 0, 0), int3(numTilesPerAxis - 1, numTilesPerAxis - 1, numTilesPerAxis - 1));
 
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
-    
-
-    //Find the distance field closes to this voxel.
-    uint brushCount = TileBrushCounts[tileIndex];
-    for (uint i = 0; i < brushCount; i++)
-    {
-        uint offset = tileIndex * TILE_MAX_BRUSHES + i;
-        uint index = BrushesIndices[offset];
-        
-        if (index >= 4294967295)
-            break;
-        
-        Brush brush = Brushes[index];
-                
-        float d = Read3DTransformed(brush, center);
-
-        //if(index == 1)
-         //   minDist = max(-minDist, d);
-        //else
-            minDist = smin(minDist, d, 0);
-
-    }
     
     //if(minDist > 63.0f)
         //return;

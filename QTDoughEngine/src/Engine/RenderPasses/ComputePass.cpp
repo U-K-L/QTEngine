@@ -146,6 +146,7 @@ void ComputePass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t cu
     ubo.view = glm::mat4(1.0f);
     ubo.proj = glm::mat4(1.0f);
     ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
+    ubo.isOrtho = CameraMain.isOrthogonal;
 
     ubo.view = glm::lookAt(CameraMain.position(), CameraMain.position() + CameraMain.forward(), CameraMain.up);
     ubo.proj = CameraMain.getProjectionMatrix();

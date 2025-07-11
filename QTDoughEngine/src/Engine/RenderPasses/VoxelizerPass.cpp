@@ -939,6 +939,14 @@ void VoxelizerPass::CreateBrushes()
         //Set the resolution for the brush.
         brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
 
+        brush.stiffness = 0.5f; // Set a default stiffness value
+        brush.id = i+1; // Set the brush ID to the index of the object
+        brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
+        brush.blend = 0.071f; // Set a default blend value
+
+        //if(i == 1)
+        //    brush.opcode = 1; // Set a different opcode for the second brush, e.g., 1 for "subtract" operation
+
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
         //brush.model = obj->_transform.GetModelMatrixBrush();
@@ -989,7 +997,7 @@ void VoxelizerPass::Create3DTextures()
 
     VkFormat sdfFormat = app->FindSupportedFormat(
         {
-            VK_FORMAT_R32_SFLOAT
+            VK_FORMAT_R16G16_SFLOAT
         },
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
@@ -1298,7 +1306,8 @@ void VoxelizerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t 
     ubo.model = glm::mat4(1.0f);
     ubo.view = glm::mat4(1.0f);
     ubo.proj = glm::mat4(1.0f);
-    ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
+    ubo.texelSize = glm::vec4(glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height), 0,0);
+    ubo.isOrtho = CameraMain.isOrthogonal;
 
     ubo.view = glm::lookAt(CameraMain.position(), CameraMain.position() + CameraMain.forward(), CameraMain.up);
     ubo.proj = CameraMain.getProjectionMatrix();
@@ -1623,6 +1632,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     std::unordered_map<uint32_t, uint32_t> textureIndexMap;
     if (dispatchCount < 4)
     {
+        auto start = std::chrono::high_resolution_clock::now();
         DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
 
         //Write information to volume texture. LOD level acts as which volume texture to write to.
@@ -1637,11 +1647,18 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 			}
             if (brushes[i].type == 0) { //Mesh type
 
-                std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << "Vertex offset: " << brushes[i].vertexOffset << std::endl;
+                //std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << "Vertex offset: " << brushes[i].vertexOffset << std::endl;
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
             }
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
+
+
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+
+        // Print the duration
+        std::cout << "Brush creation took: " << duration.count() << " milliseconds" << std::endl;
     }
     //Deform brush
     if (dispatchCount > 3)

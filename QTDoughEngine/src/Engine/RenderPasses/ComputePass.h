@@ -17,6 +17,7 @@ public:
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
         alignas(16) glm::vec2 texelSize;
+        alignas(16) float isOrtho;
     };
 
     int PARTICLE_COUNT = 10000000;
