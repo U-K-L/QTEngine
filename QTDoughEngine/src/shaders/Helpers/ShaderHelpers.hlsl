@@ -5,7 +5,7 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
-#define WORLD_SDF_RESOLUTION 512.0f
+#define WORLD_SDF_RESOLUTION 256.0f
 #define WORLD_SDF_BOUNDS 16.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
@@ -23,6 +23,14 @@
 #define DEFORMATION_CHUNK 8.0f
 
 #define CAGE_VERTS 26
+
+#define MAX_BRUSHES 8192
+
+#define NO_LABEL 16777215  // safe max exact int
+float NO_LABELF()
+{
+    return 16777215.0f;
+}
 
 // cheap length (dot*rsqrt)
 inline float lenFast(float3 v)

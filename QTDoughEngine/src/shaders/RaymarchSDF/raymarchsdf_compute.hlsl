@@ -544,7 +544,9 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         pos += rd * stepSize;
 
     }
-
+    
+    
+    resultOutput.y = NO_LABELF();
     return float4(0, 0, 0, -1.0f); //Nothing hit.
 
 }
@@ -737,9 +739,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = light; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
-    if (result.y == 1)
-        gBindlessStorage[outputImageHandle][pixel] = float4(0, 1, 0, 1);
-    if (result.y == 2)
-        gBindlessStorage[outputImageHandle][pixel] = float4(1, 1, 0, 1);
+    if (result.y < NO_LABELF())
+        gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(result.y / 16000.0f)), abs(rand(result.y / 16000.0f + 3)), abs(rand(result.y / 16000.0f + 1)))), 1.0f);
     
 }

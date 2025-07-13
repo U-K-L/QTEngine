@@ -945,7 +945,7 @@ void VoxelizerPass::CreateBrushes()
         brush.blend = 0.071f; // Set a default blend value
 
         //if(i == 1)
-        //    brush.opcode = 1; // Set a different opcode for the second brush, e.g., 1 for "subtract" operation
+            //brush.opcode = 1; // Set a different opcode for the second brush, e.g., 1 for "subtract" operation
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
@@ -997,7 +997,7 @@ void VoxelizerPass::Create3DTextures()
 
     VkFormat sdfFormat = app->FindSupportedFormat(
         {
-            VK_FORMAT_R16G16_SFLOAT
+            VK_FORMAT_R32G32_SFLOAT
         },
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
@@ -1696,6 +1696,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
 
+        //Connected Component Algorithm.
+        DispatchLOD(commandBuffer, currentFrame, 20);
+        DispatchLOD(commandBuffer, currentFrame, 21);
+        DispatchLOD(commandBuffer, currentFrame, 22);
+        //DispatchLOD(commandBuffer, currentFrame, 22);
+        //DispatchLOD(commandBuffer, currentFrame, 21);
         //DispatchTile(commandBuffer, currentFrame, 2); //Particle to voxel TEST. 
 
         auto copyToPing = [&](VkBuffer src, VkBuffer dst, VkDeviceSize sz)
@@ -2026,6 +2032,29 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res + 7) / 8;
     }
 
+    if (lodLevel == 20)
+    {
+        res = WORLD_SDF_RESOLUTION / 2;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
+    if (lodLevel == 21)
+    {
+        res = WORLD_SDF_RESOLUTION / 2;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
+    if (lodLevel == 22)
+    {
+        res = WORLD_SDF_RESOLUTION / 2;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
 
     /*
     // Add debug label for Nsight

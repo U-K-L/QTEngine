@@ -71,7 +71,7 @@ public:
     };
 
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
-    int WORLD_SDF_RESOLUTION = 512;
+    int WORLD_SDF_RESOLUTION = 256;
     int VOXEL_RESOLUTIONL1 = 256; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL2 = 128;
     int VOXEL_RESOLUTIONL3 = 64;
