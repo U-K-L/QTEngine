@@ -1706,18 +1706,18 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             DispatchLOD(commandBuffer, currentFrame, 20);
         }
 
-        if(IDDispatchIteration == 1 || IDDispatchIteration == 2)
+        if(IDDispatchIteration == 3 || IDDispatchIteration == 4)
 		{
 			DispatchLOD(commandBuffer, currentFrame, 21);
 		}
 
-        if (IDDispatchIteration == 3 || IDDispatchIteration == 4)
+        if (IDDispatchIteration == 6 || IDDispatchIteration == 7)
 		{
 			DispatchLOD(commandBuffer, currentFrame, 22);
 		}
 
         //Finished add to double buffers.
-        if (IDDispatchIteration > 4)
+        if (IDDispatchIteration > 8)
         {
             DispatchLOD(commandBuffer, currentFrame, 23);
         }
