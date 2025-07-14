@@ -231,6 +231,10 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     VkDeviceSize bufferSizeL2 = sizeof(Voxel) * VOXEL_COUNTL2;
     VkDeviceSize bufferSizeL3 = sizeof(Voxel) * VOXEL_COUNTL3;
 
+    for(int i = 0; i < VOXEL_COUNTL1; ++i) {
+        voxelsL1[i].id = 16777215.0f;
+	}
+
     // Create a staging buffer used to upload data to the gpu
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -944,8 +948,8 @@ void VoxelizerPass::CreateBrushes()
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.071f; // Set a default blend value
 
-        //if(i == 1)
-            //brush.opcode = 1; // Set a different opcode for the second brush, e.g., 1 for "subtract" operation
+        if(i == 1)
+            brush.opcode = 1; // Set a different opcode for the second brush, e.g., 1 for "subtract" operation
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
@@ -1547,6 +1551,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     QTDoughApplication* app = QTDoughApplication::instance;
 
     UpdateBrushesGPU(commandBuffer);
+    /*
     float  f = 100.0f;
     uint32_t pattern;
     memcpy(&pattern, &f, sizeof(pattern));   // generate the bit pattern once
@@ -1559,7 +1564,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdFillBuffer(commandBuffer, voxL3PingPong[pp], 0, whole, pattern);
     }
 
-    /*  <-- INSERT THIS BARRIER ---------------------------------------------- */
     VkMemoryBarrier2 mem{};
     mem.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     mem.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;            //  writes
@@ -1572,8 +1576,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dep2.memoryBarrierCount = 1;
     dep2.pMemoryBarriers = &mem;
     vkCmdPipelineBarrier2(commandBuffer, &dep2);
-    /* ----------------------------------------------------------------------- */
-
+    */
     //Image is transitioned to WRITE.
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1691,19 +1694,39 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+        DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
 
-        //Connected Component Algorithm.
-        DispatchLOD(commandBuffer, currentFrame, 20);
-        DispatchLOD(commandBuffer, currentFrame, 21);
-        DispatchLOD(commandBuffer, currentFrame, 22);
+
+        //Process dispatch LOD in chunks
+        if (IDDispatchIteration == 0 || IDDispatchIteration == 1)
+        {
+            DispatchLOD(commandBuffer, currentFrame, 20);
+        }
+
+        if(IDDispatchIteration == 1 || IDDispatchIteration == 2)
+		{
+			DispatchLOD(commandBuffer, currentFrame, 21);
+		}
+
+        if (IDDispatchIteration == 3 || IDDispatchIteration == 4)
+		{
+			DispatchLOD(commandBuffer, currentFrame, 22);
+		}
+
+        //Finished add to double buffers.
+        if (IDDispatchIteration > 4)
+        {
+            DispatchLOD(commandBuffer, currentFrame, 23);
+        }
+
         //DispatchLOD(commandBuffer, currentFrame, 22);
         //DispatchLOD(commandBuffer, currentFrame, 21);
         //DispatchTile(commandBuffer, currentFrame, 2); //Particle to voxel TEST. 
 
+        /*
         auto copyToPing = [&](VkBuffer src, VkBuffer dst, VkDeviceSize sz)
             {
                 VkBufferCopy region{};
@@ -1720,7 +1743,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         copyToPing(voxelL3StorageBuffers[currentFrame], voxL3PingPong[0],
             sizeof(Voxel) * VOXEL_COUNTL3);
 
-        /* barrier so the sweeps can READ what we just copied */
+        // barrier so the sweeps can READ what we just copied
         VkMemoryBarrier2 mb{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
         mb.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
         mb.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
@@ -1731,6 +1754,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         di.memoryBarrierCount = 1;
         di.pMemoryBarriers = &mb;
         vkCmdPipelineBarrier2(commandBuffer, &di);
+        */
 
         CleanUpGPU(commandBuffer);
         //PerformEikonalSweeps(commandBuffer, currentFrame);
@@ -1745,6 +1769,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 12);
         DispatchLOD(commandBuffer, currentFrame, 13, true);
         */
+        IDDispatchIteration = (IDDispatchIteration + 1) % requiredIterations;
     }
 
     if (dispatchCount < 2)
@@ -1753,6 +1778,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     }
 
     dispatchCount += 1;
+
 
 
     //Set Volume textures to READ.
@@ -2056,6 +2082,21 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res + 7) / 8;
     }
 
+    if (lodLevel == 23)
+    {
+        res = WORLD_SDF_RESOLUTION / 2;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
+    if (lodLevel == 24)
+    {
+        res = WORLD_SDF_RESOLUTION;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
     /*
     // Add debug label for Nsight
     VkDebugUtilsLabelEXT label{};

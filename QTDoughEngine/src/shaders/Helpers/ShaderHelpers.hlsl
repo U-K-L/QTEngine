@@ -5,11 +5,11 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
-#define WORLD_SDF_RESOLUTION 256.0f
+#define WORLD_SDF_RESOLUTION 512.0f
 #define WORLD_SDF_BOUNDS 16.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
-#define SCENE_BOUNDSL1 8.0f
+#define SCENE_BOUNDSL1 16.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
 #define SCENE_BOUNDSL2 16.0f
@@ -43,7 +43,7 @@ inline float lenFast(float3 v)
 struct Voxel
 {
     uint distance;
-    uint pad;
+    float id;
     uint pad2;
     uint pad3;
     float4 normalDistance;
@@ -207,6 +207,11 @@ int3 HashPositionToVoxelIndex3(float3 pos, float sceneBounds, int voxelResolutio
 int Flatten3D(int3 voxelCoord, int voxelResolution)
 {
     return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
+}
+
+int Flatten3DR(int3 voxelCoord, int voxelResolution)
+{
+    return voxelCoord.x + voxelCoord.y * voxelResolution + voxelCoord.z * voxelResolution * voxelResolution;
 }
 
 float3 VoxelCenter(int3 v, float3 gridOrigin, float voxelSize)

@@ -125,6 +125,15 @@ void Write3D(uint textureIndex, int3 coord, float2 value)
     gBindless3DStorage[textureIndex][coord] = value;
 }
 
+void Write3DID(uint textureIndex, int3 coord, float value)
+{
+    gBindless3DStorage[textureIndex][coord].y = value;
+}
+
+void Write3DDist(uint textureIndex, int3 coord, float value)
+{
+    gBindless3DStorage[textureIndex][coord].x = value;
+}
 
 float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {
@@ -172,7 +181,17 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {   
+    Write3DDist(0, DTid, 0.12f);
+}
+
+void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
+{
+    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
+    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
+    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+    
     float2 clearValue = float2(0.12, NO_LABELF());
+    //voxelsL1Out[voxelIndex].id = NO_LABELF();
     Write3D(0, DTid, clearValue);
 }
 
@@ -667,7 +686,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float d = Read3DTransformed(brush, center).x;
 
         if (brush.opcode == 1)
-            minDist = max(-d, minDist);
+            minDist = max(-d + 1, minDist);
         else if (brush.opcode == 0)
         {
             if(minDist > d)
@@ -675,15 +694,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             minDist = smin(minDist, d, brush.blend);
 
         }
-
-
-
     }
-    
-    //if(minDist > 63.0f)
-        //return;
 
-    Write3D(0, DTid, float2(minDist, NO_LABELF()));
+    Write3DDist(0, DTid, minDist);
 }
 
 
@@ -691,6 +704,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 //Block-Based Union-Find
 void InitLabels(uint3 DTid : SV_DispatchThreadID)
 {
+    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
     uint3 blockCoord = DTid;
     uint3 blockOrigin = blockCoord * 2;
 
@@ -718,7 +732,8 @@ void InitLabels(uint3 DTid : SV_DispatchThreadID)
         p.y = NO_LABELF(); // sentinel (bit-pattern NaN)
     }
 
-    Write3D(0, blockOrigin, p);
+    voxelsL1Out[Flatten3DR(blockCoord, voxelSceneBounds.x)].id = p.y; //Write3D(0, blockOrigin, p);
+
 }
 
 int3 LabelToVoxel(float label)
@@ -735,26 +750,41 @@ int3 LabelToVoxel(float label)
     return int3(x, y, z) * 2; // convert block ID to voxel coordinates
 }
 
+int3 LabelToVoxelR(float label)
+{
+    // Assuming you assigned labels in block-raster order during InitLabels
+    // label = x + y * width + z * width * height
+    float width = WORLD_SDF_RESOLUTION / 2;
+    float height = width;
+
+    float z = label / (width * height);
+    float y = (label / width) % height;
+    float x = label % width;
+
+    return int3(x, y, z);
+}
 
 void SetLabel(uint oldLabel, uint newParent)
 {
-    int3 labelVoxel = LabelToVoxel(oldLabel);
-    float2 val = Read3D(0, labelVoxel);
-    val.y = (float)(newParent);
-    Write3D(0, labelVoxel, val);
+    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
+    int3 labelVoxel = LabelToVoxelR(oldLabel);
+    float val = (float)(newParent);
+    voxelsL1Out[Flatten3DR(labelVoxel, voxelSceneBounds.x)].id = val; //Write3D(0, labelVoxel, val);
+
 }
 
 
 // Find the root label for a voxel by following the label chain
 uint Find(int3 voxel)
 {
-    float lbl = Read3D(0, voxel).y;
+    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
+    float lbl = voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].id; //Read3D(0, voxel).y;
     if (lbl == NO_LABELF())
         return NO_LABELF(); // background
 
     for (uint iter = 0; iter < 128; ++iter) 
     {
-        float parent = Read3D(0, LabelToVoxel(lbl)).y;
+        float parent = voxelsL1Out[Flatten3DR(LabelToVoxelR(lbl), voxelSceneBounds.x)].id; //Read3D(0, LabelToVoxel(lbl)).y;
         if (parent == lbl || parent == NO_LABELF())
             return lbl; // root found
         lbl = parent;
@@ -822,7 +852,7 @@ void MergeLabels(uint3 DTid : SV_DispatchThreadID)
     for (int i = 0; i < 13; i++)
     {
         int3 neighborBlock = blockCoord + offsets[i];
-        int3 heightWidth = int3(WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION);
+        int3 heightWidth = int3(WORLD_SDF_RESOLUTION/2, WORLD_SDF_RESOLUTION/2, WORLD_SDF_RESOLUTION/2);
         if (all(neighborBlock >= 0))
         {
             int3 neighborVoxel = neighborBlock * 2;
@@ -832,38 +862,42 @@ void MergeLabels(uint3 DTid : SV_DispatchThreadID)
             {
                 int3 neighborVoxel = neighborBlock * 2;
                 if (Read3D(0, neighborVoxel).x < 0.1f)
-                    Union(blockOrigin, neighborVoxel);
+                    Union(blockCoord, neighborBlock);
             }
 
         }
     }
 }
 
-void FlattenAndBroadcastLabels(uint3 DTid : SV_DispatchThreadID)
+void FlattenLabels(uint3 DTid : SV_DispatchThreadID)
 {
+    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
     uint3 blockCoord = DTid;
     uint3 blockOrigin = blockCoord * 2;
 
-    uint root = Find(blockOrigin);
+    uint root = Find(blockCoord);
     float2 origin = Read3D(0, blockOrigin);
-    origin.y = (float)(root);
+    origin.y = (float)root;
     Write3D(0, blockOrigin, origin);
+}
 
-[unroll]
+void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
+{
+    int3 blockOrigin = DTid * 2;
+    float2 v = Read3D(0, blockOrigin);
+    
+    [unroll]
     for (int z = 0; z < 2; ++z)
         for (int y = 0; y < 2; ++y)
             for (int x = 0; x < 2; ++x)
             {
                 int3 voxel = blockOrigin + int3(x, y, z);
-                float2 v = Read3D(0, voxel);
-                if (v.x < 1.0f)
+                if (v.x < 0.1f)
                 {
-                    v.y = (float)(root);
-                    Write3D(0, voxel, v);
+                    Write3DID(0, voxel, v.y);
                 }
             }
 }
-
 
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
@@ -893,7 +927,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     
     if(sampleLevelL == 0.0f)
     {
-        ClearVoxelData(DTid);
+        InitVoxelData(DTid);
         return;
     }
     
@@ -911,10 +945,25 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     
     if(sampleLevelL == 22.0f)
     {
-        FlattenAndBroadcastLabels(DTid);
+        FlattenLabels(DTid);
         return;
 
     }
+    
+        
+    if (sampleLevelL == 23.0f)
+    {
+        BroadcastLabels(DTid);
+        return;
+
+    }
+    
+    if (sampleLevelL == 24.0f)
+    {
+        ClearVoxelData(DTid);
+        return;
+    }
+    
     
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevelL);
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);

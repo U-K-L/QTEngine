@@ -28,7 +28,7 @@ public:
     //This voxel is for L1, in the future we also want a Voxel struct with more information but higher MIP.
     struct Voxel {
         uint32_t distance;
-        uint32_t pad;
+        float id;
         uint32_t pad2;
         uint32_t pad3;
         glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
@@ -71,7 +71,7 @@ public:
     };
 
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
-    int WORLD_SDF_RESOLUTION = 256;
+    int WORLD_SDF_RESOLUTION = 512;
     int VOXEL_RESOLUTIONL1 = 256; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL2 = 128;
     int VOXEL_RESOLUTIONL3 = 64;
@@ -89,6 +89,8 @@ public:
 
 
     uint32_t dispatchCount = 0;
+    uint32_t IDDispatchIteration = 0;
+    uint32_t requiredIterations = 6;
 
     bool flagSDFBaker = false; //This is a flag to bake the SDF from triangles.
 
