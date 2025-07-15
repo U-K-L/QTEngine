@@ -390,6 +390,39 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     vkDestroyBuffer(app->_logicalDevice, stagingBrushIndicesBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingBrushIndicesMemory, nullptr);
 
+
+    //Create globalIdCounter.
+    VkBuffer stagingGlobalIDCounterBuffer;
+    VkDeviceMemory stagingGlobalIDCounterMemory;
+
+    uint32_t globalIDCounterSize = 1;
+
+    GlobalIDCounter.resize(globalIDCounterSize, 0); // initialize with 0.
+    app->CreateBuffer(
+        sizeof(uint32_t)* globalIDCounterSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingGlobalIDCounterBuffer, stagingGlobalIDCounterMemory
+    );
+
+    void* globalIDCounterData;
+
+    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(uint32_t)* globalIDCounterSize, 0, &globalIDCounterData);
+    memcpy(globalIDCounterData, GlobalIDCounter.data(), sizeof(uint32_t)* globalIDCounterSize);
+    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+
+    app->CreateBuffer(
+        sizeof(uint32_t)* globalIDCounterSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        globalIDCounterStorageBuffers, globalIDCounterStorageMemory
+    );
+
+    app->CopyBuffer(stagingGlobalIDCounterBuffer, globalIDCounterStorageBuffers, sizeof(uint32_t)* globalIDCounterSize);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingGlobalIDCounterBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, nullptr);
+
     //Tile Brush Counts.
     VkBuffer stagingBrushCountsBuffer;
     VkDeviceMemory stagingBrushCountsMemory;
@@ -527,7 +560,11 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     tileBrushCountBufferInfo.range = VK_WHOLE_SIZE;
 
 
-
+    //Global ID Counter
+    VkDescriptorBufferInfo globalIDCounterBufferInfo{};
+    globalIDCounterBufferInfo.buffer = globalIDCounterStorageBuffers;
+    globalIDCounterBufferInfo.offset = 0;
+    globalIDCounterBufferInfo.range = VK_WHOLE_SIZE;
 
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo uniformBufferInfo{};
@@ -541,7 +578,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 16> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 17> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -733,6 +770,15 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[15].descriptorCount = 1;
         descriptorWrites[15].pBufferInfo = &controlParticleBufferInfoCurrentFrame;
 
+        //Global ID Counter
+        descriptorWrites[16].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[16].dstSet = computeDescriptorSets[i];
+        descriptorWrites[16].dstBinding = 16;
+        descriptorWrites[16].dstArrayElement = 0;
+        descriptorWrites[16].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[16].descriptorCount = 1;
+        descriptorWrites[16].pBufferInfo = &globalIDCounterBufferInfo;
+
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
@@ -881,8 +927,15 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     controlParticleBinding2.pImmutableSamplers = nullptr;
     controlParticleBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // Global ID Counter
+    VkDescriptorSetLayoutBinding globalIDCounterBinding{};
+    globalIDCounterBinding.binding = 16;
+    globalIDCounterBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    globalIDCounterBinding.descriptorCount = 1;
+    globalIDCounterBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 16> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2 };
+    std::array<VkDescriptorSetLayoutBinding, 17> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1287,11 +1340,26 @@ void VoxelizerPass::CleanUpGPU(VkCommandBuffer commandBuffer)
         );
     }
 
+    uint32_t resetValue = 0;
+    vkCmdUpdateBuffer(
+        commandBuffer,
+        globalIDCounterStorageBuffers,
+        0,  // offset is 0 since we're updating the first (and only) element
+        sizeof(uint32_t),
+        &resetValue
+    );
+
+
     // Memory barrier after all updates
     VkBufferMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.buffer = VK_NULL_HANDLE;  // Applies to all buffers
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
     vkCmdPipelineBarrier(
         commandBuffer,

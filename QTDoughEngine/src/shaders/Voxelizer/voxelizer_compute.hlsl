@@ -55,6 +55,8 @@ RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
+RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
+
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
 {
@@ -181,6 +183,9 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {   
+    int3 DTL1 = DTid / 2;
+    float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     Write3DDist(0, DTid, 0.12f);
 }
 
@@ -878,6 +883,22 @@ void FlattenLabels(uint3 DTid : SV_DispatchThreadID)
     uint root = Find(blockCoord);
     float2 origin = Read3D(0, blockOrigin);
     origin.y = (float)root;
+    
+    //Assign proper ID.
+    float label = origin.y;
+    int3 voxel = LabelToVoxelR(label);
+    
+    int outValue;
+    InterlockedCompareExchange(voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].uniqueId, 0, GlobalIDCounter[0], outValue); //This ID becomes the counter.
+    
+    if(outValue == 0) //First time.
+    {
+        InterlockedAdd(GlobalIDCounter[0], 1); //Add to the counter.
+    }
+    
+    
+    //origin.y = (float)voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].uniqueId; //Unique ID is the final value.
+    
     Write3D(0, blockOrigin, origin);
 }
 

@@ -45,7 +45,7 @@ struct Voxel
     uint distance;
     float id;
     uint brushId;
-    uint pad3;
+    uint uniqueId;
     float4 normalDistance;
 };
 

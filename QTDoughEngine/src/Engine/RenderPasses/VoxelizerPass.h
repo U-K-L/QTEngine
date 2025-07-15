@@ -117,6 +117,11 @@ public:
     VkBuffer tileBrushCountStorageBuffers;
     VkDeviceMemory tileBrushCountStorageMemory;
 
+    //GlobalCounter
+    std::vector<uint32_t> GlobalIDCounter;
+    VkBuffer globalIDCounterStorageBuffers;
+    VkDeviceMemory globalIDCounterStorageMemory;
+
     int UpdateOnce = 0;
 
     struct Triangle {
