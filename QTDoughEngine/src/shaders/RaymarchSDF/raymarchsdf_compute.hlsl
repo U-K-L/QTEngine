@@ -749,12 +749,14 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (result.y < NO_LABELF())
         gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
     
+    /*
     if (brushID == 1)
     {
         float4 baseColor = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
         gBindlessStorage[outputImageHandle][pixel] = float4(1.0f, 0.0f, 0.55f, 1.0f) + baseColor*0.5f;
 
     }
+*/
 
 
 }

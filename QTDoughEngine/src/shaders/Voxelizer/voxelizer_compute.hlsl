@@ -882,22 +882,29 @@ void FlattenLabels(uint3 DTid : SV_DispatchThreadID)
 
     uint root = Find(blockCoord);
     float2 origin = Read3D(0, blockOrigin);
-    origin.y = (float)root;
+    origin.y = (float) root;
     
-    //Assign proper ID.
     float label = origin.y;
     int3 voxel = LabelToVoxelR(label);
-    
-    int outValue;
-    InterlockedCompareExchange(voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].uniqueId, 0, GlobalIDCounter[0], outValue); //This ID becomes the counter.
-    
-    if(outValue == 0) //First time.
+    uint flatIndex = Flatten3DR(voxel, voxelSceneBounds.x);
+
+    // If the ID is 0, a race to initialize it begins.
+    if (voxelsL1Out[flatIndex].uniqueId == 0)
     {
-        InterlockedAdd(GlobalIDCounter[0], 1); //Add to the counter.
+        int valueBeforeWrite;
+        InterlockedCompareExchange(voxelsL1Out[flatIndex].uniqueId, 0, 9999, valueBeforeWrite);
+
+        // If the value was 0 before we tried to write, we are the WINNER.
+        if (valueBeforeWrite == 0)
+        {
+            int reservedId;
+            InterlockedAdd(GlobalIDCounter[0], 1, reservedId);
+            
+            voxelsL1Out[flatIndex].uniqueId = reservedId + 1;
+        }
     }
     
-    
-    //origin.y = (float)voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].uniqueId; //Unique ID is the final value.
+    origin.y = (float) voxelsL1Out[flatIndex].uniqueId;
     
     Write3D(0, blockOrigin, origin);
 }
@@ -915,7 +922,7 @@ void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
     uint labelID = asuint(label);
     uint finalID = (brushID << 24) | (labelID & 0xFFFFFF);
     
-    float encodedFinalID = asfloat(finalID);
+    float encodedFinalID = label;
     
     
     v.y = encodedFinalID; // * MAX_BRUSHES;
