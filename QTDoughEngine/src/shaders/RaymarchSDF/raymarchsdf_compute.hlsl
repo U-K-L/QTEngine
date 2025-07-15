@@ -739,7 +739,22 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = light; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
-    //if (result.y < NO_LABELF())
-    //    gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(result.y / 16000.0f)), abs(rand(result.y / 16000.0f + 3)), abs(rand(result.y / 16000.0f + 1)))), 1.0f);
+    //int idHash = floor(result.y / MAX_BRUSHES);
     
+    uint finalID = asuint(result.y);
+    uint brushID = finalID >> 24;
+    uint labelID = finalID & 0xFFFFFF;
+
+    
+    if (result.y < NO_LABELF())
+        gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
+    
+    if (brushID == 1)
+    {
+        float4 baseColor = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
+        gBindlessStorage[outputImageHandle][pixel] = float4(1.0f, 0.0f, 0.55f, 1.0f) + baseColor*0.5f;
+
+    }
+
+
 }

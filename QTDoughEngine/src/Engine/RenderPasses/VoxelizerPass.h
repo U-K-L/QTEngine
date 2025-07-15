@@ -29,7 +29,7 @@ public:
     struct Voxel {
         uint32_t distance;
         float id;
-        uint32_t pad2;
+        uint32_t brushId;
         uint32_t pad3;
         glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
     };

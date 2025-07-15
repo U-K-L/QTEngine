@@ -351,7 +351,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
         sdf = Read3D(brush.textureID, int3(texel)).x;
     }
     
-    Write3D(brush.textureID2, voxelCoord, sdf);
+    Write3DDist(brush.textureID2, voxelCoord, sdf);
 }
 
 
@@ -648,7 +648,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     
     float minDist = 64.0f;
-    float minId = -1;
+    int minId = 0;
     
     float tileWorldSize = TILE_SIZE * voxelSize;
     int numTilesPerAxis = WORLD_SDF_RESOLUTION / TILE_SIZE;
@@ -690,6 +690,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
         }
     }
+    
+    int3 DTL1 = DTid / 2;
+    float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].brushId = minId;
 
     Write3DDist(0, DTid, minDist);
 }
@@ -728,6 +732,7 @@ void InitLabels(uint3 DTid : SV_DispatchThreadID)
     }
 
     voxelsL1Out[Flatten3DR(blockCoord, voxelSceneBounds.x)].id = p.y; //Write3D(0, blockOrigin, p);
+
 
 }
 
@@ -881,6 +886,19 @@ void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
     int3 blockOrigin = DTid * 2;
     float2 v = Read3D(0, blockOrigin);
     
+    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
+    float label = v.y;
+    int3 voxel = LabelToVoxelR(label);
+    
+    uint brushID = voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].brushId;
+    uint labelID = asuint(label);
+    uint finalID = (brushID << 24) | (labelID & 0xFFFFFF);
+    
+    float encodedFinalID = asfloat(finalID);
+    
+    
+    v.y = encodedFinalID; // * MAX_BRUSHES;
+    
     [unroll]
     for (int z = 0; z < 2; ++z)
         for (int y = 0; y < 2; ++y)
@@ -892,6 +910,7 @@ void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
                     Write3DID(0, voxel, v.y);
                 }
             }
+    Write3DID(0, blockOrigin, v.y);
 }
 
 //Cook changes into brushes.
@@ -932,14 +951,12 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
     
     float2 sdfValue = Read3D(0, worldSDFCoords);
     
-    uint id = (uint) sdfValue.y;
-    
     //set this brush id.
     //InterlockedMin(Brushes[index].id, id);
     
     //Only process cuts.
     if(sdfValue.x > 0.1f)
-        Write3D(brush.textureID, DTid, sdfValue);
+        Write3DDist(brush.textureID, DTid, sdfValue.x);
 
 }
 
