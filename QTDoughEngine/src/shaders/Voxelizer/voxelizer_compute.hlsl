@@ -916,13 +916,13 @@ void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
     
     float2 voxelSceneBounds = GetVoxelResolution(0.0f);
     float label = v.y;
-    int3 voxel = LabelToVoxelR(label);
+    int3 voxel = DTid; ///LabelToVoxelR(label);
     
     uint brushID = voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].brushId;
     uint labelID = asuint(label);
     uint finalID = (brushID << 24) | (labelID & 0xFFFFFF);
     
-    float encodedFinalID = label;
+    float encodedFinalID = asfloat(finalID);
     
     
     v.y = encodedFinalID; // * MAX_BRUSHES;
