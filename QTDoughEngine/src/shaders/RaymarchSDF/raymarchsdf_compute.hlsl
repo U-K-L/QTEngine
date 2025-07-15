@@ -258,7 +258,7 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormalTexture(float3 p)
 {
-    float eps = 0.055f;
+    float eps = 0.1851755f;
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0)).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0)).x;
     float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0)).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0)).x;
@@ -739,7 +739,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
     gBindlessStorage[outputImageHandle][pixel] = light; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
-    if (result.y < NO_LABELF())
-        gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(result.y / 16000.0f)), abs(rand(result.y / 16000.0f + 3)), abs(rand(result.y / 16000.0f + 1)))), 1.0f);
+    //if (result.y < NO_LABELF())
+    //    gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(result.y / 16000.0f)), abs(rand(result.y / 16000.0f + 3)), abs(rand(result.y / 16000.0f + 1)))), 1.0f);
     
 }

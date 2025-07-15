@@ -941,7 +941,7 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
 
         brush.stiffness = 0.5f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
@@ -1672,11 +1672,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             uint32_t index = brushes[i].textureID;
             if (brushes[i].type == 0) { //Mesh type
 
-                if(brushes[i].isDirty == true)
-                    DispatchBrushDeformation(commandBuffer, currentFrame, i);
+                //if(brushes[i].isDirty == true)
+                DispatchBrushDeformation(commandBuffer, currentFrame, i);
             }
 
-            DispatchBrushGeneration(commandBuffer, currentFrame, 30, i);
+
         }
 	}
     //UpdateBrushesTextureIds(commandBuffer);
@@ -1701,7 +1701,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
 
-        /*
+
         //Process dispatch LOD in chunks
         if (IDDispatchIteration == 0 || IDDispatchIteration == 1)
         {
@@ -1723,7 +1723,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         {
             DispatchLOD(commandBuffer, currentFrame, 23);
         }
-        */
+
         //DispatchLOD(commandBuffer, currentFrame, 22);
         //DispatchLOD(commandBuffer, currentFrame, 21);
         //DispatchTile(commandBuffer, currentFrame, 2); //Particle to voxel TEST. 
@@ -1781,8 +1781,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         {
             uint32_t index = brushes[i].textureID;
             if (brushes[i].type == 0) { //Mesh type
-
-                //DispatchBrushGeneration(commandBuffer, currentFrame, 30, i);
+                if(brushes[i].opcode == 0)
+                    DispatchBrushGeneration(commandBuffer, currentFrame, 30, i);
             }
         }
     }

@@ -50,7 +50,7 @@ public:
         glm::vec4 aabbmin;
         glm::vec4 aabbmax;
         glm::vec4 center;
-        uint32_t isDirty; //determines if needs an update.
+        uint32_t isDirty; //determines if needs an update. 0 = no update needed, 1 = update needed, 2 = not active.
         float stiffness;
         float blend;
         uint32_t opcode;

@@ -683,7 +683,6 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             //This brush actually gets added.
             if(minDist > d)
             {
-                brush.isDirty = true;
                 minId = brush.id;
             }
 
@@ -902,7 +901,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
     
     uint index = pc.triangleCount;
     Brush brush = Brushes[index];
-    
+
     //Get localized position.
     // Get actual AABB from vertices
     float3 minBounds = brush.aabbmin.xyz;
@@ -933,7 +932,14 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
     
     float2 sdfValue = Read3D(0, worldSDFCoords);
     
-    Write3D(brush.textureID2, DTid, sdfValue);
+    uint id = (uint) sdfValue.y;
+    
+    //set this brush id.
+    //InterlockedMin(Brushes[index].id, id);
+    
+    //Only process cuts.
+    if(sdfValue.x > 0.1f)
+        Write3D(brush.textureID, DTid, sdfValue);
 
 }
 

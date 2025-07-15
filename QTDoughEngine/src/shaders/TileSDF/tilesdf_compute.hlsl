@@ -239,6 +239,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint brushID = DTid.x;
     Brush brush = Brushes[brushID];
     
+    //This happens when aabbmax roughly equals aabbmin.
+    /*
+    if(brush.isDirty == 2)
+        return;
+    if(brush.id > MAX_BRUSHES)
+        return;
+    */
     /*
     bool needUpdate = brush.isDirty;
     if (needUpdate == false)
