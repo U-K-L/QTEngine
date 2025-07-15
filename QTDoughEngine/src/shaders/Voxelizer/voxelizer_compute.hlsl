@@ -227,10 +227,8 @@ float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 grid
     return blurredDist / 64.0f; // Total kernel weight
 }
 
-// --- helpers ---------------------------------------------------------------
+
 static const float EPS = 1e-6f;
-
-
 
 #define ADD_W(idx, w) { num += (w) * gDiff[idx]; denom += (w); }
 
@@ -265,15 +263,11 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
     if (any(voxelCoord >= brush.resolution))
         return;
     
-
-    
-    // --- load the 26 diffs once per work-group -----------------------------
     if (gIndex < 26)
         gDiff[gIndex] = controlParticlesL1In[gIndex + CAGE_VERTS * brushID].position.xyz -
                         canonicalControlPoints[gIndex];
     GroupMemoryBarrierWithGroupSync();
 
-    // Canonical-space point --------------------------------------------------
     float3 uvw = (float3(voxelCoord) + 0.5f) / brush.resolution;
     float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
     float3 p = 2.0f * ((posLocal - brush.aabbmin.xyz) /
@@ -327,10 +321,8 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
     ACCUM_WEIGHTS( 6, 18, 25); ACCUM_WEIGHTS(18,  2, 25);
     */
 
-    // --- Alternative main accumulation loop using IDW ---
-    const float power = 2.0f; // A common exponent for IDW
+    const float power = 2.0f;
 
-    // Loop through the pre-calculated lengths from Strategy 1
     for (int i = 0; i < 26; ++i)
     {
         // w = 1 / (distance^k)
@@ -350,8 +342,7 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
     float sdf;
     if (any(texel < 0.0f) || any(texel >= brush.resolution))
     {
-        // This point has been deformed outside the valid area.
-        // Return a large distance value representing empty space.
+
         sdf = 64.0f;
     }
     else
@@ -500,7 +491,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
     
     // Transform from normalized [-1,1] space to vertex space
-    float3 worldPos = samplePos * (maxExtent * 0.5f) + center;
+    float3 localPos = samplePos * (maxExtent * 0.5f) + center;
 
 
     float minDist = 0.12f;
@@ -516,12 +507,12 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         float3 c = vertexBuffer[idx.z].position.xyz;
 
         // Distance to triangle
-        float d = DistanceToTriangle(worldPos, a, b, c);
+        float d = DistanceToTriangle(localPos, a, b, c);
         minDist = min(minDist, d);
         
         //ray intersection test.
         //Ray origin is the voxel position
-        float3 ro = worldPos;
+        float3 ro = localPos;
         float t, u, v;
         
         //8 cardinal directions test. If at any
@@ -689,8 +680,13 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             minDist = max(-d + 1, minDist);
         else if (brush.opcode == 0)
         {
+            //This brush actually gets added.
             if(minDist > d)
+            {
+                brush.isDirty = true;
                 minId = brush.id;
+            }
+
             minDist = smin(minDist, d, brush.blend);
 
         }
@@ -899,6 +895,48 @@ void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
             }
 }
 
+//Cook changes into brushes.
+void CookBrush(uint3 DTid : SV_DispatchThreadID)
+{
+    //Read the world SDF using the current brush coordinates.
+    
+    uint index = pc.triangleCount;
+    Brush brush = Brushes[index];
+    
+    //Get localized position.
+    // Get actual AABB from vertices
+    float3 minBounds = brush.aabbmin.xyz;
+    float3 maxBounds = brush.aabbmax.xyz;
+    float3 center = brush.center.xyz;
+    float maxExtent = brush.aabbmax.w;
+
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
+    float3 localPos = lerp(minBounds, maxBounds, uvw);
+    
+    //Get world position.
+    float3 worldPos = mul(brush.model, float4(localPos, 1.0f)).xyz;
+
+
+    
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+    float3 worldUVW = (worldPos + halfScene) / (2.0f * halfScene);
+    
+    if (any(worldUVW < 0.0f) || any(worldUVW > 1.0f))
+    {
+        return;
+    }
+    
+    int3 worldSDFCoords = int3(worldUVW * (WORLD_SDF_RESOLUTION - 1));
+    
+    float2 sdfValue = Read3D(0, worldSDFCoords);
+    
+    Write3D(brush.textureID2, DTid, sdfValue);
+
+}
+
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
 {
@@ -961,6 +999,12 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     if (sampleLevelL == 24.0f)
     {
         ClearVoxelData(DTid);
+        return;
+    }
+    
+    if(sampleLevelL == 30.0f)
+    {
+        CookBrush(DTid);
         return;
     }
     

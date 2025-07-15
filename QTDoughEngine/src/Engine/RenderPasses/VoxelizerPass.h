@@ -181,6 +181,7 @@ public:
     void DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
     void UpdateBrushesTextureIds(VkCommandBuffer commandBuffer);
     void CleanUpGPU(VkCommandBuffer commandBuffer);
+    void DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 

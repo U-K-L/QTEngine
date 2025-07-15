@@ -1675,6 +1675,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
                 if(brushes[i].isDirty == true)
                     DispatchBrushDeformation(commandBuffer, currentFrame, i);
             }
+
+            DispatchBrushGeneration(commandBuffer, currentFrame, 30, i);
         }
 	}
     //UpdateBrushesTextureIds(commandBuffer);
@@ -1699,7 +1701,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 1);
 
-
+        /*
         //Process dispatch LOD in chunks
         if (IDDispatchIteration == 0 || IDDispatchIteration == 1)
         {
@@ -1721,7 +1723,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         {
             DispatchLOD(commandBuffer, currentFrame, 23);
         }
-
+        */
         //DispatchLOD(commandBuffer, currentFrame, 22);
         //DispatchLOD(commandBuffer, currentFrame, 21);
         //DispatchTile(commandBuffer, currentFrame, 2); //Particle to voxel TEST. 
@@ -1770,6 +1772,19 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 13, true);
         */
         IDDispatchIteration = (IDDispatchIteration + 1) % requiredIterations;
+    }
+
+    if (dispatchCount > 10)
+    {
+        //Only update brushes that are flagged dirty in the future!
+        for (uint32_t i = 0; i < brushes.size(); i++)
+        {
+            uint32_t index = brushes[i].textureID;
+            if (brushes[i].type == 0) { //Mesh type
+
+                //DispatchBrushGeneration(commandBuffer, currentFrame, 30, i);
+            }
+        }
     }
 
     if (dispatchCount < 2)
@@ -1890,6 +1905,51 @@ void VoxelizerPass::DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint
 
     PushConsts pc{};
     pc.lod = 14;
+    pc.triangleCount = brushID;
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    uint32_t groupCountX = (resolutionx + 7) / 8;
+    uint32_t groupCountY = (resolutiony + 7) / 8;
+    uint32_t groupCountZ = (resolutionz + 7) / 8;
+
+
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void VoxelizerPass::DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Get the volume texture from the lodlevel.
+    Unigma3DTexture& volumeTexture = app->textures3D["brush_" + std::to_string(brushID)];
+
+    uint32_t resolutionx = volumeTexture.WIDTH / DeformResolution;
+    uint32_t resolutiony = volumeTexture.HEIGHT / DeformResolution;
+    uint32_t resolutionz = volumeTexture.DEPTH / DeformResolution;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    PushConsts pc{};
+    pc.lod = lod;
     pc.triangleCount = brushID;
 
     vkCmdPushConstants(
