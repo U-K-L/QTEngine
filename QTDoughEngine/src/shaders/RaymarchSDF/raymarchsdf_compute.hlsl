@@ -41,7 +41,7 @@ float2 Read3DMip(uint textureIndex, int3 coord, int level)
 
 float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 {
-    return Read3DMip(textureId, coord, 1);
+    return Read3DMip(textureId, coord, sampleLevel-1);
 }
 
 
@@ -99,9 +99,8 @@ float SDFTriangle(float3 p, float3 a, float3 b, float3 c)
 }
 
 
-float2 TrilinearSampleSDFTexture(float3 pos)
+float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
-    float sampleLevel = 1.0f;
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
     
     float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
@@ -178,7 +177,7 @@ float2 TrilinearSampleSDFTexture(float3 pos)
     return lerp(c0, c1, fracVal.z);
     */
     
-    return GetVoxelValueTexture(0, base, 0);
+    return GetVoxelValueTexture(0, base, sampleLevel);
 }
 
 
@@ -262,11 +261,12 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormalTexture(float3 p)
 {
+    float sampleLevel = 0;
     float eps = 0.1851755f;
 
-    float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0)).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0)).x;
-    float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0)).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0)).x;
-    float dz = TrilinearSampleSDFTexture(p + float3(0, 0, eps)).x - TrilinearSampleSDFTexture(p - float3(0, 0, eps)).x;
+    float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
+    float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
+    float dz = TrilinearSampleSDFTexture(p + float3(0, 0, eps), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, 0, eps), sampleLevel).x;
 
     float3 n = float3(dx, dy, dz);
     return (length(n) > 1e-5f) ? normalize(n) : float3(0, 0, 0);
@@ -374,9 +374,8 @@ float4 SampleNormalSDF(float3 pos)
     return TrilinearSampleSDF(pos);
 }
 
-float2 SampleNormalSDFTexture(float3 pos)
+float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
-    float sampleLevel = GetSampleLevel(pos, 0);
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
     float halfScene = voxelSceneBounds.y * 0.5f;
     
@@ -385,7 +384,7 @@ float2 SampleNormalSDFTexture(float3 pos)
     if (any(pos < -halfScene) || any(pos > halfScene))
         return voxelSize;
     
-    return TrilinearSampleSDFTexture(pos);
+    return TrilinearSampleSDFTexture(pos, sampleLevel);
 }
 
 
@@ -500,41 +499,27 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
 
     float3 pos = ro;
-    int maxSteps = 1024;
+    int maxSteps = 256;
     float4 closesSDF = maxDistance;
     
-    float sampleLevel = GetSampleLevel(pos, 0);
+
     for (int i = 0; i < maxSteps; i++)
     {
-        
+        float sampleLevel = GetSampleLevel(pos, 0);
         //Find the smallest distance
 
         float4 currentSDF = 0;
-        float2 sampleId = SampleNormalSDFTexture(pos);
+        float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
         currentSDF.x = sampleId.x;
         currentSDF.yzw = CentralDifferenceNormalTexture(pos);
-        //closesSDF = currentSDF;
-        
-        float newSampleLevel = GetSampleLevel(pos, 0);
-        bool sameLevel = sampleLevel == newSampleLevel;
-        sampleLevel = newSampleLevel;
-        bool inL1 = sampleLevel == 1.0f;
-        bool inL2 = sampleLevel == 2.0f;
-        bool inL3 = sampleLevel == 3.0f;
-        
-        float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
-        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-
-        //float4 mixedSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.025f);
-        //mixedSDF = smin(mixedSDF, brushSDF, 0.524f);
-        //mixedSDF = smin(sdf2, mixedSDF, 0.024f);
-        closesSDF = smin(closesSDF, currentSDF, 0.0025f); //lerp(currentSDF, mixedSDF, sameLevel);
+        closesSDF = smin(closesSDF, currentSDF, 0.0025f);
         
         
         bool canTerminate =
         (currentSDF.x < minDistanceL1);
+        
 
-        if (canTerminate)
+        if (canTerminate && sampleLevel <= 1.0f)
         {
             float len = length(closesSDF.yzw);
             closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
@@ -544,7 +529,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 
 
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(currentSDF.x, 0, voxelSizeL1 * 4.0f);
+        float stepSize = clamp(currentSDF.x, voxelSizeL1, voxelSizeL1 * 4.0f * sampleLevel);
         pos += rd * stepSize;
 
     }

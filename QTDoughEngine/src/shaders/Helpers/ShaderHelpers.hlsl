@@ -94,7 +94,11 @@ struct ComputeVertex
 
 float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 {
-    return float2(WORLD_SDF_RESOLUTION, WORLD_SDF_BOUNDS);
+    float2 result = float2(WORLD_SDF_RESOLUTION, WORLD_SDF_BOUNDS);
+    
+    result.x /= pow(2, sampleLevel - 1);
+    
+    return result;
 
 }
 
