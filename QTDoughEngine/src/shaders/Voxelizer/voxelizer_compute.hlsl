@@ -116,6 +116,11 @@ float2 Read3D(uint textureIndex, int3 coord)
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 }
 
+float2 Read3DMip(uint textureIndex, int3 coord, int level)
+{
+    return gBindless3D[textureIndex].Load(int4(coord, level));
+}
+
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
 {
@@ -645,7 +650,6 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
     
-    // Convert grid index to world-space center position. center = dtid * vs - hs => (center + hs) / vs = dtid
     float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
 
     float3 voxelMin = center - voxelSize * 0.5f;
@@ -703,7 +707,30 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     Write3DDist(0, DTid, minDist);
 }
 
-
+void GenerateMIPS(uint3 DTid : SV_DispatchThreadID)
+{
+    /*
+    //level.
+    float sampleLevelL = pc.lod - 1;
+    float powerLevel = pow(2, sampleLevelL);
+    
+    //Get the original value at the previous MIP level.
+    
+    int3 dtScaledId = DTid * powerLevel;
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+    
+    voxelSceneBounds.x /= pow(2, sampleLevelL);
+    
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+    float3 center = ((float3) dtScaledId + 0.5f) * voxelSize - halfScene;
+    
+    float2 sdfValue = Read3DMip(9, center);
+*/
+    
+    
+}
 
 //Block-Based Union-Find
 void InitLabels(uint3 DTid : SV_DispatchThreadID)
@@ -901,6 +928,8 @@ void FlattenLabels(uint3 DTid : SV_DispatchThreadID)
             InterlockedAdd(GlobalIDCounter[0], 1, reservedId);
             
             voxelsL1Out[flatIndex].uniqueId = reservedId + 1;
+            
+            //Brushes[voxelsL1Out[flatIndex].uniqueId].opcode = 0;
         }
     }
     
@@ -996,9 +1025,21 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     float sampleLevelL = pc.lod;
     uint triangleCount = pc.triangleCount;
 
+    if (sampleLevelL == 0.0f)
+    {
+        InitVoxelData(DTid);
+        return;
+    }
+    
     if(sampleLevelL == 1.0f)
     {
         WriteToWorldSDF(DTid);
+        return;
+    }
+    
+    if (sampleLevelL >= 2.0f && sampleLevelL <= 4.0f)
+    {
+        //GenerateMIPs(DTid);
         return;
     }
     
@@ -1011,12 +1052,6 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     if (sampleLevelL == 14.0f)
     {
         DeformBrush(DTid, gIndex, lThreadID);
-        return;
-    }
-    
-    if(sampleLevelL == 0.0f)
-    {
-        InitVoxelData(DTid);
         return;
     }
     

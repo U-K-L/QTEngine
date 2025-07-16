@@ -34,10 +34,14 @@ float2 Read3D(uint textureIndex, int3 coord)
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 }
 
+float2 Read3DMip(uint textureIndex, int3 coord, int level)
+{
+    return gBindless3D[textureIndex].Load(int4(coord, level));
+}
 
 float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 {
-    return Read3D(textureId, coord);
+    return Read3DMip(textureId, coord, 1);
 }
 
 
@@ -745,6 +749,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint brushID = finalID >> 24;
     uint labelID = finalID & 0xFFFFFF;
 
+    /*
     
     if (result.y < NO_LABELF())
         gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
@@ -756,5 +761,5 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     }
 
-
+*/
 }

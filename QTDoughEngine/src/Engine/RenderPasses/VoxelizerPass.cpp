@@ -1829,6 +1829,137 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &di);
         */
 
+
+
+        int32_t mipWidth = WORLD_SDF_RESOLUTION;
+        int32_t mipHeight = WORLD_SDF_RESOLUTION;
+        int32_t mipDepth = WORLD_SDF_RESOLUTION;
+        VkImageMemoryBarrier preMipBarrier{};
+        preMipBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        preMipBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        preMipBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        preMipBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        preMipBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        preMipBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preMipBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preMipBarrier.image = app->textures3D["worldSDF_"].u_image;
+        preMipBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        preMipBarrier.subresourceRange.baseMipLevel = 1; // Start from mip 1
+        preMipBarrier.subresourceRange.levelCount = 4;   // Mips 1-4
+        preMipBarrier.subresourceRange.baseArrayLayer = 0;
+        preMipBarrier.subresourceRange.layerCount = 1;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr,
+            1, &preMipBarrier
+        );
+
+        // Generate each mip level
+        for (uint32_t i = 1; i < 5; i++) {
+            // Transition source mip (i-1) to TRANSFER_SRC_OPTIMAL
+            VkImageMemoryBarrier srcBarrier{};
+            srcBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            srcBarrier.srcAccessMask = (i == 1) ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT;
+            srcBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            srcBarrier.oldLayout = (i == 1) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            srcBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            srcBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            srcBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            srcBarrier.image = app->textures3D["worldSDF_"].u_image;
+            srcBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            srcBarrier.subresourceRange.baseMipLevel = i - 1;
+            srcBarrier.subresourceRange.levelCount = 1;
+            srcBarrier.subresourceRange.baseArrayLayer = 0;
+            srcBarrier.subresourceRange.layerCount = 1;
+
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                (i == 1) ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                0, 0, nullptr, 0, nullptr,
+                1, &srcBarrier
+            );
+
+            // Perform the blit
+            VkImageBlit blit{};
+            blit.srcOffsets[0] = { 0, 0, 0 };
+            blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+
+            mipWidth = std::max(mipWidth / 2, 1);
+            mipHeight = std::max(mipHeight / 2, 1);
+            mipDepth = std::max(mipDepth / 2, 1);
+
+            blit.dstOffsets[0] = { 0, 0, 0 };
+            blit.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+
+            vkCmdBlitImage(
+                commandBuffer,
+                app->textures3D["worldSDF_"].u_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                app->textures3D["worldSDF_"].u_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &blit,
+                VK_FILTER_LINEAR
+            );
+
+            // Transition source mip back to GENERAL for potential future use
+            VkImageMemoryBarrier srcBackBarrier{};
+            srcBackBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            srcBackBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            srcBackBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+            srcBackBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            srcBackBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            srcBackBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            srcBackBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            srcBackBarrier.image = app->textures3D["worldSDF_"].u_image;
+            srcBackBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            srcBackBarrier.subresourceRange.baseMipLevel = i - 1;
+            srcBackBarrier.subresourceRange.levelCount = 1;
+            srcBackBarrier.subresourceRange.baseArrayLayer = 0;
+            srcBackBarrier.subresourceRange.layerCount = 1;
+
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr,
+                1, &srcBackBarrier
+            );
+        }
+
+        // Transition all destination mips back to GENERAL
+        VkImageMemoryBarrier postMipBarrier{};
+        postMipBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        postMipBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        postMipBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        postMipBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        postMipBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        postMipBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        postMipBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        postMipBarrier.image = app->textures3D["worldSDF_"].u_image;
+        postMipBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        postMipBarrier.subresourceRange.baseMipLevel = 1;
+        postMipBarrier.subresourceRange.levelCount = 4;
+        postMipBarrier.subresourceRange.baseArrayLayer = 0;
+        postMipBarrier.subresourceRange.layerCount = 1;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr,
+            1, &postMipBarrier
+        );
+
         CleanUpGPU(commandBuffer);
         //PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
