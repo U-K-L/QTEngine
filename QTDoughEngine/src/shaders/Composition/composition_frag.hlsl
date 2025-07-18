@@ -66,8 +66,9 @@ float4 main(VSOutput i) : SV_Target
     
     //return sdfImage;
 
-    float4 color = lerp(backgroundImage, albedoImage, albedoImage.w);
+    float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
 
+    return color;
     float depth = depthImage.r;
     float linearDepth = LinearizeDepth(depth);
     // near and far plane CHANGE TO UNIFORMS
@@ -77,10 +78,11 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    return sdfImage;
+    //return sdfImage;
+    //float4 finalImage = lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
     float4 finalImage = lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
     //Debug voxels.
-    return lerp(finalImage, sdfImage, 0.9);
+    //return lerp(finalImage, sdfImage, 0.9);
     //return albedoImage;
     //return outlineImage;
     //return float4(rand(positionImage.a * 100), rand(positionImage.a * 100 + 1), rand(positionImage.a * 100 + 2), 1.0);

@@ -121,6 +121,12 @@ float2 Read3DMip(uint textureIndex, int3 coord, int level)
     return gBindless3D[textureIndex].Load(int4(coord, level));
 }
 
+float2 Read3DTrilinear(uint textureIndex, float3 uvw, float mipLevel)
+{
+    return gBindless3D[textureIndex].SampleLevel(samplers[0], uvw, mipLevel);
+}
+
+
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
 {

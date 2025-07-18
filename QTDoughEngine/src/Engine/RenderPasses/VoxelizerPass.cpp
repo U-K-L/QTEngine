@@ -999,10 +999,10 @@ void VoxelizerPass::CreateBrushes()
         brush.stiffness = 0.5f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
-        brush.blend = 0.071f; // Set a default blend value
+        brush.blend = 0.0071f; // Set a default blend value
 
-        if(i == 1)
-            brush.opcode = 1; // Set a different opcode for the second brush, e.g., 1 for "subtract" operation
+        if (brush.id == 2)
+            brush.opcode = 1;
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
@@ -1976,6 +1976,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         IDDispatchIteration = (IDDispatchIteration + 1) % requiredIterations;
     }
 
+    /*
     if (dispatchCount > 10)
     {
         //Only update brushes that are flagged dirty in the future!
@@ -1988,7 +1989,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             }
         }
     }
-
+    */
     if (dispatchCount < 2)
     {
         //DispatchLOD(commandBuffer, currentFrame, 5); //Per triangle.

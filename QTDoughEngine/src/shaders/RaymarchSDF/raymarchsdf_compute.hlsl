@@ -3,7 +3,36 @@ RWTexture2D<float4> OutputImage;
 RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 StructuredBuffer<uint> intArray : register(t1, space1);
 
+SamplerState samplers[] : register(s1, space0); //Global
+
 #include "../Helpers/ShaderHelpers.hlsl"
+
+
+struct UnigmaMaterial
+{
+    float4 baseColor;
+    float4 topColor;
+    float4 sideColor;
+};
+
+struct Images
+{
+    uint AlbedoImage;
+    uint NormalImage;
+    uint PositionImage;
+    uint DepthImage;
+    uint OutlineImage;
+    uint SDFImage;
+};
+
+Images InitImages()
+{
+    Images image;
+    
+    image.AlbedoImage = intArray[0];
+    
+    return image;
+}
 
 cbuffer UniformBufferObject : register(b0, space1)
 {
@@ -39,9 +68,24 @@ float2 Read3DMip(uint textureIndex, int3 coord, int level)
     return gBindless3D[textureIndex].Load(int4(coord, level));
 }
 
+// This uses the GPU's dedicated hardware for full, automatic trilinear filtering
+float2 HardwareTrilinearSample(uint textureIndex, float3 uvw)
+{
+    return gBindless3D[textureIndex].Sample(samplers[0], uvw);
+}
+
+
+float2 Read3DTrilinear(uint textureIndex, float3 uvw, float mipLevel)
+{
+
+    return gBindless3D[textureIndex].SampleLevel(samplers[0], uvw, mipLevel);
+}
+
 float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 {
-    return Read3DMip(textureId, coord, sampleLevel-1);
+    float3 uvw = (float3(coord) + 0.5f) / WORLD_SDF_RESOLUTION;
+    uvw = clamp(uvw, 0.001f, 0.999f); // avoid edge bleeding
+    return Read3DTrilinear(textureId, uvw, sampleLevel - 1);
 }
 
 
@@ -259,9 +303,8 @@ float4 TrilinearSampleSDF(float3 pos)
 }
 
 
-float3 CentralDifferenceNormalTexture(float3 p)
+float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
 {
-    float sampleLevel = 0;
     float eps = 0.1851755f;
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
@@ -511,7 +554,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         float4 currentSDF = 0;
         float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
         currentSDF.x = sampleId.x;
-        currentSDF.yzw = CentralDifferenceNormalTexture(pos);
+        currentSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
         closesSDF = smin(closesSDF, currentSDF, 0.0025f);
         
         
@@ -536,7 +579,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     
     
     resultOutput.y = NO_LABELF();
-    return float4(0, 0, 0, -1.0f); //Nothing hit.
+    return float4(100.0f, 0, 0, 100.0f); //Nothing hit.
 
 }
 
@@ -688,12 +731,17 @@ float3 turboColor(float t)
 [numthreads(8, 8, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
+    UnigmaMaterial material;
+    material.baseColor = float4(0.70, 0.78, 0.68, 1.0);
+    material.topColor = float4(1.0, 0.68, 0.68, 1.0);
+    material.sideColor = float4(0.77, 0.57, 0.77, 1.0);
+    Images image = InitImages();
     float4x4 invProj = inverse(proj);
     float4x4 invView = inverse(view);
     
     uint2 pixel = DTid.xy;
     uint2 outputImageIndex = uint2(DTid.x, DTid.y);
-    uint outputImageHandle = NonUniformResourceIndex(intArray[0]);
+    uint outputImageHandle = NonUniformResourceIndex(image.AlbedoImage);
     gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
 
     //Construct a ray shooting from the camera projection plane.
@@ -721,12 +769,44 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float4 result = 0;
     float4 hit = SphereMarch(interpRayOrigin, interpRayDir, result);
-    float4 col = (hit.w > 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
+    float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
     float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
-    gBindlessStorage[outputImageHandle][pixel] = light; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    
+    
+    //Albedo.
+    
+    float thresholdX = 0.2;
+    float thresholdY = 0.6;
+    float thresholdZ = 0.8;
+
+    //Pick based on normals.
+    float3 normal = hit.yzw;
+    float4 front = material.baseColor;
+    float4 sides = material.sideColor;
+    float4 top = material.topColor;
+    
+    float3 forward = float3(0, 1, 0);
+    float3 up = float3(0, 0, 1);
+    float3 right = float3(1, 0, 0);
+    
+    float weightFront = abs(normal.y);
+    float weightSides = abs(normal.x);
+    float weightTop = abs(normal.z);
+    
+    float total = weightFront + weightSides + weightTop;
+    weightFront /= total;
+    weightSides /= total;
+    weightTop /= total;
+
+    float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
+    
+    
+    
+    
+    gBindlessStorage[outputImageHandle][pixel] = finalColor * col * 1.250f; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
     //int idHash = floor(result.y / MAX_BRUSHES);
     
