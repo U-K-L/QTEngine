@@ -17,7 +17,15 @@ void SDFPass::CreateMaterials() {
 
     material.textureNames[0] = "SDFAlbedoPass";
     material.textureNames[1] = "SDFNormalPass";
-    material.textureNames[2] = "SDFDepthPass";
+    material.textureNames[2] = "SDFPositionPass";
+
+    images.resize(3);
+    imagesMemory.resize(3);
+    imagesViews.resize(3);
+    PassNames.push_back("SDFAlbedoPass");
+    PassNames.push_back("SDFNormalPass");
+    PassNames.push_back("SDFPositionPass");
+
 }
 
 void SDFPass::CreateComputePipeline()
@@ -96,7 +104,6 @@ void SDFPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t curren
     {
         if (app->textures.count(material.textureNames[i]) > 0)
         {
-            std::cout << "Texture: " << material.textureNames[i] << " ID: " << app->textures[material.textureNames[i]].ID << std::endl;
             material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
         }
         else
@@ -110,100 +117,26 @@ void SDFPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t curren
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
-    /*
-    if (UpdateOnce <= 2)
-    {
-        vertices.clear();
-        triangleSoup.clear();
-        indices.clear();
-        //Update all vertices world positions.
-        for (int i = 0; i < renderingObjects.size(); i++)
-        {
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = intArrayBuffer;
+    barrier.offset = 0;
+    barrier.size = bufferSize;
 
-            glm::mat4 model = renderingObjects[i]->_transform.GetModelMatrix();
-            glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model))); // for correct normal transform
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, nullptr,
+        1, &barrier,
+        0, nullptr
+    );
 
-            for (auto& vertex : renderingObjects[i]->_renderer.vertices)
-            {
-                ComputeVertex computeVertex;
-                computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
-                computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, 0.0f);
-                computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
-
-                vertices.push_back(computeVertex);
-            }
-
-            // Adjust index offset based on current vertex base
-            uint32_t vertexOffset = static_cast<uint32_t>(vertices.size() - renderingObjects[i]->_renderer.vertices.size());
-            for (auto idx : renderingObjects[i]->_renderer.indices)
-            {
-                indices.push_back(idx + vertexOffset);
-            }
-
-        }
-
-
-
-        //All of BELOW will move to GPU side ------------------------------------
-        // MOVE TO GPU ----------------------------------------------
-
-        triangleIndices.resize(indices.size() / 3);
-        for (size_t i = 0; i < triangleIndices.size(); ++i)
-        {
-            triangleIndices[i] = glm::uvec3(indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]);
-        }
-        auto meshTriangles = ExtractTrianglesFromMeshFromTriplets(vertices, triangleIndices);
-        triangleSoup.insert(triangleSoup.end(), meshTriangles.begin(), meshTriangles.end());
-
-        //Bake SDF from triangles.
-        BakeSDFFromTriangles();
-
-        VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingMemory;
-        app->CreateBuffer(vertexBufferSize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer, stagingMemory);
-
-        void* mapped;
-        vkMapMemory(app->_logicalDevice, stagingMemory, 0, vertexBufferSize, 0, &mapped);
-        memcpy(mapped, vertices.data(), vertexBufferSize);
-        vkUnmapMemory(app->_logicalDevice, stagingMemory);
-
-        app->CopyBuffer(stagingBuffer, vertexBuffer, vertexBufferSize);
-
-        vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-        vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-
-
-        //Update Voxel Information
-        //IsOccupiedByVoxel();
-
-        //Update voxels.
-        VkDeviceSize voxelBufferSize = sizeof(Voxel) * VOXEL_COUNT;
-        VkBuffer stagingBuffer2;
-        VkDeviceMemory stagingMemory2;
-        app->CreateBuffer(voxelBufferSize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer2, stagingMemory2);
-
-        void* mapped2;
-        vkMapMemory(app->_logicalDevice, stagingMemory2, 0, voxelBufferSize, 0, &mapped2);
-        memcpy(mapped2, voxels.data(), voxelBufferSize);
-        vkUnmapMemory(app->_logicalDevice, stagingMemory2);
-
-        app->CopyBuffer(stagingBuffer2, shaderStorageBuffers[currentFrame], voxelBufferSize);
-
-        vkDestroyBuffer(app->_logicalDevice, stagingBuffer2, nullptr);
-        vkFreeMemory(app->_logicalDevice, stagingMemory2, nullptr);
-
-        //All of ABOVE will move to GPU side ------------------------------------
-        // MOVE TO GPU ----------------------------------------------
-        UpdateOnce += 1;
-    }
-    */
 }
 
 

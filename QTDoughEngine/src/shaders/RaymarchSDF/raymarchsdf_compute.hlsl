@@ -19,11 +19,7 @@ struct Images
 {
     uint AlbedoImage;
     uint NormalImage;
-    uint ReflectanceImage;
     uint PositionImage;
-    uint DepthImage;
-    uint OutlineImage;
-    uint SDFImage;
 };
 
 Images InitImages()
@@ -32,7 +28,7 @@ Images InitImages()
     
     image.AlbedoImage = intArray[0];
     image.NormalImage = intArray[1];
-    image.ReflectanceImage = intArray[2];
+    image.PositionImage = intArray[2];
     
     return image;
 }
@@ -587,7 +583,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 }
 
 
-float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibility, inout float4 specular)
+float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibility, inout float4 specular, inout float4 positionId)
 {
     visibility = 1;
     float3 direction = rd;
@@ -625,6 +621,9 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
             {
                 float len = length(closesSDF.yzw);
                 surface.xyz = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+                surface.w = length(pos - ro);
+                positionId.xyz = pos;
+                positionId.w = sampleId.y;
                 hitSample = closesSDF;
                 
                 bounces = 1;
@@ -655,7 +654,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     }
     
     
-    surface.w = accumaltor;
+    //surface.w = accumaltor;
     return hitSample;
 
 }
@@ -715,8 +714,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint2 outputImageIndex = uint2(DTid.x, DTid.y);
     uint outputImageHandle = NonUniformResourceIndex(image.AlbedoImage);
     uint normalImageHandle = NonUniformResourceIndex(image.NormalImage);
+    uint positionImageHandle = NonUniformResourceIndex(image.PositionImage);
     gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
     gBindlessStorage[normalImageHandle][pixel] = 0; //CLEAR IMAGE.
+    gBindlessStorage[positionImageHandle][pixel] = 0; //CLEAR IMAGE.
 
     //Construct a ray shooting from the camera projection plane.
     uint3 id = DTid;
@@ -744,9 +745,25 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 surface = float4(0,0,0,0);
     float4 visibility = 0;
     float4 specular = 0;
+    float4 depth = 0;
+    float4 positionId = 0;
     
-    float4 hit = FullMarch(interpRayOrigin, interpRayDir, surface, visibility, specular);
+    float4 hit = FullMarch(interpRayOrigin, interpRayDir, surface, visibility, specular, positionId);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
+    
+    
+    //Calculate depth.
+    float linearDepth = surface.w;
+    /* Linear
+    float maxRenderDistance = 32.0f;
+    float normalizedDepth = linearDepth / maxRenderDistance;
+    */
+    float3 worldPos = interpRayOrigin + interpRayDir * linearDepth;
+    float4 clipPos = mul(proj, mul(view, float4(worldPos, 1.0)));
+    float normalizedDepth = clipPos.z / clipPos.w; 
+    
+    float depthMapped = col.w * normalizedDepth;
+
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
@@ -784,27 +801,30 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     
     
-    gBindlessStorage[normalImageHandle][pixel] = 1.0f;
+    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped);
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
 
     
     //int idHash = floor(result.y / MAX_BRUSHES);
-    /*
-    uint finalID = asuint(result.y);
+    uint finalID = asuint(positionId.w);
     uint brushID = finalID >> 24;
     uint labelID = finalID & 0xFFFFFF;
-    */
-    /*
+    float labelF = (float)labelID;
     
-    if (result.y < NO_LABELF())
-        gBindlessStorage[outputImageHandle][pixel] = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
-    
-    if (brushID == 1)
+    if (labelF < NO_LABELF())
     {
-        float4 baseColor = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
-        gBindlessStorage[outputImageHandle][pixel] = float4(1.0f, 0.0f, 0.55f, 1.0f) + baseColor*0.5f;
+        //gBindlessStorage[positionImageHandle][pixel].w = (float) labelID;
+        //gBindlessStorage[positionImageHandle][pixel] = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
+        
+    }
+
+    if (brushID > 0)
+    {
+        //float4 baseColor = float4(normalize(float3(abs(rand(labelID / 16000.0f)), abs(rand(labelID / 16000.0f + 3)), abs(rand(labelID / 16000.0f + 1)))), 1.0f);
+        //gBindlessStorage[positionImageHandle][pixel] = float4(1.0f, 0.0f, 0.55f, 1.0f) + baseColor * 0.5f;
+        gBindlessStorage[positionImageHandle][pixel].w = labelF + 1.0f + brushID;
 
     }
 
-*/
 }

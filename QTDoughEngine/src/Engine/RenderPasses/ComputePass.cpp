@@ -317,6 +317,32 @@ void ComputePass::CreateImages() {
     // Use a unique key for the offscreen image
     std::string textureKey = PassName;
     app->textures.insert({ textureKey, offscreenTexture });
+
+    //Creating the rest of the images.
+    for(int i = 0; i < images.size(); i++)
+	{
+		app->CreateImage(
+			app->swapChainExtent.width,
+			app->swapChainExtent.height,
+			imageFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			images[i],
+			imagesMemory[i]
+		);
+
+		VkImageView imageView = app->CreateImageView(images[i], imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+		imagesViews.push_back(imageView);
+
+		UnigmaTexture texture;
+		texture.u_image = images[i];
+		texture.u_imageView = imageView;
+		texture.u_imageMemory = imagesMemory[i];
+		texture.TEXTURE_PATH = PassNames[i];
+
+		app->textures.insert({ PassNames[i], texture });
+	}
 }
 
 void ComputePass::CreateComputePipeline()

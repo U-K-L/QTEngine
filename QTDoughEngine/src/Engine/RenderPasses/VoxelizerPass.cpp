@@ -23,6 +23,18 @@ VoxelizerPass::VoxelizerPass() {
 void VoxelizerPass::CreateMaterials() {
     material.Clean();
     material.shader = UnigmaShader("voxelizer");
+
+
+    material.textureNames[0] = "SDFAlbedoPass";
+    material.textureNames[1] = "SDFNormalPass";
+    material.textureNames[2] = "SDFDepthPass";
+
+    images.resize(3);
+    imagesMemory.resize(3);
+    imagesViews.resize(3);
+    PassNames.push_back("SDFAlbedoPass");
+    PassNames.push_back("SDFNormalPass");
+    PassNames.push_back("SDFDepthPass");
 }
 
 std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
@@ -1001,8 +1013,8 @@ void VoxelizerPass::CreateBrushes()
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0071f; // Set a default blend value
 
-        //if (brush.id == 2)
-        //    brush.opcode = 1;
+        if (brush.id == 2)
+            brush.opcode = 1;
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
@@ -1261,6 +1273,33 @@ void VoxelizerPass::CreateImages() {
     // Use a unique key for the offscreen image
     std::string textureKey = PassName;
     app->textures.insert({ textureKey, offscreenTexture });
+
+
+    //Creating the rest of the images.
+    for (int i = 0; i < images.size(); i++)
+    {
+        app->CreateImage(
+            app->swapChainExtent.width,
+            app->swapChainExtent.height,
+            imageFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            images[i],
+            imagesMemory[i]
+        );
+
+        VkImageView imageView = app->CreateImageView(images[i], imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+        imagesViews.push_back(imageView);
+
+        UnigmaTexture texture;
+        texture.u_image = images[i];
+        texture.u_imageView = imageView;
+        texture.u_imageMemory = imagesMemory[i];
+        texture.TEXTURE_PATH = PassNames[i];
+
+        app->textures.insert({ PassNames[i], texture });
+    }
 }
 
 void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
@@ -1406,34 +1445,6 @@ void VoxelizerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t 
     vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
-
-    //Update brushes.
-
-
-
-    /*
-    vertices.clear();
-
-
-    VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    app->CreateBuffer(vertexBufferSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingMemory);
-
-    void* mapped;
-    vkMapMemory(app->_logicalDevice, stagingMemory, 0, vertexBufferSize, 0, &mapped);
-    memcpy(mapped, vertices.data(), vertexBufferSize);
-    vkUnmapMemory(app->_logicalDevice, stagingMemory);
-
-    app->CopyBuffer(stagingBuffer, vertexBuffer, vertexBufferSize);
-
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-    */
 
 
 }

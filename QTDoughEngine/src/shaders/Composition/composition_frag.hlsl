@@ -21,7 +21,7 @@ struct Images
     uint OutlineImage;
     uint SDFAlbedoImage;
     uint SDFNormalImage;
-    uint SDFDepthImage;
+    uint SDFPositionPass;
 };
 
 Images InitImages()
@@ -36,7 +36,7 @@ Images InitImages()
     image.OutlineImage = intArray[5]; 
     image.SDFAlbedoImage = intArray[6];
     image.SDFNormalImage = intArray[7];
-    image.SDFDepthImage = intArray[8];
+    image.SDFPositionPass = intArray[8];
     
     return image;
 }
@@ -67,10 +67,11 @@ float4 main(VSOutput i) : SV_Target
     float4 depthImage = textures[images.DepthImage].Sample(samplers[images.DepthImage], textureUVs);
     float4 outlineImage = textures[images.OutlineImage].Sample(samplers[images.OutlineImage], textureUVs);
     float4 sdfImage = textures[images.SDFAlbedoImage].Sample(samplers[images.SDFAlbedoImage], textureUVs);
-    float4 sdfNormalImage = textures[images.SDFDepthImage].Sample(samplers[images.SDFDepthImage], textureUVs);
+    float4 sdfNormalImage = textures[images.SDFNormalImage].Sample(samplers[images.SDFNormalImage], textureUVs);
+    float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
     
-    return sdfNormalImage;
-    //return sdfImage;
+    return outlineImage;
+    return sdfImage;
 
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
 

@@ -213,6 +213,7 @@ public:
     VkBuffer quadIndexBuffer;
     VkDeviceMemory quadIndexBufferMemory;
 
+    VkSampleCountFlagBits GetMaxUsableSampleCount();
     void TransitionOffscreenImagesForSampling(VkCommandBuffer commandBuffer);
     void TransitionOffscreenImagesForRendering(VkCommandBuffer commandBuffer);
     void CreateQuadBuffers();
@@ -230,7 +231,7 @@ public:
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-    void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, VkSampleCountFlagBits numSamples = VK_SAMPLE_COUNT_1_BIT);
     void RecreateResources();
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -255,7 +256,7 @@ public:
     VkDescriptorPool globalDescriptorPool;
     //VkDescriptorSet globalDescriptorSet;
     std::vector<VkSampler> globalSamplers;
-
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
 
 

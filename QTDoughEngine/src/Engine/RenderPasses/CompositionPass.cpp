@@ -25,9 +25,15 @@ void CompositionPass::CreateMaterials() {
     material.textureNames[5] = "OutlinePass";
     material.textureNames[6] = "SDFAlbedoPass";
     material.textureNames[7] = "SDFNormalPass";
-    material.textureNames[8] = "SDFDepthPass";
+    material.textureNames[8] = "SDFPositionPass";
 
     //material.textures.push_back(UnigmaTexture("animeGirl"));
     //material.textures[0].TEXTURE_PATH = "Assets/Textures/animeGirl.png";
 
+}
+
+//Used to create final image.
+void CompositionPass::CreateImages() {
+    QTDoughApplication* app = QTDoughApplication::instance;
+    RenderPassObject::CreateImages();
 }
