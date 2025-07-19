@@ -20,8 +20,8 @@ void OutlinePass::CreateMaterials() {
     //Add in textures.
     material.shader = UnigmaShader("outline");
 
-    material.textureNames[0] = "NormalPass";
-    material.textureNames[1] = "PositionPass";
+    material.textureNames[0] = "SDFNormalPass";
+    material.textureNames[1] = "SDFPositionPass";
     material.textureNames[2] = "DepthPass";
     material.textureNames[3] = "AlbedoPass2";
     material.textureNames[4] = "OutlineColorsPass";

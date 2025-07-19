@@ -754,14 +754,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     //Calculate depth.
     float linearDepth = surface.w;
-    /* Linear
     float maxRenderDistance = 32.0f;
     float normalizedDepth = linearDepth / maxRenderDistance;
-    */
+    /*
     float3 worldPos = interpRayOrigin + interpRayDir * linearDepth;
     float4 clipPos = mul(proj, mul(view, float4(worldPos, 1.0)));
     float normalizedDepth = clipPos.z / clipPos.w; 
-    
+    */
     float depthMapped = col.w * normalizedDepth;
 
     

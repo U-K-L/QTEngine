@@ -95,12 +95,12 @@ float4 main(VSOutput i) : SV_Target
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
     
-    float _DepthThreshold = 0.4;
+    float _DepthThreshold = 0.25f;
     float _NormalThreshold = 0.2;
     float _PosThreshold = 0.0;
     float _ScaleOuter = 4.0;
     float _ScaleInner = 1.0;
-    float _ScaleOuterOuterLines = 18.0;
+    float _ScaleOuterOuterLines = 8.0;
     float OuterScale = _ScaleOuter;
     
     float scaleFloor = floor(OuterScale * 0.5);
@@ -161,19 +161,20 @@ float4 main(VSOutput i) : SV_Target
     topLeft = textureUVs + float2(-_MainTex_TexelSize.x * scaleFloor, _MainTex_TexelSize.y * scaleCeil);
     
     //Get depth textures.
-    float depth0 = LinearizeDepth(textures[images.DepthImage].Sample(samplers[images.DepthImage], bottomLeft).r) / far_plane;
-    float depth1 = LinearizeDepth(textures[images.DepthImage].Sample(samplers[images.DepthImage], topRight).r) / far_plane;
-    float depth2 = LinearizeDepth(textures[images.DepthImage].Sample(samplers[images.DepthImage], bottomRight).r) / far_plane;
-    float depth3 = LinearizeDepth(textures[images.DepthImage].Sample(samplers[images.DepthImage], topLeft).r) / far_plane;
+    float depth0 = textures[images.NormalImage].Sample(samplers[images.NormalImage], bottomLeft).w;
+    float depth1 = textures[images.NormalImage].Sample(samplers[images.NormalImage], topRight).w;
+    float depth2 = textures[images.NormalImage].Sample(samplers[images.NormalImage], bottomRight).w;
+    float depth3 = textures[images.NormalImage].Sample(samplers[images.NormalImage], topLeft).w;
     
     
     float depthFiniteDifference0 = abs(depth1 - depth0);
     float depthFiniteDifference1 = abs(depth3 - depth2);
     
-    float edgeDepth = sqrt(pow(depthFiniteDifference0, 2) + pow(depthFiniteDifference1, 2)) * 1;
+    float edgeDepth = sqrt(pow(depthFiniteDifference0, 2) + pow(depthFiniteDifference1, 2)) * 2;
     edgeDepth = edgeDepth > _DepthThreshold ? 1 : 0;
-    edgeDepth *= 1.0 - step(depthImage.r, 0.9999);
+    //edgeDepth *= 1.0 - step(depthImage.r, 0.9999);
     
+    return edgeDepth;
     //Combine the lines. most outter overrides most inner.
     
     //First check if inner is 0, then add outer.
