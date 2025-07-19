@@ -1001,8 +1001,8 @@ void VoxelizerPass::CreateBrushes()
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0071f; // Set a default blend value
 
-        if (brush.id == 2)
-            brush.opcode = 1;
+        //if (brush.id == 2)
+        //    brush.opcode = 1;
 
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now

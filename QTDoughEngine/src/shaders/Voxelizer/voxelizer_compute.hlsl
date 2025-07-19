@@ -74,8 +74,8 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     }
     
     float voxelMini = 0.03125;
-    minBounds -= voxelMini * 4;
-    maxBounds += voxelMini * 4;
+    minBounds -= voxelMini * 12;
+    maxBounds += voxelMini * 12;
     
     return abs(maxBounds - minBounds);
 }
@@ -510,7 +510,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float3 localPos = samplePos * (maxExtent * 0.5f) + center;
 
 
-    float minDist = 0.12f;
+    float minDist = 0.5f;
     
     float4 isHitChecks = 0;
     float4 isHitChecks2 = 0;

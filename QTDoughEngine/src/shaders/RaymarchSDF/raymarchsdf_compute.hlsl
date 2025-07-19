@@ -584,107 +584,75 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 }
 
 
-float4 FullMarch(float3 ro, float3 rd, inout float4 resultOutput)
+float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibility, inout float4 specular)
 {
-    float sampleLevelL1 = 1.0f;
-    float2 voxelSceneBoundsL1 = GetVoxelResolution(sampleLevelL1);
-    float voxelSizeL1 = voxelSceneBoundsL1.y / voxelSceneBoundsL1.x;
-    float minDistanceL1 = voxelSizeL1 * 2.0f;
+    visibility = 1;
+    float3 direction = rd;
+    float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
-    //L2
-    float sampleLevelL2 = 2.0f;
-    float2 voxelSceneBoundsL2 = GetVoxelResolution(sampleLevelL2);
-    float voxelSizeL2 = voxelSceneBoundsL2.y / voxelSceneBoundsL2.x;
-    float minDistanceL2 = voxelSizeL2 * 2.0f;
-    
-    //L3
-    float sampleLevelL3 = 3.0f;
-    float2 voxelSceneBoundsL3 = GetVoxelResolution(sampleLevelL3);
-    float voxelSizeL3 = voxelSceneBoundsL3.y / voxelSceneBoundsL3.x;
-    float minDistanceL3 = voxelSizeL3 * 0.5;
-
-
-    
-    float maxDistance = 32.0f;
-
     float3 pos = ro;
-    int maxSteps = 128;
-    float4 closesSDF = maxDistance;
+    int maxSteps = 512;
+    float4 closesSDF = 1.0f;
+    float4 currentSDF = 1.0f;
+    float accumaltor = 0;
+    int bounces = 0;
+    float voxelSizeL1 = 0.03125f;
     
-    float sampleLevel = GetSampleLevel(pos, 0);
+    float minDistanceL1 = voxelSizeL1 * 0.5f;
+    
+    float4 hitSample = float4(100.0f, 0, 0, 100.0f);
+
     for (int i = 0; i < maxSteps; i++)
     {
+        float sampleLevel = GetSampleLevel(pos, 0);
+        float4 currentSDF = 0;
+        float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
+        currentSDF.x = sampleId.x;
+        currentSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
+        closesSDF = smin(closesSDF, currentSDF, 0.0025f);
         
-        //Find the smallest distance
-        //float distance = IntersectionPoint(pos, rd, resultOutput);
-        //minDistance = voxelsIn[HashPositionToVoxelIndex(pos, SCENE_BOUNDSL2, voxelSceneBounds.x)].normalDistance.w;
-        
-        //float3 sdf = sdSphere(pos, 0, 2.0f);
-        //float4 sdf2 = 0;
-        //sdf2.xyz = sdSphere(pos, vertexBuffer[4855].position.xyz, 2.0f);
-        //sdf2.yzw = CentralDifferenceNormalBrush(pos, vertexBuffer[4855].position.xyz, 2.0f);
-        //float4 brushSDF = float4(sdf, 1.0);
-        float4 currentSDF = SampleSDF(pos);
-        currentSDF.yzw = CentralDifferenceNormal(pos);
-        
-        float newSampleLevel = GetSampleLevel(pos, 0);
-        bool sameLevel = sampleLevel == newSampleLevel;
-        sampleLevel = newSampleLevel;
-        bool inL1 = sampleLevel == 1.0f;
-
-        if (abs(currentSDF.x) < abs(closesSDF.x))
-            closesSDF = currentSDF;
-
-        float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
-        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-        /*
-        if(sameLevel == true)
-            closesSDF = smin(closesSDF, currentSDF, minDistanceL1 * 0.25f);
-        else
-            closesSDF = currentSDF;
-        */
         
         bool canTerminate =
-        (inL1 && abs(closesSDF.x) < minDistanceL1);
-
-        if (canTerminate)
-        {
-            float len = length(closesSDF.yzw);
-            closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
-            return closesSDF;
-        }
-
-
+        (closesSDF.x < minDistanceL1);
         
-        //See if it is close enough otherwise continue.
-        /*
-        if (abs(closesSDF.x) < minDistanceL1)
+
+        if (canTerminate && sampleLevel <= 1.0f)
         {
-                    
-            closesSDF.yzw = normalize(closesSDF.yzw);
-            return closesSDF; //Something was hit.
+            if(bounces == 0)
+            {
+                float len = length(closesSDF.yzw);
+                surface.xyz = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+                hitSample.xy = sampleId;
+                
+                bounces = 1;
+                
+                direction = light;
+                
+                pos += direction * voxelSizeL1 * 4.0f;
+                
+                closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
+
+            }
+            else if (bounces == 1)
+            {
+                visibility = 0;
+                return 0;
+
+            }
         }
-        */
+
+
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(abs(closesSDF.x), voxelSize * 0.25f, voxelSize * 10.0f);
-        pos += rd * stepSize;
+        float stepSize = clamp(currentSDF.x, voxelSizeL1, voxelSizeL1 * 4.0f * sampleLevel);
+        
+        accumaltor += abs((voxelSizeL1 * 4.0f * sampleLevel) - currentSDF.x) * 0.001f;
+        pos += direction * stepSize;
 
     }
     
-    /*    
-    float sampleLevel = GetSampleLevel(pos, 0);
-    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float minDistance = voxelSize * 0.5f;
     
-    if (closesSDF.x < minDistance)
-    {
-                    
-        closesSDF.yzw = normalize(closesSDF.yzw);
-        return closesSDF; //Something was hit.
-    }
-    */
-    return closesSDF; //Nothing hit.
+    surface.w = accumaltor;
+    return hitSample;
 
 }
 
@@ -732,9 +700,9 @@ float3 turboColor(float t)
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     UnigmaMaterial material;
-    material.baseColor = float4(0.70, 0.78, 0.68, 1.0);
-    material.topColor = float4(1.0, 0.68, 0.68, 1.0);
-    material.sideColor = float4(0.77, 0.57, 0.77, 1.0);
+    material.baseColor = float4(0.80, 0.9, 0.78, 1.0);
+    material.topColor = float4(1.0, 0.92, 0.928, 1.0);
+    material.sideColor = float4(0.9, 0.63, 0.61, 1.0);
     Images image = InitImages();
     float4x4 invProj = inverse(proj);
     float4x4 invView = inverse(view);
@@ -767,13 +735,16 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 interpRayOrigin = lerp(perspectiveRayOrigin, orthoRayOrigin, isOrtho);
     float3 interpRayDir = lerp(perspectiveRayDir, orthoRayDir, isOrtho);
     
-    float4 result = 0;
-    float4 hit = SphereMarch(interpRayOrigin, interpRayDir, result);
+    float4 surface = 0;
+    float4 visibility = 0;
+    float4 specular = 0;
+    
+    float4 hit = FullMarch(interpRayOrigin, interpRayDir, surface, visibility, specular);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     //gBindlessStorage[outputImageHandle][pixel] = voxelsIn[4002].positionDistance; //float4(hit.xyz, 1.0); //float4(1, 0, 0, 1) * col; //saturate(result * col);
     //gBindlessStorage[outputImageHandle][pixel] = float4(hit.xyz, 1.0);
-    float4 light = saturate(dot(hit.yzw, normalize(float3(0.25f, 0.0, 1.0f))));
+    float4 light = saturate(dot(surface.xyz, normalize(float3(0.25f, 0.0, 1.0f))));
     
     
     //Albedo.
@@ -783,7 +754,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float thresholdZ = 0.8;
 
     //Pick based on normals.
-    float3 normal = hit.yzw;
+    float3 normal = surface.xyz;
     float4 front = material.baseColor;
     float4 sides = material.sideColor;
     float4 top = material.topColor;
@@ -803,17 +774,19 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
     
+    float4 colorWithLight = finalColor - saturate(1.0 - visibility) * 0.25f;
     
     
     
-    gBindlessStorage[outputImageHandle][pixel] = finalColor * col * 1.250f; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    
+    gBindlessStorage[outputImageHandle][pixel] = colorWithLight * col; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     
     //int idHash = floor(result.y / MAX_BRUSHES);
-    
+    /*
     uint finalID = asuint(result.y);
     uint brushID = finalID >> 24;
     uint labelID = finalID & 0xFFFFFF;
-
+    */
     /*
     
     if (result.y < NO_LABELF())
