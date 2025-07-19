@@ -15,7 +15,9 @@ void SDFPass::CreateMaterials() {
     material.Clean();
     material.shader = UnigmaShader("raymarchsdf");
 
-    material.textureNames[0] = "SDFPass";
+    material.textureNames[0] = "SDFAlbedoPass";
+    material.textureNames[1] = "SDFNormalPass";
+    material.textureNames[2] = "SDFDepthPass";
 }
 
 void SDFPass::CreateComputePipeline()
@@ -94,6 +96,7 @@ void SDFPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t curren
     {
         if (app->textures.count(material.textureNames[i]) > 0)
         {
+            std::cout << "Texture: " << material.textureNames[i] << " ID: " << app->textures[material.textureNames[i]].ID << std::endl;
             material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
         }
         else

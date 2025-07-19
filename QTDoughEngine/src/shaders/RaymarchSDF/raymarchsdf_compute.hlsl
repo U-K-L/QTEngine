@@ -19,6 +19,7 @@ struct Images
 {
     uint AlbedoImage;
     uint NormalImage;
+    uint ReflectanceImage;
     uint PositionImage;
     uint DepthImage;
     uint OutlineImage;
@@ -30,6 +31,8 @@ Images InitImages()
     Images image;
     
     image.AlbedoImage = intArray[0];
+    image.NormalImage = intArray[1];
+    image.ReflectanceImage = intArray[2];
     
     return image;
 }
@@ -622,21 +625,22 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
             {
                 float len = length(closesSDF.yzw);
                 surface.xyz = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
-                hitSample.xy = sampleId;
+                hitSample = closesSDF;
                 
                 bounces = 1;
                 
                 direction = light;
                 
-                pos += direction * voxelSizeL1 * 4.0f;
+                pos += direction * voxelSizeL1 * 14.0f;
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
+                
 
             }
             else if (bounces == 1)
             {
                 visibility = 0;
-                return 0;
+                return hitSample;
 
             }
         }
@@ -700,7 +704,7 @@ float3 turboColor(float t)
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     UnigmaMaterial material;
-    material.baseColor = float4(0.80, 0.9, 0.78, 1.0);
+    material.baseColor = float4(0.90, 0.9, 0.78, 1.0);
     material.topColor = float4(1.0, 0.92, 0.928, 1.0);
     material.sideColor = float4(0.9, 0.63, 0.61, 1.0);
     Images image = InitImages();
@@ -710,7 +714,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint2 pixel = DTid.xy;
     uint2 outputImageIndex = uint2(DTid.x, DTid.y);
     uint outputImageHandle = NonUniformResourceIndex(image.AlbedoImage);
+    uint normalImageHandle = NonUniformResourceIndex(image.NormalImage);
     gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
+    gBindlessStorage[normalImageHandle][pixel] = 0; //CLEAR IMAGE.
 
     //Construct a ray shooting from the camera projection plane.
     uint3 id = DTid;
@@ -735,7 +741,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 interpRayOrigin = lerp(perspectiveRayOrigin, orthoRayOrigin, isOrtho);
     float3 interpRayDir = lerp(perspectiveRayDir, orthoRayDir, isOrtho);
     
-    float4 surface = 0;
+    float4 surface = float4(0,0,0,0);
     float4 visibility = 0;
     float4 specular = 0;
     
@@ -767,19 +773,20 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float weightSides = abs(normal.x);
     float weightTop = abs(normal.z);
     
-    float total = weightFront + weightSides + weightTop;
+    float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
     weightFront /= total;
     weightSides /= total;
     weightTop /= total;
 
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
     
-    float4 colorWithLight = finalColor - saturate(1.0 - visibility) * 0.25f;
+    float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
     
     
     
-    
-    gBindlessStorage[outputImageHandle][pixel] = colorWithLight * col; //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    gBindlessStorage[normalImageHandle][pixel] = 1.0f;
+    gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+
     
     //int idHash = floor(result.y / MAX_BRUSHES);
     /*
