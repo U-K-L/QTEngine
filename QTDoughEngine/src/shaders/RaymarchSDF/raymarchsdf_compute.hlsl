@@ -307,21 +307,27 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
+    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
     
     float3 gridPos = ((p + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
 
     base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
+    
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
 
+    int index = HashPositionToVoxelIndex(p000, voxelSceneBounds.y, voxelSceneBounds.x);
     
     float2 sampleId = GetVoxelValueTexture(0, base, sampleLevel);
     
     uint finalID = asuint(sampleId.y);
-    uint brushID = finalID >> 24;
+    uint brushID = voxelsL1In[index].normalDistance.w; //finalID >> 24;
     
-    float blendFactor = Brushes[brushID-1].blend;
+    float blendFactor = Brushes[brushID].blend;
     
     float eps = 1.08127f * blendFactor;
 

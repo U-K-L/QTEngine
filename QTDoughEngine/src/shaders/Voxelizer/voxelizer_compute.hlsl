@@ -677,6 +677,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
 
     //Find the distance field closes to this voxel.
+    float normalBlend = 0;
     uint brushCount = TileBrushCounts[tileIndex];
     if(brushCount == 0)
     {
@@ -689,7 +690,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         uint index = BrushesIndices[offset];
         
         Brush brush = Brushes[index];
-                
+        
+        normalBlend += brush.blend;
         float d = Read3DTransformed(brush, center).x;
 
 
@@ -711,6 +713,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].brushId = minId;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = normalBlend;
 
     Write3DDist(0, DTid, minDist);
 }
