@@ -128,10 +128,16 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
             maxBounds = max(maxBounds, pos);
         }
     
+    //Create an enlarged container to fit deformations.
     float3 extent = abs(maxBounds - minBounds);
     float maxExtent = max(extent.x, max(extent.y, extent.z)) * 0.25f;
     minBounds -= maxExtent;
     maxBounds += maxExtent;
+    
+    //Pad container by 4 voxels
+    float voxelPadding = 0.03125f * 4;
+    minBounds -= voxelPadding;
+    maxBounds += voxelPadding;
 
     return abs(maxBounds - minBounds);
 }

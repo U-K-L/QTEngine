@@ -638,7 +638,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 512;
+    int maxSteps = 2048;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
@@ -646,8 +646,8 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     float voxelSizeL1 = 0.03125f;
     
     float minDistanceL1 = voxelSizeL1 * 4;
-    float minDistanceL0 = voxelSizeL1 * 0.5;
-    float minDistReturn = voxelSizeL1 * 0.15f;
+    float minDistanceL0 = voxelSizeL1 * 0.25;
+    float minDistReturn = voxelSizeL1 * 0.075f;
     
     float4 hitSample = float4(100.0f, 0, 0, 100.0f);
 
@@ -658,7 +658,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
         currentSDF.x = sampleId.x;
         currentSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
-        closesSDF = smin(closesSDF, currentSDF, 0.0025f);
+        closesSDF = smin(closesSDF, currentSDF, 0.0125f);
 
         bool canTerminate =
         (closesSDF.x < minDistReturn);
@@ -695,16 +695,13 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         }
                 
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(currentSDF.x, voxelSizeL1, voxelSizeL1 * 4 * (sampleLevel + 1));
+        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.125f, voxelSizeL1 * 4 * (sampleLevel + 1)) * 0.5f;
         if (bounces == 0)
         {
-            //stepSize = voxelSizeL1 * 0.085f;
-            /*
             if (closesSDF.x < minDistanceL0)
-                stepSize = voxelSizeL1 * 0.05f;
+                stepSize = voxelSizeL1 * 0.075f;
             else if (closesSDF.x < minDistanceL1)
-                stepSize = voxelSizeL1 * 0.2f;
-            */
+                stepSize = voxelSizeL1 * 0.25f;
         }
 
 

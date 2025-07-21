@@ -78,6 +78,10 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     minBounds -= maxExtent;
     maxBounds += maxExtent;
     
+    float voxelPadding = 0.03125f * 4;
+    minBounds -= voxelPadding;
+    maxBounds += voxelPadding;
+    
     return abs(maxBounds - minBounds);
 }
 
@@ -691,7 +695,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         
         Brush brush = Brushes[index];
         
-        normalBlend += brush.blend*1.5f;
+
         float d = Read3DTransformed(brush, center).x;
 
 
@@ -706,6 +710,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             }
 
             minDist = smin(minDist, d, brush.blend);
+            normalBlend += brush.blend * 2.5f;
 
         }
     }
