@@ -194,14 +194,11 @@ void UpdateControlPoints(uint3 DTid : SV_DispatchThreadID)
     float3 new_local_pos = local_pos + (gravity * (1.0f - brush.stiffness));
     
     // --- Collision Detection ---
-    
-    // 1. Transform the new proposed local position to world space
+
     float3 new_world_pos = mul(brush.model, float4(new_local_pos, 1.0)).xyz;
 
-    // 2. Sample the world SDF at the new world position
     float sdf_dist = ReadWorldSDF(new_world_pos);
 
-    // 3. Collision Response
     if (sdf_dist <= 0.2f)
     {
         // Collision detected! The point is inside or on a surface.
@@ -209,7 +206,7 @@ void UpdateControlPoints(uint3 DTid : SV_DispatchThreadID)
         new_local_pos = local_pos + (gravity * (1.0f - max(brush.stiffness, 0.9f) ));
     }
     
-    new_local_pos = local_pos;
+    //new_local_pos = local_pos;
     // Write the final, validated position back to the output buffer
     controlParticlesL1Out[index].position.xyz = new_local_pos;
 }

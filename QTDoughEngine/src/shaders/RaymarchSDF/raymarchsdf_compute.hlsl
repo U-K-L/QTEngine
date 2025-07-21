@@ -320,16 +320,13 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     
     float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
 
-    int index = HashPositionToVoxelIndex(p000, voxelSceneBounds.y, voxelSceneBounds.x);
+    int index = HashPositionToVoxelIndexR(p000, voxelSceneBounds.y, voxelSceneBounds.x);
     
     float2 sampleId = GetVoxelValueTexture(0, base, sampleLevel);
     
-    uint finalID = asuint(sampleId.y);
-    uint brushID = voxelsL1In[index].normalDistance.w; //finalID >> 24;
+    float blendFactor = voxelsL1In[index].normalDistance.w;
     
-    float blendFactor = Brushes[brushID].blend;
-    
-    float eps = 1.08127f * blendFactor;
+    float eps = 0.08127f * blendFactor * 2.0f;
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
@@ -641,7 +638,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 4096;
+    int maxSteps = 512;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;

@@ -198,6 +198,19 @@ int HashPositionToVoxelIndex(float3 pos, float sceneBounds, int voxelResolution)
     return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
 }
 
+
+int HashPositionToVoxelIndexR(float3 pos, float sceneBounds, int voxelResolution)
+{
+    float halfScene = sceneBounds * 0.5f;
+    float3 gridPos = (pos + halfScene) / sceneBounds;
+    int3 voxelCoord = int3(floor(gridPos * voxelResolution));
+
+    //Clamp to avoid invalid access
+    voxelCoord = clamp(voxelCoord, int3(0, 0, 0), int3(voxelResolution - 1, voxelResolution - 1, voxelResolution - 1));
+
+    return voxelCoord.x + voxelCoord.y * voxelResolution + voxelCoord.z * voxelResolution * voxelResolution;
+}
+
 int3 HashPositionToVoxelIndex3(float3 pos, float sceneBounds, int voxelResolution)
 {
     float halfScene = sceneBounds * 0.5f;

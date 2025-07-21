@@ -198,6 +198,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.25f;
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -502,7 +503,6 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
-    Brushes[index].stiffness = 1.0;
 
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
     float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
@@ -677,7 +677,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
 
     //Find the distance field closes to this voxel.
-    float normalBlend = 0;
+    float normalBlend = 0.25f;
     uint brushCount = TileBrushCounts[tileIndex];
     if(brushCount == 0)
     {
@@ -691,7 +691,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         
         Brush brush = Brushes[index];
         
-        normalBlend += brush.blend;
+        normalBlend += brush.blend*1.5f;
         float d = Read3DTransformed(brush, center).x;
 
 

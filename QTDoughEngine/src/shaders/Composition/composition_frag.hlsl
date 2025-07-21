@@ -71,8 +71,8 @@ float4 main(VSOutput i) : SV_Target
     float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
     
     //return outlineImage;
-    return sdfImage;
-    //return sdfNormalImage.w;
+    //return sdfImage;
+
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
 
     //return color;
