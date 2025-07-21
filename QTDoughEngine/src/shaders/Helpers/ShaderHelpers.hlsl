@@ -22,6 +22,8 @@
 
 #define DEFORMATION_CHUNK 8.0f
 
+#define DEFUALT_EMPTY_SPACE 1.75f
+
 #define CAGE_VERTS 26
 
 #define MAX_BRUSHES 8192

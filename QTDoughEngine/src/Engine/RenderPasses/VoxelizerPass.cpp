@@ -1011,12 +1011,12 @@ void VoxelizerPass::CreateBrushes()
         brush.stiffness = 0.5f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
-        brush.blend = 0.15f; // Set a default blend value
+        brush.blend = 0.015f; // Set a default blend value
 
-        if (brush.id == 1)
+        if (brush.id == 2)
         {
             brush.stiffness = 0.1f; // Set a different stiffness for the second brush
-			brush.blend = 0.15f; // Set a different blend value for the second brush
+			brush.blend = 0.32927f; // Set a different blend value for the second brush
         }
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now

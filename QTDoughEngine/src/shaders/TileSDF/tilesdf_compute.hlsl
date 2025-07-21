@@ -128,9 +128,10 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
             maxBounds = max(maxBounds, pos);
         }
     
-    float voxelMini = 0.03125;
-    minBounds -= voxelMini * 12*2;
-    maxBounds += voxelMini * 12*2;
+    float3 extent = abs(maxBounds - minBounds);
+    float maxExtent = max(extent.x, max(extent.y, extent.z)) * 0.25f;
+    minBounds -= maxExtent;
+    maxBounds += maxExtent;
 
     return abs(maxBounds - minBounds);
 }

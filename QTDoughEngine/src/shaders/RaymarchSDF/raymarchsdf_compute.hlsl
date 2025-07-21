@@ -323,7 +323,7 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     
     float blendFactor = Brushes[brushID-1].blend;
     
-    float eps = 1.8127f * blendFactor;
+    float eps = 1.08127f * blendFactor;
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
@@ -644,7 +644,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     
     float minDistanceL1 = voxelSizeL1 * 4;
     float minDistanceL0 = voxelSizeL1 * 0.5;
-    float minDistReturn = voxelSizeL1 * 0.05f;
+    float minDistReturn = voxelSizeL1 * 0.15f;
     
     float4 hitSample = float4(100.0f, 0, 0, 100.0f);
 
@@ -655,7 +655,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
         currentSDF.x = sampleId.x;
         currentSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
-        closesSDF = smin(closesSDF, currentSDF, 0.00025f);
+        closesSDF = smin(closesSDF, currentSDF, 0.0025f);
 
         bool canTerminate =
         (closesSDF.x < minDistReturn);
@@ -695,7 +695,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         float stepSize = clamp(currentSDF.x, voxelSizeL1, voxelSizeL1 * 4 * (sampleLevel + 1));
         if (bounces == 0)
         {
-            stepSize = voxelSizeL1 * 0.085f;
+            //stepSize = voxelSizeL1 * 0.085f;
             /*
             if (closesSDF.x < minDistanceL0)
                 stepSize = voxelSizeL1 * 0.05f;

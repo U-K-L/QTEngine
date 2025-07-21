@@ -73,9 +73,10 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
         }
     }
     
-    float voxelMini = 0.03125;
-    minBounds -= voxelMini * 12*2;
-    maxBounds += voxelMini * 12*2;
+    float3 extent = abs(maxBounds - minBounds);
+    float maxExtent = max(extent.x, max(extent.y, extent.z)) * 0.25f;
+    minBounds -= maxExtent;
+    maxBounds += maxExtent;
     
     return abs(maxBounds - minBounds);
 }
@@ -104,7 +105,7 @@ float2 Read3DTransformed(in Brush brush, float3 worldPos)
     
     int3 res = int3(brush.resolution, brush.resolution, brush.resolution);
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
-        return 0.12f;
+        return 1.0f;
     
     return gBindless3D[brush.textureID2].Load(int4(voxelCoord, 0));
 }
@@ -197,7 +198,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
-    Write3DDist(0, DTid, 0.12f);
+    Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
 void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -510,7 +511,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float3 localPos = samplePos * (maxExtent * 0.5f) + center;
 
 
-    float minDist = 0.5f;
+    float minDist = DEFUALT_EMPTY_SPACE;
     
     float4 isHitChecks = 0;
     float4 isHitChecks2 = 0;
@@ -662,7 +663,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float3 voxelMax = center + voxelSize * 0.5f;
 
     
-    float minDist = 64.0f;
+    float minDist = DEFUALT_EMPTY_SPACE;
     int minId = 0;
     
     float tileWorldSize = TILE_SIZE * voxelSize;
@@ -690,6 +691,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Brush brush = Brushes[index];
                 
         float d = Read3DTransformed(brush, center).x;
+
 
         if (brush.opcode == 1)
             minDist = max(-d + 1, minDist);
