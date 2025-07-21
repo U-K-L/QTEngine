@@ -229,8 +229,65 @@ void SDFPass::CreateComputeDescriptorSetLayout()
     vertexBinding.pImmutableSamplers = nullptr;
     vertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    VkDescriptorSetLayoutBinding brushBinding{};
+    brushBinding.binding = 9;
+    brushBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    brushBinding.descriptorCount = 1;
+    brushBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // Brush indices binding
+    VkDescriptorSetLayoutBinding brushIndicesBinding{};
+    brushIndicesBinding.binding = 10;
+    brushIndicesBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    brushIndicesBinding.descriptorCount = 1;
+    brushIndicesBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // Tile brush counts binding
+    VkDescriptorSetLayoutBinding tileBrushCountBinding{};
+    tileBrushCountBinding.binding = 11;
+    tileBrushCountBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    tileBrushCountBinding.descriptorCount = 1;
+    tileBrushCountBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Fluid Particles.
+    VkDescriptorSetLayoutBinding particleBinding1{};
+    particleBinding1.binding = 12;
+    particleBinding1.descriptorCount = 1;
+    particleBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    particleBinding1.pImmutableSamplers = nullptr;
+    particleBinding1.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding particleBinding2{};
+    particleBinding2.binding = 13;
+    particleBinding2.descriptorCount = 1;
+    particleBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    particleBinding2.pImmutableSamplers = nullptr;
+    particleBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    //Control Particles.
+    VkDescriptorSetLayoutBinding controlParticleBinding1{};
+    controlParticleBinding1.binding = 14;
+    controlParticleBinding1.descriptorCount = 1;
+    controlParticleBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    controlParticleBinding1.pImmutableSamplers = nullptr;
+    controlParticleBinding1.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding controlParticleBinding2{};
+    controlParticleBinding2.binding = 15;
+    controlParticleBinding2.descriptorCount = 1;
+    controlParticleBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    controlParticleBinding2.pImmutableSamplers = nullptr;
+    controlParticleBinding2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // Global ID Counter
+    VkDescriptorSetLayoutBinding globalIDCounterBinding{};
+    globalIDCounterBinding.binding = 16;
+    globalIDCounterBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    globalIDCounterBinding.descriptorCount = 1;
+    globalIDCounterBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 9> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding };
+    std::array<VkDescriptorSetLayoutBinding, 17> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());

@@ -72,8 +72,8 @@ float4 main(VSOutput i) : SV_Target
     float4 positionImage = textures[images.PositionImage].Sample(samplers[images.PositionImage], textureUVs);
     float4 depthImage = textures[images.DepthImage].Sample(samplers[images.DepthImage], textureUVs);
     float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[images.AlbedoImage], textureUVs);
-    float4 outlineColorsImage = textures[images.OutlineColorsImage].Sample(samplers[images.OutlineColorsImage], textureUVs);
-    float4 innerColorsImage = textures[images.InnerColorsImage].Sample(samplers[images.InnerColorsImage], textureUVs);
+    float4 outlineColorsImage = 1.0f; //textures[images.OutlineColorsImage].Sample(samplers[images.OutlineColorsImage], textureUVs);
+    float4 innerColorsImage = 1.0f;//textures[images.InnerColorsImage].Sample(samplers[images.InnerColorsImage], textureUVs);
     float4 uvImage = textures[images.UVImage].Sample(samplers[images.UVImage], textureUVs);
     
     float2 uvs4Noise = uvImage.xy * 4.0f;
@@ -96,7 +96,7 @@ float4 main(VSOutput i) : SV_Target
     outColor = float4(outColor.xyz, 1.0);
     
     float _DepthThreshold = 0.25f;
-    float _NormalThreshold = 0.2;
+    float _NormalThreshold = 0.35;
     float _PosThreshold = 0.0;
     float _ScaleOuter = 4.0;
     float _ScaleInner = 1.0;
@@ -174,9 +174,9 @@ float4 main(VSOutput i) : SV_Target
     edgeDepth = edgeDepth > _DepthThreshold ? 1 : 0;
     //edgeDepth *= 1.0 - step(depthImage.r, 0.9999);
     
-    return edgeDepth;
     //Combine the lines. most outter overrides most inner.
     
+    edgeNormal = 0;
     //First check if inner is 0, then add outer.
     float4 outterLineFinal = lerp(edgeNormal * innerColorsImage, edgePos * outlineColorsImage, edgePos);// * lineBreaker;
     float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;

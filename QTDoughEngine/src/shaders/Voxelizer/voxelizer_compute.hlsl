@@ -74,8 +74,8 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     }
     
     float voxelMini = 0.03125;
-    minBounds -= voxelMini * 12;
-    maxBounds += voxelMini * 12;
+    minBounds -= voxelMini * 12*2;
+    maxBounds += voxelMini * 12*2;
     
     return abs(maxBounds - minBounds);
 }
@@ -104,7 +104,7 @@ float2 Read3DTransformed(in Brush brush, float3 worldPos)
     
     int3 res = int3(brush.resolution, brush.resolution, brush.resolution);
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
-        return 64.0f;
+        return 0.12f;
     
     return gBindless3D[brush.textureID2].Load(int4(voxelCoord, 0));
 }

@@ -168,8 +168,8 @@ public:
     uint32_t currentFrame;
     float FPS;
     SDL_Window* QTSDLWindow;
-    int SCREEN_WIDTH = 640;
-    int SCREEN_HEIGHT = 520;
+    int SCREEN_WIDTH = 1280;
+    int SCREEN_HEIGHT = 720;
     int MAX_BINDLESS_IMAGES = 1000;
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;

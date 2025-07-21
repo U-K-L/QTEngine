@@ -5,7 +5,9 @@ StructuredBuffer<uint> intArray : register(t1, space1);
 
 SamplerState samplers[] : register(s1, space0); //Global
 
+
 #include "../Helpers/ShaderHelpers.hlsl"
+
 
 
 struct UnigmaMaterial
@@ -53,6 +55,7 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Brush> Brushes : register(t9, space1);
 // For reading
 Texture3D<float2> gBindless3D[] : register(t4, space0);
 
@@ -304,7 +307,23 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
 {
-    float eps = 0.1851755f;
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
+    
+    float3 gridPos = ((p + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
+    int3 base = int3(floor(gridPos));
+    float3 fracVal = frac(gridPos); // interpolation weights
+
+    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
+
+    
+    float2 sampleId = GetVoxelValueTexture(0, base, sampleLevel);
+    
+    uint finalID = asuint(sampleId.y);
+    uint brushID = finalID >> 24;
+    
+    float blendFactor = Brushes[brushID-1].blend;
+    
+    float eps = 1.8127f * blendFactor;
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
@@ -358,6 +377,32 @@ float3 Normal4Point(float3 p, float eps)
     return normalize(float3(dx, dy, dz));
 }
 
+float3 Normal4PointTexture(float3 p, float eps, float sampleLevel)
+{
+    float dx = (-TrilinearSampleSDFTexture(p + 2 * float3(eps, 0, 0), sampleLevel).x +
+                 8 * TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x -
+                 8 * TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x +
+                 TrilinearSampleSDFTexture(p - 2 * float3(eps, 0, 0), sampleLevel).x) / (12.0 * eps);
+
+    float dy = (-TrilinearSampleSDFTexture(p + 2 * float3(0, eps, 0), sampleLevel).x +
+                 8 * TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x -
+                 8 * TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x +
+                 TrilinearSampleSDFTexture(p - 2 * float3(0, eps, 0), sampleLevel).x) / (12.0 * eps);
+
+    float dz = (-TrilinearSampleSDFTexture(p + 2 * float3(0, 0, eps), sampleLevel).x +
+                 8 * TrilinearSampleSDFTexture(p + float3(0, 0, eps), sampleLevel).x -
+                 8 * TrilinearSampleSDFTexture(p - float3(0, 0, eps), sampleLevel).x +
+                 TrilinearSampleSDFTexture(p - 2 * float3(0, 0, eps), sampleLevel).x) / (12.0 * eps);
+
+    return normalize(float3(dx, dy, dz));
+}
+
+float3 GetHighQualityNormalTexture(float3 p, float sampleLevel)
+{
+
+    float eps = 0.0851755f;
+    return Normal4PointTexture(p, eps, sampleLevel);
+}
 
 float3 GetHighQualityNormal(float3 p)
 {
@@ -590,14 +635,16 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 512;
+    int maxSteps = 4096;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
     int bounces = 0;
     float voxelSizeL1 = 0.03125f;
     
-    float minDistanceL1 = voxelSizeL1 * 0.5f;
+    float minDistanceL1 = voxelSizeL1 * 4;
+    float minDistanceL0 = voxelSizeL1 * 0.5;
+    float minDistReturn = voxelSizeL1 * 0.05f;
     
     float4 hitSample = float4(100.0f, 0, 0, 100.0f);
 
@@ -608,11 +655,10 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
         currentSDF.x = sampleId.x;
         currentSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
-        closesSDF = smin(closesSDF, currentSDF, 0.0025f);
-        
-        
+        closesSDF = smin(closesSDF, currentSDF, 0.00025f);
+
         bool canTerminate =
-        (closesSDF.x < minDistanceL1);
+        (closesSDF.x < minDistReturn);
         
 
         if (canTerminate && sampleLevel <= 1.0f)
@@ -630,7 +676,8 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
                 
                 direction = light;
                 
-                pos += direction * voxelSizeL1 * 14.0f;
+                //putrude out.
+                pos += surface.xyz * voxelSizeL1 * 14.0f;
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
                 
@@ -643,10 +690,24 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
 
             }
         }
-
-
+                
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(currentSDF.x, voxelSizeL1, voxelSizeL1 * 4.0f * sampleLevel);
+        float stepSize = clamp(currentSDF.x, voxelSizeL1, voxelSizeL1 * 4 * (sampleLevel + 1));
+        if (bounces == 0)
+        {
+            stepSize = voxelSizeL1 * 0.085f;
+            /*
+            if (closesSDF.x < minDistanceL0)
+                stepSize = voxelSizeL1 * 0.05f;
+            else if (closesSDF.x < minDistanceL1)
+                stepSize = voxelSizeL1 * 0.2f;
+            */
+        }
+
+
+
+
+            
         
         accumaltor += abs((voxelSizeL1 * 4.0f * sampleLevel) - currentSDF.x) * 0.001f;
         pos += direction * stepSize;

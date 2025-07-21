@@ -70,12 +70,13 @@ float4 main(VSOutput i) : SV_Target
     float4 sdfNormalImage = textures[images.SDFNormalImage].Sample(samplers[images.SDFNormalImage], textureUVs);
     float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
     
-    return outlineImage;
-    return sdfImage;
-
+    //return outlineImage;
+    //return sdfImage;
+    return sdfNormalImage.w;
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
 
-    return color;
+    //return color;
+    /*
     float depth = depthImage.r;
     float linearDepth = LinearizeDepth(depth);
     // near and far plane CHANGE TO UNIFORMS
@@ -84,6 +85,7 @@ float4 main(VSOutput i) : SV_Target
     // Visualize linear depth
     float4 outColor = linearDepth / far_plane;
     outColor = float4(outColor.xyz, 1.0);
+*/
     
     //return sdfImage;
     //float4 finalImage = lerp(float4(GammaEncode(color.xyz, 0.32875), color.w), outlineImage, outlineImage.w);
