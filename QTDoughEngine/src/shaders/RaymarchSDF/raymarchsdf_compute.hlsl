@@ -645,7 +645,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 2048;
+    int maxSteps = 256;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
@@ -654,7 +654,7 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
     
     float minDistanceL1 = voxelSizeL1 * 4;
     float minDistanceL0 = voxelSizeL1 * 0.25;
-    float minDistReturn = voxelSizeL1 * 0.075f;
+    float minDistReturn = voxelSizeL1 * 0.75f;
     
     float4 hitSample = float4(100.0f, 0, 0, 100.0f);
 
@@ -705,13 +705,15 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         }
                 
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.125f, voxelSizeL1 * 4 * (sampleLevel + 1)) * 0.5f;
+        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.5f, voxelSizeL1 * 8 * (sampleLevel + 1));
         if (bounces == 0)
         {
+            /*
             if (closesSDF.x < minDistanceL0)
                 stepSize = voxelSizeL1 * 0.075f;
             else if (closesSDF.x < minDistanceL1)
                 stepSize = voxelSizeL1 * 0.25f;
+            */
         }
 
 
