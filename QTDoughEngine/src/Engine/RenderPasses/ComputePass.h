@@ -76,6 +76,9 @@ public:
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
+    float passWidth = 720;
+    float passHeight = 720;
+
 
 
     virtual void CreateUniformBuffers();

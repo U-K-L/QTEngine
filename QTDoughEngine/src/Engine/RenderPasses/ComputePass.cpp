@@ -4,7 +4,12 @@
 ComputePass::~ComputePass() {
 }
 
-ComputePass::ComputePass() {}
+ComputePass::ComputePass() {
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
+}
 
 void ComputePass::AddObjects(UnigmaRenderingObject* unigmaRenderingObjects)
 {
@@ -246,8 +251,8 @@ void ComputePass::CreateImages() {
 
     // Create the offscreen image
     app->CreateImage(
-        app->swapChainExtent.width,
-        app->swapChainExtent.height,
+        passWidth,
+        passHeight,
         imageFormat,
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
@@ -322,8 +327,8 @@ void ComputePass::CreateImages() {
     for(int i = 0; i < images.size(); i++)
 	{
 		app->CreateImage(
-			app->swapChainExtent.width,
-			app->swapChainExtent.height,
+            passWidth,
+            passHeight,
 			imageFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,

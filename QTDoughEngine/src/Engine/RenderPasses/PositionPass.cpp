@@ -6,6 +6,10 @@ PositionPass::~PositionPass() {
 
 PositionPass::PositionPass() {
     PassName = "PositionPass";
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 }
 
 void PositionPass::CreateMaterials() {

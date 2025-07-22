@@ -58,7 +58,7 @@ RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1
 RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
 
 
-float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds)
+float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
     minBounds = float3(1e30, 1e30, 1e30);
     maxBounds = float3(-1e30, -1e30, -1e30);
@@ -77,6 +77,10 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     float maxExtent = max(extent.x, max(extent.y, extent.z)) * 0.25f;
     minBounds -= maxExtent;
     maxBounds += maxExtent;
+    
+    float blendingPadding = brush.blend * 2 * maxExtent;
+    minBounds -= blendingPadding;
+    maxBounds += blendingPadding;
     
     float voxelPadding = 0.03125f * 4;
     minBounds -= voxelPadding;
@@ -202,7 +206,8 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.25f;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -497,7 +502,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     
     // Get actual AABB from vertices
     float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds); //The extent, which is 16 now.
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush); //The extent, which is 16 now.
     float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
     float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
     
@@ -681,7 +686,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
 
     //Find the distance field closes to this voxel.
-    float normalBlend = 0.25f;
+    float blendFactor = 0;
+    float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
     if(brushCount == 0)
     {
@@ -699,18 +705,21 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float d = Read3DTransformed(brush, center).x;
 
 
+
         if (brush.opcode == 1)
             minDist = max(-d + 1, minDist);
         else if (brush.opcode == 0)
         {
+            blendFactor += brush.blend;
             //This brush actually gets added.
             if(minDist > d)
             {
                 minId = brush.id;
+
             }
 
-            minDist = smin(minDist, d, brush.blend);
-            normalBlend += brush.blend * 2.5f;
+            minDist = smin(minDist, d, blendFactor + 0.0001f);
+            smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
 
         }
     }
@@ -718,7 +727,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].brushId = minId;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = normalBlend;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = blendFactor;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = smoothness;
 
     Write3DDist(0, DTid, minDist);
 }

@@ -11,6 +11,15 @@ SamplerState samplers[] : register(s0, space0); //Global
 // Binding slot t1, space0 to match Vulkan descriptor set 1, binding 1
 StructuredBuffer<uint> intArray : register(t1, space1);
 
+cbuffer UniformBufferObject : register(b0, space1)
+{
+    float4x4 model; // Model matrix
+    float4x4 view; // View matrix
+    float4x4 proj; // Projection matrix
+    float4 texelSize;
+    float isOrtho;
+}
+
 struct Images
 {
     uint BackgroundImage;
@@ -70,6 +79,10 @@ float4 main(VSOutput i) : SV_Target
     float4 sdfNormalImage = textures[images.SDFNormalImage].Sample(samplers[images.SDFNormalImage], textureUVs);
     float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
     
+    //Compose the normals together, will be done in a different pass in the future.
+    //return lerp(sdfNormalImage, normalImage, step(0.01f, sdfNormalImage.w));
+    //return sdfNormalImage;
+    //return normalImage;
     //return outlineImage;
     //return sdfImage;
 

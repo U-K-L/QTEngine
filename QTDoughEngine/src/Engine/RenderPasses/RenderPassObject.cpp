@@ -4,7 +4,11 @@ std::vector<UnigmaRenderingObject*> renderingObjects;
 RenderPassObject::~RenderPassObject() {
 }
 
-RenderPassObject::RenderPassObject() {}
+RenderPassObject::RenderPassObject() {
+    QTDoughApplication * app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
+}
 
 void RenderPassObject::AddObjects(UnigmaRenderingObject *unigmaRenderingObjects)
 {
@@ -590,7 +594,7 @@ void RenderPassObject::UpdateUniformBuffer(uint32_t currentImage, uint32_t curre
     ubo.model = glm::mat4(1.0f);
     ubo.view = glm::mat4(1.0f);
     ubo.proj = glm::mat4(1.0f);
-    ubo.texelSize = glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height);
+    ubo.texelSize = glm::vec2(1.0f / passWidth, 1.0f / passHeight);
 
     //Update int array assignments.
     

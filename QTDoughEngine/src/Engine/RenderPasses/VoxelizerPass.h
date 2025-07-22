@@ -55,6 +55,7 @@ public:
         float blend;
         uint32_t opcode;
         uint32_t id;
+        float smoothness;
     };
 
     struct Tile

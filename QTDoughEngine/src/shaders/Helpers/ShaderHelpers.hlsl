@@ -85,6 +85,8 @@ struct Brush
     float blend;
     uint opcode;
     uint id;
+    //Make some of this materials.
+    float smoothness;
 };
 
 struct ComputeVertex

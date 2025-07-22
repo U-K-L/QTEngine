@@ -6,6 +6,10 @@ BackgroundPass::~BackgroundPass() {
 
 BackgroundPass::BackgroundPass() {
     PassName = "BackgroundPass";
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 }
 
 void BackgroundPass::CreateMaterials() {

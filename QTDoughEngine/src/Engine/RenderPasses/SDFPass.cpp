@@ -9,6 +9,11 @@ SDFPass::~SDFPass() {
 SDFPass::SDFPass() {
     PassName = "SDFPass";
     PassNames.push_back("SDFPass");
+
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 }
 
 void SDFPass::CreateMaterials() {
@@ -88,7 +93,7 @@ void SDFPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t curren
     ubo.model = glm::mat4(1.0f);
     ubo.view = glm::mat4(1.0f);
     ubo.proj = glm::mat4(1.0f);
-    ubo.texelSize = glm::vec4(glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height), 0, 0);
+    ubo.texelSize = glm::vec4(glm::vec2(1.0f / passWidth, 1.0f / passHeight), 0, 0);
     ubo.isOrtho = CameraMain.isOrthogonal;
 
     ubo.view = glm::lookAt(CameraMain.position(), CameraMain.position() + CameraMain.forward(), CameraMain.up);
@@ -345,8 +350,8 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
         0, 2, sets,
         0, nullptr);
 
-    uint32_t groupCountX = (app->swapChainExtent.width + 7) / 8;
-    uint32_t groupCountY = (app->swapChainExtent.height + 7) / 8;
+    uint32_t groupCountX = (passWidth + 7) / 8;
+    uint32_t groupCountY = (passHeight + 7) / 8;
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
 
     VkImageMemoryBarrier2 barrier2{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };

@@ -10,6 +10,10 @@ AlbedoPass::AlbedoPass() {
     PassNames.push_back("OutlineColorsPass");
     PassNames.push_back("InnerOutlineColorsPass");
     PassNames.push_back("UVPass");
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 }
 
 void AlbedoPass::CreateMaterials() {

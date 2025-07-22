@@ -144,6 +144,24 @@ float SDFTriangle(float3 p, float3 a, float3 b, float3 c)
     }
 }
 
+int GetVoxelIndexFromPosition(float3 position, float sampleLevel)
+{
+    float2 voxelSceneBounds = GetVoxelResolution(sampleLevel);
+    
+    float3 gridPos = ((position + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
+    int3 base = int3(floor(gridPos));
+
+    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
+    
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+
+    int index = HashPositionToVoxelIndexR(p000, voxelSceneBounds.y, voxelSceneBounds.x);
+    
+    return index;
+}
+
 
 float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
@@ -307,26 +325,15 @@ float4 TrilinearSampleSDF(float3 pos)
 
 float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolution(1.0f);
-    
-    float3 gridPos = ((p + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
-    int3 base = int3(floor(gridPos));
-    float3 fracVal = frac(gridPos); // interpolation weights
-
-    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
-    
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
-    
-    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
-
-    int index = HashPositionToVoxelIndexR(p000, voxelSceneBounds.y, voxelSceneBounds.x);
-    
-    float2 sampleId = GetVoxelValueTexture(0, base, sampleLevel);
+    int index = GetVoxelIndexFromPosition(p, sampleLevel);
     
     float blendFactor = voxelsL1In[index].normalDistance.w;
+    float smoothness = voxelsL1In[index].normalDistance.x;
     
-    float eps = 0.08127f * blendFactor * 2.0f;
+    //if (blendFactor < 0.00425f) //No blend, return triangle normals
+    //        return 0;
+    
+    float eps = 0.04127f * pow(2.0f, 1.0f + smoothness + blendFactor);
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
@@ -612,7 +619,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
         if (canTerminate && sampleLevel <= 1.0f)
         {
             float len = length(closesSDF.yzw);
-            closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+            closesSDF.yzw = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 0); // no normal
             resultOutput.xy = sampleId;
             return closesSDF;
         }
@@ -668,8 +675,11 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         {
             if(bounces == 0)
             {
+                
+                //int index = GetVoxelIndexFromPosition(pos, 1.0f);
+                //float smoothness = voxelsL1In[index].normalDistance.x;
                 float len = length(closesSDF.yzw);
-                surface.xyz = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // fallback normal
+                surface.xyz = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // no normal
                 surface.w = length(pos - ro);
                 positionId.xyz = pos;
                 positionId.w = sampleId.y;
@@ -861,7 +871,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     
     
-    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped);
+    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
 

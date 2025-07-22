@@ -3,7 +3,11 @@
 CompositionPass::~CompositionPass() {
 }
 
-CompositionPass::CompositionPass() {}
+CompositionPass::CompositionPass() {
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
+}
 
 void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain)
 {

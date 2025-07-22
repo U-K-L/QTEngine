@@ -134,10 +134,17 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
     minBounds -= maxExtent;
     maxBounds += maxExtent;
     
+    //Additional padding based on blending values. As blending more, AABB expands.
+    float blendingPadding = brush.blend * 2 * maxExtent;
+    minBounds -= blendingPadding;
+    maxBounds += blendingPadding;
+    
     //Pad container by 4 voxels
     float voxelPadding = 0.03125f * 4;
     minBounds -= voxelPadding;
     maxBounds += voxelPadding;
+    
+
 
     return abs(maxBounds - minBounds);
 }

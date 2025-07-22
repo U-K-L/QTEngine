@@ -6,12 +6,31 @@ NormalPass::~NormalPass() {
 
 NormalPass::NormalPass() {
     PassName = "NormalPass";
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 }
 
 void NormalPass::CreateMaterials() {
     material.Clean();
     material.shader = UnigmaShader("normal");
 
+}
+
+void NormalPass::AddObjects(UnigmaRenderingObject* unigmaRenderingObjects)
+{
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        if (i == 1)
+            continue;
+        if (unigmaRenderingObjects[i].isRendering)
+        {
+            renderingObjects.push_back(&unigmaRenderingObjects[i]);
+        }
+    }
 }
 
 void NormalPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain) {

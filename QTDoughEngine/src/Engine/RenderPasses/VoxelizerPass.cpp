@@ -215,7 +215,7 @@ void VoxelizerPass::CreateDescriptorPool()
 
     // twelve storage buffers per set (bindings 1-11)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = kTotalSets * 12;
+    poolSizes[1].descriptorCount = kTotalSets * 16;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = 2;
@@ -1006,18 +1006,22 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
 
         brush.stiffness = 1.0f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
-        brush.blend = 0.0125f; // Set a default blend value
+        brush.blend = 0.0225f; // Set a default blend value
+        brush.smoothness = 1.2f; //Solid object.
 
-        if (brush.id == 1)
+        
+        if (brush.id == 2)
         {
-            brush.stiffness = 1.0f; // Set a different stiffness for the second brush
-			brush.blend = 0.3f; // Set a different blend value for the second brush
+            brush.stiffness = 0.1f; // Set a different stiffness for the second brush
+			brush.blend = 0.1f; // Set a different blend value for the second brush
+            brush.smoothness = 1.25f;
         }
+        
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
         //brush.model = obj->_transform.GetModelMatrixBrush();
@@ -1597,7 +1601,7 @@ void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
             commandBuffer,
             brushesStorageBuffers,
             offset,
-            sizeof(glm::mat4),
+            sizeof(int),
             &brushes[i].textureID
         );
 
@@ -1607,7 +1611,7 @@ void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
             commandBuffer,
             brushesStorageBuffers,
             offset2,
-            sizeof(glm::mat4),
+            sizeof(int),
             &brushes[i].textureID2
         );
     }

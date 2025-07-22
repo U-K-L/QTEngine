@@ -43,6 +43,9 @@ class RenderPassObject
 
         std::vector<UnigmaRenderingObject*> GameObjects;
 
+        float passWidth = 720;
+        float passHeight = 720;
+
         virtual void CreateUniformBuffers();
         virtual void CreateDescriptorPool();
         virtual void CreateDescriptorSets();
