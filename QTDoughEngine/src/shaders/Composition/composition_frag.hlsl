@@ -68,7 +68,7 @@ struct VSOutput
 float4 main(VSOutput i) : SV_Target
 {
     Images images = InitImages();
-    float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);
+    float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y) * 0.25f;
     float4 backgroundImage = textures[images.BackgroundImage].Sample(samplers[images.BackgroundImage], textureUVs);
     float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[images.AlbedoImage], textureUVs);
     float4 normalImage = textures[images.NormalImage].Sample(samplers[images.NormalImage], textureUVs);

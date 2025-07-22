@@ -792,7 +792,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     //Construct a ray shooting from the camera projection plane.
     uint3 id = DTid;
-    float2 dim = texelSize.xy;
+    float2 dim = texelSize.xy * 4.0f;
     float2 uv = (float2(pixel) + 0.5) * dim * 2.0 - 1.0;
     uv.y = -uv.y; // Flip Y
     

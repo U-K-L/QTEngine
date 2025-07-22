@@ -1006,7 +1006,7 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL1; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = VOXEL_RESOLUTIONL3; //Set to L1 for now. Later on this is read from the object.
 
         brush.stiffness = 1.0f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
