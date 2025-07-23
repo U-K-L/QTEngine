@@ -228,4 +228,5 @@ public:
     VkSampler wu_sampler;
 
     bool VolumeTexturesCreated = false;
+    int mipsCount = 5;
 };

@@ -733,7 +733,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     Write3DDist(0, DTid, minDist);
 }
 
-void GenerateMIPS(uint3 DTid : SV_DispatchThreadID)
+void GenerateMIPS(uint3 DTid : SV_DispatchThreadID, float sampleLevel)
 {
     /*
     //level.
@@ -754,7 +754,31 @@ void GenerateMIPS(uint3 DTid : SV_DispatchThreadID)
     
     float2 sdfValue = Read3DMip(9, center);
 */
+    uint sourceMipLevel = pc.lod - 1;
+    int3 sourceBaseCoord = int3(DTid) * 2;
     
+    float totalSDF = 0.0f;
+    
+    // Sample the 2x2x2 block from the source (finer) mip level
+    [unroll]
+    for (int z = 0; z < 2; ++z)
+    {
+        [unroll]
+        for (int y = 0; y < 2; ++y)
+        {
+            [unroll]
+            for (int x = 0; x < 2; ++x)
+            {
+                int3 sampleCoord = sourceBaseCoord + int3(x, y, z);
+                totalSDF += Read3D(sourceMipLevel -1, sourceBaseCoord).x;
+            }
+        }
+    }
+    
+    // Average the 8 samples
+    float averageSDF = totalSDF / 8.0f;
+
+    Write3D(sampleLevel - 1, DTid, float2(averageSDF, NO_LABELF()));
     
 }
 
@@ -1063,13 +1087,13 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
         return;
     }
     
-    if (sampleLevelL >= 2.0f && sampleLevelL <= 4.0f)
+    if (sampleLevelL >= 2.0f && sampleLevelL < 8.0f)
     {
-        //GenerateMIPs(DTid);
+        GenerateMIPS(DTid, sampleLevelL);
         return;
     }
     
-    if (sampleLevelL == 5.0f)
+    if (sampleLevelL == 8.0f)
     {
         CreateBrush(DTid);
         return;

@@ -85,9 +85,9 @@ float2 Read3DTrilinear(uint textureIndex, float3 uvw, float mipLevel)
 
 float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 {
-    float3 uvw = (float3(coord) + 0.5f) / WORLD_SDF_RESOLUTION;
-    uvw = clamp(uvw, 0.001f, 0.999f); // avoid edge bleeding
-    return Read3DTrilinear(textureId, uvw, sampleLevel - 1);
+    //float3 uvw = (float3(coord) + 0.5f) / WORLD_SDF_RESOLUTION;
+    //uvw = clamp(uvw, 0.001f, 0.999f); // avoid edge bleeding
+    return Read3D(textureId, coord);
 }
 
 
@@ -241,7 +241,7 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
     return lerp(c0, c1, fracVal.z);
     */
     
-    return GetVoxelValueTexture(0, base, sampleLevel);
+    return GetVoxelValueTexture(sampleLevel - 1, base, sampleLevel);
 }
 
 
@@ -333,7 +333,7 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     //if (blendFactor < 0.00425f) //No blend, return triangle normals
     //        return 0;
     
-    float eps = 0.04127f * pow(2.0f, 1.0f + smoothness + blendFactor);
+    float eps = 0.022127f * pow(2.0f, 1.0f + (smoothness * 2.0f) + blendFactor);
 
     float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
@@ -596,7 +596,7 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
     float maxDistance = 100.0f;
 
     float3 pos = ro;
-    int maxSteps = 256;
+    int maxSteps = 512;
     float4 closesSDF = maxDistance;
     
 
@@ -638,48 +638,45 @@ float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 }
 
 
-float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibility, inout float4 specular, inout float4 positionId)
+float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inout float4 visibility, inout float4 specular, inout float4 positionId)
 {
     visibility = 1;
     float3 direction = rd;
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 256;
+    int maxSteps = 512;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
     int bounces = 0;
     float voxelSizeL1 = 0.03125f;
     
-    float minDistanceL1 = voxelSizeL1 * 4;
-    float minDistanceL0 = voxelSizeL1 * 0.25;
-    float minDistReturn = voxelSizeL1 * 0.75f;
+    float minDistanceL0 = voxelSizeL1 * 0.5;
+    float minDistReturn = voxelSizeL1 * 0.05f;
     
     float4 hitSample = float4(100.0f, 0, 0, 100.0f);
 
     for (int i = 0; i < maxSteps; i++)
     {
-        float sampleLevel = GetSampleLevel(pos, 0);
+        float sampleLevel = GetSampleLevelCone(pos, camPos);
         float4 currentSDF = 0;
         float2 sampleId = SampleNormalSDFTexture(pos, sampleLevel);
         currentSDF.x = sampleId.x;
-        currentSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
-        closesSDF = smin(closesSDF, currentSDF, 0.0125f);
+        closesSDF = min(closesSDF, currentSDF);
 
         bool canTerminate =
         (closesSDF.x < minDistReturn);
         
 
-        if (canTerminate && sampleLevel <= 1.0f)
+        if (canTerminate)
         {
             if(bounces == 0)
             {
-                
+                closesSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
                 //int index = GetVoxelIndexFromPosition(pos, 1.0f);
                 //float smoothness = voxelsL1In[index].normalDistance.x;
-                float len = length(closesSDF.yzw);
-                surface.xyz = (len > 1e-4f) ? normalize(closesSDF.yzw) : float3(0, 0, 1); // no normal
+                surface.xyz = normalize(closesSDF.yzw);
                 surface.w = length(pos - ro);
                 positionId.xyz = pos;
                 positionId.w = sampleId.y;
@@ -690,9 +687,10 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
                 direction = light;
                 
                 //putrude out.
-                pos += surface.xyz * voxelSizeL1 * 14.0f;
+                pos += surface.xyz * voxelSizeL1 * 8.0f;
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
+                specular.w = i; //store count.
                 
 
             }
@@ -705,15 +703,11 @@ float4 FullMarch(float3 ro, float3 rd, inout float4 surface, inout float4 visibi
         }
                 
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.5f, voxelSizeL1 * 8 * (sampleLevel + 1));
+        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.00075f, voxelSizeL1 * 2 * (sampleLevel +1));
         if (bounces == 0)
         {
-            /*
             if (closesSDF.x < minDistanceL0)
                 stepSize = voxelSizeL1 * 0.075f;
-            else if (closesSDF.x < minDistanceL1)
-                stepSize = voxelSizeL1 * 0.25f;
-            */
         }
 
 
@@ -794,12 +788,14 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     //Construct a ray shooting from the camera projection plane.
     uint3 id = DTid;
-    float2 dim = texelSize.xy * 4.0f;
+    float2 dim = texelSize.xy;// * 4.0f;
     float2 uv = (float2(pixel) + 0.5) * dim * 2.0 - 1.0;
     uv.y = -uv.y; // Flip Y
+
     
     //Convert to camera space.
     float4 viewPos = mul(invProj, float4(uv.x, uv.y, 0, 1));
+    float3 camPos = invView[3].xyz;
     
     //Perspective divide.
     float4 perspectiveViewPos = viewPos / viewPos.w;
@@ -821,7 +817,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 depth = 0;
     float4 positionId = 0;
     
-    float4 hit = FullMarch(interpRayOrigin, interpRayDir, surface, visibility, specular, positionId);
+    float4 hit = FullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     
@@ -870,13 +866,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
-    
-    
+
     
     gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
 
+    
     
     //int idHash = floor(result.y / MAX_BRUSHES);
     uint finalID = asuint(positionId.w);

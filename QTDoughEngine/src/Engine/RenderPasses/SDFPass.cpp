@@ -12,8 +12,8 @@ SDFPass::SDFPass() {
 
 
     QTDoughApplication* app = QTDoughApplication::instance;
-    passWidth = app->swapChainExtent.width*0.25f;
-    passHeight = app->swapChainExtent.height*0.25f;
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 }
 
 void SDFPass::CreateMaterials() {

@@ -994,7 +994,7 @@ void VoxelizerPass::CreateBrushes()
     int vertexOffset = 0;
     for (int i = 0; i < renderingObjects.size(); i++)
     {
-        int imageIndex = (i * 2) + 1;
+        int imageIndex = (i * 2) + mipsCount; //MIPs must be avoided.
         UnigmaRenderingObject* obj = renderingObjects[i];
         Brush brush;
         brush.type = 0; //Mesh type
@@ -1006,7 +1006,7 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL3; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
 
         brush.stiffness = 1.0f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
@@ -1017,7 +1017,7 @@ void VoxelizerPass::CreateBrushes()
         
         if (brush.id == 2)
         {
-            brush.stiffness = 0.1f; // Set a different stiffness for the second brush
+            brush.stiffness = 1.0f; // Set a different stiffness for the second brush
 			brush.blend = 0.1f; // Set a different blend value for the second brush
             brush.smoothness = 1.25f;
         }
@@ -1078,50 +1078,57 @@ void VoxelizerPass::Create3DTextures()
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
 
-    //Create the world SDF.
+    //Create the world SDF. Multiple levels. 
 
-    Unigma3DTexture worldTexture = Unigma3DTexture(WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION);
-    app->CreateImages3D(WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION, WORLD_SDF_RESOLUTION,
-        sdfFormat,
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        worldTexture.u_image, worldTexture.u_imageMemory);
+    for (int i = 0; i < mipsCount; i++)
+    {
+        int divisor = i;
+        int resolution = clamp(WORLD_SDF_RESOLUTION / int(pow(2, divisor)), 32, 512);
+        Unigma3DTexture worldTexture = Unigma3DTexture(resolution, resolution, resolution);
+        app->CreateImages3D(resolution, resolution, resolution,
+            sdfFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            worldTexture.u_image, worldTexture.u_imageMemory);
 
-    worldTexture.u_imageView = app->Create3DImageView(
-        worldTexture.u_image,
-        sdfFormat,
-        VK_IMAGE_ASPECT_COLOR_BIT
-    );
+        worldTexture.u_imageView = app->Create3DImageView(
+            worldTexture.u_image,
+            sdfFormat,
+            VK_IMAGE_ASPECT_COLOR_BIT
+        );
 
-    // Transition the 3D image layout to GENERAL for compute write
-    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+        // Transition the 3D image layout to GENERAL for compute write
+        VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = worldTexture.u_image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 5;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = worldTexture.u_image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    vkCmdPipelineBarrier(
-        commandBuffer,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        0, 0, nullptr, 0, nullptr,
-        1, &barrier);
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr,
+            1, &barrier);
 
-    app->EndSingleTimeCommands(commandBuffer);
+        app->EndSingleTimeCommands(commandBuffer);
 
-    app->textures3D.insert({ "worldSDF_", worldTexture });
+
+        app->textures3D.insert({ "worldSDF_" + std::to_string(i), std::move(worldTexture) });
+        std::cout << "Created 3D texture for world SDF level " << i << " with resolution: " << resolution << std::endl;
+    }
 
     //Create per brush.
 
@@ -1160,7 +1167,7 @@ void VoxelizerPass::Create3DTextures()
 		barrier.image = brushTexture.u_image;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 5;
+		barrier.subresourceRange.levelCount = 1;
 		barrier.subresourceRange.baseArrayLayer = 0;
 		barrier.subresourceRange.layerCount = 1;
 		barrier.srcAccessMask = 0;
@@ -1175,7 +1182,7 @@ void VoxelizerPass::Create3DTextures()
 
 		app->EndSingleTimeCommands(commandBuffer);
 
-		app->textures3D.insert({ "brush_" + std::to_string(i), brushTexture });
+		app->textures3D.insert({ "brush_" + std::to_string(i), std::move(brushTexture) });
         std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
     }
 }
@@ -1229,7 +1236,7 @@ void VoxelizerPass::CreateImages() {
     barrier.image = image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 5;
+    barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
     barrier.srcAccessMask = 0;
@@ -1781,10 +1788,14 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
-        DispatchLOD(commandBuffer, currentFrame, 3); //Used to cull later stages.
-        DispatchLOD(commandBuffer, currentFrame, 2);
+        //DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 1);
+        DispatchLOD(commandBuffer, currentFrame, 2);
+        DispatchLOD(commandBuffer, currentFrame, 3);
+        DispatchLOD(commandBuffer, currentFrame, 4);
+        DispatchLOD(commandBuffer, currentFrame, 5);
+
+
 
 
         //Process dispatch LOD in chunks
@@ -1847,7 +1858,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         */
 
 
-
+        /*
         int32_t mipWidth = WORLD_SDF_RESOLUTION;
         int32_t mipHeight = WORLD_SDF_RESOLUTION;
         int32_t mipDepth = WORLD_SDF_RESOLUTION;
@@ -1976,7 +1987,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             0, 0, nullptr, 0, nullptr,
             1, &postMipBarrier
         );
-
+                */
         CleanUpGPU(commandBuffer);
         //PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
@@ -2079,7 +2090,7 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
 
     PushConsts pc{};
-    pc.lod = 5;
+    pc.lod = 8;
     pc.triangleCount = lodLevel;
 
     vkCmdPushConstants(
@@ -2306,21 +2317,12 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         0, nullptr);
 
     // Each LOD uses a different resolution
-    uint32_t res = (lodLevel == 1) ? WORLD_SDF_RESOLUTION :
-        (lodLevel == 2) ? VOXEL_RESOLUTIONL2 :
-        VOXEL_RESOLUTIONL3;
+    uint32_t res = WORLD_SDF_RESOLUTION;
 
     uint32_t groupCountX = (res + 7) / 8;
     uint32_t groupCountY = (res + 7) / 8;
     uint32_t groupCountZ = (res + 7) / 8;
 
-    if (lodLevel == 5)
-    {
-        res = pc.triangleCount;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (1 + 7) / 8;
-        groupCountZ = (1 + 7) / 8;
-    }
 
     if (lodLevel == 0)
     {
@@ -2330,7 +2332,15 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res + 7) / 8;
     }
 
-    if (lodLevel >= 6)
+    if(lodLevel > 0 && lodLevel < 8)
+	{
+		res = WORLD_SDF_RESOLUTION / pow(2, lodLevel-1);
+		groupCountX = (res + 7) / 8;
+		groupCountY = (res + 7) / 8;
+		groupCountZ = (res + 7) / 8;
+	}
+
+    if (lodLevel >= 8)
     {
         res = WORLD_SDF_RESOLUTION;
         groupCountX = (res + 7) / 8;

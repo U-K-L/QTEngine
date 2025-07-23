@@ -151,6 +151,17 @@ float GetSampleLevel(float3 pos, float3 camPos)
     */
 }
 
+#define CONE_SPREAD_FACTOR 0.275f 
+#define MAX_MIP_LEVEL 5.0f
+
+float GetSampleLevelCone(float3 pos, float3 camPos)
+{
+    float dist = length(pos - camPos);
+    float lod = log2(dist * CONE_SPREAD_FACTOR);
+    float snapped_lod = round(lod);
+    return clamp(snapped_lod, 1.0f, MAX_MIP_LEVEL); //Always do at least 2 for that smoothness.
+}
+
 
 float dot2(in float3 v)
 {
@@ -734,6 +745,8 @@ float opSmoothIntersection(float d1, float d2, float k)
     float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
     return lerp(d2, d1, h) + k * h * (1.0 - h);
 }
+
+
 
         //-----------------------------------
     // 26-VERTEX CANONICAL CAGE

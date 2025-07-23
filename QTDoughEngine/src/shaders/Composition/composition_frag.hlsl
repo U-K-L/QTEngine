@@ -64,11 +64,58 @@ struct VSOutput
     float2 uv : TEXCOORD0; // Location 1 output
     nointerpolation float3 normal : NORMAL; // Location 2, flat interpolation
 };
+
+float3 countColors(float count)
+{
+    float red = count / 256;
+    float blue = count / 64;
+    float green = count / 16;
+    
+    //Green if less than 16 steps
+    if (count < 32)
+    {
+        red = 0;
+        blue = 0;
+    }
+    
+    //Blue
+    if (count > 32 && count < 64)
+    {
+        red = 0;
+        green = 0;
+    }
+    
+    //Teal
+    if (count < 128 && count > 64)
+    {
+        red = 0;
+        blue = count / 128;
+        green = count / 96;
+    }
+    
+    //Red
+    if (count > 128 && count < 256)
+    {
+        blue = 0;
+        green = 0;
+    }
+    
+    //White
+    if(count > 256)
+    {
+        blue = count / 512;
+        green = count / 328;
+
+    }
+    
+    return float3(red, green, blue);
+}
+
 // Main pixel shader function
 float4 main(VSOutput i) : SV_Target
 {
     Images images = InitImages();
-    float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y) * 0.25f;
+    float2 textureUVs = float2(i.uv.x, 1.0 - i.uv.y);// * 0.25f;
     float4 backgroundImage = textures[images.BackgroundImage].Sample(samplers[images.BackgroundImage], textureUVs);
     float4 albedoImage = textures[images.AlbedoImage].Sample(samplers[images.AlbedoImage], textureUVs);
     float4 normalImage = textures[images.NormalImage].Sample(samplers[images.NormalImage], textureUVs);
@@ -81,6 +128,9 @@ float4 main(VSOutput i) : SV_Target
     
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, step(0.01f, sdfNormalImage.w));
+        
+    //float4 heatMap = float4(countColors(sdfNormalImage.w), 1);
+    //return heatMap;
     //return sdfNormalImage;
     //return normalImage;
     //return outlineImage;
