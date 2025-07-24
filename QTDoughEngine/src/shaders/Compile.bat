@@ -14,6 +14,8 @@ C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Normal/normal_fr
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Normal/normal_vert.hlsl -Fo normalVert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Position/position_frag.hlsl -Fo positionFrag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Position/position_vert.hlsl -Fo positionVert.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv CombineSDFRaster/combineSDFRaster_frag.hlsl -Fo combineSDFRasterFrag.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv CombineSDFRaster/combineSDFRaster_vert.hlsl -Fo combineSDFRasterVert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Outline/outline_frag.hlsl -Fo outlinefrag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Outline/outline_vert.hlsl -Fo outlinevert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Composition/composition_frag.hlsl -Fo compositionfrag.spv

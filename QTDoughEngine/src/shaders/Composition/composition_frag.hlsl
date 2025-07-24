@@ -31,6 +31,7 @@ struct Images
     uint SDFAlbedoImage;
     uint SDFNormalImage;
     uint SDFPositionPass;
+    uint CombineSDFRasterPass;
 };
 
 Images InitImages()
@@ -46,6 +47,7 @@ Images InitImages()
     image.SDFAlbedoImage = intArray[6];
     image.SDFNormalImage = intArray[7];
     image.SDFPositionPass = intArray[8];
+    image.CombineSDFRasterPass = intArray[9];
     
     return image;
 }
@@ -125,9 +127,11 @@ float4 main(VSOutput i) : SV_Target
     float4 sdfImage = textures[images.SDFAlbedoImage].Sample(samplers[images.SDFAlbedoImage], textureUVs);
     float4 sdfNormalImage = textures[images.SDFNormalImage].Sample(samplers[images.SDFNormalImage], textureUVs);
     float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
+    float4 combineSDFRasterImage = textures[images.CombineSDFRasterPass].Sample(samplers[images.CombineSDFRasterPass], textureUVs);
     
+    return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
-    //return lerp(sdfNormalImage, normalImage, step(0.01f, sdfNormalImage.w));
+    return lerp(sdfNormalImage, normalImage, 0.5);
         
     //float4 heatMap = float4(countColors(sdfNormalImage.w), 1);
     //return heatMap;

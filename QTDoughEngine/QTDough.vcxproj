@@ -38,6 +38,7 @@
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingObject.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\AlbedoPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\BackgroundPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\CombineSDFRasterPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\CompositionPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\ComputePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\NormalPass.cpp" />
@@ -78,6 +79,7 @@
     <ClInclude Include="src\Engine\Renderer\UnigmaTexture.h" />
     <ClInclude Include="src\Engine\RenderPasses\AlbedoPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\BackgroundPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\CombineSDFRasterPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\ComputePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\NormalPass.h" />
@@ -174,6 +176,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\TileSDF\tilesdf_compute.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\CombineSDFRaster\combineSDFRaster_frag.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\CombineSDFRaster\combineSDFRaster_vert.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

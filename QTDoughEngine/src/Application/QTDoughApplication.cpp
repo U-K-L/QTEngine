@@ -12,6 +12,7 @@
 #include "../Engine/RenderPasses/ComputePass.h"
 #include "../Engine/RenderPasses/SDFPass.h"
 #include "../Engine/RenderPasses/VoxelizerPass.h"
+#include "../Engine/RenderPasses/CombineSDFRasterPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
 #include <random>
@@ -690,6 +691,7 @@ void QTDoughApplication::AddPasses()
 
     CompositionPass* compPass = new CompositionPass();
     OutlinePass* outlinePass = new OutlinePass();
+    CombineSDFRasterPass* combineSDFRasterPass = new CombineSDFRasterPass();
     PositionPass* positionPass = new PositionPass();
     NormalPass* normalPass = new NormalPass();
     AlbedoPass* albedoPass = new AlbedoPass();
@@ -704,6 +706,7 @@ void QTDoughApplication::AddPasses()
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(normalPass);
     renderPassStack.push_back(positionPass);
+    renderPassStack.push_back(combineSDFRasterPass);
     renderPassStack.push_back(outlinePass);
     renderPassStack.push_back(compPass);
 
