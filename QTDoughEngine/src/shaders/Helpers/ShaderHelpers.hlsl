@@ -6,13 +6,13 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 #define WORLD_SDF_RESOLUTION 512.0f
-#define WORLD_SDF_BOUNDS 16.0f
+#define WORLD_SDF_BOUNDS 32.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
-#define SCENE_BOUNDSL1 16.0f
+#define SCENE_BOUNDSL1 32.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
-#define SCENE_BOUNDSL2 16.0f
+#define SCENE_BOUNDSL2 32.0f
 
 #define VOXEL_RESOLUTIONL3 64.0f
 #define SCENE_BOUNDSL3 32.0f
@@ -151,7 +151,7 @@ float GetSampleLevel(float3 pos, float3 camPos)
     */
 }
 
-#define CONE_SPREAD_FACTOR 0.275f 
+#define CONE_SPREAD_FACTOR 0.0275f 
 #define MAX_MIP_LEVEL 5.0f
 
 float GetSampleLevelCone(float3 pos, float3 camPos)

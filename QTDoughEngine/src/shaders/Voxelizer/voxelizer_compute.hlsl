@@ -280,6 +280,7 @@ static const float EPS = 1e-6f;
 }
 
 
+//Call this via an indirect dispatch whenever physics detects changes.
 groupshared float3 gDiff[26];
 void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
 {
@@ -366,11 +367,11 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, 
                   (brush.aabbmax.xyz - brush.aabbmin.xyz);
     float3 texel = uvwS * brush.resolution;
 
-    float sdf;
+    float sdf = DEFUALT_EMPTY_SPACE;
     if (any(texel < 0.0f) || any(texel >= brush.resolution))
     {
 
-        sdf = 64.0f;
+        sdf = DEFUALT_EMPTY_SPACE;
     }
     else
     {
@@ -571,9 +572,22 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     //Its inside the voxel.
     if (all(isHitChecks) > 0 && all(isHitChecks2) > 0)
         minDist = -1.0f * minDist;
+    
+    float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
+    float3 uvwS = (posLocal - brush.aabbmin.xyz) /
+                (brush.aabbmax.xyz - brush.aabbmin.xyz);
+    float3 texel = uvwS * brush.resolution;
+    
+    float sdf = minDist;
+    if (any(texel < 0.0f) || any(texel >= brush.resolution))
+    {
 
-    Write3D(brush.textureID, int3(DTid), float2(minDist, NO_LABELF()));
+        sdf = DEFUALT_EMPTY_SPACE;
+    }
+    
 
+    Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
+    Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
     
     for (int i = 0; i < CAGE_VERTS; i++)
         controlParticlesL1Out[index * CAGE_VERTS + i].position = float4(canonicalControlPoints[i].xyz, 0);

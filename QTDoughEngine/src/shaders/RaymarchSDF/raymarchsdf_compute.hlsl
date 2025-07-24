@@ -645,7 +645,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 512;
+    int maxSteps = 1024;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
@@ -795,7 +795,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     //Convert to camera space.
     float4 viewPos = mul(invProj, float4(uv.x, uv.y, 0, 1));
-    float3 camPos = invView[3].xyz;
+    float3 camPos = invView[3].xyz; //Make this player position since camera position doesn't matter.
+    camPos = float3(0, 0, 0); //For now player is center of the world.
     
     //Perspective divide.
     float4 perspectiveViewPos = viewPos / viewPos.w;

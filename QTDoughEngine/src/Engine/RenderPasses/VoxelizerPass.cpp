@@ -1012,14 +1012,14 @@ void VoxelizerPass::CreateBrushes()
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 1.2f; //Solid object.
+        brush.smoothness = 1.3f; //Solid object.
 
         
         if (brush.id == 2)
         {
             brush.stiffness = 1.0f; // Set a different stiffness for the second brush
-			brush.blend = 0.1f; // Set a different blend value for the second brush
-            brush.smoothness = 1.25f;
+			brush.blend = 0.01f; // Set a different blend value for the second brush
+            brush.smoothness = 0.01f;
         }
         
         //Create the model matrix for the brush.
@@ -1764,8 +1764,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             uint32_t index = brushes[i].textureID;
             if (brushes[i].type == 0) { //Mesh type
 
+                //Make this indirect.
                 //if(brushes[i].isDirty == true)
-                DispatchBrushDeformation(commandBuffer, currentFrame, i);
+                //DispatchBrushDeformation(commandBuffer, currentFrame, i);
             }
 
 
@@ -1781,7 +1782,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
         //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
-        DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
+        //DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
 	}
 
     if (dispatchCount > 2)
@@ -1797,7 +1798,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
 
-
+        /*
         //Process dispatch LOD in chunks
         if (IDDispatchIteration == 0 || IDDispatchIteration == 1)
         {
@@ -1814,7 +1815,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 			DispatchLOD(commandBuffer, currentFrame, 22);
             DispatchLOD(commandBuffer, currentFrame, 23);
 		}
-
+        */
         /*
         //Finished add to double buffers.
         if (IDDispatchIteration > 8)

@@ -96,10 +96,10 @@ float4 main(VSOutput i) : SV_Target
     outColor = float4(outColor.xyz, 1.0);
     
     float _DepthThreshold = 0.25f;
-    float _NormalThreshold = 0.35;
+    float _NormalThreshold = 0.958;
     float _PosThreshold = 0.0;
     float _ScaleOuter = 4.0;
-    float _ScaleInner = 1.0;
+    float _ScaleInner = 2.0;
     float _ScaleOuterOuterLines = 8.0;
     float OuterScale = _ScaleOuter;
     
