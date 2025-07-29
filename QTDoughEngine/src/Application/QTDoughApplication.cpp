@@ -1272,6 +1272,21 @@ void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
     vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, &commandBuffer);
 }
 
+void QTDoughApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkFence fence)
+{
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(_vkGraphicsQueue, 1, &submitInfo, fence);
+    vkQueueWaitIdle(_vkGraphicsQueue);
+
+    vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, &commandBuffer);
+}
+
 void QTDoughApplication::EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback)
 {
     VkFence& fence = computeFences[currentFrame];

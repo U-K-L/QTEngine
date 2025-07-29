@@ -136,7 +136,7 @@ float4 main(VSOutput i) : SV_Target
     //float4 heatMap = float4(countColors(sdfNormalImage.w), 1);
     //return heatMap;
     //return sdfNormalImage;
-    //return normalImage;
+    return normalImage;
     //return outlineImage;
     //return sdfImage;
 

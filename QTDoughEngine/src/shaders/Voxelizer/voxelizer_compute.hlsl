@@ -1102,7 +1102,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     float3 minLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
     
     //Read the second mip map.
-    int mipLevel = 1;
+    int mipLevel = 2;
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel+1);//It substracts by 1 inside function.
     float halfScene = voxelSceneBounds.y * 0.5f;
     
@@ -1145,11 +1145,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     {
         return;
     }
-        
-    InterlockedAdd(GlobalIDCounter[1], 1);
     
-
-
     //Set Active cell.
     voxelsL2Out[flatIndex].normalDistance.y = 1;
 }
@@ -1169,8 +1165,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
     int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL2);
     float activeValue = voxelsL2Out[index].normalDistance.y;
-    int mipLevel = 1;
-    int3 baseTexel = DTid * 2;
+    int mipLevel = 2;
+    int3 baseTexel = DTid * 2; //128 -> 256.
     
     float sdfOrigin = Read3D(mipLevel, baseTexel).x;
     
@@ -1179,11 +1175,10 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         return;
     }
 
-    /*
     //Check Every single face.
     
     // Check edge along +X axis
-    int3 xNeighbor = DTid * 2 + int3(1, 0, 0);
+    int3 xNeighbor = DTid * 2 + int3(2, 0, 0);
     float sdfx = Read3D(mipLevel, xNeighbor).x;
     if ((sdfOrigin < 0) != (sdfx < 0))
     {
@@ -1198,6 +1193,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         uint vertOffset;
         InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
 
+        float3 n = float3(1, 0, 0);
         // Write 6 vertices for the two triangles
         meshingVertices[vertOffset + 0].position = float4(v0, 1);
         meshingVertices[vertOffset + 1].position = float4(v2, 1);
@@ -1206,10 +1202,19 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         meshingVertices[vertOffset + 3].position = float4(v0, 1);
         meshingVertices[vertOffset + 4].position = float4(v3, 1);
         meshingVertices[vertOffset + 5].position = float4(v2, 1);
+        
+        meshingVertices[vertOffset + 0].normal = float4(n, 1);
+        meshingVertices[vertOffset + 1].normal = float4(n, 1);
+        meshingVertices[vertOffset + 2].normal = float4(n, 1);
+        
+        meshingVertices[vertOffset + 3].normal = float4(n, 1);
+        meshingVertices[vertOffset + 4].normal = float4(n, 1);
+        meshingVertices[vertOffset + 5].normal = float4(n, 1);
+
     }
 
     // Check edge along +Y axis
-    int3 yNeighbor = DTid * 2 + int3(0, 1, 0);
+    int3 yNeighbor = DTid * 2 + int3(0, 2, 0);
     float sdfY = Read3D(mipLevel, yNeighbor).x;
     if ((sdfOrigin < 0) != (sdfY < 0))
     {
@@ -1220,6 +1225,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         
         uint vertOffset;
         InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
+        
+        float3 n = float3(0, 1, 0);
 
         meshingVertices[vertOffset + 0].position = float4(v0, 1);
         meshingVertices[vertOffset + 1].position = float4(v2, 1);
@@ -1228,10 +1235,18 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         meshingVertices[vertOffset + 3].position = float4(v0, 1);
         meshingVertices[vertOffset + 4].position = float4(v3, 1);
         meshingVertices[vertOffset + 5].position = float4(v2, 1);
+        
+        meshingVertices[vertOffset + 0].normal = float4(n, 1);
+        meshingVertices[vertOffset + 1].normal = float4(n, 1);
+        meshingVertices[vertOffset + 2].normal = float4(n, 1);
+        
+        meshingVertices[vertOffset + 3].normal = float4(n, 1);
+        meshingVertices[vertOffset + 4].normal = float4(n, 1);
+        meshingVertices[vertOffset + 5].normal = float4(n, 1);
     }
 
     // Check edge along +Z axis
-    int3 zNeighbor = DTid * 2 + int3(0, 0, 1);
+    int3 zNeighbor = DTid * 2 + int3(0, 0, 2);
     float sdfZ = Read3D(mipLevel, zNeighbor).x;
     if ((sdfOrigin < 0) != (sdfZ < 0))
     {
@@ -1243,6 +1258,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         uint vertOffset;
         InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
         
+        float3 n = float3(0, 0, 1);
+        
         meshingVertices[vertOffset + 0].position = float4(v0, 1);
         meshingVertices[vertOffset + 1].position = float4(v2, 1);
         meshingVertices[vertOffset + 2].position = float4(v1, 1);
@@ -1250,8 +1267,15 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         meshingVertices[vertOffset + 3].position = float4(v0, 1);
         meshingVertices[vertOffset + 4].position = float4(v3, 1);
         meshingVertices[vertOffset + 5].position = float4(v2, 1);
+        
+        meshingVertices[vertOffset + 0].normal = float4(n, 1);
+        meshingVertices[vertOffset + 1].normal = float4(n, 1);
+        meshingVertices[vertOffset + 2].normal = float4(n, 1);
+        
+        meshingVertices[vertOffset + 3].normal = float4(n, 1);
+        meshingVertices[vertOffset + 4].normal = float4(n, 1);
+        meshingVertices[vertOffset + 5].normal = float4(n, 1);
     }
-*/
 }
 
 [numthreads(8, 8, 8)]
@@ -1270,6 +1294,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     
     if(sampleLevelL == 1.0f)
     {
+        GlobalIDCounter[1] = 0;
         WriteToWorldSDF(DTid);
         return;
     }
@@ -1334,7 +1359,6 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     //In the future, make this indirect dispatch for dirty brushes.
     if(sampleLevelL == 40.0f)
     {
-        //GlobalIDCounter[1] = 0;
         FindActiveCells(DTid);
         return;
     }

@@ -164,7 +164,90 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
         throw std::runtime_error("failed to create compute pipeline!");
     }
 
+    VkDeviceSize bufferSize = sizeof(ComputeVertex) * VOXEL_COUNTL3; // Or your max vertex count
+    app->CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        meshingStagingBuffer,
+        meshingStagingBufferMemory
+    );
+
+    // Create a fence to signal when the GPU copy is done
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    // fenceInfo.flags can be VK_FENCE_CREATE_SIGNALED_BIT if you might use it before the first submission
+
+    if (vkCreateFence(app->_logicalDevice, &fenceInfo, nullptr, &meshingReadbackFence) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create readback fence!");
+    }
+
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
+}
+
+void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
+{
+    meshVertices.resize(vertexCount);
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+    VkBufferCopy copyRegion{};
+    copyRegion.size = sizeof(ComputeVertex) * vertexCount;
+    vkCmdCopyBuffer(
+        commandBuffer,
+        meshingVertexBuffer,   
+        meshingStagingBuffer,   
+        1,
+        &copyRegion
+    );
+
+    app->EndSingleTimeCommands(commandBuffer, meshingReadbackFence);
+
+    vkWaitForFences(app->_logicalDevice, 1, &meshingReadbackFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(app->_logicalDevice, 1, &meshingReadbackFence);
+    void* data;
+    VkDeviceSize copySize = sizeof(ComputeVertex) * vertexCount;
+    vkMapMemory(app->_logicalDevice, meshingStagingBufferMemory, 0, copySize, 0, &data);
+
+    // 6. Create a CPU-side vector and copy the data into it
+    std::vector<ComputeVertex> cpuVertices(vertexCount);
+    memcpy(cpuVertices.data(), data, static_cast<size_t>(copySize));
+
+    // 7. Unmap the GPU memory
+    vkUnmapMemory(app->_logicalDevice, meshingStagingBufferMemory);
+
+    for(int i = 0; i < vertexCount; ++i) {
+		meshVertices[i].pos = cpuVertices[i].position;
+		meshVertices[i].normal = cpuVertices[i].normal;
+		meshVertices[i].texCoord = cpuVertices[i].texCoord;
+	}
+
+    VkDeviceSize bufferSize = sizeof(Vertex) * meshVertices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data2;
+    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data2);
+    memcpy(data2, meshVertices.data(), (size_t)bufferSize);
+    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
+    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferReadbackBuffer, vertexBufferReadbackMemory);
+
+    app->CopyBuffer(stagingBuffer, vertexBufferReadbackBuffer, bufferSize);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
+
+
+    for (int i = 0; i < vertexCount; ++i) {
+        std::cout << "Vertex " << i << ": "
+            << "Position: (" << cpuVertices[i].position.x << ", " << cpuVertices[i].position.y << ", " << cpuVertices[i].position.z << "), "
+            << "Normal: (" << cpuVertices[i].normal.x << ", " << cpuVertices[i].normal.y << ", " << cpuVertices[i].normal.z << "), "
+            << "TexCoord: (" << cpuVertices[i].texCoord.x << ", " << cpuVertices[i].texCoord.y << ")"
+            << std::endl;
+    }
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -1844,6 +1927,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 40);
 
         DispatchLOD(commandBuffer, currentFrame, 50);
+
+        GetMeshFromGPU(10);
 
         /*
         //Process dispatch LOD in chunks

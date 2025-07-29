@@ -188,6 +188,7 @@ public:
     void UpdateBrushesTextureIds(VkCommandBuffer commandBuffer);
     void CleanUpGPU(VkCommandBuffer commandBuffer);
     void DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID);
+    void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount);
 
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
@@ -222,12 +223,19 @@ public:
     std::vector<VkBuffer> controlParticlesStorageBuffers;
     std::vector<VkDeviceMemory> controlParticlesStorageMemory;
 
+    std::vector<Vertex> meshVertices;
     std::vector<ComputeVertex> meshingVertexSoup;
     std::vector<glm::uvec3> meshingTriangleIndices;
     VkBuffer meshingVertexBuffer;
+    VkBuffer vertexBufferReadbackBuffer;
+    VkDeviceMemory vertexBufferReadbackMemory;
     VkDeviceMemory meshingVertexBufferMemory;
     VkBuffer meshingIndexBuffer;
     VkDeviceMemory meshingIndexBufferMemory;
+
+    VkBuffer       meshingStagingBuffer;
+    VkDeviceMemory meshingStagingBufferMemory;
+    VkFence        meshingReadbackFence;
 
     VkImage wu_image;
     VkDeviceMemory wu_imageMemory;
