@@ -1102,7 +1102,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     float3 minLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
     
     //Read the second mip map.
-    int mipLevel = 0;
+    int mipLevel = 1;
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel+1);//It substracts by 1 inside function.
     float halfScene = voxelSceneBounds.y * 0.5f;
     
@@ -1115,14 +1115,14 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     int3 baseTexel = int3(worldUVW0 * (voxelSceneBounds.x - 1));
     
     // Fetch 8 SDF values from mip level 1
-    float2 sdf000 = Read3D(mipLevel, DTid + int3(0, 0, 0));
-    float2 sdf100 = Read3D(mipLevel, DTid + int3(1, 0, 0));
-    float2 sdf010 = Read3D(mipLevel, DTid + int3(0, 1, 0));
-    float2 sdf110 = Read3D(mipLevel, DTid + int3(1, 1, 0));
-    float2 sdf001 = Read3D(mipLevel, DTid + int3(0, 0, 1));
-    float2 sdf101 = Read3D(mipLevel, DTid + int3(1, 0, 1));
-    float2 sdf011 = Read3D(mipLevel, DTid + int3(0, 1, 1));
-    float2 sdf111 = Read3D(mipLevel, DTid + int3(1, 1, 1));
+    float2 sdf000 = Read3D(mipLevel, baseTexel + int3(0, 0, 0));
+    float2 sdf100 = Read3D(mipLevel, baseTexel + int3(1, 0, 0));
+    float2 sdf010 = Read3D(mipLevel, baseTexel + int3(0, 1, 0));
+    float2 sdf110 = Read3D(mipLevel, baseTexel + int3(1, 1, 0));
+    float2 sdf001 = Read3D(mipLevel, baseTexel + int3(0, 0, 1));
+    float2 sdf101 = Read3D(mipLevel, baseTexel + int3(1, 0, 1));
+    float2 sdf011 = Read3D(mipLevel, baseTexel + int3(0, 1, 1));
+    float2 sdf111 = Read3D(mipLevel, baseTexel + int3(1, 1, 1));
     float d000 = sdf000.x;
     float d100 = sdf100.x;
     float d010 = sdf010.x;
@@ -1141,7 +1141,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     int3 baseTexelForBuffer = baseTexel / 2; //just lower it one resolution, 256 -> 128.
     uint flatIndex = Flatten3DR(baseTexelForBuffer, VOXEL_RESOLUTIONL2);
     
-    if (!(minVal <= 0.03125f && maxVal > 0.03125f))
+    if (!(minVal < 0.0f && maxVal > 0.0f))
     {
         return;
     }
@@ -1334,7 +1334,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     //In the future, make this indirect dispatch for dirty brushes.
     if(sampleLevelL == 40.0f)
     {
-        GlobalIDCounter[1] = 0;
+        //GlobalIDCounter[1] = 0;
         FindActiveCells(DTid);
         return;
     }

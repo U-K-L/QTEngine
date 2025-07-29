@@ -2418,7 +2418,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 40)
     {
-        res = WORLD_SDF_RESOLUTION;
+        res = VOXEL_RESOLUTIONL2;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
