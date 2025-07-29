@@ -706,7 +706,7 @@ void QTDoughApplication::AddPasses()
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(normalPass);
     renderPassStack.push_back(positionPass);
-    renderPassStack.push_back(combineSDFRasterPass);
+    //renderPassStack.push_back(combineSDFRasterPass);
     renderPassStack.push_back(outlinePass);
     renderPassStack.push_back(compPass);
 

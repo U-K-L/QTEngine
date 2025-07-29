@@ -57,6 +57,8 @@ RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1
 
 RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
 
+RWStructuredBuffer<ComputeVertex> meshingVertices : register(u17, space1);
+
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
@@ -1081,6 +1083,177 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 
 }
 
+
+void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
+{
+    //Need early exit strategies here.
+    
+    //Reduce to 64^3 by loading this voxel and load surrounding neighbors.
+    uint index = pc.triangleCount;
+    Brush brush = Brushes[index];
+    
+    //Get voxel to be used as main edge.
+    float3 minBounds = brush.aabbmin.xyz;
+    float3 maxBounds = brush.aabbmax.xyz;
+    float3 center = brush.center.xyz;
+    float maxExtent = brush.aabbmax.w;
+
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
+    float3 minLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
+    
+    //Read the second mip map.
+    int mipLevel = 0;
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel+1);//It substracts by 1 inside function.
+    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+
+    
+    //Fetch the 8 corner values in the WORLD SDF. Because local brush does not contain deformation.
+    //Integer coords of min corner texel
+    float3 worldMin = mul(brush.model, float4(minLocal, 1)).xyz;
+    float3 worldUVW0 = (worldMin + halfScene) / (2.0f * halfScene);
+    int3 baseTexel = int3(worldUVW0 * (voxelSceneBounds.x - 1));
+    
+    // Fetch 8 SDF values from mip level 1
+    float2 sdf000 = Read3D(mipLevel, DTid + int3(0, 0, 0));
+    float2 sdf100 = Read3D(mipLevel, DTid + int3(1, 0, 0));
+    float2 sdf010 = Read3D(mipLevel, DTid + int3(0, 1, 0));
+    float2 sdf110 = Read3D(mipLevel, DTid + int3(1, 1, 0));
+    float2 sdf001 = Read3D(mipLevel, DTid + int3(0, 0, 1));
+    float2 sdf101 = Read3D(mipLevel, DTid + int3(1, 0, 1));
+    float2 sdf011 = Read3D(mipLevel, DTid + int3(0, 1, 1));
+    float2 sdf111 = Read3D(mipLevel, DTid + int3(1, 1, 1));
+    float d000 = sdf000.x;
+    float d100 = sdf100.x;
+    float d010 = sdf010.x;
+    float d110 = sdf110.x;
+    float d001 = sdf001.x;
+    float d101 = sdf101.x;
+    float d011 = sdf011.x;
+    float d111 = sdf111.x;
+
+    // Active cell check
+    float minVal = min(d000, min(d100, min(d010, min(d110, min(d001, min(d101, min(d011, d111)))))));
+    float maxVal = max(d000, max(d100, max(d010, max(d110, max(d001, max(d101, max(d011, d111)))))));
+    
+    //Need to convert find the active cell for the voxelsBuffer which is lower resolution.
+    //Currently the main one is baseTexel, convert that to voxel buffer index.
+    int3 baseTexelForBuffer = baseTexel / 2; //just lower it one resolution, 256 -> 128.
+    uint flatIndex = Flatten3DR(baseTexelForBuffer, VOXEL_RESOLUTIONL2);
+    
+    if (!(minVal <= 0.03125f && maxVal > 0.03125f))
+    {
+        return;
+    }
+        
+    InterlockedAdd(GlobalIDCounter[1], 1);
+    
+
+
+    //Set Active cell.
+    voxelsL2Out[flatIndex].normalDistance.y = 1;
+}
+
+float3 CalculateDualVertex(int3 cellCoord, float mipLevel)
+{
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y / 0.5f;
+    
+    // The input cellCoord is for the lower-res grid (L2).
+    // The center of the corresponding 2x2x2 block in the higher-res SDF grid is at (coord * 2 + 1)
+    return ((float3(cellCoord * 2) + 1.0f) * voxelSize) - halfScene;
+}
+
+void DualContour(uint3 DTid : SV_DispatchThreadID)
+{
+    int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL2);
+    float activeValue = voxelsL2Out[index].normalDistance.y;
+    int mipLevel = 1;
+    int3 baseTexel = DTid * 2;
+    
+    float sdfOrigin = Read3D(mipLevel, baseTexel).x;
+    
+    if(activeValue < 0.001f)
+    {
+        return;
+    }
+
+    /*
+    //Check Every single face.
+    
+    // Check edge along +X axis
+    int3 xNeighbor = DTid * 2 + int3(1, 0, 0);
+    float sdfx = Read3D(mipLevel, xNeighbor).x;
+    if ((sdfOrigin < 0) != (sdfx < 0))
+    {
+        // Surface crosses this edge. Generate a quad.
+        // The quad is formed by the dual vertices of the 4 cells sharing this edge.
+        float3 v0 = CalculateDualVertex(DTid + int3(0, 0, 0), mipLevel);
+        float3 v1 = CalculateDualVertex(DTid + int3(0, -1, 0), mipLevel);
+        float3 v2 = CalculateDualVertex(DTid + int3(0, -1, -1), mipLevel);
+        float3 v3 = CalculateDualVertex(DTid + int3(0, 0, -1), mipLevel);
+
+        // Reserve space for 6 vertices (2 triangles)
+        uint vertOffset;
+        InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
+
+        // Write 6 vertices for the two triangles
+        meshingVertices[vertOffset + 0].position = float4(v0, 1);
+        meshingVertices[vertOffset + 1].position = float4(v2, 1);
+        meshingVertices[vertOffset + 2].position = float4(v1, 1);
+
+        meshingVertices[vertOffset + 3].position = float4(v0, 1);
+        meshingVertices[vertOffset + 4].position = float4(v3, 1);
+        meshingVertices[vertOffset + 5].position = float4(v2, 1);
+    }
+
+    // Check edge along +Y axis
+    int3 yNeighbor = DTid * 2 + int3(0, 1, 0);
+    float sdfY = Read3D(mipLevel, yNeighbor).x;
+    if ((sdfOrigin < 0) != (sdfY < 0))
+    {
+        float3 v0 = CalculateDualVertex(DTid + int3(0, 0, 0), mipLevel);
+        float3 v1 = CalculateDualVertex(DTid + int3(0, 0, -1), mipLevel);
+        float3 v2 = CalculateDualVertex(DTid + int3(-1, 0, -1), mipLevel);
+        float3 v3 = CalculateDualVertex(DTid + int3(-1, 0, 0), mipLevel);
+        
+        uint vertOffset;
+        InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
+
+        meshingVertices[vertOffset + 0].position = float4(v0, 1);
+        meshingVertices[vertOffset + 1].position = float4(v2, 1);
+        meshingVertices[vertOffset + 2].position = float4(v1, 1);
+
+        meshingVertices[vertOffset + 3].position = float4(v0, 1);
+        meshingVertices[vertOffset + 4].position = float4(v3, 1);
+        meshingVertices[vertOffset + 5].position = float4(v2, 1);
+    }
+
+    // Check edge along +Z axis
+    int3 zNeighbor = DTid * 2 + int3(0, 0, 1);
+    float sdfZ = Read3D(mipLevel, zNeighbor).x;
+    if ((sdfOrigin < 0) != (sdfZ < 0))
+    {
+        float3 v0 = CalculateDualVertex(DTid + int3(0, 0, 0), mipLevel);
+        float3 v1 = CalculateDualVertex(DTid + int3(-1, 0, 0), mipLevel);
+        float3 v2 = CalculateDualVertex(DTid + int3(-1, -1, 0), mipLevel);
+        float3 v3 = CalculateDualVertex(DTid + int3(0, -1, 0), mipLevel);
+        
+        uint vertOffset;
+        InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
+        
+        meshingVertices[vertOffset + 0].position = float4(v0, 1);
+        meshingVertices[vertOffset + 1].position = float4(v2, 1);
+        meshingVertices[vertOffset + 2].position = float4(v1, 1);
+
+        meshingVertices[vertOffset + 3].position = float4(v0, 1);
+        meshingVertices[vertOffset + 4].position = float4(v3, 1);
+        meshingVertices[vertOffset + 5].position = float4(v2, 1);
+    }
+*/
+}
+
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
 {
@@ -1155,6 +1328,20 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     if(sampleLevelL == 30.0f)
     {
         CookBrush(DTid);
+        return;
+    }
+    
+    //In the future, make this indirect dispatch for dirty brushes.
+    if(sampleLevelL == 40.0f)
+    {
+        GlobalIDCounter[1] = 0;
+        FindActiveCells(DTid);
+        return;
+    }
+    
+    if (sampleLevelL == 50.0f)
+    {
+        DualContour(DTid);
         return;
     }
     

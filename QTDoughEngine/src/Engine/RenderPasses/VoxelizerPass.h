@@ -222,6 +222,13 @@ public:
     std::vector<VkBuffer> controlParticlesStorageBuffers;
     std::vector<VkDeviceMemory> controlParticlesStorageMemory;
 
+    std::vector<ComputeVertex> meshingVertexSoup;
+    std::vector<glm::uvec3> meshingTriangleIndices;
+    VkBuffer meshingVertexBuffer;
+    VkDeviceMemory meshingVertexBufferMemory;
+    VkBuffer meshingIndexBuffer;
+    VkDeviceMemory meshingIndexBufferMemory;
+
     VkImage wu_image;
     VkDeviceMemory wu_imageMemory;
     VkImageView wu_imageView;

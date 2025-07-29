@@ -129,9 +129,9 @@ float4 main(VSOutput i) : SV_Target
     float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
     float4 combineSDFRasterImage = textures[images.CombineSDFRasterPass].Sample(samplers[images.CombineSDFRasterPass], textureUVs);
     
-    return combineSDFRasterImage;
+    //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
-    return lerp(sdfNormalImage, normalImage, 0.5);
+    //return lerp(sdfNormalImage, normalImage, 0.5);
         
     //float4 heatMap = float4(countColors(sdfNormalImage.w), 1);
     //return heatMap;

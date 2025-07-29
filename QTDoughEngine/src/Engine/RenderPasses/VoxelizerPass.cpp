@@ -407,7 +407,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     VkBuffer stagingGlobalIDCounterBuffer;
     VkDeviceMemory stagingGlobalIDCounterMemory;
 
-    uint32_t globalIDCounterSize = 1;
+    //For IDs and Verts.
+    uint32_t globalIDCounterSize = 2;
 
     GlobalIDCounter.resize(globalIDCounterSize, 0); // initialize with 0.
     app->CreateBuffer(
@@ -531,6 +532,23 @@ void VoxelizerPass::CreateShaderStorageBuffers()
         app->CopyBuffer(cpStagingBuffer, controlParticlesStorageBuffers[i], controlParticleBufferSize);
     }
 
+    //Create Vertex buffers appended.
+    uint32_t vertexBufferSize = sizeof(ComputeVertex) * VOXEL_COUNTL3;
+    meshingVertexSoup.resize(VOXEL_COUNTL3);
+
+    VkBuffer vertexStagingBuffer;
+    VkDeviceMemory vertexStagingBufferMemory;
+    app->CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vertexStagingBuffer, vertexStagingBufferMemory);
+
+    void* vertexData;
+    vkMapMemory(app->_logicalDevice, vertexStagingBufferMemory, 0, vertexBufferSize, 0, &vertexData);
+    std::memcpy(vertexData, meshingVertexSoup.data(), meshingVertexSoup.size() * sizeof(ComputeVertex));
+    vkUnmapMemory(app->_logicalDevice, vertexStagingBufferMemory);
+
+    app->CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshingVertexBuffer, meshingVertexBufferMemory);
+    app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
+
+
     std::cout << "Shader Storage Buffers created" << std::endl;
 }
 
@@ -578,6 +596,13 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     globalIDCounterBufferInfo.offset = 0;
     globalIDCounterBufferInfo.range = VK_WHOLE_SIZE;
 
+    //Vertices
+    VkDescriptorBufferInfo meshingVertexBufferInfo{};
+    meshingVertexBufferInfo.buffer = meshingVertexBuffer;
+    meshingVertexBufferInfo.offset = 0;
+    meshingVertexBufferInfo.range = VK_WHOLE_SIZE;
+
+
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo uniformBufferInfo{};
         uniformBufferInfo.buffer = _uniformBuffers[i];
@@ -590,7 +615,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 17> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 18> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -791,6 +816,16 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[16].descriptorCount = 1;
         descriptorWrites[16].pBufferInfo = &globalIDCounterBufferInfo;
 
+        //Meshing Vertex Buffer
+        descriptorWrites[17].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[17].dstSet = computeDescriptorSets[i];
+        descriptorWrites[17].dstBinding = 17;
+        descriptorWrites[17].dstArrayElement = 0;
+        descriptorWrites[17].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[17].descriptorCount = 1;
+        descriptorWrites[17].pBufferInfo = &meshingVertexBufferInfo;
+
+
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
@@ -946,8 +981,15 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     globalIDCounterBinding.descriptorCount = 1;
     globalIDCounterBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // Vertex buffer for meshing
+    VkDescriptorSetLayoutBinding meshingVertexBinding{};
+    meshingVertexBinding.binding = 17;
+    meshingVertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    meshingVertexBinding.descriptorCount = 1;
+    meshingVertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 17> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding };
+    std::array<VkDescriptorSetLayoutBinding, 18> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1791,12 +1833,17 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
         //DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 1);
+
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 3);
         DispatchLOD(commandBuffer, currentFrame, 4);
         DispatchLOD(commandBuffer, currentFrame, 5);
 
 
+        //Meshing. Move to indirect dispatch.
+        DispatchLOD(commandBuffer, currentFrame, 40);
+
+        DispatchLOD(commandBuffer, currentFrame, 50);
 
         /*
         //Process dispatch LOD in chunks
@@ -2297,26 +2344,6 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
 
-    vkCmdPushConstants(
-        commandBuffer,
-        voxelizeComputePipelineLayout,
-        VK_SHADER_STAGE_COMPUTE_BIT,
-        0,
-        sizeof(PushConsts),
-        &pc
-    );
-
-    VkDescriptorSet sets[] = {
-        app->globalDescriptorSets[currentFrame],
-        computeDescriptorSets[currentFrame]
-    };
-
-    vkCmdBindDescriptorSets(commandBuffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        voxelizeComputePipelineLayout,
-        0, 2, sets,
-        0, nullptr);
-
     // Each LOD uses a different resolution
     uint32_t res = WORLD_SDF_RESOLUTION;
 
@@ -2388,6 +2415,46 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
     }
+
+    if (lodLevel == 40)
+    {
+        res = WORLD_SDF_RESOLUTION;
+        pc.triangleCount = 0;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
+    if (lodLevel == 50)
+    {
+        res = VOXEL_RESOLUTIONL2;
+        pc.triangleCount = 0;
+        groupCountX = (res + 7) / 8;
+        groupCountY = (res + 7) / 8;
+        groupCountZ = (res + 7) / 8;
+    }
+
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
     /*
     // Add debug label for Nsight
     VkDebugUtilsLabelEXT label{};
