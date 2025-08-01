@@ -1138,7 +1138,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     
     //Need to convert find the active cell for the voxelsBuffer which is lower resolution.
     //Currently the main one is baseTexel, convert that to voxel buffer index.
-    int3 baseTexelForBuffer = baseTexel / 2; //just lower it one resolution, 256 -> 128.
+    int3 baseTexelForBuffer = baseTexel / pow(2, mipLevel - 1); //just lower it one resolution, 256 -> 128.
     uint flatIndex = Flatten3DR(baseTexelForBuffer, VOXEL_RESOLUTIONL2);
     
     if (!(minVal < 0.0f && maxVal > 0.0f))
@@ -1152,13 +1152,19 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
 
 float3 CalculateDualVertex(int3 cellCoord, float mipLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel);
+    Brush brush = Brushes[0];
+    float extent = brush.aabbmax.w;
+    // Use the correct mip level passed into the function
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y / 0.5f;
+    // CORRECTED: halfScene is half the total world size
+    float halfScene = voxelSceneBounds.y * 0.5f;
     
-    // The input cellCoord is for the lower-res grid (L2).
-    // The center of the corresponding 2x2x2 block in the higher-res SDF grid is at (coord * 2 + 1)
-    return ((float3(cellCoord * 2) + 1.0f) * voxelSize) - halfScene;
+    // Calculate the world-space position of the cell's center
+    float3 worldPos = ((float3(cellCoord * mipLevel) + 1.0f) * voxelSize) - halfScene;
+    
+    float3 inversePosition = mul(brush.invModel, float4(worldPos, 1.0f)).xyz;
+    return inversePosition;
 }
 
 void DualContour(uint3 DTid : SV_DispatchThreadID)
@@ -1166,7 +1172,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL2);
     float activeValue = voxelsL2Out[index].normalDistance.y;
     int mipLevel = 2;
-    int3 baseTexel = DTid * 2; //128 -> 256.
+    int3 baseTexel = DTid * pow(2, mipLevel - 1); //128 -> 256.
     
     float sdfOrigin = Read3D(mipLevel, baseTexel).x;
     
@@ -1176,9 +1182,10 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     //Check Every single face.
+    int offSet = mipLevel;
     
     // Check edge along +X axis
-    int3 xNeighbor = DTid * 2 + int3(2, 0, 0);
+    int3 xNeighbor = DTid + int3(offSet, 0, 0);
     float sdfx = Read3D(mipLevel, xNeighbor).x;
     if ((sdfOrigin < 0) != (sdfx < 0))
     {
@@ -1214,7 +1221,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     // Check edge along +Y axis
-    int3 yNeighbor = DTid * 2 + int3(0, 2, 0);
+    int3 yNeighbor = DTid + int3(0, offSet, 0);
     float sdfY = Read3D(mipLevel, yNeighbor).x;
     if ((sdfOrigin < 0) != (sdfY < 0))
     {
@@ -1246,7 +1253,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     // Check edge along +Z axis
-    int3 zNeighbor = DTid * 2 + int3(0, 0, 2);
+    int3 zNeighbor = DTid * 2 + int3(0, 0, offSet);
     float sdfZ = Read3D(mipLevel, zNeighbor).x;
     if ((sdfOrigin < 0) != (sdfZ < 0))
     {

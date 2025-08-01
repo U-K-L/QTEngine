@@ -81,5 +81,6 @@ class UnigmaRenderingObject {
 		void CreateUniformBuffers(QTDoughApplication& app);
 		void CreateDescriptorSetLayout(QTDoughApplication& app);
 		void CreateGraphicsPipeline(QTDoughApplication& app);
+		void RenderBrush(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet, VkBuffer& vertexBuffer);
 	private:
 };

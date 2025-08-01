@@ -117,6 +117,37 @@ void UnigmaRenderingObject::Render(QTDoughApplication& app, VkCommandBuffer comm
 
 }
 
+void UnigmaRenderingObject::RenderBrush(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet, VkBuffer& vertexBuffer)
+{
+
+
+    VkBuffer vertexBuffers[] = { vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+
+    // Combine both global and per-object descriptor sets
+    VkDescriptorSet descriptorSetsToBind[] = {
+        app.globalDescriptorSets[currentFrame],       // Set 0: Global descriptor set
+        _descriptorSets[currentFrame]    // Set 1: Per-object descriptor set
+    };
+
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    // Bind the global descriptor set
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout,
+        0, // First set
+        2, // Number of sets
+        descriptorSetsToBind,
+        0, nullptr // No dynamic offsets
+    );
+
+    vkCmdDraw(commandBuffer, 576, 1, 0, 0);
+
+}
+
 void UnigmaRenderingObject::RenderPass(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet)
 {
 

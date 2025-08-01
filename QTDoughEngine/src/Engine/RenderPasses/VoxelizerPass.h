@@ -91,7 +91,7 @@ public:
 
     uint32_t dispatchCount = 0;
     uint32_t IDDispatchIteration = 0;
-    uint32_t requiredIterations = 10;
+    uint32_t requiredIterations = 60;
 
     bool flagSDFBaker = false; //This is a flag to bake the SDF from triangles.
 

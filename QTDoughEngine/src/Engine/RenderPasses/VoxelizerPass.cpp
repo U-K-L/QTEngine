@@ -240,7 +240,7 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
 
-
+    /*
     for (int i = 0; i < vertexCount; ++i) {
         std::cout << "Vertex " << i << ": "
             << "Position: (" << cpuVertices[i].position.x << ", " << cpuVertices[i].position.y << ", " << cpuVertices[i].position.z << "), "
@@ -248,6 +248,7 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
             << "TexCoord: (" << cpuVertices[i].texCoord.x << ", " << cpuVertices[i].texCoord.y << ")"
             << std::endl;
     }
+    */
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -1924,11 +1925,16 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
         //Meshing. Move to indirect dispatch.
-        DispatchLOD(commandBuffer, currentFrame, 40);
 
-        DispatchLOD(commandBuffer, currentFrame, 50);
+        if(IDDispatchIteration == 0)
+		{
+            DispatchLOD(commandBuffer, currentFrame, 40);
 
-        GetMeshFromGPU(10);
+            DispatchLOD(commandBuffer, currentFrame, 50);
+
+            GetMeshFromGPU(576);
+		}
+
 
         /*
         //Process dispatch LOD in chunks
