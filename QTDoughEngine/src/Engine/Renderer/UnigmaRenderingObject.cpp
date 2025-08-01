@@ -144,7 +144,7 @@ void UnigmaRenderingObject::RenderBrush(QTDoughApplication& app, VkCommandBuffer
         0, nullptr // No dynamic offsets
     );
 
-    vkCmdDraw(commandBuffer, 576, 1, 0, 0);
+    vkCmdDraw(commandBuffer, 9216, 1, 0, 0);
 
 }
 

@@ -1925,17 +1925,18 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
         //Meshing. Move to indirect dispatch.
+        DispatchLOD(commandBuffer, currentFrame, 40);
 
+        DispatchLOD(commandBuffer, currentFrame, 50);
+
+        GetMeshFromGPU(9216);
+        /*
         if(IDDispatchIteration == 0)
 		{
-            DispatchLOD(commandBuffer, currentFrame, 40);
 
-            DispatchLOD(commandBuffer, currentFrame, 50);
-
-            GetMeshFromGPU(576);
 		}
 
-
+        */
         /*
         //Process dispatch LOD in chunks
         if (IDDispatchIteration == 0 || IDDispatchIteration == 1)
@@ -2509,7 +2510,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 40)
     {
-        res = VOXEL_RESOLUTIONL2;
+        res = VOXEL_RESOLUTIONL1;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
@@ -2518,7 +2519,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        res = VOXEL_RESOLUTIONL2;
+        res = VOXEL_RESOLUTIONL1;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;

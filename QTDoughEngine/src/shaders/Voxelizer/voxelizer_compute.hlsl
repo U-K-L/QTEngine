@@ -1102,7 +1102,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     float3 minLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
     
     //Read the second mip map.
-    int mipLevel = 2;
+    int mipLevel = 1;
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel+1);//It substracts by 1 inside function.
     float halfScene = voxelSceneBounds.y * 0.5f;
     
@@ -1139,7 +1139,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     //Need to convert find the active cell for the voxelsBuffer which is lower resolution.
     //Currently the main one is baseTexel, convert that to voxel buffer index.
     int3 baseTexelForBuffer = baseTexel / pow(2, mipLevel - 1); //just lower it one resolution, 256 -> 128.
-    uint flatIndex = Flatten3DR(baseTexelForBuffer, VOXEL_RESOLUTIONL2);
+    uint flatIndex = Flatten3DR(baseTexelForBuffer, VOXEL_RESOLUTIONL1);
     
     if (!(minVal < 0.0f && maxVal > 0.0f))
     {
@@ -1147,7 +1147,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     }
     
     //Set Active cell.
-    voxelsL2Out[flatIndex].normalDistance.y = 1;
+    voxelsL1Out[flatIndex].normalDistance.y = 1;
 }
 
 float3 CalculateDualVertex(int3 cellCoord, float mipLevel)
@@ -1169,9 +1169,9 @@ float3 CalculateDualVertex(int3 cellCoord, float mipLevel)
 
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
-    int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL2);
-    float activeValue = voxelsL2Out[index].normalDistance.y;
-    int mipLevel = 2;
+    int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL1);
+    float activeValue = voxelsL1Out[index].normalDistance.y;
+    int mipLevel = 1;
     int3 baseTexel = DTid * pow(2, mipLevel - 1); //128 -> 256.
     
     float sdfOrigin = Read3D(mipLevel, baseTexel).x;
@@ -1185,7 +1185,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     int offSet = mipLevel;
     
     // Check edge along +X axis
-    int3 xNeighbor = DTid + int3(offSet, 0, 0);
+    int3 xNeighbor = DTid * offSet + int3(offSet, 0, 0);
     float sdfx = Read3D(mipLevel, xNeighbor).x;
     if ((sdfOrigin < 0) != (sdfx < 0))
     {
@@ -1221,7 +1221,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     // Check edge along +Y axis
-    int3 yNeighbor = DTid + int3(0, offSet, 0);
+    int3 yNeighbor = DTid * offSet + int3(0, offSet, 0);
     float sdfY = Read3D(mipLevel, yNeighbor).x;
     if ((sdfOrigin < 0) != (sdfY < 0))
     {
@@ -1253,7 +1253,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     // Check edge along +Z axis
-    int3 zNeighbor = DTid * 2 + int3(0, 0, offSet);
+    int3 zNeighbor = DTid * offSet + int3(0, 0, offSet);
     float sdfZ = Read3D(mipLevel, zNeighbor).x;
     if ((sdfOrigin < 0) != (sdfZ < 0))
     {
