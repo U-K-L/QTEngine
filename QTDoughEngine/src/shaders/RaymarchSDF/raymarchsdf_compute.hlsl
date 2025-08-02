@@ -90,6 +90,12 @@ float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
     return Read3D(textureId, coord);
 }
 
+float2 GetVoxelValueTextureNormals(int textureId, int3 coord, float sampleLevel)
+{
+    float3 uvw = (float3(coord) + 0.5f) / WORLD_SDF_RESOLUTION;
+    uvw = clamp(uvw, 0.001f, 0.999f); // avoid edge bleeding
+    return HardwareTrilinearSample(textureId, uvw);
+}
 
 float4 GetVoxelValue(float sampleLevel, int index)
 {
@@ -244,6 +250,86 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
     return GetVoxelValueTexture(sampleLevel - 1, base, sampleLevel);
 }
 
+float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
+{
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
+    
+    float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
+    int3 base = int3(floor(gridPos));
+    float3 fracVal = frac(gridPos); // interpolation weights
+
+    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
+
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+
+    // Convert voxel grid coords back to world positions for sampling
+    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    
+    /*
+    float3 p100 = (float3(base + int3(1, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p010 = (float3(base + int3(0, 1, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p110 = (float3(base + int3(1, 1, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p001 = (float3(base + int3(0, 0, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p101 = (float3(base + int3(1, 0, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p011 = (float3(base + int3(0, 1, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    float3 p111 = (float3(base + int3(1, 1, 1)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+
+    float4 c000 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p000, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p000, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c100 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p100, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p100, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c010 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p010, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p010, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c110 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p110, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p110, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c001 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p001, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p001, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c101 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p101, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p101, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c011 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p011, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p011, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+    float4 c111 = float4(
+    GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p111, voxelSceneBounds.y, voxelSceneBounds.x)).w,
+    normalize(GetVoxelValue(sampleLevel, HashPositionToVoxelIndex(p111, voxelSceneBounds.y, voxelSceneBounds.x)).xyz)
+    );
+
+
+
+    float4 c00 = lerp(c000, c100, fracVal.x);
+    float4 c10 = lerp(c010, c110, fracVal.x);
+    float4 c01 = lerp(c001, c101, fracVal.x);
+    float4 c11 = lerp(c011, c111, fracVal.x);
+
+    float4 c0 = lerp(c00, c10, fracVal.y);
+    float4 c1 = lerp(c01, c11, fracVal.y);
+
+    return lerp(c0, c1, fracVal.z);
+    */
+    
+    return GetVoxelValueTexture(sampleLevel - 1, base, sampleLevel);
+}
 
 float4 TrilinearSampleSDF(float3 pos)
 {
@@ -335,9 +421,9 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     
     float eps = 0.022127f * pow(2.0f, 1.0f + (smoothness * 2.0f) + blendFactor);
 
-    float dx = TrilinearSampleSDFTexture(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(eps, 0, 0), sampleLevel).x;
-    float dy = TrilinearSampleSDFTexture(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, eps, 0), sampleLevel).x;
-    float dz = TrilinearSampleSDFTexture(p + float3(0, 0, eps), sampleLevel).x - TrilinearSampleSDFTexture(p - float3(0, 0, eps), sampleLevel).x;
+    float dx = TrilinearSampleSDFTextureNormals(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(eps, 0, 0), sampleLevel).x;
+    float dy = TrilinearSampleSDFTextureNormals(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(0, eps, 0), sampleLevel).x;
+    float dz = TrilinearSampleSDFTextureNormals(p + float3(0, 0, eps), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(0, 0, eps), sampleLevel).x;
 
     float3 n = float3(dx, dy, dz);
     return (length(n) > 1e-5f) ? normalize(n) : float3(0, 0, 0);
@@ -479,7 +565,7 @@ float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
-        return voxelSize;
+        return DEFUALT_EMPTY_SPACE;
     
     return TrilinearSampleSDFTexture(pos, sampleLevel);
 }
@@ -721,7 +807,52 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
     }
     
     
-    //surface.w = accumaltor;
+    surface.w = accumaltor;
+    return hitSample;
+
+}
+
+float4 FieldFullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inout float4 visibility, inout float4 specular, inout float4 positionId)
+{
+    float3 direction = rd;
+    
+    float3 pos = ro;
+    int maxSteps = 4096;
+    float accumaltor = 0;
+    float voxelSizeL1 = 0.03125f;
+    float stepSize = voxelSizeL1 * 0.25f;
+    float minDistReturn = voxelSizeL1 * 0.25f;
+    
+    float4 hitSample = float4(100.0f, 0, 0, 100.0f);
+
+    for (int i = 0; i < maxSteps; i++)
+    {
+        float2 sampleId = SampleNormalSDFTexture(pos, 1.0f);
+
+        float omega = 0;
+        //Extra accumlation
+        float divisor = sampleId.x;
+        if (abs(divisor) < 0.001) //Iso surface.
+        {
+            divisor = 0.001f; //0 surface. Make glowing as this is the true isosurface.
+            omega = abs(1 / (2 * divisor)) * 0.15f; //Make super bright. 
+        }
+        else if(divisor < 0) //Interior.
+        {
+            divisor = 0.001f;
+            omega = abs(1 / (2 * divisor)) * 0.05f;
+        }
+
+        
+        
+        accumaltor += (abs(DEFUALT_EMPTY_SPACE - sampleId.x) + omega) / 4096;
+        
+        pos += direction * stepSize;
+
+    }
+    
+    
+    surface.w = accumaltor;
     return hitSample;
 
 }
@@ -818,7 +949,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 depth = 0;
     float4 positionId = 0;
     
-    float4 hit = FullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
+    float4 hit = FieldFullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     
@@ -869,7 +1000,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
     
-    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
+    gBindlessStorage[normalImageHandle][pixel] = float4(surface.w / 2, 0, 0, 1); //float4(surface.xyz, depthMapped); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
 

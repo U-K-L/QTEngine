@@ -159,6 +159,16 @@ void Write3DDist(uint textureIndex, int3 coord, float value)
     gBindless3DStorage[textureIndex][coord].x = value;
 }
 
+float2 HardwareTrilinearSample(uint textureIndex, float3 uvw)
+{
+    return gBindless3D[textureIndex].SampleLevel(samplers[0], uvw, 0);
+}
+
+float2 GetVoxelValueTexture(int textureId, float3 uvw)
+{
+    return HardwareTrilinearSample(textureId, uvw);
+}
+
 float SignedDistanceToTriangle(float3 p, float3 a, float3 b, float3 c)
 {
     float3 normal = normalize(cross(b - a, c - a));
@@ -219,7 +229,7 @@ void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
     uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
     uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
     
-    float2 clearValue = float2(0.12, NO_LABELF());
+    float2 clearValue = float2(DEFUALT_EMPTY_SPACE, NO_LABELF());
     //voxelsL1Out[voxelIndex].id = NO_LABELF();
     Write3D(0, DTid, clearValue);
 }
@@ -497,18 +507,38 @@ void DeformBrush(uint3 DTid : SV_DispatchThreadID)
 }
 */
 
+float GetSolidAngle(float3 p, float3 a, float3 b, float3 c)
+{
+    float3 va = a - p;
+    float3 vb = b - p;
+    float3 vc = c - p;
+
+    float len_a = length(va);
+    float len_b = length(vb);
+    float len_c = length(vc);
+
+    if (len_a < 1e-6 || len_b < 1e-6 || len_c < 1e-6)
+    {
+        return 0.0f;
+    }
+
+    float triple_product = dot(normalize(va), cross(normalize(vb), normalize(vc)));
+
+    float denominator = 1.0f + dot(normalize(va), normalize(vb)) + dot(normalize(va), normalize(vc)) + dot(normalize(vb), normalize(vc));
+
+    return 2.0f * atan2(triple_product, denominator);
+}
+
 void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 {
     uint index = pc.triangleCount;
-    
     Brush brush = Brushes[index];
-    
-    // Get actual AABB from vertices
-    float3 minBounds, maxBounds; //The min and max bounds. For an object from [-8, 8] this is that value.
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush); //The extent, which is 16 now.
-    float3 center = (minBounds + maxBounds) * 0.5f; //Need to find the center, which should be 0.
-    float maxExtent = max(extent.x, max(extent.y, extent.z)); //Finally the maximum size of the box, which is 16.
-    
+
+    float3 minBounds, maxBounds;
+    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
+    float3 center = (minBounds + maxBounds) * 0.5f;
+    float maxExtent = max(extent.x, max(extent.y, extent.z));
+
     Brushes[index].aabbmax.w = maxExtent;
     Brushes[index].center.xyz = center;
     Brushes[index].isDirty = 1;
@@ -516,17 +546,12 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
 
-    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; //This is the center of a voxel.
-    float3 samplePos = uvw * 2.0f - 1.0f; // [-1, 1] in texture space
-    
-    // Transform from normalized [-1,1] space to vertex space
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
+    float3 samplePos = uvw * 2.0f - 1.0f;
     float3 localPos = samplePos * (maxExtent * 0.5f) + center;
 
-
     float minDist = DEFUALT_EMPTY_SPACE;
-    
-    float4 isHitChecks = 0;
-    float4 isHitChecks2 = 0;
+    float windingSum = 0.0f;
 
     for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
     {
@@ -535,65 +560,32 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         float3 b = vertexBuffer[idx.y].position.xyz;
         float3 c = vertexBuffer[idx.z].position.xyz;
 
-        // Distance to triangle
-        float d = DistanceToTriangle(localPos, a, b, c);
-        minDist = min(minDist, d);
-        
-        //ray intersection test.
-        //Ray origin is the voxel position
-        float3 ro = localPos;
-        float t, u, v;
-        
-        //8 cardinal directions test. If at any
-        /*
-        bool isHit = 0;
-        isHit = TriangleTrace(ro, float3(0, 0, 1), a, b, c, t,u,v);
-        isHit = min(TriangleTrace(ro, float3(0, 1, 0), a, b, c, t, u, v), isHit);
-        isHit = min(TriangleTrace(ro, float3(0, -1, 0), a, b, c, t, u, v), isHit);
-        
-        isHit = min(TriangleTrace(ro, float3(1, 0, 0), a, b, c, t, u, v), isHit);
-        isHit = min(TriangleTrace(ro, float3(-1, 0, 0), a, b, c, t, u, v), isHit);
-        
-        isHit = min(TriangleTrace(ro, float3(0, 0, -1), a, b, c, t, u, v), isHit);
-        isHit = min(TriangleTrace(ro, float3(1, 0, 1), a, b, c, t, u, v), isHit);
-*/
-        //random direction.
-        
-        isHitChecks.x += TriangleTrace(ro, float3(1, 0, 0), a, b, c, t, u, v);
-        isHitChecks.z += TriangleTrace(ro, float3(0, 1, 0), a, b, c, t, u, v);
-        isHitChecks.y += TriangleTrace(ro, float3(0, 0, 1), a, b, c, t, u, v);
-        isHitChecks.w += TriangleTrace(ro, float3(1, 0, 1), a, b, c, t, u, v);
-        
-        isHitChecks2.x += TriangleTrace(ro, float3(-1, 0, 0), a, b, c, t, u, v);
-        isHitChecks2.z += TriangleTrace(ro, float3(0, -1, 0), a, b, c, t, u, v);
-        isHitChecks2.y += TriangleTrace(ro, float3(0, 0, -1), a, b, c, t, u, v);
-        isHitChecks2.w += TriangleTrace(ro, float3(-1, 0, -1), a, b, c, t, u, v);
-
+        minDist = min(minDist, DistanceToTriangle(localPos, a, b, c));
+        windingSum += GetSolidAngle(localPos, a, b, c);
     }
-    
-    //Its inside the voxel.
-    if (all(isHitChecks) > 0 && all(isHitChecks2) > 0)
-        minDist = -1.0f * minDist;
+
+    if (abs(windingSum) > 2.0f * 3.14159265f)
+    {
+        minDist = -minDist;
+    }
+
+    float sdf = minDist;
     
     float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
-    float3 uvwS = (posLocal - brush.aabbmin.xyz) /
-                (brush.aabbmax.xyz - brush.aabbmin.xyz);
+    float3 uvwS = (posLocal - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
     float3 texel = uvwS * brush.resolution;
-    
-    float sdf = minDist;
     if (any(texel < 0.0f) || any(texel >= brush.resolution))
     {
-
         sdf = DEFUALT_EMPTY_SPACE;
     }
-    
 
     Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
     Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
-    
-    for (int i = 0; i < CAGE_VERTS; i++)
-        controlParticlesL1Out[index * CAGE_VERTS + i].position = float4(canonicalControlPoints[i].xyz, 0);
 
+    for (int i = 0; i < CAGE_VERTS; i++)
+    {
+        controlParticlesL1Out[index * CAGE_VERTS + i].position = float4(canonicalControlPoints[i].xyz, 0);
+    }
 }
 
 float4 GetVoxelValue(float sampleLevel, int index)
@@ -1083,6 +1075,71 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 
 }
 
+float SampleSDF(float3 worldPos, int mipLevel)
+{
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
+    float halfScene = voxelSceneBounds.y * 0.5f;
+
+    // Convert world position to continuous texel coordinates
+    float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
+    float3 texelCoord = uvw * voxelSceneBounds.x;
+
+    // Get the integer base coordinate and the fractional part for interpolation
+    int3 baseTexel = int3(floor(texelCoord));
+    float3 frac = texelCoord - baseTexel;
+
+    // Fetch the 8 corner SDF values
+    float d000 = Read3D(mipLevel, baseTexel + int3(0, 0, 0)).x;
+    float d100 = Read3D(mipLevel, baseTexel + int3(1, 0, 0)).x;
+    float d010 = Read3D(mipLevel, baseTexel + int3(0, 1, 0)).x;
+    float d110 = Read3D(mipLevel, baseTexel + int3(1, 1, 0)).x;
+    float d001 = Read3D(mipLevel, baseTexel + int3(0, 0, 1)).x;
+    float d101 = Read3D(mipLevel, baseTexel + int3(1, 0, 1)).x;
+    float d011 = Read3D(mipLevel, baseTexel + int3(0, 1, 1)).x;
+    float d111 = Read3D(mipLevel, baseTexel + int3(1, 1, 1)).x;
+
+    // Perform trilinear interpolation (7 lerps)
+    float c00 = lerp(d000, d100, frac.x);
+    float c10 = lerp(d010, d110, frac.x);
+    float c01 = lerp(d001, d101, frac.x);
+    float c11 = lerp(d011, d111, frac.x);
+    float c0 = lerp(c00, c10, frac.y);
+    float c1 = lerp(c01, c11, frac.y);
+    return lerp(c0, c1, frac.z);
+}
+
+
+float3 GetNormal(float3 worldPos)
+{
+    const int mipLevel = 0;
+    
+    const float epsilon = 0.1f;
+
+    // Use small offset vectors for sampling along each axis.
+    float3 offsetX = float3(epsilon, 0, 0);
+    float3 offsetY = float3(0, epsilon, 0);
+    float3 offsetZ = float3(0, 0, epsilon);
+
+    // Calculate the gradient using central differences on the interpolated SDF values.
+    float dx = SampleSDF(worldPos + offsetX, mipLevel) - SampleSDF(worldPos - offsetX, mipLevel);
+    float dy = SampleSDF(worldPos + offsetY, mipLevel) - SampleSDF(worldPos - offsetY, mipLevel);
+    float dz = SampleSDF(worldPos + offsetZ, mipLevel) - SampleSDF(worldPos - offsetZ, mipLevel);
+    
+    // The gradient vector points in the direction of the normal.
+    // Add a tiny value to prevent normalization of a zero vector.
+    return normalize(float3(dx, dy, dz) + 1e-6);
+}
+
+float3 InterpolateVertexPos(float3 p1, float3 p2, float d1, float d2)
+{
+    if (abs(d1 - d2) < 0.00001f)
+    {
+        return p1;
+    }
+    float t = d1 / (d1 - d2);
+    return lerp(p1, p2, t);
+}
+
 
 void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
 {
@@ -1112,7 +1169,7 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     //Integer coords of min corner texel
     float3 worldMin = mul(brush.model, float4(minLocal, 1)).xyz;
     float3 worldUVW0 = (worldMin + halfScene) / (2.0f * halfScene);
-    int3 baseTexel = int3(worldUVW0 * (voxelSceneBounds.x - 1));
+    int3 baseTexel = int3(worldUVW0 * voxelSceneBounds.x);
     
     // Fetch 8 SDF values from mip level 1
     float2 sdf000 = Read3D(mipLevel, baseTexel + int3(0, 0, 0));
@@ -1150,7 +1207,8 @@ void FindActiveCells(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[flatIndex].normalDistance.y = 1;
 }
 
-float3 CalculateDualVertex(int3 cellCoord, float mipLevel)
+
+float3 CalculateDualSurfaceNet(int3 cellCoord, float mipLevel)
 {
     Brush brush = Brushes[0];
     float extent = brush.aabbmax.w;
@@ -1161,14 +1219,179 @@ float3 CalculateDualVertex(int3 cellCoord, float mipLevel)
     float halfScene = voxelSceneBounds.y * 0.5f;
     
     // Calculate the world-space position of the cell's center
-    float3 worldPos = ((float3(cellCoord * mipLevel) + 1.0f) * voxelSize) - halfScene;
+    float3 worldPos = ((float3(cellCoord * mipLevel) + 0.5f) * voxelSize) - halfScene;
     
     float3 inversePosition = mul(brush.invModel, float4(worldPos, 1.0f)).xyz;
     return inversePosition;
 }
 
+float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
+{
+    //Get basic values of this scene.
+    Brush brush = Brushes[0];
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+
+    //Need edges so we can average out particle among all edges.
+    int edges[12][2] =
+    {
+        { 0, 1 },
+        { 1, 3 },
+        { 3, 2 },
+        { 2, 0 }, // Bottom face
+        { 4, 5 },
+        { 5, 7 },
+        { 7, 6 },
+        { 6, 4 }, // Top face
+        { 0, 4 },
+        { 1, 5 },
+        { 2, 6 },
+        { 3, 7 } // Vertical edges
+    };
+    
+    float3 cornerPositions[8];
+    float cornerSDFs[8];
+    for (int i = 0; i < 8; ++i)
+    {
+        // Get corner's integer offset (0,0,0), (1,0,0), (0,1,0), etc.
+        int3 cornerOffset = int3((i & 1), (i & 2) >> 1, (i & 4) >> 2);
+        int3 cornerTexel = (cellCoord * mipLevel) + cornerOffset;
+        
+        cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene;
+        cornerSDFs[i] = Read3D(mipLevel, cornerTexel).x;
+    }
+
+    float3 averagePos = float3(0, 0, 0);
+    int intersectionCount = 0;
+
+
+    for (int i = 0; i < 12; i++)
+    {
+        int c1_idx = edges[i][0];
+        int c2_idx = edges[i][1];
+
+        float d1 = cornerSDFs[c1_idx];
+        float d2 = cornerSDFs[c2_idx];
+
+        // Check if the surface crosses this edge
+        if ((d1 < 0) != (d2 < 0))
+        {
+            float3 p1 = cornerPositions[c1_idx];
+            float3 p2 = cornerPositions[c2_idx];
+            
+            // Find the intersection point and add it to our running total
+            averagePos += InterpolateVertexPos(p1, p2, d1, d2);
+            intersectionCount++;
+        }
+    }
+
+    //Initial Guess done.
+    float3 massParticle = averagePos / intersectionCount;
+    
+    //Move it along its gradient.
+    float3 particlePos = massParticle;
+    const int iterations = 16;
+    const float stepSize = 0.15f;
+
+    [loop]
+    for (int j = 0; j < iterations; ++j)
+    {
+        // Calculate the SDF value and normal at the particle's current position.
+        float3 uvw = (particlePos + halfScene) / (2.0f * halfScene);
+        int3 baseTexel = int3(uvw * voxelSceneBounds.x);
+        float sdfAtParticle = Read3D(mipLevel, baseTexel).x;
+        float3 normalAtParticle = GetNormal(particlePos);
+
+        float3 force = -sdfAtParticle * normalAtParticle;
+
+        // Move the particle along the force vector (Euler integration).
+        particlePos += force * stepSize;
+    }
+
+
+    //Transform the final world-space vertex back into the brush's local space
+    return mul(brush.invModel, float4(particlePos, 1.0f)).xyz;
+
+}
+
+float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
+{
+    //Get basic values of this scene.
+    Brush brush = Brushes[0];
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
+    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = voxelSceneBounds.y * 0.5f;
+
+    //Need edges so we can average out particle among all edges.
+    int edges[12][2] =
+    {
+        { 0, 1 },
+        { 1, 3 },
+        { 3, 2 },
+        { 2, 0 }, // Bottom face
+        { 4, 5 },
+        { 5, 7 },
+        { 7, 6 },
+        { 6, 4 }, // Top face
+        { 0, 4 },
+        { 1, 5 },
+        { 2, 6 },
+        { 3, 7 } // Vertical edges
+    };
+    
+    float3 cornerPositions[8];
+    float cornerSDFs[8];
+    for (int i = 0; i < 8; ++i)
+    {
+        // Get corner's integer offset (0,0,0), (1,0,0), (0,1,0), etc.
+        int3 cornerOffset = int3((i & 1), (i & 2) >> 1, (i & 4) >> 2);
+        int3 cornerTexel = (cellCoord * mipLevel) + cornerOffset;
+        
+        cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene;
+        cornerSDFs[i] = Read3D(mipLevel, cornerTexel).x;
+    }
+
+    float3 averagePos = float3(0, 0, 0);
+    int intersectionCount = 0;
+
+
+    for (int i = 0; i < 12; i++)
+    {
+        int c1_idx = edges[i][0];
+        int c2_idx = edges[i][1];
+
+        float d1 = cornerSDFs[c1_idx];
+        float d2 = cornerSDFs[c2_idx];
+
+        // Check if the surface crosses this edge
+        if ((d1 < 0) != (d2 < 0))
+        {
+            float3 p1 = cornerPositions[c1_idx];
+            float3 p2 = cornerPositions[c2_idx];
+            
+            // Find the intersection point and add it to our running total
+            averagePos += InterpolateVertexPos(p1, p2, d1, d2);
+            intersectionCount++;
+        }
+    }
+    float3 massParticle = averagePos / intersectionCount;
+
+    //Transform the final world-space vertex back into the brush's local space
+    return mul(brush.invModel, float4(massParticle, 1.0f)).xyz;
+
+}
+
+
+float3 CalculateDualContour(int3 cellCoord, float mipLevel)
+{
+    return CalculateDualVertexCentroid(cellCoord, mipLevel);
+}
+
+
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
+    Brush brush = Brushes[0];
     int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL1);
     float activeValue = voxelsL1Out[index].normalDistance.y;
     int mipLevel = 1;
@@ -1191,32 +1414,37 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     {
         // Surface crosses this edge. Generate a quad.
         // The quad is formed by the dual vertices of the 4 cells sharing this edge.
-        float3 v0 = CalculateDualVertex(DTid + int3(0, 0, 0), mipLevel);
-        float3 v1 = CalculateDualVertex(DTid + int3(0, -1, 0), mipLevel);
-        float3 v2 = CalculateDualVertex(DTid + int3(0, -1, -1), mipLevel);
-        float3 v3 = CalculateDualVertex(DTid + int3(0, 0, -1), mipLevel);
+        float3 v0 = CalculateDualContour(DTid + int3(0, 0, 0), mipLevel);
+        float3 v1 = CalculateDualContour(DTid + int3(0, -1, 0), mipLevel);
+        float3 v2 = CalculateDualContour(DTid + int3(0, -1, -1), mipLevel);
+        float3 v3 = CalculateDualContour(DTid + int3(0, 0, -1), mipLevel);
+        
+        float3 n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
+        float3 n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
+        float3 n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
+        float3 n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
 
         // Reserve space for 6 vertices (2 triangles)
         uint vertOffset;
         InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
 
-        float3 n = float3(1, 0, 0);
+
         // Write 6 vertices for the two triangles
         meshingVertices[vertOffset + 0].position = float4(v0, 1);
-        meshingVertices[vertOffset + 1].position = float4(v2, 1);
-        meshingVertices[vertOffset + 2].position = float4(v1, 1);
-
+        meshingVertices[vertOffset + 1].position = float4(v1, 1);
+        meshingVertices[vertOffset + 2].position = float4(v2, 1);
+    
         meshingVertices[vertOffset + 3].position = float4(v0, 1);
-        meshingVertices[vertOffset + 4].position = float4(v3, 1);
-        meshingVertices[vertOffset + 5].position = float4(v2, 1);
+        meshingVertices[vertOffset + 4].position = float4(v2, 1); 
+        meshingVertices[vertOffset + 5].position = float4(v3, 1); 
         
-        meshingVertices[vertOffset + 0].normal = float4(n, 1);
-        meshingVertices[vertOffset + 1].normal = float4(n, 1);
-        meshingVertices[vertOffset + 2].normal = float4(n, 1);
+        meshingVertices[vertOffset + 0].normal = float4(n0, 1);
+        meshingVertices[vertOffset + 1].normal = float4(n1, 1);
+        meshingVertices[vertOffset + 2].normal = float4(n2, 1);
         
-        meshingVertices[vertOffset + 3].normal = float4(n, 1);
-        meshingVertices[vertOffset + 4].normal = float4(n, 1);
-        meshingVertices[vertOffset + 5].normal = float4(n, 1);
+        meshingVertices[vertOffset + 3].normal = float4(n0, 1);
+        meshingVertices[vertOffset + 4].normal = float4(n2, 1);
+        meshingVertices[vertOffset + 5].normal = float4(n3, 1);
 
     }
 
@@ -1225,31 +1453,37 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float sdfY = Read3D(mipLevel, yNeighbor).x;
     if ((sdfOrigin < 0) != (sdfY < 0))
     {
-        float3 v0 = CalculateDualVertex(DTid + int3(0, 0, 0), mipLevel);
-        float3 v1 = CalculateDualVertex(DTid + int3(0, 0, -1), mipLevel);
-        float3 v2 = CalculateDualVertex(DTid + int3(-1, 0, -1), mipLevel);
-        float3 v3 = CalculateDualVertex(DTid + int3(-1, 0, 0), mipLevel);
+        float3 v0 = CalculateDualContour(DTid + int3(0, 0, 0), mipLevel);
+        float3 v1 = CalculateDualContour(DTid + int3(0, 0, -1), mipLevel);
+        float3 v2 = CalculateDualContour(DTid + int3(-1, 0, -1), mipLevel);
+        float3 v3 = CalculateDualContour(DTid + int3(-1, 0, 0), mipLevel);
         
+        float3 n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
+        float3 n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
+        float3 n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
+        float3 n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
+
+        // Reserve space for 6 vertices (2 triangles)
         uint vertOffset;
         InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
-        
-        float3 n = float3(0, 1, 0);
 
+
+        // Write 6 vertices for the two triangles
         meshingVertices[vertOffset + 0].position = float4(v0, 1);
-        meshingVertices[vertOffset + 1].position = float4(v2, 1);
-        meshingVertices[vertOffset + 2].position = float4(v1, 1);
-
+        meshingVertices[vertOffset + 1].position = float4(v1, 1);
+        meshingVertices[vertOffset + 2].position = float4(v2, 1);
+    
         meshingVertices[vertOffset + 3].position = float4(v0, 1);
-        meshingVertices[vertOffset + 4].position = float4(v3, 1);
-        meshingVertices[vertOffset + 5].position = float4(v2, 1);
+        meshingVertices[vertOffset + 4].position = float4(v2, 1);
+        meshingVertices[vertOffset + 5].position = float4(v3, 1);
         
-        meshingVertices[vertOffset + 0].normal = float4(n, 1);
-        meshingVertices[vertOffset + 1].normal = float4(n, 1);
-        meshingVertices[vertOffset + 2].normal = float4(n, 1);
+        meshingVertices[vertOffset + 0].normal = float4(n0, 1);
+        meshingVertices[vertOffset + 1].normal = float4(n1, 1);
+        meshingVertices[vertOffset + 2].normal = float4(n2, 1);
         
-        meshingVertices[vertOffset + 3].normal = float4(n, 1);
-        meshingVertices[vertOffset + 4].normal = float4(n, 1);
-        meshingVertices[vertOffset + 5].normal = float4(n, 1);
+        meshingVertices[vertOffset + 3].normal = float4(n0, 1);
+        meshingVertices[vertOffset + 4].normal = float4(n2, 1);
+        meshingVertices[vertOffset + 5].normal = float4(n3, 1);
     }
 
     // Check edge along +Z axis
@@ -1257,31 +1491,37 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float sdfZ = Read3D(mipLevel, zNeighbor).x;
     if ((sdfOrigin < 0) != (sdfZ < 0))
     {
-        float3 v0 = CalculateDualVertex(DTid + int3(0, 0, 0), mipLevel);
-        float3 v1 = CalculateDualVertex(DTid + int3(-1, 0, 0), mipLevel);
-        float3 v2 = CalculateDualVertex(DTid + int3(-1, -1, 0), mipLevel);
-        float3 v3 = CalculateDualVertex(DTid + int3(0, -1, 0), mipLevel);
+        float3 v0 = CalculateDualContour(DTid + int3(0, 0, 0), mipLevel);
+        float3 v1 = CalculateDualContour(DTid + int3(-1, 0, 0), mipLevel);
+        float3 v2 = CalculateDualContour(DTid + int3(-1, -1, 0), mipLevel);
+        float3 v3 = CalculateDualContour(DTid + int3(0, -1, 0), mipLevel);
         
+        float3 n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
+        float3 n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
+        float3 n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
+        float3 n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
+
+        // Reserve space for 6 vertices (2 triangles)
         uint vertOffset;
         InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
-        
-        float3 n = float3(0, 0, 1);
-        
-        meshingVertices[vertOffset + 0].position = float4(v0, 1);
-        meshingVertices[vertOffset + 1].position = float4(v2, 1);
-        meshingVertices[vertOffset + 2].position = float4(v1, 1);
 
+
+        // Write 6 vertices for the two triangles
+        meshingVertices[vertOffset + 0].position = float4(v0, 1);
+        meshingVertices[vertOffset + 1].position = float4(v1, 1);
+        meshingVertices[vertOffset + 2].position = float4(v2, 1);
+    
         meshingVertices[vertOffset + 3].position = float4(v0, 1);
-        meshingVertices[vertOffset + 4].position = float4(v3, 1);
-        meshingVertices[vertOffset + 5].position = float4(v2, 1);
+        meshingVertices[vertOffset + 4].position = float4(v2, 1);
+        meshingVertices[vertOffset + 5].position = float4(v3, 1);
         
-        meshingVertices[vertOffset + 0].normal = float4(n, 1);
-        meshingVertices[vertOffset + 1].normal = float4(n, 1);
-        meshingVertices[vertOffset + 2].normal = float4(n, 1);
+        meshingVertices[vertOffset + 0].normal = float4(n0, 1);
+        meshingVertices[vertOffset + 1].normal = float4(n1, 1);
+        meshingVertices[vertOffset + 2].normal = float4(n2, 1);
         
-        meshingVertices[vertOffset + 3].normal = float4(n, 1);
-        meshingVertices[vertOffset + 4].normal = float4(n, 1);
-        meshingVertices[vertOffset + 5].normal = float4(n, 1);
+        meshingVertices[vertOffset + 3].normal = float4(n0, 1);
+        meshingVertices[vertOffset + 4].normal = float4(n2, 1);
+        meshingVertices[vertOffset + 5].normal = float4(n3, 1);
     }
 }
 

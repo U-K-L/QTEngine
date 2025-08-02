@@ -244,4 +244,5 @@ public:
 
     bool VolumeTexturesCreated = false;
     int mipsCount = 5;
+    uint32_t readBackVertexCount = 0;
 };

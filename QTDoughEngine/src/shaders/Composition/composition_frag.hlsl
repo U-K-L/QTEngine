@@ -131,7 +131,7 @@ float4 main(VSOutput i) : SV_Target
     
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
-    return lerp(sdfNormalImage, normalImage, 0.5);
+    return lerp(sdfNormalImage, normalImage, 0.85);
         
     //float4 heatMap = float4(countColors(sdfNormalImage.w), 1);
     //return heatMap;

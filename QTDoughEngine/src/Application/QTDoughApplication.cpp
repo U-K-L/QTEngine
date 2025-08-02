@@ -1318,6 +1318,50 @@ void QTDoughApplication::EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCom
         }).detach();
 }
 
+void QTDoughApplication::ReadbackBufferData(VkBuffer srcBuffer, VkDeviceSize size, void* pDstData, VkDeviceSize srcOffset) {
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    CreateBuffer(
+        size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer,
+        stagingBufferMemory
+    );
+
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.buffer = srcBuffer;
+    barrier.offset = srcOffset;
+    barrier.size = size;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 1, &barrier, 0, nullptr
+    );
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = srcOffset;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, stagingBuffer, 1, &copyRegion);
+
+    EndSingleTimeCommands(commandBuffer);
+
+    void* mappedData;
+    vkMapMemory(_logicalDevice, stagingBufferMemory, 0, size, 0, &mappedData);
+    memcpy(pDstData, mappedData, static_cast<size_t>(size));
+    vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+    vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+}
 
 
 void QTDoughApplication::CreateTextureImage()

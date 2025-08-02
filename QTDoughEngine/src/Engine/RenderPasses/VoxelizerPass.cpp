@@ -187,8 +187,24 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
 
 void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
 {
-    meshVertices.resize(vertexCount);
+
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    app->ReadbackBufferData(
+        globalIDCounterStorageBuffers, // Source buffer on GPU
+        sizeof(uint32_t),              // Size of data to read
+        &vertexCount,                   // Pointer to CPU destination
+        4 //Get the second element.
+    );
+
+    if(vertexCount == 0) {
+		std::cout << "No vertices found in the mesh." << std::endl;
+        vertexCount = 10;
+	}
+
+    //std::cout << "Vertex Count: " << vertexCount << std::endl;
+
+    meshVertices.resize(vertexCount);
 
     VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
@@ -249,6 +265,8 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
             << std::endl;
     }
     */
+
+    readBackVertexCount = vertexCount;
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -1138,7 +1156,7 @@ void VoxelizerPass::CreateBrushes()
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 1.3f; //Solid object.
+        brush.smoothness = 0.3f; //Solid object.
 
         
         if (brush.id == 2)
@@ -1915,7 +1933,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        //DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
+        DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 1);
 
         DispatchLOD(commandBuffer, currentFrame, 2);
@@ -1929,14 +1947,14 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         DispatchLOD(commandBuffer, currentFrame, 50);
 
-        GetMeshFromGPU(9216);
+        GetMeshFromGPU(0);
         /*
         if(IDDispatchIteration == 0)
 		{
 
 		}
-
         */
+
         /*
         //Process dispatch LOD in chunks
         if (IDDispatchIteration == 0 || IDDispatchIteration == 1)
