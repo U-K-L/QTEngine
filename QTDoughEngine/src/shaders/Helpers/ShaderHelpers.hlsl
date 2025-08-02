@@ -6,16 +6,16 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 #define WORLD_SDF_RESOLUTION 512.0f
-#define WORLD_SDF_BOUNDS 32.0f
+#define WORLD_SDF_BOUNDS 16.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
-#define SCENE_BOUNDSL1 32.0f
+#define SCENE_BOUNDSL1 16.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
-#define SCENE_BOUNDSL2 32.0f
+#define SCENE_BOUNDSL2 16.0f
 
 #define VOXEL_RESOLUTIONL3 64.0f
-#define SCENE_BOUNDSL3 32.0f
+#define SCENE_BOUNDSL3 16.0f
 
 #define TILE_MAX_BRUSHES 32.0f
 #define TILE_SIZE 8.0f
@@ -89,12 +89,20 @@ struct Brush
     float smoothness;
 };
 
+struct Vertex
+{
+    float3 position;
+    float3 color;
+    float2 texCoord;
+    float3 normal;
+};
+
 struct ComputeVertex
 {
-    float4 position;
-    float4 texCoord;
-    float4 normal;
-};
+    float4 position; // 16 bytes
+    float4 normal; // 16 bytes
+    float4 texCoord; // 16 bytes
+}; // Total: 48 bytes
 
 float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 {
@@ -151,7 +159,7 @@ float GetSampleLevel(float3 pos, float3 camPos)
     */
 }
 
-#define CONE_SPREAD_FACTOR 0.0275f 
+#define CONE_SPREAD_FACTOR 0.275f 
 #define MAX_MIP_LEVEL 5.0f
 
 float GetSampleLevelCone(float3 pos, float3 camPos)

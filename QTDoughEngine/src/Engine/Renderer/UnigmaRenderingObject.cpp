@@ -117,7 +117,7 @@ void UnigmaRenderingObject::Render(QTDoughApplication& app, VkCommandBuffer comm
 
 }
 
-void UnigmaRenderingObject::RenderBrush(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet, VkBuffer& vertexBuffer, uint32_t readBackVertexCount)
+void UnigmaRenderingObject::RenderBrush(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet, VkBuffer& vertexBuffer, uint32_t readBackVertexCount, VkBuffer indirectDrawBuffer)
 {
 
 
@@ -144,7 +144,13 @@ void UnigmaRenderingObject::RenderBrush(QTDoughApplication& app, VkCommandBuffer
         0, nullptr // No dynamic offsets
     );
 
-    vkCmdDraw(commandBuffer, readBackVertexCount, 1, 0, 0);
+    vkCmdDrawIndirect(
+        commandBuffer,
+        indirectDrawBuffer, // The buffer containing draw parameters
+        0,                  // Offset into the buffer
+        1,                  // Draw count (we are only doing one draw)
+        sizeof(VkDrawIndirectCommand) // Stride between commands
+    );
 
 }
 

@@ -224,7 +224,7 @@ public:
     std::vector<VkDeviceMemory> controlParticlesStorageMemory;
 
     std::vector<Vertex> meshVertices;
-    std::vector<ComputeVertex> meshingVertexSoup;
+    std::vector<Vertex> meshingVertexSoup;
     std::vector<glm::uvec3> meshingTriangleIndices;
     VkBuffer meshingVertexBuffer;
     VkBuffer vertexBufferReadbackBuffer;
@@ -245,4 +245,7 @@ public:
     bool VolumeTexturesCreated = false;
     int mipsCount = 5;
     uint32_t readBackVertexCount = 0;
+
+    VkBuffer indirectDrawBuffer;
+    VkDeviceMemory indirectDrawBufferMemory;
 };

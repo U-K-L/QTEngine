@@ -282,6 +282,11 @@ void VoxelizerPass::CreateComputePipeline()
     std::cout << "Memory of voxels in L3: " << sizeof(Voxel) * VOXEL_COUNTL3 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Size of voxel: " << sizeof(Voxel) << " bytes" << std::endl;
 
+    std::cout << "Memory of 3D Textures in L0: " << (sizeof(glm::vec2) * WORLD_SDF_RESOLUTION* WORLD_SDF_RESOLUTION* WORLD_SDF_RESOLUTION) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L1: " << (sizeof(glm::vec2) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L2: " << (sizeof(glm::vec2) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L3: " << (sizeof(glm::vec2) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
+
     readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
     readbackBufferMemories.resize(app->MAX_FRAMES_IN_FLIGHT);
 
@@ -635,7 +640,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     }
 
     //Create Vertex buffers appended.
-    uint32_t vertexBufferSize = sizeof(ComputeVertex) * VOXEL_COUNTL3;
+    uint32_t vertexBufferSize = sizeof(Vertex) * VOXEL_COUNTL3;
     meshingVertexSoup.resize(VOXEL_COUNTL3);
 
     VkBuffer vertexStagingBuffer;
@@ -650,6 +655,14 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     app->CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshingVertexBuffer, meshingVertexBufferMemory);
     app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
 
+    //Indirect mesh draw.
+    app->CreateBuffer(
+        sizeof(VkDrawIndirectCommand),
+        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        indirectDrawBuffer,
+        indirectDrawBufferMemory
+    );
 
     std::cout << "Shader Storage Buffers created" << std::endl;
 }
@@ -704,6 +717,12 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     meshingVertexBufferInfo.offset = 0;
     meshingVertexBufferInfo.range = VK_WHOLE_SIZE;
 
+    //Indirect Draw Buffer
+    VkDescriptorBufferInfo indirectDrawBufferInfo{};
+    indirectDrawBufferInfo.buffer = indirectDrawBuffer;
+    indirectDrawBufferInfo.offset = 0;
+    indirectDrawBufferInfo.range = VK_WHOLE_SIZE;
+
 
     for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo uniformBufferInfo{};
@@ -717,7 +736,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 18> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 19> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -927,6 +946,15 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[17].descriptorCount = 1;
         descriptorWrites[17].pBufferInfo = &meshingVertexBufferInfo;
 
+        //Indirect Draw Buffer
+        descriptorWrites[18].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[18].dstSet = computeDescriptorSets[i];
+        descriptorWrites[18].dstBinding = 18;
+        descriptorWrites[18].dstArrayElement = 0;
+        descriptorWrites[18].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[18].descriptorCount = 1;
+        descriptorWrites[18].pBufferInfo = &indirectDrawBufferInfo;
+
 
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
@@ -1090,8 +1118,15 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     meshingVertexBinding.descriptorCount = 1;
     meshingVertexBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // Indirect draw buffer
+    VkDescriptorSetLayoutBinding indirectDrawBinding{};
+    indirectDrawBinding.binding = 18;
+    indirectDrawBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    indirectDrawBinding.descriptorCount = 1;
+    indirectDrawBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 18> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding };
+    std::array<VkDescriptorSetLayoutBinding, 19> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1156,7 +1191,7 @@ void VoxelizerPass::CreateBrushes()
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 0.3f; //Solid object.
+        brush.smoothness = 2.0f; //Solid object.
 
         
         if (brush.id == 2)
@@ -1933,7 +1968,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
+        //DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchLOD(commandBuffer, currentFrame, 1);
 
         DispatchLOD(commandBuffer, currentFrame, 2);
@@ -1941,13 +1976,50 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 4);
         DispatchLOD(commandBuffer, currentFrame, 5);
 
+        if (dispatchCount < 11)
+        {
+            //Meshing. Move to indirect dispatch.
+            DispatchLOD(commandBuffer, currentFrame, 40);
 
-        //Meshing. Move to indirect dispatch.
-        DispatchLOD(commandBuffer, currentFrame, 40);
+            DispatchLOD(commandBuffer, currentFrame, 50);
+        }
 
-        DispatchLOD(commandBuffer, currentFrame, 50);
+        DispatchLOD(commandBuffer, currentFrame, 100);
 
-        GetMeshFromGPU(0);
+        VkBufferMemoryBarrier barriers[2] = {};
+
+        // Barrier for the indirect draw buffer
+        barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barriers[0].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barriers[0].dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barriers[0].buffer = indirectDrawBuffer;
+        barriers[0].offset = 0;
+        barriers[0].size = VK_WHOLE_SIZE;
+
+        // Barrier for the vertex buffer
+        barriers[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barriers[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barriers[1].dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+        barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barriers[1].buffer = meshingVertexBuffer; // The buffer being generated
+        barriers[1].offset = 0;
+        barriers[1].size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,      // Source stage for both writes
+            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |      // Destination for indirect args
+            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,        // Destination for vertex data
+            0,
+            0, nullptr,
+            2, barriers, // Use the array of 2 barriers
+            0, nullptr
+        );
+
+        //GetMeshFromGPU(0);
         /*
         if(IDDispatchIteration == 0)
 		{
@@ -2544,6 +2616,12 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res + 7) / 8;
     }
 
+    if (lodLevel == 100)
+    {
+        groupCountX = 1;
+        groupCountY = 1;
+        groupCountZ = 1; // This is a single dispatch for the final mesh generation.
+    }
 
     vkCmdPushConstants(
         commandBuffer,

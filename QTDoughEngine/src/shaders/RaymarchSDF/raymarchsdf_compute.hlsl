@@ -731,7 +731,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 1024;
+    int maxSteps = 256;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
@@ -754,6 +754,8 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         bool canTerminate =
         (closesSDF.x < minDistReturn);
         
+        if(closesSDF.x > 1)
+            return hitSample;
 
         if (canTerminate)
         {
@@ -777,7 +779,6 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
                 specular.w = i; //store count.
-                
 
             }
             else if (bounces == 1)
@@ -787,9 +788,11 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
 
             }
         }
-                
+     
         //update position to the nearest point. effectively a sphere trace.
-        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.00075f, voxelSizeL1 * 2 * (sampleLevel +1));
+
+        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.75f, voxelSizeL1 * 8 * (sampleLevel +1));
+        /*
         if (bounces == 0)
         {
             if (closesSDF.x < minDistanceL0)
@@ -797,7 +800,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         }
 
 
-
+        */
 
             
         
@@ -949,7 +952,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 depth = 0;
     float4 positionId = 0;
     
-    float4 hit = FieldFullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
+    float4 hit = FullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     
@@ -1000,7 +1003,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
     
-    gBindlessStorage[normalImageHandle][pixel] = float4(surface.w / 2, 0, 0, 1); //float4(surface.xyz, depthMapped); //Temp changing this to some identity.
+    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, 1); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
 

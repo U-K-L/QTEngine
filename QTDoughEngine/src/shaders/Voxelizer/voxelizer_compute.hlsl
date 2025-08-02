@@ -1,6 +1,15 @@
 ﻿﻿
 #include "../Helpers/ShaderHelpers.hlsl"
 
+struct DrawIndirectCommand
+{
+    uint vertexCount;
+    uint instanceCount;
+    uint firstVertex;
+    uint firstInstance;
+};
+
+RWStructuredBuffer<DrawIndirectCommand> g_IndirectDrawArgs : register(u18, space1);
 RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 SamplerState samplers[] : register(s0, space0); //Global
 
@@ -57,7 +66,7 @@ RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1
 
 RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
 
-RWStructuredBuffer<ComputeVertex> meshingVertices : register(u17, space1);
+RWStructuredBuffer<Vertex> meshingVertices : register(u17, space1);
 
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
@@ -1130,6 +1139,7 @@ float3 GetNormal(float3 worldPos)
     return normalize(float3(dx, dy, dz) + 1e-6);
 }
 
+
 float3 InterpolateVertexPos(float3 p1, float3 p2, float d1, float d2)
 {
     if (abs(d1 - d2) < 0.00001f)
@@ -1291,8 +1301,8 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     
     //Move it along its gradient.
     float3 particlePos = massParticle;
-    const int iterations = 16;
-    const float stepSize = 0.15f;
+    const int iterations = 8;
+    const float stepSize = 0.015f;
 
     [loop]
     for (int j = 0; j < iterations; ++j)
@@ -1385,7 +1395,76 @@ float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualContour(int3 cellCoord, float mipLevel)
 {
-    return CalculateDualVertexCentroid(cellCoord, mipLevel);
+    return CalculateDualVertexGradient(cellCoord, mipLevel);
+}
+
+void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
+{
+
+    uint vertOffset;
+    InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
+
+    //Set vertices positions.
+    meshingVertices[vertOffset + 0].position = float4(v0, 1).xyz;
+    meshingVertices[vertOffset + 1].position = float4(v1, 1).xyz;
+    meshingVertices[vertOffset + 2].position = float4(v2, 1).xyz;
+    
+    meshingVertices[vertOffset + 3].position = float4(v0, 1).xyz;
+    meshingVertices[vertOffset + 4].position = float4(v2, 1).xyz;
+    meshingVertices[vertOffset + 5].position = float4(v3, 1).xyz;
+    
+    
+    //Now generate normals. This depends on the operation codes of the brush.
+    int normalMethod = 2;
+    
+    float3 n0 = float3(0, 0, 1); //Fall back.
+    float3 n1 = float3(0, 0, 1); //Fall back.
+    float3 n2 = float3(0, 0, 1); //Fall back.
+    float3 n3 = float3(0, 0, 1); //Fall back.
+    
+    //Smooth.
+    if(normalMethod == 0)
+    {
+        n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
+        n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
+        n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
+        n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
+    }
+    
+    //Flat.
+    if (normalMethod == 1)
+    {
+        float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
+        n0 = faceNormal;
+        n1 = faceNormal;
+        n2 = faceNormal;
+        n3 = faceNormal;
+    }
+    
+    //Interpolate based on smoothness.
+    if(normalMethod == 2)
+    {
+        float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
+        float t = clamp(1.0f -  exp(-brush.smoothness), 0, 1.0f);
+        n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
+        n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
+        n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
+        n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
+        
+        n0 = lerp(faceNormal, n0, t);
+        n1 = lerp(faceNormal, n1, t);
+        n2 = lerp(faceNormal, n2, t);
+        n3 = lerp(faceNormal, n3, t);
+    }
+
+        
+    meshingVertices[vertOffset + 0].normal = n0;
+    meshingVertices[vertOffset + 1].normal = n1;
+    meshingVertices[vertOffset + 2].normal = n2;
+        
+    meshingVertices[vertOffset + 3].normal = n0;
+    meshingVertices[vertOffset + 4].normal = n2;
+    meshingVertices[vertOffset + 5].normal = n3;
 }
 
 
@@ -1418,33 +1497,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         float3 v1 = CalculateDualContour(DTid + int3(0, -1, 0), mipLevel);
         float3 v2 = CalculateDualContour(DTid + int3(0, -1, -1), mipLevel);
         float3 v3 = CalculateDualContour(DTid + int3(0, 0, -1), mipLevel);
-        
-        float3 n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
-        float3 n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
-        float3 n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
-        float3 n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
 
-        // Reserve space for 6 vertices (2 triangles)
-        uint vertOffset;
-        InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
-
-
-        // Write 6 vertices for the two triangles
-        meshingVertices[vertOffset + 0].position = float4(v0, 1);
-        meshingVertices[vertOffset + 1].position = float4(v1, 1);
-        meshingVertices[vertOffset + 2].position = float4(v2, 1);
-    
-        meshingVertices[vertOffset + 3].position = float4(v0, 1);
-        meshingVertices[vertOffset + 4].position = float4(v2, 1); 
-        meshingVertices[vertOffset + 5].position = float4(v3, 1); 
-        
-        meshingVertices[vertOffset + 0].normal = float4(n0, 1);
-        meshingVertices[vertOffset + 1].normal = float4(n1, 1);
-        meshingVertices[vertOffset + 2].normal = float4(n2, 1);
-        
-        meshingVertices[vertOffset + 3].normal = float4(n0, 1);
-        meshingVertices[vertOffset + 4].normal = float4(n2, 1);
-        meshingVertices[vertOffset + 5].normal = float4(n3, 1);
+        EmitTriangles(v0, v1, v2, v3, brush);
 
     }
 
@@ -1457,33 +1511,9 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         float3 v1 = CalculateDualContour(DTid + int3(0, 0, -1), mipLevel);
         float3 v2 = CalculateDualContour(DTid + int3(-1, 0, -1), mipLevel);
         float3 v3 = CalculateDualContour(DTid + int3(-1, 0, 0), mipLevel);
-        
-        float3 n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
-        float3 n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
-        float3 n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
-        float3 n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
-
-        // Reserve space for 6 vertices (2 triangles)
-        uint vertOffset;
-        InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
 
 
-        // Write 6 vertices for the two triangles
-        meshingVertices[vertOffset + 0].position = float4(v0, 1);
-        meshingVertices[vertOffset + 1].position = float4(v1, 1);
-        meshingVertices[vertOffset + 2].position = float4(v2, 1);
-    
-        meshingVertices[vertOffset + 3].position = float4(v0, 1);
-        meshingVertices[vertOffset + 4].position = float4(v2, 1);
-        meshingVertices[vertOffset + 5].position = float4(v3, 1);
-        
-        meshingVertices[vertOffset + 0].normal = float4(n0, 1);
-        meshingVertices[vertOffset + 1].normal = float4(n1, 1);
-        meshingVertices[vertOffset + 2].normal = float4(n2, 1);
-        
-        meshingVertices[vertOffset + 3].normal = float4(n0, 1);
-        meshingVertices[vertOffset + 4].normal = float4(n2, 1);
-        meshingVertices[vertOffset + 5].normal = float4(n3, 1);
+        EmitTriangles(v0, v1, v2, v3, brush);
     }
 
     // Check edge along +Z axis
@@ -1496,33 +1526,23 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         float3 v2 = CalculateDualContour(DTid + int3(-1, -1, 0), mipLevel);
         float3 v3 = CalculateDualContour(DTid + int3(0, -1, 0), mipLevel);
         
-        float3 n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
-        float3 n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
-        float3 n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
-        float3 n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
-
-        // Reserve space for 6 vertices (2 triangles)
-        uint vertOffset;
-        InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
-
-
-        // Write 6 vertices for the two triangles
-        meshingVertices[vertOffset + 0].position = float4(v0, 1);
-        meshingVertices[vertOffset + 1].position = float4(v1, 1);
-        meshingVertices[vertOffset + 2].position = float4(v2, 1);
-    
-        meshingVertices[vertOffset + 3].position = float4(v0, 1);
-        meshingVertices[vertOffset + 4].position = float4(v2, 1);
-        meshingVertices[vertOffset + 5].position = float4(v3, 1);
-        
-        meshingVertices[vertOffset + 0].normal = float4(n0, 1);
-        meshingVertices[vertOffset + 1].normal = float4(n1, 1);
-        meshingVertices[vertOffset + 2].normal = float4(n2, 1);
-        
-        meshingVertices[vertOffset + 3].normal = float4(n0, 1);
-        meshingVertices[vertOffset + 4].normal = float4(n2, 1);
-        meshingVertices[vertOffset + 5].normal = float4(n3, 1);
+        EmitTriangles(v0, v1, v2, v3, brush);
     }
+}
+
+//Indirect Draw Call.
+void FinalizeMesh()
+{
+    // Atomically load the vertex count generated by the DualContour pass.
+    // The '0' indicates no operation, just a load.
+    uint vertCount;
+    InterlockedAdd(GlobalIDCounter[1], 0, vertCount);
+
+    // Write the arguments to the indirect draw buffer.
+    g_IndirectDrawArgs[0].vertexCount = vertCount;
+    g_IndirectDrawArgs[0].instanceCount = 1;
+    g_IndirectDrawArgs[0].firstVertex = 0;
+    g_IndirectDrawArgs[0].firstInstance = 0;
 }
 
 [numthreads(8, 8, 8)]
@@ -1541,7 +1561,6 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     
     if(sampleLevelL == 1.0f)
     {
-        GlobalIDCounter[1] = 0;
         WriteToWorldSDF(DTid);
         return;
     }
@@ -1606,6 +1625,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     //In the future, make this indirect dispatch for dirty brushes.
     if(sampleLevelL == 40.0f)
     {
+        GlobalIDCounter[1] = 0;
         FindActiveCells(DTid);
         return;
     }
@@ -1614,6 +1634,11 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     {
         DualContour(DTid);
         return;
+    }
+    
+    if(sampleLevelL == 100.0f)
+    {
+        FinalizeMesh();
     }
     
     
