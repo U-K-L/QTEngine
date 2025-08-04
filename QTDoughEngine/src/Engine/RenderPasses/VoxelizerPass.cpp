@@ -1191,7 +1191,7 @@ void VoxelizerPass::CreateBrushes()
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 2.01f; //Solid object.
+        brush.smoothness = 1.01f; //Solid object.
 
         
         if (brush.id == 2)

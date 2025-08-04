@@ -419,7 +419,7 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     //if (blendFactor < 0.00425f) //No blend, return triangle normals
     //        return 0;
     
-    float eps = 0.022127f * pow(2.0f, 1.0f + (smoothness * 2.0f) + blendFactor);
+    float eps = 0.022127f * pow(2.0f, 1.0f + (smoothness * 4.0f) + blendFactor);
 
     float dx = TrilinearSampleSDFTextureNormals(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTextureNormals(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(0, eps, 0), sampleLevel).x;
@@ -981,9 +981,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     //Pick based on normals.
     float3 normal = surface.xyz;
-    float4 front = material.baseColor;
-    float4 sides = material.sideColor;
-    float4 top = material.topColor;
+    float4 front = material.baseColor * 1.0725f;
+    float4 sides = material.sideColor * 1.0725f;
+    float4 top = material.topColor * 1.0725f;
     
     float3 forward = float3(0, 1, 0);
     float3 up = float3(0, 0, 1);
@@ -1003,8 +1003,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
     //float4 fullMarchField = float4(0, surface.w / 2.0f, 0, 1);
-    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, 1); //Temp changing this to some identity.
-    gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
+    gBindlessStorage[outputImageHandle][pixel] = lerp(0, finalColor, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
 
     
