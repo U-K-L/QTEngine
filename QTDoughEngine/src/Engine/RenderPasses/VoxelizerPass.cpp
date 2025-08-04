@@ -1191,7 +1191,7 @@ void VoxelizerPass::CreateBrushes()
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 2.0f; //Solid object.
+        brush.smoothness = 2.01f; //Solid object.
 
         
         if (brush.id == 2)
@@ -1957,18 +1957,19 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     if(dispatchCount > 1)
 	{
 		//Dispatch the tile generation.
-
+        DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
         //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
         //DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
+        DispatchTile(commandBuffer, currentFrame, 2); //Particle generation.
 	}
 
     if (dispatchCount > 2)
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
-        //DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
+
         DispatchLOD(commandBuffer, currentFrame, 1);
 
         DispatchLOD(commandBuffer, currentFrame, 2);
@@ -1976,13 +1977,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 4);
         DispatchLOD(commandBuffer, currentFrame, 5);
 
-        if (dispatchCount < 11)
-        {
-            //Meshing. Move to indirect dispatch.
-            DispatchLOD(commandBuffer, currentFrame, 40);
+        //Meshing. Move to indirect dispatch.
+        DispatchLOD(commandBuffer, currentFrame, 40);
 
-            DispatchLOD(commandBuffer, currentFrame, 50);
-        }
+        DispatchLOD(commandBuffer, currentFrame, 50);
 
         DispatchLOD(commandBuffer, currentFrame, 100);
 

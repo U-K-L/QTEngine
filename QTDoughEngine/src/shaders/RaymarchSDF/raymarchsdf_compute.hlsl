@@ -731,7 +731,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
     float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 256;
+    int maxSteps = 1024;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
@@ -1002,7 +1002,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
-    
+    //float4 fullMarchField = float4(0, surface.w / 2.0f, 0, 1);
     gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, 1); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, colorWithLight, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;

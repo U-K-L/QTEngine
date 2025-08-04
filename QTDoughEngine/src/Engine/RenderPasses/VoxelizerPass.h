@@ -27,7 +27,7 @@ public:
     
     //This voxel is for L1, in the future we also want a Voxel struct with more information but higher MIP.
     struct Voxel {
-        uint32_t distance;
+        int distance;
         float id;
         uint32_t brushId;
         uint32_t pad3;

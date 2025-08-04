@@ -64,6 +64,9 @@ RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
+StructuredBuffer<Particle> particlesL1In : register(t12, space1); // readonly
+RWStructuredBuffer<Particle> particlesL1Out : register(u13, space1); // write
+
 RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
 
 RWStructuredBuffer<Vertex> meshingVertices : register(u17, space1);
@@ -226,6 +229,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {   
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].distance = 0; //asuint(DEFUALT_EMPTY_SPACE);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
@@ -240,7 +244,10 @@ void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
     
     float2 clearValue = float2(DEFUALT_EMPTY_SPACE, NO_LABELF());
     //voxelsL1Out[voxelIndex].id = NO_LABELF();
+    voxelsL1Out[voxelIndex].distance = 2;
     Write3D(0, DTid, clearValue);
+    GlobalIDCounter[1] = 0;
+
 }
 
 float GaussianBlurSDF(int3 coord, StructuredBuffer<Voxel> inputBuffer, int3 gridSize)
@@ -562,6 +569,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float minDist = DEFUALT_EMPTY_SPACE;
     float windingSum = 0.0f;
 
+    float3 closesVert = 0;
+    
     for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
     {
         uint3 idx = uint3(i, i + 1, i + 2);
@@ -569,7 +578,11 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         float3 b = vertexBuffer[idx.y].position.xyz;
         float3 c = vertexBuffer[idx.z].position.xyz;
 
-        minDist = min(minDist, DistanceToTriangle(localPos, a, b, c));
+        float dist = DistanceToTriangle(localPos, a, b, c);
+        if (minDist > dist)
+            closesVert = a;
+        
+        minDist = min(minDist, dist);
         windingSum += GetSolidAngle(localPos, a, b, c);
     }
 
@@ -588,8 +601,29 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         sdf = DEFUALT_EMPTY_SPACE;
     }
 
-    Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
-    Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
+    float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
+    Write3D(brush.textureID, int3(DTid), float2(valueToWrite, NO_LABELF()));
+    Write3D(brush.textureID2, int3(DTid), float2(valueToWrite, NO_LABELF()));
+    
+    //Add particle if SDF is close enough.
+
+    //Blocks size
+    int blockSize = (256 / brush.resolution); //Highest resolution is L1 = 256.
+    if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
+    {
+        float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+    
+        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+        float halfScene = voxelSceneBounds.y * 0.5f;
+        
+        float3 worldPos = mul(brush.model, float4(localPos, 1.0f)).xyz;
+        uint particleOffset;
+        InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
+        particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
+            
+
+    }
+
 
     for (int i = 0; i < CAGE_VERTS; i++)
     {
@@ -675,6 +709,17 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
     return min(u, voxelSize * 4.0f);
 }
 
+float CalculateSDFfromDensity(uint fixedPointDensity)
+{
+    float density = (float) fixedPointDensity / DENSITY_SCALE;
+
+    // Larger values means thinner iso surfaces.
+    const float isoValue = 400.0f;
+
+    float sdf = isoValue - density;
+    return sdf;
+}
+
 void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 {
     
@@ -708,8 +753,16 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint brushCount = TileBrushCounts[tileIndex];
     if(brushCount == 0)
     {
+        /*
+        int3 DTL1 = DTid / 2;
+        float2 voxelSceneBoundsl1 = GetVoxelResolution(1.0f);
+        uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
+        minDist = min(voxelsL1Out[index].distance, minDist);
+        Write3DDist(0, DTid, minDist);
+        */
         return;
     }
+
 
     for (uint i = 0; i < brushCount; i++)
     {
@@ -743,10 +796,17 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].brushId = minId;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = blendFactor;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = smoothness;
+    uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
+    voxelsL1Out[index].brushId = minId;
+    voxelsL1Out[index].normalDistance.w = blendFactor;
+    voxelsL1Out[index].normalDistance.x = smoothness;
 
+    //Final min distance to see if a smaller distance exist in our particle buffer.
+    //minDist = min(voxelsL1Out[index].distance, minDist);
+    
+    float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
+    minDist = min(sdfVal, minDist);
+    
     Write3DDist(0, DTid, minDist);
 }
 
@@ -1302,7 +1362,7 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     //Move it along its gradient.
     float3 particlePos = massParticle;
     const int iterations = 8;
-    const float stepSize = 0.015f;
+    const float stepSize = 0.00225f;
 
     [loop]
     for (int j = 0; j < iterations; ++j)

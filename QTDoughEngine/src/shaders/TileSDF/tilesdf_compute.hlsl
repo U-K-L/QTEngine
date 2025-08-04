@@ -151,17 +151,44 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
 
 void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
+    
+    float sigma = 0.6325f; // Controls the spread of the Gaussian
+    float amplitude = 1.0f; // Can be a particle attribute
     Particle particle = particlesL1In[DTid.x];
     
-    particle.position.xyz += randPos(DTid.x, particle.position.xyz);
+
     
-    float pRad = 0.125f;
+    
+    if(particle.position.w < 1)
+        return;
+    
+    float3 position = particle.position.xyz;
+    
+    
+
+    //Move to world space if connected to a brush.
+    Brush brush = Brushes[0];
+    
+    position = mul(brush.model, float4(position, 1.0f)).xyz;
+    
+    float speed = 0.001f;
+    float timeX = time.x * speed;
+    
+    float3 direction = normalize(position - float3(0, 0, 0));
+
+    if(position.x > 0.5)
+    {
+        position += 10.0f * (direction + float3(0, 0, -0.9)) * deltaTime;
+    }
+
+    
+    float maxDist = sigma * 3.0f;
     
     float voxelSize = SCENE_BOUNDSL1 / VOXEL_RESOLUTIONL1;
     float3 halfScene = SCENE_BOUNDSL1 * 0.5f;
 
-    float3 minPos = particle.position.xyz - pRad;
-    float3 maxPos = particle.position.xyz + pRad;
+    float3 minPos = position - maxDist;
+    float3 maxPos = position + maxDist;
 
     int3 minVoxel = floor((minPos + halfScene) / voxelSize);
     int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
@@ -176,16 +203,26 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
             {
                 int3 voxelIndex = int3(x, y, z);
-                float3 worldPos = voxelSize * (float3(voxelIndex) - 0.5f * VOXEL_RESOLUTIONL1);
+                // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
+                float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
 
-                float dist = sdSphere(worldPos, particle.position.xyz, pRad);
+                float3 diff = worldPos - position;
+                float squaredDist = dot(diff, diff);
 
-                uint flatIndex = Flatten3D(voxelIndex, VOXEL_RESOLUTIONL1);
-                InterlockedMin(voxelsL1Out[flatIndex].distance, asuint(dist));
+                float gaussianValue = amplitude * exp(-squaredDist / (2.0f * sigma * sigma));
+
+                uint contribution = (uint) (gaussianValue * DENSITY_SCALE);
+
+                if (contribution > 0)
+                {
+                    uint flatIndex = Flatten3DR(voxelIndex, VOXEL_RESOLUTIONL1);
+
+                    InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
+                }
 
             }
 
-    particlesL1Out[DTid.x].position = particle.position;
+    particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;;
 
 }
 

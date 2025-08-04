@@ -6,27 +6,29 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 #define WORLD_SDF_RESOLUTION 512.0f
-#define WORLD_SDF_BOUNDS 16.0f
+#define WORLD_SDF_BOUNDS 32.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
-#define SCENE_BOUNDSL1 16.0f
+#define SCENE_BOUNDSL1 32.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
-#define SCENE_BOUNDSL2 16.0f
+#define SCENE_BOUNDSL2 32.0f
 
 #define VOXEL_RESOLUTIONL3 64.0f
-#define SCENE_BOUNDSL3 16.0f
+#define SCENE_BOUNDSL3 32.0f
 
 #define TILE_MAX_BRUSHES 32.0f
 #define TILE_SIZE 8.0f
 
 #define DEFORMATION_CHUNK 8.0f
 
-#define DEFUALT_EMPTY_SPACE 1.75f
+#define DEFUALT_EMPTY_SPACE 2.0f
 
 #define CAGE_VERTS 26
 
 #define MAX_BRUSHES 8192
+
+#define DENSITY_SCALE 32
 
 #define NO_LABEL 16777215  // safe max exact int
 float NO_LABELF()
@@ -44,7 +46,7 @@ inline float lenFast(float3 v)
 
 struct Voxel
 {
-    uint distance;
+    int distance;
     float id;
     uint brushId;
     uint uniqueId;
