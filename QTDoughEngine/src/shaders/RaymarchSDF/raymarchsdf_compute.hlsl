@@ -22,6 +22,7 @@ struct Images
     uint AlbedoImage;
     uint NormalImage;
     uint PositionImage;
+    uint FullSDFField;
 };
 
 Images InitImages()
@@ -31,6 +32,7 @@ Images InitImages()
     image.AlbedoImage = intArray[0];
     image.NormalImage = intArray[1];
     image.PositionImage = intArray[2];
+    image.FullSDFField = intArray[3];
     
     return image;
 }
@@ -916,6 +918,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint outputImageHandle = NonUniformResourceIndex(image.AlbedoImage);
     uint normalImageHandle = NonUniformResourceIndex(image.NormalImage);
     uint positionImageHandle = NonUniformResourceIndex(image.PositionImage);
+    uint fullFieldSDFHandle = NonUniformResourceIndex(image.FullSDFField);
     gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
     gBindlessStorage[normalImageHandle][pixel] = 0; //CLEAR IMAGE.
     gBindlessStorage[positionImageHandle][pixel] = 0; //CLEAR IMAGE.
@@ -951,8 +954,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 specular = 0;
     float4 depth = 0;
     float4 positionId = 0;
+    float4 surfaceFull = float4(0, 0, 0, 0);
     
     float4 hit = FullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
+    FieldFullMarch(interpRayOrigin, interpRayDir, camPos, surfaceFull, visibility, specular, positionId);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     
@@ -1002,10 +1007,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
-    //float4 fullMarchField = float4(0, surface.w / 2.0f, 0, 1);
+    float4 fullMarchField = float4(0, surfaceFull.w / 2.0f, 0, 1);
     gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, finalColor, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
+    gBindlessStorage[fullFieldSDFHandle][pixel] = fullMarchField;
 
     
     

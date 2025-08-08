@@ -178,7 +178,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
     if(position.x > 0.5)
     {
-        position += 10.0f * (direction + float3(0, 0, -0.9)) * deltaTime;
+        position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime;
     }
 
     

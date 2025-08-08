@@ -28,6 +28,7 @@
     <ClCompile Include="..\ExternalLibs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Application\AssetLoader.cpp" />
     <ClCompile Include="src\Application\QTDoughApplication.cpp" />
+    <ClCompile Include="src\Application\VideoRecorder.cpp" />
     <ClCompile Include="src\Engine\Camera\UnigmaCamera.cpp" />
     <ClCompile Include="src\Engine\Core\InputManager.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaGameManager.cpp" />
@@ -63,6 +64,7 @@
     <ClInclude Include="src\Application\AssetLoader.h" />
     <ClInclude Include="src\Application\QTDoughApplication.h" />
     <ClInclude Include="src\Application\UnigmaBlend.h" />
+    <ClInclude Include="src\Application\VideoRecorder.h" />
     <ClInclude Include="src\Engine\Camera\UnigmaCamera.h" />
     <ClInclude Include="src\Engine\Core\InputManager.h" />
     <ClInclude Include="src\Engine\Core\UnigmaGameObject.h" />

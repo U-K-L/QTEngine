@@ -23,6 +23,7 @@ void SDFPass::CreateMaterials() {
     material.textureNames[0] = "SDFAlbedoPass";
     material.textureNames[1] = "SDFNormalPass";
     material.textureNames[2] = "SDFPositionPass";
+    material.textureNames[3] = "FullSDFField";
 
     images.resize(3);
     imagesMemory.resize(3);
@@ -30,6 +31,7 @@ void SDFPass::CreateMaterials() {
     PassNames.push_back("SDFAlbedoPass");
     PassNames.push_back("SDFNormalPass");
     PassNames.push_back("SDFPositionPass");
+    PassNames.push_back("FullSDFField");
 
 }
 

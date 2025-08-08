@@ -20,6 +20,20 @@ cbuffer UniformBufferObject : register(b0, space1)
     float isOrtho;
 }
 
+struct UnigmaMaterial
+{
+    float4 baseColor;
+    float4 topColor;
+    float4 sideColor;
+};
+
+struct PushConsts
+{
+    int input;
+};
+[[vk::push_constant]]
+PushConsts pc;
+
 struct Images
 {
     uint BackgroundImage;
@@ -32,6 +46,7 @@ struct Images
     uint SDFNormalImage;
     uint SDFPositionPass;
     uint CombineSDFRasterPass;
+    uint FullSDFField;
 };
 
 Images InitImages()
@@ -48,6 +63,7 @@ Images InitImages()
     image.SDFNormalImage = intArray[7];
     image.SDFPositionPass = intArray[8];
     image.CombineSDFRasterPass = intArray[9];
+    image.FullSDFField = intArray[10];
     
     return image;
 }
@@ -128,7 +144,58 @@ float4 main(VSOutput i) : SV_Target
     float4 sdfNormalImage = textures[images.SDFNormalImage].Sample(samplers[images.SDFNormalImage], textureUVs);
     float4 sdfPositionImage = textures[images.SDFPositionPass].Sample(samplers[images.SDFPositionPass], textureUVs);
     float4 combineSDFRasterImage = textures[images.CombineSDFRasterPass].Sample(samplers[images.CombineSDFRasterPass], textureUVs);
+    float4 fullFieldSDF = textures[images.FullSDFField].Sample(samplers[images.FullSDFField], textureUVs);
     
+    
+    float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
+    
+    if(pc.input == 1)
+        return normalImage;
+    if (pc.input == 2)
+        return sdfNormalImage;
+    if (pc.input == 3)
+        return fullFieldSDF;
+    if (pc.input == 4)
+    {
+        //Albedo.
+        UnigmaMaterial material;
+        material.baseColor = float4(0.90, 0.9, 0.78, 1.0);
+        material.topColor = float4(1.0, 0.92, 0.928, 1.0);
+        material.sideColor = float4(0.9, 0.63, 0.61, 1.0);
+        float thresholdX = 0.2;
+        float thresholdY = 0.6;
+        float thresholdZ = 0.8;
+
+        //Pick based on normals.
+        float4 front = material.baseColor * 1.0725f;
+        float4 sides = material.sideColor * 1.0725f;
+        float4 top = material.topColor * 1.0725f;
+    
+        float3 forward = float3(0, 1, 0);
+        float3 up = float3(0, 0, 1);
+        float3 right = float3(1, 0, 0);
+    
+        float weightFront = abs(normalImage.y);
+        float weightSides = abs(normalImage.x);
+        float weightTop = abs(normalImage.z);
+    
+        float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
+        weightFront /= total;
+        weightSides /= total;
+        weightTop /= total;
+
+        float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
+    
+        float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - normalImage.w) * 0.25f).xyz, 1));
+        
+        color = lerp(backgroundImage, colorWithLight, normalImage.w);
+    }
+    if (pc.input == 5)
+        return normalImage.w;
+    if (pc.input == 6)
+    {
+        color = lerp(backgroundImage, albedoImage, albedoImage.w);
+    }
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);
@@ -136,11 +203,15 @@ float4 main(VSOutput i) : SV_Target
     //float4 heatMap = float4(countColors(sdfNormalImage.w), 1);
     //return heatMap;
     //return sdfNormalImage;
-    //return normalImage;
     //return outlineImage;
     //return sdfImage;
 
-    float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
+    
+
+
+    
+    
+
 
     //return color;
     /*

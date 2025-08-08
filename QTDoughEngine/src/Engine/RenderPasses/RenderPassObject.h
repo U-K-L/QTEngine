@@ -19,6 +19,11 @@ class RenderPassObject
             alignas(16) glm::vec2 texelSize;
         };
 
+        struct PushConsts {
+            int input;
+        };
+        PushConsts pc{};
+
         std::vector<UnigmaRenderingObject*> renderingObjects;
         UnigmaMaterial material;
         std::string PassName = "DefaultPass";
@@ -61,4 +66,5 @@ class RenderPassObject
         virtual void UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
         virtual void RenderPerObject(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain);
         virtual void RenderPerObject(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, std::vector<VkImageView*> targetImages, UnigmaCameraStruct* CameraMain);
+
 };

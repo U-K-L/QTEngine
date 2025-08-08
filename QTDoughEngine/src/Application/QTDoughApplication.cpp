@@ -212,8 +212,15 @@ void QTDoughApplication::DrawFrame()
     //Waits for this fence to finish. 
     vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
+    // Write previous frame's bytes to ffmpeg
+    if (recorder && recorder->IsRecording()) {
+        recorder->DrainFrameToEncoder(currentFrame);
+    }
+
     //Set fence back to unsignal for next time.
     vkResetFences(_logicalDevice, 1, &_inFlightFences[currentFrame]);
+
+
 
     //vkResetCommandBuffer(computeCommandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
     //RecordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
@@ -706,7 +713,7 @@ void QTDoughApplication::AddPasses()
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(normalPass);
     renderPassStack.push_back(positionPass);
-    //renderPassStack.push_back(combineSDFRasterPass);
+    renderPassStack.push_back(combineSDFRasterPass);
     renderPassStack.push_back(outlinePass);
     renderPassStack.push_back(compPass);
 
@@ -1972,6 +1979,14 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
     DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
+    if (recorder && recorder->IsRecording()) {
+        recorder->CmdCopySwapImageToStaging(commandBuffer,
+            swapChainImages[imageIndex],
+            currentFrame,
+            swapChainExtent.width,
+            swapChainExtent.height);
+    }
+
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -2349,6 +2364,45 @@ void QTDoughApplication::CreateSwapChain() {
 
     _swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
+}
+
+static std::string MakeCaptureFilename() {
+    std::string dir = "C:/ProjectsSpeed/QTDEngine/Media/Captures";
+    std::filesystem::create_directories(dir);
+
+    char ts[32];
+    std::time_t t = std::time(nullptr);
+    std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", std::localtime(&t));
+
+    return dir + "/capture_" + ts + ".mp4";
+}
+
+
+void QTDoughApplication::StartRecording(const char* path, uint32_t fps) {
+    if (!recorder)
+        recorder = new VideoRecorder(_logicalDevice, _physicalDevice, _vkGraphicsQueue, _commandPool);
+
+    std::string outPath = (path && *path) ? std::string(path) : MakeCaptureFilename();
+    std::cout << "[Recorder] Output path: " << outPath << std::endl;
+
+    try {
+        std::filesystem::create_directories(std::filesystem::path(outPath).parent_path());
+    }
+    catch (...) {
+        std::cout << "Failed to create directories for recording path: " << outPath << std::endl;
+    }
+
+    recorder->Begin(outPath.c_str(),
+        swapChainExtent.width,
+        swapChainExtent.height,
+        fps,
+        _swapChainImageFormat,
+        MAX_FRAMES_IN_FLIGHT);
+}
+
+void QTDoughApplication::StopRecording() {
+    if (recorder) { recorder->End(); delete recorder; recorder = nullptr; }
+    std::cout << "[Recorder] Recording stopped." << std::endl;
 }
 
 void QTDoughApplication::CreateInstance()

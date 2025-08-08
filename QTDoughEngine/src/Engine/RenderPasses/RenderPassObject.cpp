@@ -70,6 +70,15 @@ void RenderPassObject::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex
         0, nullptr
     );
 
+    vkCmdPushConstants(
+        commandBuffer,
+        pipelineLayout,
+        VK_SHADER_STAGE_ALL_GRAPHICS,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
 
     // Set viewport and scissor if dynamic
     VkViewport viewport{};

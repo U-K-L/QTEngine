@@ -39,6 +39,7 @@
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
 #include <functional>
+#include "VideoRecorder.h"
 
 
 
@@ -212,6 +213,7 @@ public:
     VkDeviceMemory quadVertexBufferMemory;
     VkBuffer quadIndexBuffer;
     VkDeviceMemory quadIndexBufferMemory;
+    VideoRecorder* recorder = nullptr;
 
     VkSampleCountFlagBits GetMaxUsableSampleCount();
     void TransitionOffscreenImagesForSampling(VkCommandBuffer commandBuffer);
@@ -239,6 +241,9 @@ public:
     void EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback);
     void CreateGlobalSamplers(uint32_t samplerCount);
     void ReadbackBufferData(VkBuffer srcBuffer, VkDeviceSize size, void* pDstData, VkDeviceSize srcOffset);
+
+    void StartRecording(const char* path, uint32_t fps);
+    void StopRecording();
 
     void CreateImages3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     VkImageView Create3DImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
