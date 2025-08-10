@@ -200,7 +200,7 @@ public:
         glm::vec4 position;
         glm::vec4 velocity;
         glm::vec4 force;
-        glm::vec4 tbd;
+        glm::vec4 initPosition;
         glm::vec4 tbd2;
         glm::vec4 tbd3;
         glm::vec4 tbd4;

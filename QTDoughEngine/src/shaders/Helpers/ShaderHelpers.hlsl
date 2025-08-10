@@ -58,7 +58,7 @@ struct Particle
     float4 position;
     float4 velocity;
     float4 force;
-    float4 tbd;
+    float4 initPosition;
     float4 tbd2;
     float4 tbd3;
     float4 tbd4;

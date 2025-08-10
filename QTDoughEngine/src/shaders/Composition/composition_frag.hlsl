@@ -191,7 +191,7 @@ float4 main(VSOutput i) : SV_Target
         color = lerp(backgroundImage, colorWithLight, normalImage.w);
     }
     if (pc.input == 5)
-        return normalImage.w;
+        return sdfNormalImage.w;
     if (pc.input == 6)
     {
         color = lerp(backgroundImage, albedoImage, albedoImage.w);

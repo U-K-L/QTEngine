@@ -233,6 +233,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0;
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -620,6 +621,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         uint particleOffset;
         InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
         particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
+        particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 1);
             
 
     }

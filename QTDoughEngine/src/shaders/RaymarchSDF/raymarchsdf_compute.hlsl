@@ -847,7 +847,9 @@ float4 FieldFullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface,
             divisor = 0.001f;
             omega = abs(1 / (2 * divisor)) * 0.05f;
         }
-
+        int index = GetVoxelIndexFromPosition(pos, 1.0f);
+        float dirty = voxelsL1In[index].normalDistance.z;
+        surface.z += dirty;
         
         
         accumaltor += (abs(DEFUALT_EMPTY_SPACE - sampleId.x) + omega) / 4096;
@@ -1007,7 +1009,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
-    float4 fullMarchField = float4(0, surfaceFull.w / 2.0f, 0, 1);
+    float4 fullMarchField = float4(surfaceFull.w * surfaceFull.z / 800.0f, surfaceFull.w / 2.0f, 0, 1);
     gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = lerp(0, finalColor, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;

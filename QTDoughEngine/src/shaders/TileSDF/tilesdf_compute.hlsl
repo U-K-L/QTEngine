@@ -169,8 +169,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     //Move to world space if connected to a brush.
     Brush brush = Brushes[0];
     
-    position = mul(brush.model, float4(position, 1.0f)).xyz;
-    
     float speed = 0.001f;
     float timeX = time.x * speed;
     
@@ -181,6 +179,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
         position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime;
     }
 
+    float3 positionLocal = position;
+    
+        
+    position = mul(brush.model, float4(position, 1.0f)).xyz;
     
     float maxDist = sigma * 3.0f;
     
@@ -216,13 +218,22 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 if (contribution > 0)
                 {
                     uint flatIndex = Flatten3DR(voxelIndex, VOXEL_RESOLUTIONL1);
+                    
+                    //Calculate the derivative of particle position to see
+                    //How much it is changing and determine dirty.
+                    
+                    float3 velocity = (particle.position.xyz - particle.initPosition.xyz) * (positionLocal - particle.position.xyz)  * 20.0f;
+                    float mag = length(velocity);
+                    
+                    if(mag > 0.00f)
+                        voxelsL1Out[flatIndex].normalDistance.z = mag * contribution;
 
                     InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
                 }
 
             }
 
-    particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;;
+    particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
 
 }
 
