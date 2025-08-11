@@ -42,10 +42,10 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
-RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
+RWTexture3D<float2> gBindless3DStorage[] : register(u5, space0);
 
 // For reading
-Texture3D<float> gBindless3D[] : register(t4, space0);
+Texture3D<float2> gBindless3D[] : register(t4, space0);
 
 RWStructuredBuffer<uint> BrushesIndices : register(u10, space1);
 
@@ -60,7 +60,7 @@ RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord)
 {
-    return gBindless3D[textureIndex].Load(int4(coord, 0));
+    return gBindless3D[textureIndex].Load(int4(coord, 0)).x;
 }
 
 float ReadWorldSDF(float3 worldPos)
@@ -79,11 +79,15 @@ float ReadWorldSDF(float3 worldPos)
     }
 
     // Sample the world SDF texture (assuming it's at bindless index 0)
-    return gBindless3D[0].Load(int4(texCoord, 0));
+    return gBindless3D[0].Load(int4(texCoord, 0)).x;
 }
 
-// Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
+{
+    gBindless3DStorage[textureIndex][coord] = value;
+}
+
+void Write3D(uint textureIndex, int3 coord, float2 value)
 {
     gBindless3DStorage[textureIndex][coord] = value;
 }
@@ -205,6 +209,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
             {
                 int3 voxelIndex = int3(x, y, z);
+                  
                 // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
                 float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
 
@@ -226,7 +231,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     float mag = length(velocity);
                     
                     if(mag > 0.00f)
-                        voxelsL1Out[flatIndex].normalDistance.z = mag * contribution;
+                        voxelsL1Out[flatIndex].normalDistance.z = 1;//mag * contribution;
+
+                    
 
                     InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
                 }

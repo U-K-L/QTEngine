@@ -233,7 +233,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0;
+    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0;
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -603,8 +603,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
 
     float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
-    Write3D(brush.textureID, int3(DTid), float2(valueToWrite, NO_LABELF()));
-    Write3D(brush.textureID2, int3(DTid), float2(valueToWrite, NO_LABELF()));
+    Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
+    Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
     
     //Add particle if SDF is close enough.
 
@@ -807,9 +807,16 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //minDist = min(voxelsL1Out[index].distance, minDist);
     
     float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
-    minDist = min(sdfVal, minDist);
     
-    Write3DDist(0, DTid, minDist);
+    if (voxelsL1Out[index].normalDistance.z < 0.01f)
+        Write3DDist(0, DTid, minDist);
+    else
+        Write3DDist(0, DTid, sdfVal);
+
+    
+    //minDist = min(sdfVal, minDist);
+    
+    //Write3DDist(0, DTid, minDist);
 }
 
 void GenerateMIPS(uint3 DTid : SV_DispatchThreadID, float sampleLevel)
