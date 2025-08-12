@@ -178,9 +178,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float3 direction = normalize(position - float3(0, 0, 0));
 
-    if(position.x > 0.5)
+    if(position.x > 0.85)
     {
-        position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime;
+        position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime *0.1f;
     }
 
     float3 positionLocal = position;

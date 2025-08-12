@@ -856,7 +856,7 @@ void GenerateMIPS(uint3 DTid : SV_DispatchThreadID, float sampleLevel)
             for (int x = 0; x < 2; ++x)
             {
                 int3 sampleCoord = sourceBaseCoord + int3(x, y, z);
-                totalSDF += Read3D(sourceMipLevel -1, sourceBaseCoord).x;
+                totalSDF += Read3D(sourceMipLevel - 1, sampleCoord).x;
             }
         }
     }
@@ -1189,9 +1189,9 @@ float SampleSDF(float3 worldPos, int mipLevel)
 
 float3 GetNormal(float3 worldPos)
 {
-    const int mipLevel = 0;
+    const int mipLevel = 1;
     
-    const float epsilon = 0.1f;
+    const float epsilon = 0.15f;
 
     // Use small offset vectors for sampling along each axis.
     float3 offsetX = float3(epsilon, 0, 0);
@@ -1464,7 +1464,7 @@ float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualContour(int3 cellCoord, float mipLevel)
 {
-    return CalculateDualVertexGradient(cellCoord, mipLevel);
+    return CalculateDualVertexCentroid(cellCoord, mipLevel);
 }
 
 void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
@@ -1606,6 +1606,20 @@ void FinalizeMesh()
     // The '0' indicates no operation, just a load.
     uint vertCount;
     InterlockedAdd(GlobalIDCounter[1], 0, vertCount);
+    
+    Brush brush = Brushes[0];
+    uint vertNum = brush.vertexCount;
+    uint vertOffset = brush.vertexOffset;
+    
+    //Append vertices.
+    
+    for (int i = vertOffset; i < vertOffset + vertNum; i++)
+    {
+        meshingVertices[vertCount + i].position = vertexBuffer[i].position.xyz;
+        meshingVertices[vertCount + i].normal = vertexBuffer[i].normal.xyz;
+    }
+    vertCount += vertNum;
+    
 
     // Write the arguments to the indirect draw buffer.
     g_IndirectDrawArgs[0].vertexCount = vertCount;
@@ -1681,6 +1695,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     
     if (sampleLevelL == 24.0f)
     {
+        GlobalIDCounter[1] = 0;
         ClearVoxelData(DTid);
         return;
     }
@@ -1694,7 +1709,6 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     //In the future, make this indirect dispatch for dirty brushes.
     if(sampleLevelL == 40.0f)
     {
-        GlobalIDCounter[1] = 0;
         FindActiveCells(DTid);
         return;
     }

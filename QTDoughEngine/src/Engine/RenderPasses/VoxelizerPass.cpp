@@ -1978,11 +1978,15 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 5);
 
         //Meshing. Move to indirect dispatch.
+        /*
         DispatchLOD(commandBuffer, currentFrame, 40);
 
         DispatchLOD(commandBuffer, currentFrame, 50);
+        */
 
+        //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
+
 
         VkBufferMemoryBarrier barriers[2] = {};
 
