@@ -1978,11 +1978,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 5);
 
         //Meshing. Move to indirect dispatch.
-        /*
-        DispatchLOD(commandBuffer, currentFrame, 40);
+        //DispatchLOD(commandBuffer, currentFrame, 40);
 
-        DispatchLOD(commandBuffer, currentFrame, 50);
-        */
+        //DispatchLOD(commandBuffer, currentFrame, 50);
+
+        //Create Vertex Mask.
+        DispatchLOD(commandBuffer, currentFrame, 60);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
@@ -2616,6 +2617,16 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
+    }
+
+    //Create Vertex Mask
+    if (lodLevel == 60)
+    {
+        res = brushes[0].vertexCount;
+        pc.triangleCount = 0;
+        groupCountX = (res + 7) / 8;
+        groupCountY = 1;
+        groupCountZ = 1;
     }
 
     if (lodLevel == 100)

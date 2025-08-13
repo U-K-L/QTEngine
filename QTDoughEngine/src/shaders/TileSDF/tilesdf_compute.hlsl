@@ -178,9 +178,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float3 direction = normalize(position - float3(0, 0, 0));
 
-    if(position.x > 0.85)
+    if(position.x > 0.5)
     {
-        position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime *0.1f;
+        position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime;
     }
 
     float3 positionLocal = position;
@@ -230,17 +230,18 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     float3 velocity = (particle.position.xyz - particle.initPosition.xyz) * (positionLocal - particle.position.xyz)  * 20.0f;
                     float mag = length(velocity);
                     
-                    if(mag > 0.00f)
-                        voxelsL1Out[flatIndex].normalDistance.z = 1;//mag * contribution;
+                    if(mag > 0.01f)
+                    {
+                        //voxelsL1Out[flatIndex].normalDistance.z = 1; //mag * contribution;
+                        //InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
+                    }
 
                     
-
-                    InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
                 }
 
             }
 
-    particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
+    //particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
 
 }
 

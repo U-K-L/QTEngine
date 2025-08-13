@@ -233,7 +233,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
-    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0;
+    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 1;
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -603,8 +603,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
 
     float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
-    Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
-    Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
+    Write3D(brush.textureID, int3(DTid), float2(2, NO_LABELF()));
+    Write3D(brush.textureID2, int3(DTid), float2(2, NO_LABELF()));
     
     //Add particle if SDF is close enough.
 
@@ -1599,6 +1599,102 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 }
 
+// World position -> L1 voxel coord + flat index
+bool WorldPosToL1Index(float3 worldPos, out int3 coordL1, out uint idxL1)
+{
+    // World SDF bounds (same physical box for all mips)
+    float2 worldInfo = GetVoxelResolutionWorldSDF(1.0f); // x = WORLD_SDF_RES, y = worldSize
+    float halfScene = worldInfo.y * 0.5f;
+
+    // Normalize to [0,1]
+    float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
+
+    // Early out if outside scene bounds
+    if (any(uvw < 0.0f) || any(uvw >= 1.0f))
+    {
+        coordL1 = 0;
+        idxL1 = 0;
+        return false;
+    }
+
+    // L1 grid resolution
+    float2 l1Info = GetVoxelResolution(1.0f); // x = VOXEL_RESOLUTIONL1, y = worldSize (same y)
+    int res = (int) l1Info.x;
+
+    // Map to integer texel coord on L1
+    coordL1 = clamp(int3(uvw * res), 0, res - 1);
+
+    // Your row-major 3D flattener that matches how you write voxelsL1*
+    idxL1 = Flatten3DR(coordL1, res);
+    return true;
+}
+
+// Read L1 distance (stored as uint) at world position
+bool ReadL1DistanceAt(float3 worldPos, out float distL1)
+{
+    int3 c;
+    uint i;
+    if (!WorldPosToL1Index(worldPos, c, i))
+    {
+        distL1 = DEFUALT_EMPTY_SPACE;
+        return false;
+    }
+    distL1 = asfloat(voxelsL1Out[i].distance); // or voxelsL1In[i] if you need the last committed read-only
+    return true;
+}
+
+bool ReadDeformingField(float3 worldPos)
+{
+    int3 c;
+    uint i;
+    WorldPosToL1Index(worldPos, c, i);
+    if (voxelsL1Out[i].normalDistance.z > 0.01f)
+    {
+        return true;
+    }
+    
+    return false;
+}
+
+void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThreadID)
+{
+    // Make 63 out of 64 threads in the Y/Z plane do nothing.
+    if (lThreadID.y > 0 || lThreadID.z > 0)
+    {
+        return;
+    }
+    Brush brush = Brushes[0];
+    
+
+    
+    /*
+    // vertexBuffer positions are in brush local — move to world
+    float3 pW = mul(brush.model, float4(vertexBuffer[brushVertexIndex].position.xyz, 1.0f)).xyz;
+
+    float d;
+    bool deformed = ReadDeformingField(pW);
+
+    //if (deformed)
+    //    return;
+    */
+    //Add this vertex to meshes vertices.
+    uint dst;
+    InterlockedAdd(GlobalIDCounter[1], 0, dst);
+    
+    uint brushVertexIndex = dst + brush.vertexOffset;
+    
+    if (brushVertexIndex >= brush.vertexCount)
+        return;
+    
+    InterlockedAdd(GlobalIDCounter[1], 1, dst);
+    
+    brushVertexIndex = dst + brush.vertexOffset;
+    
+    meshingVertices[dst].position = vertexBuffer[brushVertexIndex].position.xyz;
+    meshingVertices[dst].normal = vertexBuffer[brushVertexIndex].normal.xyz;
+}
+
+
 //Indirect Draw Call.
 void FinalizeMesh()
 {
@@ -1606,20 +1702,6 @@ void FinalizeMesh()
     // The '0' indicates no operation, just a load.
     uint vertCount;
     InterlockedAdd(GlobalIDCounter[1], 0, vertCount);
-    
-    Brush brush = Brushes[0];
-    uint vertNum = brush.vertexCount;
-    uint vertOffset = brush.vertexOffset;
-    
-    //Append vertices.
-    
-    for (int i = vertOffset; i < vertOffset + vertNum; i++)
-    {
-        meshingVertices[vertCount + i].position = vertexBuffer[i].position.xyz;
-        meshingVertices[vertCount + i].normal = vertexBuffer[i].normal.xyz;
-    }
-    vertCount += vertNum;
-    
 
     // Write the arguments to the indirect draw buffer.
     g_IndirectDrawArgs[0].vertexCount = vertCount;
@@ -1719,9 +1801,16 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
         return;
     }
     
+    if (sampleLevelL == 60.0f)
+    {
+        VertexMask(DTid, lThreadID);
+        return;
+    }
+    
     if(sampleLevelL == 100.0f)
     {
         FinalizeMesh();
+        return;
     }
     
     
