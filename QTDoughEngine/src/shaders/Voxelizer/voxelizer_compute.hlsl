@@ -233,7 +233,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
-    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 1;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0;
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -1472,6 +1472,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 
     uint vertOffset;
     InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
+    InterlockedAdd(GlobalIDCounter[0], 6, vertOffset);
 
     //Set vertices positions.
     meshingVertices[vertOffset + 0].position = float4(v0, 1).xyz;
@@ -1666,32 +1667,31 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     Brush brush = Brushes[0];
     
 
+    //Add this vertex to meshes vertices.
+    uint countOffset;
+    InterlockedAdd(GlobalIDCounter[0], 0, countOffset);
     
-    /*
+    uint brushVertexIndex = countOffset + brush.vertexOffset;
+    
+    //if (brushVertexIndex >= brush.vertexCount)
+    //    return;
+    
+    uint currentVert;
+    InterlockedAdd(GlobalIDCounter[1], 1, currentVert);
+    
+    brushVertexIndex = (currentVert - countOffset) + brush.vertexOffset; //Needs to start at offset.
+    
     // vertexBuffer positions are in brush local — move to world
     float3 pW = mul(brush.model, float4(vertexBuffer[brushVertexIndex].position.xyz, 1.0f)).xyz;
 
     float d;
     bool deformed = ReadDeformingField(pW);
 
-    //if (deformed)
-    //    return;
-    */
-    //Add this vertex to meshes vertices.
-    uint dst;
-    InterlockedAdd(GlobalIDCounter[1], 0, dst);
-    
-    uint brushVertexIndex = dst + brush.vertexOffset;
-    
-    if (brushVertexIndex >= brush.vertexCount)
+    if (deformed)
         return;
     
-    InterlockedAdd(GlobalIDCounter[1], 1, dst);
-    
-    brushVertexIndex = dst + brush.vertexOffset;
-    
-    meshingVertices[dst].position = vertexBuffer[brushVertexIndex].position.xyz;
-    meshingVertices[dst].normal = vertexBuffer[brushVertexIndex].normal.xyz;
+    meshingVertices[currentVert].position = vertexBuffer[brushVertexIndex].position.xyz;
+    meshingVertices[currentVert].normal = vertexBuffer[brushVertexIndex].normal.xyz;
 }
 
 
@@ -1778,6 +1778,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     if (sampleLevelL == 24.0f)
     {
         GlobalIDCounter[1] = 0;
+        GlobalIDCounter[0] = 0;
         ClearVoxelData(DTid);
         return;
     }

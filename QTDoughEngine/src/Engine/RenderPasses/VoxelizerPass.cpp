@@ -1978,9 +1978,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 5);
 
         //Meshing. Move to indirect dispatch.
-        //DispatchLOD(commandBuffer, currentFrame, 40);
+        DispatchLOD(commandBuffer, currentFrame, 40);
 
-        //DispatchLOD(commandBuffer, currentFrame, 50);
+        DispatchLOD(commandBuffer, currentFrame, 50);
 
         //Create Vertex Mask.
         DispatchLOD(commandBuffer, currentFrame, 60);
