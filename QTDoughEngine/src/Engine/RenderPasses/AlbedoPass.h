@@ -15,11 +15,14 @@ public:
         Uint32 ID;
     };
 
+#include "VoxelizerPass.h"
     // Constructor
-    AlbedoPass();
+    AlbedoPass(VoxelizerPass* voxelizer);
 
     // Destructor
     ~AlbedoPass();
+
+    VoxelizerPass* voxelizer;
 
     void CreateMaterials() override;
     void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage = nullptr, UnigmaCameraStruct* CameraMain = nullptr) override;

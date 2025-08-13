@@ -4,8 +4,9 @@ AlbedoPass::~AlbedoPass() {
     PassName = "AlbedoPass";
 }
 
-AlbedoPass::AlbedoPass() {
+AlbedoPass::AlbedoPass(VoxelizerPass* ivoxelizer) {
     PassName = "AlbedoPass";
+    voxelizer = ivoxelizer;
     PassNames.push_back("AlbedoPass2");
     PassNames.push_back("OutlineColorsPass");
     PassNames.push_back("InnerOutlineColorsPass");
@@ -26,6 +27,7 @@ void AlbedoPass::CreateMaterials() {
 void AlbedoPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkImageView* targetImage, UnigmaCameraStruct* CameraMain) {
     //Create vector of image views pointers.
     std::vector<VkImageView*> imagesViewsPointers;
+    QTDoughApplication* app = QTDoughApplication::instance;
     
     for(int i = 0; i < imagesViews.size(); i++)
 	{
@@ -33,6 +35,22 @@ void AlbedoPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint
 	}
 
     RenderPerObject(commandBuffer, imageIndex, currentFrame, imagesViewsPointers, CameraMain);
+
+    // Bind the pipeline
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+    // Bind the vertex buffer
+    VkBuffer vertexBuffers[] = { voxelizer->vertexBufferReadbackBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdDrawIndirect(
+        commandBuffer,
+        voxelizer->indirectDrawBuffer,
+        0,
+        1,
+        sizeof(VkDrawIndirectCommand)
+    );
 }
 
 void AlbedoPass::CreateImages() {

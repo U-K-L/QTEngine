@@ -698,10 +698,8 @@ void QTDoughApplication::AddPasses()
 
     CompositionPass* compPass = new CompositionPass();
     OutlinePass* outlinePass = new OutlinePass();
-    CombineSDFRasterPass* combineSDFRasterPass = new CombineSDFRasterPass();
     PositionPass* positionPass = new PositionPass();
     NormalPass* normalPass = new NormalPass();
-    AlbedoPass* albedoPass = new AlbedoPass();
     BackgroundPass* bgPass = new BackgroundPass();
 
     //Add objects.
@@ -713,7 +711,6 @@ void QTDoughApplication::AddPasses()
     renderPassStack.push_back(albedoPass);
     renderPassStack.push_back(normalPass);
     renderPassStack.push_back(positionPass);
-    renderPassStack.push_back(combineSDFRasterPass);
     renderPassStack.push_back(outlinePass);
     renderPassStack.push_back(compPass);
 
@@ -721,6 +718,8 @@ void QTDoughApplication::AddPasses()
     //Compute Passes.
     SDFPass* sdfPass = new SDFPass();
     VoxelizerPass* voxelizerPass = new VoxelizerPass();
+    CombineSDFRasterPass* combineSDFRasterPass = new CombineSDFRasterPass();
+    renderPassStack.push_back(combineSDFRasterPass);
     VoxelizerPass::SetInstance(voxelizerPass);
 
     //Add objects to compute pass.
@@ -731,6 +730,9 @@ void QTDoughApplication::AddPasses()
     //Add the compute pass to the stack.
     computePassStack.push_back(voxelizerPass);
     computePassStack.push_back(sdfPass);
+
+    AlbedoPass* albedoPass = new AlbedoPass(voxelizerPass);
+    renderPassStack.push_back(albedoPass);
 
 
 
