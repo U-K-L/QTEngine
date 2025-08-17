@@ -229,7 +229,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {   
     int3 DTL1 = DTid / 2;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].distance = 0; //asuint(DEFUALT_EMPTY_SPACE);
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].distance = DEFUALT_EMPTY_SPACE;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
@@ -603,8 +603,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
 
     float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
-    Write3D(brush.textureID, int3(DTid), float2(2, NO_LABELF()));
-    Write3D(brush.textureID2, int3(DTid), float2(2, NO_LABELF()));
+    Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
+    Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
     
     //Add particle if SDF is close enough.
 
@@ -807,6 +807,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //minDist = min(voxelsL1Out[index].distance, minDist);
     
     float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
+    
+    //sdfVal = min(sdfVal, minDist);
     
     if (voxelsL1Out[index].normalDistance.z > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
@@ -1665,6 +1667,9 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
         return;
     }
     Brush brush = Brushes[0];
+    
+    if(brush.isDeformed == 1)
+        return;
     
 
     //Add this vertex to meshes vertices.

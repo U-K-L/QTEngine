@@ -201,7 +201,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
-    position += 0.5f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+    if(distFromHeat > 0.125f)
+        position += 0.5f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
         
     
@@ -256,6 +257,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     {
                         //Display original mesh, stable field.
                         voxelsL1Out[flatIndex].normalDistance.z = 0; //particle.initPosition.w;
+
                     }
                     InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
 
@@ -264,10 +266,14 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
             }
     
+    if(particle.initPosition.w > 1.0f)
+        Brushes[0].isDeformed = 1;
+    
     particle.initPosition.w *= 0.95f;
     
     particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
     particlesL1Out[DTid.x].initPosition = particle.initPosition;
+
 
 }
 

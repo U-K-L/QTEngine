@@ -56,6 +56,7 @@ public:
         uint32_t opcode;
         uint32_t id;
         float smoothness;
+        int isDeformed;
     };
 
     struct Tile

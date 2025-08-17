@@ -89,6 +89,7 @@ struct Brush
     uint id;
     //Make some of this materials.
     float smoothness;
+    int isDeformed;
 };
 
 struct Vertex
