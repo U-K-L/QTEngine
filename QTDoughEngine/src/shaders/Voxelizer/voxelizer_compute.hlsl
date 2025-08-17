@@ -233,7 +233,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 1; //Default is deformable field.
     Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
@@ -621,7 +621,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         uint particleOffset;
         InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
         particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
-        particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 1);
+        particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
             
 
     }
@@ -808,10 +808,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
     
-    if (voxelsL1Out[index].normalDistance.z < 0.01f)
-        Write3DDist(0, DTid, minDist);
+    if (voxelsL1Out[index].normalDistance.z > 0.0f)
+        Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
-        Write3DDist(0, DTid, sdfVal);
+        Write3DDist(0, DTid, minDist); // Ignore particle contribution.
 
     
     //minDist = min(sdfVal, minDist);
@@ -1649,7 +1649,7 @@ bool ReadDeformingField(float3 worldPos)
     int3 c;
     uint i;
     WorldPosToL1Index(worldPos, c, i);
-    if (voxelsL1Out[i].normalDistance.z > 0.01f)
+    if (voxelsL1Out[i].normalDistance.z > 0.00f)
     {
         return true;
     }
@@ -1671,27 +1671,30 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     uint countOffset;
     InterlockedAdd(GlobalIDCounter[0], 0, countOffset);
     
-    uint brushVertexIndex = countOffset + brush.vertexOffset;
-    
-    //if (brushVertexIndex >= brush.vertexCount)
-    //    return;
-    
     uint currentVert;
-    InterlockedAdd(GlobalIDCounter[1], 1, currentVert);
+    InterlockedAdd(GlobalIDCounter[1], 3, currentVert);
     
-    brushVertexIndex = (currentVert - countOffset) + brush.vertexOffset; //Needs to start at offset.
-    
+    uint brushVertexIndexV1 = ((currentVert - 2) - countOffset) + brush.vertexOffset; //Needs to start at offset.
+    uint brushVertexIndexV2 = brushVertexIndexV1 + 1;
+    uint brushVertexIndexV3 = brushVertexIndexV2 + 1;
     // vertexBuffer positions are in brush local — move to world
-    float3 pW = mul(brush.model, float4(vertexBuffer[brushVertexIndex].position.xyz, 1.0f)).xyz;
-
-    float d;
-    bool deformed = ReadDeformingField(pW);
+    float3 pW1 = mul(brush.model, float4(vertexBuffer[brushVertexIndexV1].position.xyz, 1.0f)).xyz;
+    float3 pW2 = mul(brush.model, float4(vertexBuffer[brushVertexIndexV2].position.xyz, 1.0f)).xyz;
+    float3 pW3 = mul(brush.model, float4(vertexBuffer[brushVertexIndexV3].position.xyz, 1.0f)).xyz;
+    
+    bool deformed = ReadDeformingField(pW1) && ReadDeformingField(pW2) && ReadDeformingField(pW3);
 
     if (deformed)
         return;
     
-    meshingVertices[currentVert].position = vertexBuffer[brushVertexIndex].position.xyz;
-    meshingVertices[currentVert].normal = vertexBuffer[brushVertexIndex].normal.xyz;
+    meshingVertices[currentVert-2].position = vertexBuffer[brushVertexIndexV1].position.xyz;
+    meshingVertices[currentVert-2].normal = vertexBuffer[brushVertexIndexV1].normal.xyz;
+    
+    meshingVertices[currentVert - 1].position = vertexBuffer[brushVertexIndexV2].position.xyz;
+    meshingVertices[currentVert - 1].normal = vertexBuffer[brushVertexIndexV2].normal.xyz;
+    
+    meshingVertices[currentVert - 0].position = vertexBuffer[brushVertexIndexV3].position.xyz;
+    meshingVertices[currentVert - 0].normal = vertexBuffer[brushVertexIndexV3].normal.xyz;
 }
 
 

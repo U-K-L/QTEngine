@@ -156,46 +156,7 @@ float4 main(VSOutput i) : SV_Target
     if (pc.input == 3)
         return fullFieldSDF;
     if (pc.input == 4)
-    {
-        //Albedo.
-        UnigmaMaterial material;
-        material.baseColor = float4(0.90, 0.9, 0.78, 1.0);
-        material.topColor = float4(1.0, 0.92, 0.928, 1.0);
-        material.sideColor = float4(0.9, 0.63, 0.61, 1.0);
-        float thresholdX = 0.2;
-        float thresholdY = 0.6;
-        float thresholdZ = 0.8;
-
-        //Pick based on normals.
-        float4 front = material.baseColor * 1.0725f;
-        float4 sides = material.sideColor * 1.0725f;
-        float4 top = material.topColor * 1.0725f;
-    
-        float3 forward = float3(0, 1, 0);
-        float3 up = float3(0, 0, 1);
-        float3 right = float3(1, 0, 0);
-    
-        float weightFront = abs(normalImage.y);
-        float weightSides = abs(normalImage.x);
-        float weightTop = abs(normalImage.z);
-    
-        float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
-        weightFront /= total;
-        weightSides /= total;
-        weightTop /= total;
-
-        float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
-    
-        float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - normalImage.w) * 0.25f).xyz, 1));
-        
-        color = lerp(backgroundImage, colorWithLight, normalImage.w);
-    }
-    if (pc.input == 5)
         return sdfNormalImage.w;
-    if (pc.input == 6)
-    {
-        color = lerp(backgroundImage, albedoImage, albedoImage.w);
-    }
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);
@@ -208,7 +169,38 @@ float4 main(VSOutput i) : SV_Target
 
     
 
+    //Albedo.
+    UnigmaMaterial material;
+    material.baseColor = float4(0.90, 0.9, 0.78, 1.0);
+    material.topColor = float4(1.0, 0.92, 0.928, 1.0);
+    material.sideColor = float4(0.9, 0.63, 0.61, 1.0);
+    float thresholdX = 0.2;
+    float thresholdY = 0.6;
+    float thresholdZ = 0.8;
 
+        //Pick based on normals.
+    float4 front = material.baseColor * 1.0725f;
+    float4 sides = material.sideColor * 1.0725f;
+    float4 top = material.topColor * 1.0725f;
+    
+    float3 forward = float3(0, 1, 0);
+    float3 up = float3(0, 0, 1);
+    float3 right = float3(1, 0, 0);
+    
+    float weightFront = abs(normalImage.y);
+    float weightSides = abs(normalImage.x);
+    float weightTop = abs(normalImage.z);
+    
+    float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
+    weightFront /= total;
+    weightSides /= total;
+    weightTop /= total;
+
+    float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
+    
+    float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - normalImage.w) * 0.25f).xyz, 1));
+        
+    color = lerp(backgroundImage, colorWithLight, normalImage.w);
     
     
 

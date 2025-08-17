@@ -164,7 +164,14 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     
     if(particle.position.w < 1)
+    {
+        
+        particlesL1Out[DTid.x].position = particle.position;
+        particlesL1Out[DTid.x].initPosition = particle.initPosition;
+
         return;
+    }
+
     
     float3 position = particle.position.xyz;
     
@@ -178,16 +185,25 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float3 direction = normalize(position - float3(0, 0, 0));
 
-    float distFromHeat = 1 / pow(length(position - float3(0.5, 0, 0)), 2);
-    
-    if(position.x > 0.85f)
-        position += 2.0f * (direction + float3(0, 0, -2.9)) * deltaTime * distFromHeat;
+
     
 
-    float3 positionLocal = position;
+    
+
+
     
         
     position = mul(brush.model, float4(position, 1.0f)).xyz;
+    
+
+    
+    float3 positionOld = position;
+    
+    float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
+    
+    position += 0.5f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+
+        
     
     float maxDist = sigma * 3.0f;
     
@@ -204,6 +220,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     {
         return;
     }
+    
+    float3 initialPosition = mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
     
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
         for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
@@ -228,12 +246,16 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     //Calculate the derivative of particle position to see
                     //How much it is changing and determine dirty.
                     
-                    float3 velocity = (particle.position.xyz - particle.initPosition.xyz) * (positionLocal - particle.position.xyz);
+                    float3 velocity = ((position.xyz - initialPosition.xyz) + (positionOld - position)) * deltaTime;
                     float mag = length(velocity);
                     
-                    if(mag > 0.00005f)
+                    particle.initPosition.w += mag;
+                    
+                    //Particles are stable, MESH.
+                    if (particle.initPosition.w < 0.5f)
                     {
-                        voxelsL1Out[flatIndex].normalDistance.z = 1; //mag * contribution;
+                        //Display original mesh, stable field.
+                        voxelsL1Out[flatIndex].normalDistance.z = 0; //particle.initPosition.w;
                     }
                     InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
 
@@ -241,8 +263,11 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 }
 
             }
-
+    
+    particle.initPosition.w *= 0.95f;
+    
     particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
+    particlesL1Out[DTid.x].initPosition = particle.initPosition;
 
 }
 

@@ -2622,7 +2622,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Create Vertex Mask
     if (lodLevel == 60)
     {
-        res = brushes[0].vertexCount;
+        res = brushes[0].vertexCount / 3;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = 1;
