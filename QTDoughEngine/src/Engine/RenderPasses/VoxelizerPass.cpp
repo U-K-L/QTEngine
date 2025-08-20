@@ -1191,14 +1191,14 @@ void VoxelizerPass::CreateBrushes()
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 1.01f; //Solid object.
+        brush.smoothness = 0.1f; //Solid object.
 
         
         if (brush.id == 2)
         {
             brush.stiffness = 1.0f; // Set a different stiffness for the second brush
-			brush.blend = 0.01f; // Set a different blend value for the second brush
-            brush.smoothness = 0.01f;
+			brush.blend = 0.1f; // Set a different blend value for the second brush
+            brush.smoothness = 0.1f;
         }
         
         //Create the model matrix for the brush.
@@ -2511,6 +2511,7 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
+//Dispatches Voxelization kernels.
 void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -2593,9 +2594,10 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res + 7) / 8;
     }
 
+    //Clear Voxels
     if (lodLevel == 24)
     {
-        res = WORLD_SDF_RESOLUTION;
+        res = VOXEL_RESOLUTIONL1;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;

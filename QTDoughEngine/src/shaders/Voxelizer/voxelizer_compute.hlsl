@@ -227,14 +227,14 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {   
-    int3 DTL1 = DTid / 2;
+    int3 DTL1 = DTid;
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].distance = DEFUALT_EMPTY_SPACE;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].uniqueId = 0;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 1; //Default is deformable field.
-    Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
+    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0; //Default is deformable field.
+    //Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
 
 void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -622,6 +622,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
         particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
         particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
+        particlesL1Out[particleOffset + 1].particleIDs.x = index;
             
 
     }
@@ -713,10 +714,14 @@ float FSMUpdate(int3 pos, int sweepDirection, float sampleLevel)
 
 float CalculateSDFfromDensity(uint fixedPointDensity)
 {
+    Brush brush = Brushes[0];
+    
+    
     float density = (float) fixedPointDensity / DENSITY_SCALE;
 
     // Larger values means thinner iso surfaces.
-    const float isoValue = 400.0f;
+    float x = brush.smoothness;
+    const float isoValue = 0.1f; //400.0f;
 
     float sdf = isoValue - density;
     return sdf;
@@ -1671,35 +1676,44 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     if(brush.isDeformed == 1)
         return;
     
-
-    //Add this vertex to meshes vertices.
-    uint countOffset;
-    InterlockedAdd(GlobalIDCounter[0], 0, countOffset);
-    
-    uint currentVert;
-    InterlockedAdd(GlobalIDCounter[1], 3, currentVert);
-    
-    uint brushVertexIndexV1 = ((currentVert - 2) - countOffset) + brush.vertexOffset; //Needs to start at offset.
-    uint brushVertexIndexV2 = brushVertexIndexV1 + 1;
-    uint brushVertexIndexV3 = brushVertexIndexV2 + 1;
-    // vertexBuffer positions are in brush local — move to world
-    float3 pW1 = mul(brush.model, float4(vertexBuffer[brushVertexIndexV1].position.xyz, 1.0f)).xyz;
-    float3 pW2 = mul(brush.model, float4(vertexBuffer[brushVertexIndexV2].position.xyz, 1.0f)).xyz;
-    float3 pW3 = mul(brush.model, float4(vertexBuffer[brushVertexIndexV3].position.xyz, 1.0f)).xyz;
-    
-    bool deformed = ReadDeformingField(pW1) && ReadDeformingField(pW2) && ReadDeformingField(pW3);
-
-    if (deformed)
+    const uint triIdx = DTid.x;
+    if (triIdx >= brush.vertexCount * 3)
         return;
+
+    // Source indices (deterministic, no atomics)
+    const uint baseSrc = brush.vertexOffset + 3 * triIdx;
+    const uint i0 = baseSrc + 0;
+    const uint i1 = baseSrc + 1;
+    const uint i2 = baseSrc + 2;
     
-    meshingVertices[currentVert-2].position = vertexBuffer[brushVertexIndexV1].position.xyz;
-    meshingVertices[currentVert-2].normal = vertexBuffer[brushVertexIndexV1].normal.xyz;
+    // Load local positions
+    float3 pL0 = vertexBuffer[i0].position.xyz;
+    float3 pL1 = vertexBuffer[i1].position.xyz;
+    float3 pL2 = vertexBuffer[i2].position.xyz;
+
+    // World positions for field test
+    float3 pW0 = mul(brush.model, float4(pL0, 1)).xyz;
+    float3 pW1 = mul(brush.model, float4(pL1, 1)).xyz;
+    float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
+
+    //bool deformed = ReadDeformingField(pW0) && ReadDeformingField(pW1) && ReadDeformingField(pW2);
+
+    //if (deformed)
+    //    return;
     
-    meshingVertices[currentVert - 1].position = vertexBuffer[brushVertexIndexV2].position.xyz;
-    meshingVertices[currentVert - 1].normal = vertexBuffer[brushVertexIndexV2].normal.xyz;
-    
-    meshingVertices[currentVert - 0].position = vertexBuffer[brushVertexIndexV3].position.xyz;
-    meshingVertices[currentVert - 0].normal = vertexBuffer[brushVertexIndexV3].normal.xyz;
+    // Reserve 3 contiguous output slots atomically (compaction)
+    uint outBase;
+    InterlockedAdd(GlobalIDCounter[1], 3, outBase);
+
+    // Write (choose space as needed; here we keep local like your code)
+    meshingVertices[outBase + 0].position = pL0;
+    meshingVertices[outBase + 0].normal = vertexBuffer[i0].normal.xyz;
+
+    meshingVertices[outBase + 1].position = pL1;
+    meshingVertices[outBase + 1].normal = vertexBuffer[i1].normal.xyz;
+
+    meshingVertices[outBase + 2].position = pL2;
+    meshingVertices[outBase + 2].normal = vertexBuffer[i2].normal.xyz;
 }
 
 

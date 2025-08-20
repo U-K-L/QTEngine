@@ -155,10 +155,13 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
 
 void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
-    
-    float sigma = 0.6325f; // Controls the spread of the Gaussian
-    float amplitude = 1.0f; // Can be a particle attribute
+    //Move to world space if connected to a brush.
     Particle particle = particlesL1In[DTid.x];
+    Brush brush = Brushes[particle.particleIDs.x];
+    
+    float sigma = 0.6325f * brush.smoothness; // Controls the spread of the Gaussian
+    float amplitude = 1.0f; // Can be a particle attribute
+
     
 
     
@@ -177,8 +180,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     
 
-    //Move to world space if connected to a brush.
-    Brush brush = Brushes[0];
+
     
     float speed = 0.001f;
     float timeX = time.x * speed;
@@ -202,7 +204,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
     if(distFromHeat > 0.125f)
-        position += 0.5f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+        position += 1.5f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
         
     
@@ -217,11 +219,12 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     int3 minVoxel = floor((minPos + halfScene) / voxelSize);
     int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
 
+    /*
     if (any(minVoxel > maxVoxel))
     {
         return;
     }
-    
+    */
     float3 initialPosition = mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
     
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
@@ -253,10 +256,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     particle.initPosition.w += mag;
                     
                     //Particles are stable, MESH.
-                    if (particle.initPosition.w < 0.5f)
+                    if (particle.initPosition.w > 0.0005f)
                     {
                         //Display original mesh, stable field.
-                        voxelsL1Out[flatIndex].normalDistance.z = 0; //particle.initPosition.w;
+                        voxelsL1Out[flatIndex].normalDistance.z = 1; //particle.initPosition.w;
 
                     }
                     InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
@@ -266,7 +269,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
             }
     
-    if(particle.initPosition.w > 1.0f)
+    if(particle.initPosition.w > 0.005f)
         Brushes[0].isDeformed = 1;
     
     particle.initPosition.w *= 0.95f;

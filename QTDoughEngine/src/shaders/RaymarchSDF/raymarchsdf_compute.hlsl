@@ -730,10 +730,10 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
 {
     visibility = 1;
     float3 direction = rd;
-    float3 light = normalize(float3(-0.85f, 0.0, 1.0f));
+    float3 light = normalize(float3(-0.85f, 1.0, 1.0f));
     
     float3 pos = ro;
-    int maxSteps = 1024;
+    int maxSteps = 512;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;
@@ -777,7 +777,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
                 direction = light;
                 
                 //putrude out.
-                pos += surface.xyz * voxelSizeL1 * 8.0f;
+                pos += surface.xyz * voxelSizeL1 * 12.0f;
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
                 specular.w = i; //store count.
@@ -793,7 +793,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
      
         //update position to the nearest point. effectively a sphere trace.
 
-        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.75f, voxelSizeL1 * 8 * (sampleLevel +1));
+        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.05f, voxelSizeL1 * 2 * (sampleLevel +1));
         /*
         if (bounces == 0)
         {
@@ -847,9 +847,13 @@ float4 FieldFullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface,
             divisor = 0.001f;
             omega = abs(1 / (2 * divisor)) * 0.05f;
         }
-        //int index = GetVoxelIndexFromPosition(pos, 1.0f);
+        int index = GetVoxelIndexFromPosition(pos, 1.0f);
         //float dirty = voxelsL1In[index].normalDistance.z;
         //surface.z += dirty;
+        
+        if (voxelsL1In[index].distance > DEFUALT_EMPTY_SPACE)
+            surface.x = 1.0f;
+        
         
         
         accumaltor += (abs(DEFUALT_EMPTY_SPACE - sampleId.x) + omega) / 4096;
@@ -1009,9 +1013,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
-    float4 fullMarchField = float4(0, surfaceFull.w / 32.0f, 0, 1);
+    float4 fullMarchField = float4(surface.x, surfaceFull.w / 32.0f, 0, 1);
     gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
-    gBindlessStorage[outputImageHandle][pixel] = lerp(0, finalColor, col.x); //float4(colorWithLight.xyz, 0); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
+    gBindlessStorage[outputImageHandle][pixel] = float4(colorWithLight.xyz, visibility.x); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;
     gBindlessStorage[fullFieldSDFHandle][pixel] = fullMarchField;
 

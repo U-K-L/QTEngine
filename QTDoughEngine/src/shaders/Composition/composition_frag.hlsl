@@ -157,6 +157,8 @@ float4 main(VSOutput i) : SV_Target
         return fullFieldSDF;
     if (pc.input == 4)
         return sdfNormalImage.w;
+    if(pc.input == 5)
+        return sdfImage.w;
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);

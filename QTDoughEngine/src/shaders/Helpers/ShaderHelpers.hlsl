@@ -59,7 +59,7 @@ struct Particle
     float4 velocity;
     float4 force;
     float4 initPosition;
-    float4 tbd2;
+    float4 particleIDs; //x = brush.
     float4 tbd3;
     float4 tbd4;
 };
@@ -162,7 +162,7 @@ float GetSampleLevel(float3 pos, float3 camPos)
     */
 }
 
-#define CONE_SPREAD_FACTOR 0.275f 
+#define CONE_SPREAD_FACTOR 0.0275f 
 #define MAX_MIP_LEVEL 5.0f
 
 float GetSampleLevelCone(float3 pos, float3 camPos)
