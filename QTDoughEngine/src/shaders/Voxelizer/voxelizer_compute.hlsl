@@ -563,7 +563,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
 
-    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
+    float3 uvw = ((float3) DTid) / brush.resolution;
     float3 samplePos = uvw * 2.0f - 1.0f;
     float3 localPos = samplePos * (maxExtent * 0.5f) + center;
 
@@ -593,6 +593,10 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
 
     float sdf = minDist;
+    
+    float3 cell = (brush.aabbmax.xyz - brush.aabbmin.xyz) / brush.resolution;
+    float expand = min(cell.x, min(cell.y, cell.z));
+    //sdf -= expand; // inflate surface outward by ~1 voxel
     
     float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
     float3 uvwS = (posLocal - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
@@ -1664,6 +1668,31 @@ bool ReadDeformingField(float3 worldPos)
     return false;
 }
 
+bool ReadDeformingFieldKernel(float3 worldPos, int radius)
+{
+    int3 c;
+    uint i;
+    if (!WorldPosToL1Index(worldPos, c, i))
+        return false;
+
+    int res = (int) GetVoxelResolution(1.0f).x;
+
+    [unroll]
+    for (int dz = -radius; dz <= radius; ++dz)
+    [unroll]
+        for (int dy = -radius; dy <= radius; ++dy)
+    [unroll]
+            for (int dx = -radius; dx <= radius; ++dx)
+            {
+                int3 cc = clamp(c + int3(dx, dy, dz), int3(0, 0, 0), int3(res - 1, res - 1, res - 1));
+                uint idx = Flatten3DR(cc, res);
+                if (voxelsL1Out[idx].normalDistance.z > 0.0f)
+                    return true;
+            }
+    return false;
+}
+
+
 void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThreadID)
 {
     // Make 63 out of 64 threads in the Y/Z plane do nothing.
@@ -1696,10 +1725,10 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 pW1 = mul(brush.model, float4(pL1, 1)).xyz;
     float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
 
-    //bool deformed = ReadDeformingField(pW0) && ReadDeformingField(pW1) && ReadDeformingField(pW2);
+    bool deformed = ReadDeformingFieldKernel(pW0, 5);
 
-    //if (deformed)
-    //    return;
+    if (deformed)
+        return;
     
     // Reserve 3 contiguous output slots atomically (compaction)
     uint outBase;

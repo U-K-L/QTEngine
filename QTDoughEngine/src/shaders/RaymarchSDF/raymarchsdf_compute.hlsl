@@ -963,7 +963,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 surfaceFull = float4(0, 0, 0, 0);
     
     float4 hit = FullMarch(interpRayOrigin, interpRayDir, camPos, surface, visibility, specular, positionId);
-    FieldFullMarch(interpRayOrigin, interpRayDir, camPos, surfaceFull, visibility, specular, positionId);
+    //FieldFullMarch(interpRayOrigin, interpRayDir, camPos, surfaceFull, visibility, specular, positionId);
     float4 col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
     
     
