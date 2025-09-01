@@ -1185,13 +1185,13 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = VOXEL_RESOLUTIONL3; //Set to L1 for now. Later on this is read from the object.
 
         brush.stiffness = 1.0f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = 0.0225f; // Set a default blend value
-        brush.smoothness = 0.1f; //Solid object.
+        brush.smoothness = 0.05f; //Solid object.
 
         
         if (brush.id == 2)
@@ -1980,10 +1980,13 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //Meshing. Move to indirect dispatch.
         DispatchLOD(commandBuffer, currentFrame, 40);
 
+        //Dual Contour.
         DispatchLOD(commandBuffer, currentFrame, 50);
 
         //Create Vertex Mask.
-        DispatchLOD(commandBuffer, currentFrame, 60);
+        //For each brush that needs to be updated.
+        for(int i = 0; i < brushes.size(); i++)
+            DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
@@ -2669,6 +2672,86 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
 
     
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+
+    VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.memoryBarrierCount = 1;
+    dep.pMemoryBarriers = &mem;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
+
+    //vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+}
+
+//Dispatches Voxelization kernels.
+void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    uint32_t prevFrame = (currentFrame + app->MAX_FRAMES_IN_FLIGHT - 1) %
+        app->MAX_FRAMES_IN_FLIGHT;
+
+    //if (lodLevel >= 6.0f)
+        //ping = !ping;
+
+    //BindVoxelBuffers(currentFrame, prevFrame, ping);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    PushConsts pc{};
+    pc.lod = static_cast<float>(60.0f);
+    pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
+
+    // Each LOD uses a different resolution
+    uint32_t res = WORLD_SDF_RESOLUTION;
+
+    uint32_t groupCountX = (res + 7) / 8;
+    uint32_t groupCountY = (res + 7) / 8;
+    uint32_t groupCountZ = (res + 7) / 8;
+
+    res = brushes[brushID].vertexCount / 3;
+    pc.triangleCount = brushID;
+    groupCountX = (res + 7) / 8;
+    groupCountY = 1;
+    groupCountZ = 1;
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    /*
+    // Add debug label for Nsight
+    VkDebugUtilsLabelEXT label{};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = (lodLevel == 1) ? "LOD1 Dispatch" :
+        (lodLevel == 2) ? "LOD2 Dispatch" : "LOD3 Dispatch";
+    vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &label);
+    */
+
+
+
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 
     VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };

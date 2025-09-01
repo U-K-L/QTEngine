@@ -203,8 +203,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
-    if(distFromHeat > 0.125f)
-        position -= 1.5f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+    if(distFromHeat > 0.0125f)
+        position += 0.05f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
         
     
@@ -269,8 +269,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
             }
     
-    if(particle.initPosition.w > 0.5f)
-        Brushes[0].isDeformed = 1;
+    //if(particle.initPosition.w > 0.0f)
+    //    Brushes[particle.particleIDs.x].isDeformed = 1;
     
     particle.initPosition.w *= 0.95f;
     

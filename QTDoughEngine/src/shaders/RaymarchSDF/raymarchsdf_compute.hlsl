@@ -793,7 +793,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
      
         //update position to the nearest point. effectively a sphere trace.
 
-        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.05f, voxelSizeL1 * 2 * (sampleLevel +1));
+        float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.05f, voxelSizeL1 * (sampleLevel +1));
         /*
         if (bounces == 0)
         {
@@ -969,7 +969,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     //Calculate depth.
     float linearDepth = surface.w;
-    float maxRenderDistance = 32.0f;
+    float maxRenderDistance = 64.0f;
     float normalizedDepth = linearDepth / maxRenderDistance;
     /*
     float3 worldPos = interpRayOrigin + interpRayDir * linearDepth;
