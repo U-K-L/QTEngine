@@ -730,7 +730,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
 {
     visibility = 1;
     float3 direction = rd;
-    float3 light = normalize(float3(-0.85f, 1.0, 1.0f));
+    float3 light = normalize(float3(-0.85f, 1.0, 0.5f));
     
     float3 pos = ro;
     int maxSteps = 512;
