@@ -1251,14 +1251,21 @@ void VoxelizerPass::Create3DTextures()
 
     VkFormat sdfFormat = app->FindSupportedFormat(
         {
-            VK_FORMAT_R32G32_SFLOAT
+            VK_FORMAT_R16_SFLOAT
+        },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
+    );
+
+    VkFormat brushSdfFormat = app->FindSupportedFormat(
+        {
+            VK_FORMAT_R16_SFLOAT
         },
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
 
     //Create the world SDF. Multiple levels. 
-
     for (int i = 0; i < mipsCount; i++)
     {
         int divisor = i;
@@ -1322,7 +1329,7 @@ void VoxelizerPass::Create3DTextures()
 
         Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
 		app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
-			sdfFormat,
+			brushSdfFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -1921,7 +1928,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 			}
             if (brushes[i].type == 0) { //Mesh type
 
-                //std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << "Vertex offset: " << brushes[i].vertexOffset << std::endl;
+                std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << " Vertex offset: " << brushes[i].vertexOffset << std::endl;
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
             }
             textureIndexMap[index] = i; //Mark this texture as processed.

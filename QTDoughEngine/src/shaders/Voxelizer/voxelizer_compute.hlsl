@@ -48,10 +48,10 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 // For reading
-Texture3D<float2> gBindless3D[] : register(t4, space0);
+Texture3D<float> gBindless3D[] : register(t4, space0);
 
 // For writing
-RWTexture3D<float2> gBindless3DStorage[] : register(u5, space0);
+RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 
 RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
@@ -134,10 +134,16 @@ float2 Read3DTransformed(in Brush brush, float3 worldPos)
 
 
 // Filtered read using normalized coordinates and mipmaps
+float Read3D(uint textureIndex, int3 coord)
+{
+    return gBindless3D[textureIndex].Load(int4(coord, 0));
+}
+/*
 float2 Read3D(uint textureIndex, int3 coord)
 {    
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 }
+*/
 
 float2 Read3DMip(uint textureIndex, int3 coord, int level)
 {
@@ -153,17 +159,17 @@ float2 Read3DTrilinear(uint textureIndex, float3 uvw, float mipLevel)
 // Unfiltered write to RWTexture3D
 void Write3D(uint textureIndex, int3 coord, float value)
 {
-    gBindless3DStorage[textureIndex][coord] = value;
+    gBindless3DStorage[textureIndex][coord].x = value;
 }
 
 void Write3D(uint textureIndex, int3 coord, float2 value)
 {
-    gBindless3DStorage[textureIndex][coord] = value;
+    gBindless3DStorage[textureIndex][coord].x = value.x;
 }
 
 void Write3DID(uint textureIndex, int3 coord, float value)
 {
-    gBindless3DStorage[textureIndex][coord].y = value;
+    //gBindless3DStorage[textureIndex][coord].y = value;
 }
 
 void Write3DDist(uint textureIndex, int3 coord, float value)
@@ -733,7 +739,6 @@ float CalculateSDFfromDensity(uint fixedPointDensity)
 
 void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 {
-    
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
     
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;

@@ -171,7 +171,7 @@ public:
     SDL_Window* QTSDLWindow;
     int SCREEN_WIDTH = 1280;
     int SCREEN_HEIGHT = 720;
-    int MAX_BINDLESS_IMAGES = 1000;
+    int MAX_BINDLESS_IMAGES = 10000;
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;
     VkExtent2D swapChainExtent;

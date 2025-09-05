@@ -59,15 +59,15 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 // For reading
-Texture3D<float2> gBindless3D[] : register(t4, space0);
+Texture3D<float> gBindless3D[] : register(t4, space0);
 
 
-float2 Read3D(uint textureIndex, int3 coord)
+float Read3D(uint textureIndex, int3 coord)
 {
     return gBindless3D[textureIndex].Load(int4(coord, 0));
 }
 
-float2 Read3DMip(uint textureIndex, int3 coord, int level)
+float Read3DMip(uint textureIndex, int3 coord, int level)
 {
     return gBindless3D[textureIndex].Load(int4(coord, level));
 }
