@@ -2554,6 +2554,29 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
+
+    uint32_t maxBoundSets = deviceProperties.limits.maxBoundDescriptorSets;
+    uint32_t maxPerStageImages = deviceProperties.limits.maxPerStageDescriptorSampledImages;
+    uint32_t maxTotalImages = deviceProperties.limits.maxDescriptorSetSampledImages;
+    uint32_t max3DTextureSize = deviceProperties.limits.maxImageDimension3D;
+
+    //Get VRAM
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(device, &memoryProperties);
+    VkDeviceSize totalVRAM = 0;
+    for (uint32_t i = 0; i < memoryProperties.memoryHeapCount; i++) {
+		if (memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+			totalVRAM += memoryProperties.memoryHeaps[i].size;
+		}
+	}
+    std::cout << "Device VRAM: " << totalVRAM / (1024 * 1024) << " MB" << std::endl;
+    std::cout << "Device Name: " << deviceProperties.deviceName << std::endl;
+    std::cout << "Max Bound Descriptor Sets: " << maxBoundSets << std::endl;
+    std::cout << "Max Per Stage Sampled Images: " << maxPerStageImages << std::endl;
+    std::cout << "Max Total Sampled Images: " << maxTotalImages << std::endl;
+    std::cout << "Max 3D Texture Size: " << max3DTextureSize << std::endl;
+
+
     //return indices.isComplete() && extensionsSupported && swapChainAdequate;
 
     //return true;
