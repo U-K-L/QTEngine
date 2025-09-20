@@ -767,6 +767,13 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
+    
+    float d = sdSphere(float3(0, 0, 0), center, 2.0f);
+    
+    Write3DDist(0, DTid, d);
+    
+    return;
+    
     if(brushCount == 0)
     {
         int3 DTL1 = DTid / 2;
