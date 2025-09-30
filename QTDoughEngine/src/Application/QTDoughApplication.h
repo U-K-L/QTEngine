@@ -205,7 +205,7 @@ public:
     VK_DYNAMIC_STATE_SCISSOR
     };
     std::unordered_map<std::string, UnigmaTexture> textures;
-    std::unordered_map<std::string, Unigma3DTexture> textures3D;
+    std::map<std::string, Unigma3DTexture> textures3D;
     std::vector<UnigmaLight*> lights;
 
     //Quads

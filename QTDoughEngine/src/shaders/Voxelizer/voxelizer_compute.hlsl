@@ -767,7 +767,6 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    /*
     if(brushCount == 0)
     {
         int3 DTL1 = DTid / 2;
@@ -776,19 +775,19 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
         Write3DDist(0, DTid, minDist);
-        //return;
+        return;
     }
-    */
 
-    for (uint i = 0; i < 1; i++)
+
+    for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
         uint index = BrushesIndices[offset];
         
-        Brush brush = Brushes[0];
+        Brush brush = Brushes[index];
         
 
-        float d = sdSphere(float3(0, 0, 0), center, 1.0f); //Read3DTransformed(brush, center).x;
+        float d = Read3DTransformed(brush, center).x;
 
 
 
@@ -853,7 +852,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //sdfVal = min(sdfVal, minDist);
     
     if (distortionFieldSum > 0.0f)
-        Write3DDist(0, DTid, minDist); // Consider particles.
+        Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
 

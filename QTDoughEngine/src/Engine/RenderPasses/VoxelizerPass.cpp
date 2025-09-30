@@ -133,7 +133,7 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(PushConsts);
+    pushConstantRange.size = sizeof(float);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -449,7 +449,6 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
 
     //Create brushes buffers
-    std::cout << "Number of brushes: " << brushes.size() << std::endl;
     app->CreateBuffer(
         sizeof(Brush) * brushes.size(),
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -1285,6 +1284,8 @@ void VoxelizerPass::Create3DTextures()
             VK_IMAGE_ASPECT_COLOR_BIT
         );
 
+        worldTexture.ID = app->textures3D.size();
+
         // Transition the 3D image layout to GENERAL for compute write
         VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
@@ -1319,10 +1320,10 @@ void VoxelizerPass::Create3DTextures()
 
     //Create per brush.
 
-    for (int i = 0; i < brushes.size(); i++)
+    for (int i = 0; i < brushes.size()*2; i++)
     {
         int index = i / 2;
-        Brush& brush = brushes[index];
+        Brush& brush = brushes[0];
 
         if(brush.type != 0) {
 			continue;
@@ -1341,6 +1342,7 @@ void VoxelizerPass::Create3DTextures()
 			sdfFormat,
 			VK_IMAGE_ASPECT_COLOR_BIT
 		);
+        brushTexture.ID = app->textures3D.size();
 
 		// Transition the 3D image layout to GENERAL for compute write
 		VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
@@ -1368,6 +1370,7 @@ void VoxelizerPass::Create3DTextures()
 			1, &barrier);
 
 		app->EndSingleTimeCommands(commandBuffer);
+
 
 		app->textures3D.insert({ "brush_" + std::to_string(i), std::move(brushTexture) });
         std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
@@ -1505,7 +1508,7 @@ void VoxelizerPass::CreateImages() {
 void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 {
     // Update CPU-side brushes first
-    for (size_t i = 0; i < brushes.size(); ++i)
+    for (size_t i = 0; i < renderingObjects.size(); ++i)
     {
         //Check if model has changed.
         glm::mat4x4 model = renderingObjects[i]->_transform.GetModelMatrixBrush();
@@ -1579,33 +1582,33 @@ void VoxelizerPass::CleanUpGPU(VkCommandBuffer commandBuffer)
         );
     }
 
-    uint32_t zero = 0;
+    uint32_t resetValue = 0;
+    vkCmdUpdateBuffer(
+        commandBuffer,
+        globalIDCounterStorageBuffers,
+        0,  // offset is 0 since we're updating the first (and only) element
+        sizeof(uint32_t),
+        &resetValue
+    );
 
-    // reset [0]
-    vkCmdUpdateBuffer(commandBuffer, globalIDCounterStorageBuffers,
-        /*offset*/0, sizeof(uint32_t), &zero);
 
-    // reset [1]  <-- the particle counter you actually use
-    vkCmdUpdateBuffer(commandBuffer, globalIDCounterStorageBuffers,
-        /*offset*/sizeof(uint32_t), sizeof(uint32_t), &zero);
+    // Memory barrier after all updates
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.buffer = VK_NULL_HANDLE;  // Applies to all buffers
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-    // make those writes visible to compute
-    VkBufferMemoryBarrier b{};
-    b.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    b.buffer = globalIDCounterStorageBuffers;
-    b.offset = 0;
-    b.size = VK_WHOLE_SIZE;
-
-    vkCmdPipelineBarrier(commandBuffer,
+    vkCmdPipelineBarrier(
+        commandBuffer,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        0, 0, nullptr, 1, &b, 0, nullptr);
-
-
+        0, 0, nullptr, 1, &barrier, 0, nullptr
+    );
 }
 
 
@@ -1829,7 +1832,7 @@ void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    //UpdateBrushesGPU(commandBuffer);
+    UpdateBrushesGPU(commandBuffer);
     /*
     float  f = 100.0f;
     uint32_t pattern;
@@ -1973,6 +1976,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchTile(commandBuffer, currentFrame, 2); //Particle generation.
 	}
 
+
     if (dispatchCount > 2)
     {
         
@@ -1998,7 +2002,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
-
 
         VkBufferMemoryBarrier barriers[2] = {};
 
@@ -2232,7 +2235,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             1, &postMipBarrier
         );
                 */
-        //CleanUpGPU(commandBuffer);
+        CleanUpGPU(commandBuffer);
         //PerformEikonalSweeps(commandBuffer, currentFrame);
         //Finally use Eikonal Equation to propagate the SDF. 6-13
         //DispatchLOD(commandBuffer, currentFrame, 6);

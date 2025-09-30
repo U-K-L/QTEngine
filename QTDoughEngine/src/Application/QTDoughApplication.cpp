@@ -1715,12 +1715,13 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
     //3D images
     std::vector<Unigma3DTexture> keys3D;
-    index = 0;
     for (auto& pair : textures3D) {
-		pair.second.ID = index;
 		keys3D.push_back(pair.second);
-		index++;
 	}
+
+    std::sort(keys3D.begin(), keys3D.end(), [](const Unigma3DTexture& a, const Unigma3DTexture& b) {
+        return a.ID < b.ID;
+        });
 
     auto sizeTextures3D = keys3D.size();
     std::vector<VkDescriptorImageInfo> imageInfos3D(sizeTextures3D);
