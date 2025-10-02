@@ -204,7 +204,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
     if(distFromHeat > 0.125f)
-        position -= 1.05f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+        position -= 0.05f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
         
     

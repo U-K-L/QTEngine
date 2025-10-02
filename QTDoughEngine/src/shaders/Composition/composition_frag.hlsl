@@ -202,7 +202,7 @@ float4 main(VSOutput i) : SV_Target
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - normalImage.w) * 0.25f).xyz, 1));
         
-    color = lerp(backgroundImage, colorWithLight * clamp(sdfImage.w, 0.95, 1.0f), normalImage.w);
+    color = lerp(backgroundImage, finalColor, normalImage.w);
     
     
 
