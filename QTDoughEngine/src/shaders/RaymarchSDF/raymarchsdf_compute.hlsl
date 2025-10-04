@@ -421,7 +421,7 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     //if (blendFactor < 0.00425f) //No blend, return triangle normals
     //        return 0;
     
-    float eps = 0.022127f * pow(2.0f, 1.0f + (smoothness * 4.0f) + blendFactor);
+    float eps = 0.05322127f * pow(2.0f, 1.0f + (smoothness * 8.0f) + blendFactor);
 
     float dx = TrilinearSampleSDFTextureNormals(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTextureNormals(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(0, eps, 0), sampleLevel).x;
@@ -763,7 +763,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         {
             if(bounces == 0)
             {
-                closesSDF.yzw = CentralDifferenceNormalTexture(pos, sampleLevel);
+                closesSDF.yzw = CentralDifferenceNormalTexture(pos, 1);
                 //int index = GetVoxelIndexFromPosition(pos, 1.0f);
                 //float smoothness = voxelsL1In[index].normalDistance.x;
                 surface.xyz = normalize(closesSDF.yzw);

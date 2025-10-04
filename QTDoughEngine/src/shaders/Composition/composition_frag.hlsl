@@ -200,9 +200,10 @@ float4 main(VSOutput i) : SV_Target
 
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
     
-    float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - normalImage.w) * 0.25f).xyz, 1));
-        
-    color = lerp(backgroundImage, finalColor, normalImage.w);
+    //Light is stored in w.
+    float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
+    
+    color = lerp(backgroundImage, colorWithLight, normalImage.w);
     
     
 
