@@ -1915,11 +1915,10 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     if (deformed)
         return;
     
-    // Reserve 3 contiguous output slots atomically (compaction)
     uint outBase;
     InterlockedAdd(GlobalIDCounter[1], 3, outBase);
 
-    // Write (choose space as needed; here we keep local like your code)
+    // Write
     meshingVertices[outBase + 0].position = pW0;
     meshingVertices[outBase + 0].normal = vertexBuffer[i0].normal.xyz;
 

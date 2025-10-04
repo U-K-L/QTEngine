@@ -421,7 +421,7 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     //if (blendFactor < 0.00425f) //No blend, return triangle normals
     //        return 0;
     
-    float eps = 0.05322127f * pow(2.0f, 1.0f + (smoothness * 8.0f) + blendFactor);
+    float eps = 0.022127f * pow(2.0f, 1.0f + (smoothness * 8.0f) + blendFactor);
 
     float dx = TrilinearSampleSDFTextureNormals(p + float3(eps, 0, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(eps, 0, 0), sampleLevel).x;
     float dy = TrilinearSampleSDFTextureNormals(p + float3(0, eps, 0), sampleLevel).x - TrilinearSampleSDFTextureNormals(p - float3(0, eps, 0), sampleLevel).x;
@@ -777,7 +777,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
                 direction = light;
                 
                 //putrude out.
-                pos += surface.xyz * voxelSizeL1 * 12.0f;
+                pos += surface.xyz * voxelSizeL1 * 4.0f;
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
                 specular.w = i; //store count.
