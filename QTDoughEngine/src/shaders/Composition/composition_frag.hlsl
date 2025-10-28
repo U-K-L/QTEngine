@@ -156,7 +156,7 @@ float4 main(VSOutput i) : SV_Target
     if (pc.input == 3)
         return fullFieldSDF;
     if (pc.input == 4)
-        return sdfNormalImage.w;
+        return albedoImage;
     if(pc.input == 5)
         return sdfImage.w;
     //return combineSDFRasterImage;

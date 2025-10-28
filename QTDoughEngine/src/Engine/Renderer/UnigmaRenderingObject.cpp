@@ -55,15 +55,18 @@ void UnigmaRenderingObject::LoadModel(UnigmaMesh& mesh)
             vertex.pos = {
                 attrib.vertices[3 * index.vertex_index + 0],
                 attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
+                attrib.vertices[3 * index.vertex_index + 2],
+                0.0f
             };
 
             vertex.texCoord = {
                 attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+                0.0f,
+                0.0f
             };
 
-            vertex.color = { 1.0f, 1.0f, 1.0f };
+            vertex.color = { 1.0f, 1.0f, 1.0f, 0.0f };
 
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(_renderer.vertices.size());
@@ -237,12 +240,12 @@ void UnigmaRenderingObject::LoadBlenderMeshData(RenderObject& rObj)
         vertex.normal.z = normals[i].z;
 
         vertex.texCoord = {
-            0.0f,0.0f
+            0.0f,0.0f, 0.0f, 0.0f
             //attrib.texcoords[2 * index.texcoord_index + 0],
             //1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
         };
 
-        vertex.color = { 1.0f, 1.0f, 1.0f };
+        vertex.color = { 1.0f, 1.0f, 1.0f, 0.0f };
 
         _renderer.vertices.push_back(vertex);
 

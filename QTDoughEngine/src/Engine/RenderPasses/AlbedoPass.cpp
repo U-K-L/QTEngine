@@ -1,4 +1,5 @@
 #include "AlbedoPass.h"
+#include "VoxelizerPass.h"
 
 AlbedoPass::~AlbedoPass() {
     PassName = "AlbedoPass";
@@ -33,6 +34,25 @@ void AlbedoPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint
 	}
 
     RenderPerObject(commandBuffer, imageIndex, currentFrame, imagesViewsPointers, CameraMain);
+}
+
+void AlbedoPass::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, UnigmaCameraStruct* CameraMain)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+    if (voxelizer->dispatchCount < 10)
+        return;
+
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+        if (renderingObjects[i]->isRendering)
+        {
+            renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain, _uniformBuffersMapped[currentFrame]);
+
+            renderingObjects[i]->RenderBrush(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame], voxelizer->meshingVertexBuffer, voxelizer->readBackVertexCount, voxelizer->indirectDrawBuffer);
+        }
+    }
 }
 
 void AlbedoPass::CreateImages() {

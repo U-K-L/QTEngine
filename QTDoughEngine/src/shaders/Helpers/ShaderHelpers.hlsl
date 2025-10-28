@@ -90,14 +90,15 @@ struct Brush
     //Make some of this materials.
     float smoothness;
     int isDeformed;
+    int materialId;
 };
 
 struct Vertex
 {
-    float3 position;
-    float3 color;
-    float2 texCoord;
-    float3 normal;
+    float4 position;
+    float4 color;
+    float4 texCoord;
+    float4 normal;
 };
 
 struct ComputeVertex

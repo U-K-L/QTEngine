@@ -41,7 +41,7 @@ VSOutput main(VSInput input)
     );
 
     // Compute position in clip space
-    output.position = mul(proj, mul(view, mul(model, float4(input.position, 1.0))));
+    output.position = mul(proj, mul(view, mul(identityMatrix, float4(input.position, 1.0))));
 
     // Pass through color, texture coordinate, and flat normal
     output.color = input.color;

@@ -225,18 +225,18 @@ void LoadScene(const char* sceneName) {
         std::vector<Vertex> vertices;
         for (size_t i = 0; i < positions.size(); i++)
 		{
-            Vertex vertex = { .pos = { positions[i][0], positions[i][1], positions[i][2] } };
+            Vertex vertex = { .pos = { positions[i][0], positions[i][1], positions[i][2], 0.0f } };
 			vertices.push_back(vertex);
 		}
 
         for(size_t i = 0; i < normals.size(); i++)
 		{
-			vertices[i].normal = { normals[i][0], normals[i][1], normals[i][2] };
+			vertices[i].normal = { normals[i][0], normals[i][1], normals[i][2], 0.0f };
 		}
 
         for(size_t i = 0; i < texcoords.size(); i++)
         {
-            vertices[i].texCoord = { texcoords[i][0], texcoords[i][1] };
+            vertices[i].texCoord = { texcoords[i][0], texcoords[i][1], 0.0f, 0.0f };
 		}
 
         for (size_t i = 0; i < vertices.size(); i++)
@@ -244,7 +244,8 @@ void LoadScene(const char* sceneName) {
             vertices[i].color = {
                 colors[i][0],
                 colors[i][1],
-                colors[i][2]
+                colors[i][2],
+                0.0f
             };
         }
 
@@ -339,10 +340,10 @@ void LoadScene(const char* sceneName) {
             uint32_t i = indices[n];          // original index into attribute arrays
 
             Vertex v;
-            v.pos = { positions[i][0], positions[i][1], positions[i][2] };
-            v.normal = { normals[i][0],   normals[i][1],   normals[i][2] };
-            v.texCoord = { texcoords[i][0], texcoords[i][1] };
-            v.color = { colors[i][0],    colors[i][1],    colors[i][2] };
+            v.pos = { positions[i][0], positions[i][1], positions[i][2], 0.0f };
+            v.normal = { normals[i][0],   normals[i][1],   normals[i][2], 0.0f };
+            v.texCoord = { texcoords[i][0], texcoords[i][1], 0.0f, 0.0f };
+            v.color = { colors[i][0],    colors[i][1],    colors[i][2], 0.0f };
 
             flatVerts.emplace_back(v);
             flatIdx.emplace_back(n);        // 0,1,2,…  (keeps pipeline happy if it still expects an IBO)

@@ -2962,10 +2962,10 @@ VkExtent2D QTDoughApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
 void QTDoughApplication::CreateQuadBuffers() {
 
     std::vector<Vertex> quadVertices = {
-        {.pos = { -1.0f, -1.0f, 0.0f }, .texCoord = { 0.0f, 1.0f } },
-        {.pos = { 1.0f, -1.0f, 0.0f }, .texCoord = { 1.0f, 1.0f } },
-        {.pos = { 1.0f, 1.0f, 0.0f }, .texCoord = { 1.0f, 0.0f } },
-        {.pos = { -1.0f, 1.0f, 0.0f }, .texCoord = { 0.0f, 0.0f } }
+        {.pos = { -1.0f, -1.0f, 0.0f,0.0f }, .texCoord = { 0.0f, 1.0f,0.0f,0.0f } },
+        {.pos = { 1.0f, -1.0f, 0.0f,0.0f }, .texCoord = { 1.0f, 1.0f,0.0f,0.0f } },
+        {.pos = { 1.0f, 1.0f, 0.0f,0.0f }, .texCoord = { 1.0f, 0.0f,0.0f,0.0f } },
+        {.pos = { -1.0f, 1.0f, 0.0f,0.0f }, .texCoord = { 0.0f, 0.0f,0.0f,0.0f } }
     };
 
     std::vector<uint16_t> quadIndices = {

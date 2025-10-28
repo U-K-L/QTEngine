@@ -57,6 +57,7 @@ public:
         uint32_t id;
         float smoothness;
         int isDeformed;
+        int materialId;
     };
 
     struct Tile

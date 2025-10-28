@@ -1637,13 +1637,13 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     InterlockedAdd(GlobalIDCounter[0], 6, vertOffset);
 
     //Set vertices positions.
-    meshingVertices[vertOffset + 0].position = float4(v0, 1).xyz;
-    meshingVertices[vertOffset + 1].position = float4(v1, 1).xyz;
-    meshingVertices[vertOffset + 2].position = float4(v2, 1).xyz;
+    meshingVertices[vertOffset + 0].position = float4(v0, 1);
+    meshingVertices[vertOffset + 1].position = float4(v1, 1);
+    meshingVertices[vertOffset + 2].position = float4(v2, 1);
     
-    meshingVertices[vertOffset + 3].position = float4(v0, 1).xyz;
-    meshingVertices[vertOffset + 4].position = float4(v2, 1).xyz;
-    meshingVertices[vertOffset + 5].position = float4(v3, 1).xyz;
+    meshingVertices[vertOffset + 3].position = float4(v0, 1);
+    meshingVertices[vertOffset + 4].position = float4(v2, 1);
+    meshingVertices[vertOffset + 5].position = float4(v3, 1);
     
     
     //Now generate normals. This depends on the operation codes of the brush.
@@ -1704,13 +1704,13 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
         n2 = lerp(faceNormal, n2, t);
         n3 = lerp(faceNormal, n3, t);
     }
-    meshingVertices[vertOffset + 0].normal = n0;
-    meshingVertices[vertOffset + 1].normal = n1;
-    meshingVertices[vertOffset + 2].normal = n2;
+    meshingVertices[vertOffset + 0].normal = float4(n0, brush.materialId);
+    meshingVertices[vertOffset + 1].normal = float4(n1, brush.materialId);
+    meshingVertices[vertOffset + 2].normal = float4(n2, brush.materialId);
         
-    meshingVertices[vertOffset + 3].normal = n0;
-    meshingVertices[vertOffset + 4].normal = n2;
-    meshingVertices[vertOffset + 5].normal = n3;
+    meshingVertices[vertOffset + 3].normal = float4(n0, brush.materialId);
+    meshingVertices[vertOffset + 4].normal = float4(n2, brush.materialId);
+    meshingVertices[vertOffset + 5].normal = float4(n3, brush.materialId);
 }
 
 
@@ -1746,8 +1746,9 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
             }
     
-    if (!(distortionFieldSum > 0))
-        return;
+    //If the distortion field and its nieghbors greater than 0 ignore dual contour.
+    //if (!(distortionFieldSum > 0))
+    //    return;
 
     //Check Every single face.
     int offSet = mipLevel;
@@ -1877,7 +1878,7 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
     return false;
 }
 
-
+//Add the default static mesh to the dual contouring vertex list.
 void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThreadID, uint brushID)
 {
     // Make 63 out of 64 threads in the Y/Z plane do nothing.
@@ -1887,6 +1888,7 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     }
     Brush brush = Brushes[brushID];
     
+    //If the brush is deformed remove it from the default static mesh.
     if(brush.isDeformed == 1)
         return;
     
@@ -1910,6 +1912,7 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 pW1 = mul(brush.model, float4(pL1, 1)).xyz;
     float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
 
+    //Check neighboring field to also remove from default mesh.
     bool deformed = ReadDeformingFieldKernel(pW0, 5);
 
     if (deformed)
@@ -1919,14 +1922,14 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     InterlockedAdd(GlobalIDCounter[1], 3, outBase);
 
     // Write
-    meshingVertices[outBase + 0].position = pW0;
-    meshingVertices[outBase + 0].normal = vertexBuffer[i0].normal.xyz;
+    meshingVertices[outBase + 0].position = float4(pW0, 1.0f);
+    meshingVertices[outBase + 0].normal = float4(vertexBuffer[i0].normal.xyz, brush.materialId);
 
-    meshingVertices[outBase + 1].position = pW1;
-    meshingVertices[outBase + 1].normal = vertexBuffer[i1].normal.xyz;
+    meshingVertices[outBase + 1].position = float4(pW1, 1.0f);
+    meshingVertices[outBase + 1].normal = float4(vertexBuffer[i1].normal.xyz, brush.materialId);
 
-    meshingVertices[outBase + 2].position = pW2;
-    meshingVertices[outBase + 2].normal = vertexBuffer[i2].normal.xyz;
+    meshingVertices[outBase + 2].position = float4(pW2, 1.0f);
+    meshingVertices[outBase + 2].normal = float4(vertexBuffer[i2].normal.xyz, brush.materialId);
 }
 
 
