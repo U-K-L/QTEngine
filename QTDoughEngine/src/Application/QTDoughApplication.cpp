@@ -17,6 +17,7 @@
 #include "stb_image.h"
 #include <random>
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
+GameObjectShaderData gameObjectShaderDataArray[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 std::vector<ComputePass*> computePassStack;
@@ -56,6 +57,13 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
     unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
     unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
     unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
+
+    //Update the shader game objects.
+    gameObjectShaderDataArray[gObj->RenderID].BaseAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["BaseAlbedo"];
+    gameObjectShaderDataArray[gObj->RenderID].TopAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["TopAlbedo"];
+    gameObjectShaderDataArray[gObj->RenderID].SideAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["SideAlbedo"];
+
+
 
     int lightSize = UNGetLightsSize();
 
@@ -1544,17 +1552,25 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
     img3DStorage.descriptorCount = MAX_BINDLESS_IMAGES;
     img3DStorage.stageFlags = VK_SHADER_STAGE_ALL;
 
+    VkDescriptorSetLayoutBinding globalObjsLayoutBinding{};
+    globalObjsLayoutBinding.binding = 6;
+    globalObjsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    globalObjsLayoutBinding.descriptorCount = 1;
+    globalObjsLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    globalObjsLayoutBinding.pImmutableSamplers = nullptr;
+
     // We now have two bindings
-    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding, imgStorage, sampled3DImageBinding, img3DStorage };
+    std::array<VkDescriptorSetLayoutBinding, 7> bindings = { sampledImageBinding, samplerBinding, uboLayoutBinding, imgStorage, sampled3DImageBinding, img3DStorage, globalObjsLayoutBinding };
 
     // For descriptor indexing flags
-    VkDescriptorBindingFlags bindingFlags[6] = {
+    VkDescriptorBindingFlags bindingFlags[7] = {
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
         0,
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+        0
     };
 
 
@@ -1582,7 +1598,7 @@ void QTDoughApplication::CreateGlobalDescriptorSetLayout()
 void QTDoughApplication::CreateGlobalDescriptorPool()
 {
     std::cout << "Creating Descriptor Pool" << std::endl;
-    std::array<VkDescriptorPoolSize, 6> poolSizes{};
+    std::array<VkDescriptorPoolSize, 7> poolSizes{};
 
     // Sampled 2D textures
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -1607,6 +1623,10 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
     // Storage 3D images
     poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[5].descriptorCount = MAX_BINDLESS_IMAGES;
+
+    // Game global objects buffer
+    poolSizes[6].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[6].descriptorCount = MAX_FRAMES_IN_FLIGHT;
 
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -1638,6 +1658,20 @@ void QTDoughApplication::CreateGlobalUniformBuffers() {
             globalUniformBufferObject[i],
             globalUniformBuffersMemory[i]);
     }
+
+    globalShaderGameObjs.resize(MAX_FRAMES_IN_FLIGHT);
+    globalShaderGameObjsMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+    bufferSizeGamObjs = NUM_OBJECTS * sizeof(GameObjectShaderData);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        CreateBuffer(bufferSizeGamObjs,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            globalShaderGameObjs[i],
+            globalShaderGameObjsMemory[i]);
+    }
+
 }
 
 void QTDoughApplication::CreateGlobalDescriptorSet()
@@ -1674,7 +1708,21 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
         uboWrite.descriptorCount = 1;
         uboWrite.pBufferInfo = &bufferInfo;
 
-        std::vector<VkWriteDescriptorSet> writes = { uboWrite };
+        VkDescriptorBufferInfo ssboBufferInfo{};
+        ssboBufferInfo.buffer = globalShaderGameObjs[i];
+        ssboBufferInfo.offset = 0;
+        ssboBufferInfo.range = VK_WHOLE_SIZE;
+
+        VkWriteDescriptorSet ssboWrite{};
+        ssboWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        ssboWrite.dstSet = globalDescriptorSets[i];
+        ssboWrite.dstBinding = 6; 
+        ssboWrite.dstArrayElement = 0;
+        ssboWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        ssboWrite.descriptorCount = 1;
+        ssboWrite.pBufferInfo = &ssboBufferInfo;
+
+        std::vector<VkWriteDescriptorSet> writes = { uboWrite, ssboWrite };
         vkUpdateDescriptorSets(_logicalDevice,
             static_cast<uint32_t>(writes.size()),
             writes.data(),
@@ -1803,6 +1851,13 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     vkUnmapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame]);
 
     currentTime = timeNow;
+
+    void* dataObjs;
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkMapMemory(_logicalDevice, globalShaderGameObjsMemory[i], 0, bufferSizeGamObjs, 0, &dataObjs);
+        memcpy(dataObjs, gameObjectShaderDataArray, bufferSizeGamObjs);
+        vkUnmapMemory(_logicalDevice, globalShaderGameObjsMemory[i]);
+    }
     
 }
 

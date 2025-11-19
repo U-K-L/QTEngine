@@ -94,6 +94,16 @@ struct GlobalUniformBufferObject
     GPULight light[32];
     // total struct size = 16 bytes
 };
+
+struct GameObjectShaderData
+{
+    glm::mat4 transform;
+    glm::vec4 BaseAlbedo;
+    glm::vec4 TopAlbedo;
+    glm::vec4 SideAlbedo;
+
+};
+
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
@@ -353,6 +363,13 @@ private:
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkQueue _vkComputeQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
+
+    std::vector<VkBuffer> globalShaderGameObjs;
+    std::vector<VkDeviceMemory> globalShaderGameObjsMemory;
+
+    GameObjectShaderData gameObjectShaderDataArray[NUM_OBJECTS];
+    VkDeviceSize bufferSizeGamObjs;
+
 
     VkQueue _presentQueue = VK_NULL_HANDLE;
     VkCommandPool _commandPool;

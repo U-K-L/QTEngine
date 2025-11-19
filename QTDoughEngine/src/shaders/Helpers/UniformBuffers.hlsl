@@ -17,3 +17,12 @@ struct GPULight
     float4 emission;
     float3 direction;
 };
+
+struct GameObjectShaderData
+{
+    float4x4 transform;
+    float4 BaseAlbedo;
+    float4 TopAlbedo;
+    float4 SideAlbedo;
+
+};
