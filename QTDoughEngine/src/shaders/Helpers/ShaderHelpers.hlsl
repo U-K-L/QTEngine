@@ -44,6 +44,8 @@ inline float lenFast(float3 v)
 }
 #define TAN_HALF(a,b,la,lb) (lenFast(cross(a,b)) / (la*lb + dot(a,b) + 1e-6f))
 
+//The Voxel is really just an arbitrary data structure used for 
+//proxy buffers 
 struct Voxel
 {
     int distance;

@@ -38,14 +38,21 @@ struct PushConsts
 PushConsts pc;
 
 
+//----------------------------------------
+//Buffers for storing arbitrary data at different levels of detail.
+//Instead of creating one large world voxel structure, this acts as smaller more coarse
+//data that stores information that doesn't need granularity, example being the 
+//distortion field.
 StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL1Out : register(u3, space1); // write
 
-StructuredBuffer<Voxel> voxelsL2In : register(t4, space1); // readonly
-RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
+StructuredBuffer<Voxel> voxelsL2In : register(t4, space1);
+RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1);
 
-StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
-RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
+StructuredBuffer<Voxel> voxelsL3In : register(t6, space1);
+RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1);
+
+//----------------------------------------
 
 // For reading
 Texture3D<float> gBindless3D[] : register(t4, space0);
@@ -790,7 +797,6 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float d = Read3DTransformed(brush, center).x;
 
 
-
         if (brush.opcode == 1)
             minDist = max(-d + 1, minDist);
         else if (brush.opcode == 0)
@@ -799,7 +805,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             //This brush actually gets added.
             if(minDist > d)
             {
-                minId = brush.id;
+                minId = brush.materialId;
 
             }
 
@@ -1716,11 +1722,10 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
-    Brush brush = Brushes[0];
     int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL1);
     float activeValue = voxelsL1Out[index].normalDistance.y;
     int mipLevel = 1;
-    int3 baseTexel = DTid * pow(2, mipLevel - 1); //128 -> 256.
+    int3 baseTexel = DTid * pow(2, mipLevel - 1); //ie 128 -> 256.
     
     float sdfOrigin = Read3D(mipLevel, baseTexel).x;
     
@@ -1733,6 +1738,12 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
     
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
+    
+    uint indexField = Flatten3DR(DTid, voxelSceneBoundsl1.x);
+    uint brushIndex = voxelsL1Out[indexField].brushId;
+    
+    Brush brush = Brushes[brushIndex];
+    
     //Sum the distoration field.
     int kernelSize = 8;
     

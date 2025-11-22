@@ -4,8 +4,8 @@
 struct PSInput
 {
     float4 position : SV_Position; // Output to fragment shader
-    float3 color : COLOR0; // Location 0 output
-    float2 uv : TEXCOORD0; // Location 1 output
+    float4 color : COLOR0; // Location 0 output
+    float4 uv : TEXCOORD0; // Location 1 output
     nointerpolation float4 normal : NORMAL; // Location 2, flat interpolation
 };
 
@@ -58,12 +58,12 @@ PSOutput main(PSInput input)
     float thresholdY = 0.6;
     float thresholdZ = 0.8;
     
-    float4 vertexColor = float4(input.color, 1.0);
+    float4 vertexColor = float4(input.color.xyz, 1.0);
     // Normalize light direction
     float3 normLightDir = light[0].direction; //normalize(float3(0.5, 0.5, 0.0));
 
     // Dot product for lighting intensity, adjusted for [-1, 1] to [0, 1] range
-    float NdotL = dot(input.normal, normLightDir) * 0.5 + 0.5;
+    float NdotL = dot(input.normal.xyz, normLightDir) * 0.5 + 0.5;
     
     /*
     float4 midTones = baseAlbedo * step(thresholdX, NdotL);
@@ -77,9 +77,9 @@ PSOutput main(PSInput input)
     
     //Pick based on normals.
     float3 normal = input.normal;
-    float4 front = rand4(float4(input.normal.w, input.normal.w + 1, input.normal.w + 2, 1.0)); //globalObjMaterials[0].BaseAlbedo; //float4(1, globalObjMaterials[1], 0, 1);
-    float4 sides = globalObjMaterials[0].SideAlbedo;
-    float4 top = globalObjMaterials[0].TopAlbedo;
+    float4 front = globalObjMaterials[input.normal.w].BaseAlbedo; //float4(1, globalObjMaterials[1], 0, 1);
+    float4 sides = globalObjMaterials[input.normal.w].SideAlbedo;
+    float4 top = globalObjMaterials[input.normal.w].TopAlbedo;
     
     float3 forward = float3(0, 1, 0);
     float3 up = float3(0, 0, 1);

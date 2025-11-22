@@ -3,18 +3,18 @@
 
 struct VSInput
 {
-    float3 position : POSITION; // Location 0 in Vulkan
-    float3 color : COLOR0; // Location 1 in Vulkan
-    float2 uv : TEXCOORD0; // Location 2 in Vulkan
-    float3 normal : NORMAL; // Location 3 in Vulkan
+    float4 position : POSITION; // Location 0 in Vulkan
+    float4 color : COLOR0; // Location 1 in Vulkan
+    float4 uv : TEXCOORD0; // Location 2 in Vulkan
+    float4 normal : NORMAL; // Location 3 in Vulkan
 };
 
 struct VSOutput
 {
     float4 position : SV_Position; // Output to fragment shader
-    float3 color : COLOR0; // Location 0 output
-    float2 uv : TEXCOORD0; // Location 1 output
-    float3 normal : NORMAL; // Location 2, flat interpolation
+    float4 color : COLOR0; // Location 0 output
+    float4 uv : TEXCOORD0; // Location 1 output
+    float4 normal : NORMAL; // Location 2, flat interpolation
 };
 
 VSOutput main(VSInput input)
@@ -30,7 +30,7 @@ VSOutput main(VSInput input)
     );
 
     // Compute position in clip space
-    output.position = mul(proj, mul(view, mul(identityMatrix, float4(input.position, 1.0))));
+    output.position = mul(proj, mul(view, mul(identityMatrix, float4(input.position.xyz, 1.0))));
 
     // Pass through color, texture coordinate, and flat normal
     output.color = input.color;

@@ -1193,6 +1193,8 @@ void VoxelizerPass::CreateBrushes()
         brush.blend = 0.0225f; // Set a default blend value
         brush.smoothness = 0.1f; //Solid object.
 
+        brush.materialId = i;
+
         
         if (brush.id == 2)
         {
