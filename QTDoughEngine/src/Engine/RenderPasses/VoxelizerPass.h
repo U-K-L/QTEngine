@@ -31,7 +31,8 @@ public:
         float id;
         uint32_t brushId;
         uint32_t pad3;
-        glm::vec4 normalDistance; // packed half4: 4 × 16-bit = 8 bytes
+        glm::vec4 normalDistance;
+        glm::ivec4 materialIds;   
     };
 
     //Struct of brushes. Most brushes are meshes with a model matrix. However, analytical brushes can be provided as well.
@@ -65,8 +66,6 @@ public:
         uint32_t brushCount;
         uint32_t brushOffset;
     };
-
-
 
     struct PushConsts {
         float lod;

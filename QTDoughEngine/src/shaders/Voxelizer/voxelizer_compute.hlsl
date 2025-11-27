@@ -803,7 +803,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         {
             blendFactor += brush.blend;
             //This brush actually gets added.
-            if(minDist > d)
+            if (minDist > (d + 0.25f))
             {
                 minId = brush.materialId;
 

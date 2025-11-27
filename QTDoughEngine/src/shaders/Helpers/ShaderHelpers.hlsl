@@ -53,6 +53,7 @@ struct Voxel
     uint brushId;
     uint uniqueId;
     float4 normalDistance;
+    int4 materialIds;
 };
 
 struct Particle
