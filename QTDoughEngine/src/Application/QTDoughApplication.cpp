@@ -2480,7 +2480,7 @@ void QTDoughApplication::CreateInstance()
     appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
     appInfo.pEngineName = "QTDoughEngine";
     appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
-    appInfo.apiVersion = VK_API_VERSION_1_0;
+    appInfo.apiVersion = VK_API_VERSION_1_3;
 
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
