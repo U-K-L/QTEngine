@@ -275,6 +275,7 @@ public:
     //VkDescriptorSet globalDescriptorSet;
     std::vector<VkSampler> globalSamplers;
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+    int TotalGPURam = 1024; //In MB.
 
 
 

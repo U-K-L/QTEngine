@@ -2624,7 +2624,8 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 			totalVRAM += memoryProperties.memoryHeaps[i].size;
 		}
 	}
-    std::cout << "Device VRAM: " << totalVRAM / (1024 * 1024) << " MB" << std::endl;
+    TotalGPURam = totalVRAM / (1024 * 1024);
+    std::cout << "Device VRAM: " << TotalGPURam << " MB" << std::endl;
     std::cout << "Device Name: " << deviceProperties.deviceName << std::endl;
     std::cout << "Max Bound Descriptor Sets: " << maxBoundSets << std::endl;
     std::cout << "Max Per Stage Sampled Images: " << maxPerStageImages << std::endl;

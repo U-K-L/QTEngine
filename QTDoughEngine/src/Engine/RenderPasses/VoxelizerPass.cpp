@@ -1387,6 +1387,60 @@ void VoxelizerPass::Create3DTextures()
 void VoxelizerPass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    //Set the World image size.
+    //Move this to some settings.
+    int GameQualitySettings = 0; //Highest.
+    glm::ivec3 worldImageRes = glm::ivec3(2048, 2048, 256);
+
+    //Start at highest resolution and work downwards. Note change this depending on user settings. 
+    //Always check if possible to avoid crashing game.
+
+    if (GameQualitySettings == 0)
+    {
+        worldImageRes = glm::ivec3(5400, 5400, 256);
+        int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
+
+        if (ramRequired < app->TotalGPURam)
+        {
+            std::cout << "High Quality Voxel Resolution. " << std::endl;
+
+        }
+        else
+        {
+            GameQualitySettings = 1;
+        }
+    }
+
+    if (GameQualitySettings == 1)
+    {
+        worldImageRes = glm::ivec3(2048, 2048, 256);
+        int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
+
+        if (ramRequired < app->TotalGPURam)
+        {
+            std::cout << "Medium Quality Voxel Resolution. " << std::endl;
+
+        }
+        else
+        {
+            GameQualitySettings = 2;
+        }
+    }
+
+    if (GameQualitySettings == 2)
+    {
+        worldImageRes = glm::ivec3(1024, 1024, 256);
+        int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
+
+        if (ramRequired < app->TotalGPURam)
+        {
+            std::cout << "Low Quality Voxel Resolution. " << std::endl;
+
+        }
+    }
+
+    WORLD_SDF_RESOLUTION = worldImageRes;
+
     //Get the images path tied to this material.
     for (int i = 0; i < material.textures.size(); i++) {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);
@@ -2552,7 +2606,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
 
     // Each LOD uses a different resolution
-    uint32_t res = WORLD_SDF_RESOLUTION.x; //Expand.
+    uint32_t res = WORLD_SDF_RESOLUTION.z; //Expand.
 
     uint32_t groupCountX = (res + 7) / 8;
     uint32_t groupCountY = (res + 7) / 8;
