@@ -282,10 +282,10 @@ void VoxelizerPass::CreateComputePipeline()
     std::cout << "Memory of voxels in L3: " << sizeof(Voxel) * VOXEL_COUNTL3 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Size of voxel: " << sizeof(Voxel) << " bytes" << std::endl;
 
-    std::cout << "Memory of 3D Textures in L0: " << (sizeof(glm::vec2) * WORLD_SDF_RESOLUTION* WORLD_SDF_RESOLUTION* WORLD_SDF_RESOLUTION) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L1: " << (sizeof(glm::vec2) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L2: " << (sizeof(glm::vec2) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L3: " << (sizeof(glm::vec2) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L0: " << (sizeof(uint16_t) * WORLD_SDF_RESOLUTION.x* WORLD_SDF_RESOLUTION.y* WORLD_SDF_RESOLUTION.z) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L1: " << (sizeof(uint16_t) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L2: " << (sizeof(uint16_t) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L3: " << (sizeof(uint16_t) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
 
     readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
     readbackBufferMemories.resize(app->MAX_FRAMES_IN_FLIGHT);
@@ -481,7 +481,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     VkBuffer stagingBrushIndicesBuffer;
     VkDeviceMemory stagingBrushIndicesMemory;
 
-    uint32_t brushListSize = (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE) * TILE_MAX_BRUSHES;
+    uint32_t brushListSize = (WORLD_SDF_RESOLUTION.x / TILE_SIZE) * (WORLD_SDF_RESOLUTION.y / TILE_SIZE) * (WORLD_SDF_RESOLUTION.z / TILE_SIZE) * TILE_MAX_BRUSHES;
 
     BrushesIndices.resize(brushListSize, 4294967295); // Initialize with max uint32_t value
     app->CreateBuffer(
@@ -546,7 +546,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     //Tile Brush Counts.
     VkBuffer stagingBrushCountsBuffer;
     VkDeviceMemory stagingBrushCountsMemory;
-    uint32_t brushCountsSize = (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE) * (WORLD_SDF_RESOLUTION / TILE_SIZE);
+    uint32_t brushCountsSize = (WORLD_SDF_RESOLUTION.x / TILE_SIZE) * (WORLD_SDF_RESOLUTION.y / TILE_SIZE) * (WORLD_SDF_RESOLUTION.z / TILE_SIZE);
     TilesBrushCounts.resize(brushCountsSize, 0); // Initialize with 0
 
     app->CreateBuffer(
@@ -1271,9 +1271,14 @@ void VoxelizerPass::Create3DTextures()
     for (int i = 0; i < mipsCount; i++)
     {
         int divisor = i;
-        int resolution = clamp(WORLD_SDF_RESOLUTION / int(pow(2, divisor)), 32, 512);
-        Unigma3DTexture worldTexture = Unigma3DTexture(resolution, resolution, resolution);
-        app->CreateImages3D(resolution, resolution, resolution,
+        glm::ivec3 resolution;
+        resolution.x = clamp(WORLD_SDF_RESOLUTION.x / int(pow(2, divisor)), 32, WORLD_SDF_RESOLUTION.x);
+        resolution.y = clamp(WORLD_SDF_RESOLUTION.y / int(pow(2, divisor)), 32, WORLD_SDF_RESOLUTION.y);
+        resolution.z = clamp(WORLD_SDF_RESOLUTION.z / int(pow(2, divisor)), 32, WORLD_SDF_RESOLUTION.z);
+
+
+        Unigma3DTexture worldTexture = Unigma3DTexture(resolution.x, resolution.y, resolution.z);
+        app->CreateImages3D(resolution.x, resolution.y, resolution.z,
             sdfFormat,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -1317,7 +1322,7 @@ void VoxelizerPass::Create3DTextures()
 
 
         app->textures3D.insert({ "worldSDF_" + std::to_string(i), std::move(worldTexture) });
-        std::cout << "Created 3D texture for world SDF level " << i << " with resolution: " << resolution << std::endl;
+        std::cout << "Created 3D texture for world SDF level " << i << " with resolution: " << resolution.x << std::endl;
     }
 
     //Create per brush.
@@ -1762,7 +1767,7 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 0, sizeof(pc), &pc);
 
-            const uint32_t groups = (WORLD_SDF_RESOLUTION + 7) / 8;
+            const uint32_t groups = (WORLD_SDF_RESOLUTION.x + 7) / 8; //Expand this later.
             vkCmdDispatch(cmd, groups, groups, groups);
 
             /* visibility barrier */
@@ -2547,7 +2552,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
 
     // Each LOD uses a different resolution
-    uint32_t res = WORLD_SDF_RESOLUTION;
+    uint32_t res = WORLD_SDF_RESOLUTION.x; //Expand.
 
     uint32_t groupCountX = (res + 7) / 8;
     uint32_t groupCountY = (res + 7) / 8;
@@ -2556,7 +2561,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 0)
     {
-        res = WORLD_SDF_RESOLUTION;
+        //res = WORLD_SDF_RESOLUTION;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2564,7 +2569,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if(lodLevel > 0 && lodLevel < 8)
 	{
-		res = WORLD_SDF_RESOLUTION / pow(2, lodLevel-1);
+		//res = WORLD_SDF_RESOLUTION / pow(2, lodLevel-1);
 		groupCountX = (res + 7) / 8;
 		groupCountY = (res + 7) / 8;
 		groupCountZ = (res + 7) / 8;
@@ -2572,7 +2577,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel >= 8)
     {
-        res = WORLD_SDF_RESOLUTION;
+        //res = WORLD_SDF_RESOLUTION;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2580,7 +2585,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 20)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
+        //res = WORLD_SDF_RESOLUTION / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2588,7 +2593,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 21)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
+        //res = WORLD_SDF_RESOLUTION / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2596,7 +2601,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 22)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
+        //res = WORLD_SDF_RESOLUTION / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2604,7 +2609,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 23)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
+        //res = WORLD_SDF_RESOLUTION / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2613,7 +2618,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Clear Voxels
     if (lodLevel == 24)
     {
-        res = VOXEL_RESOLUTIONL1;
+        //res = VOXEL_RESOLUTIONL1;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2621,7 +2626,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 40)
     {
-        res = VOXEL_RESOLUTIONL1;
+        //res = VOXEL_RESOLUTIONL1;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
@@ -2630,7 +2635,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        res = VOXEL_RESOLUTIONL1;
+        //res = VOXEL_RESOLUTIONL1;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
@@ -2640,7 +2645,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Create Vertex Mask
     if (lodLevel == 60)
     {
-        res = brushes[0].vertexCount / 3;
+        //res = brushes[0].vertexCount / 3;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = 1;
@@ -2722,7 +2727,7 @@ void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t c
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
 
     // Each LOD uses a different resolution
-    uint32_t res = WORLD_SDF_RESOLUTION;
+    uint32_t res = WORLD_SDF_RESOLUTION.x; //Expand
 
     uint32_t groupCountX = (res + 7) / 8;
     uint32_t groupCountY = (res + 7) / 8;

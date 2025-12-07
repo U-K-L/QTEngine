@@ -1717,6 +1717,16 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     meshingVertices[vertOffset + 3].normal = float4(n0, brush.materialId);
     meshingVertices[vertOffset + 4].normal = float4(n2, brush.materialId);
     meshingVertices[vertOffset + 5].normal = float4(n3, brush.materialId);
+    
+    float4 finalColor = float4(1, 0, 1, 0);
+    
+    meshingVertices[vertOffset + 0].color = finalColor;
+    meshingVertices[vertOffset + 1].color = finalColor;
+    meshingVertices[vertOffset + 2].color = finalColor;
+        
+    meshingVertices[vertOffset + 3].color = finalColor;
+    meshingVertices[vertOffset + 4].color = finalColor;
+    meshingVertices[vertOffset + 5].color = finalColor;
 }
 
 
