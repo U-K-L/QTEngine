@@ -282,11 +282,6 @@ void VoxelizerPass::CreateComputePipeline()
     std::cout << "Memory of voxels in L3: " << sizeof(Voxel) * VOXEL_COUNTL3 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Size of voxel: " << sizeof(Voxel) << " bytes" << std::endl;
 
-    std::cout << "Memory of 3D Textures in L0: " << (sizeof(uint16_t) * WORLD_SDF_RESOLUTION.x* WORLD_SDF_RESOLUTION.y* WORLD_SDF_RESOLUTION.z) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L1: " << (sizeof(uint16_t) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L2: " << (sizeof(uint16_t) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L3: " << (sizeof(uint16_t) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
-
     readbackBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
     readbackBufferMemories.resize(app->MAX_FRAMES_IN_FLIGHT);
 
@@ -1438,6 +1433,11 @@ void VoxelizerPass::CreateImages() {
 
         }
     }
+
+    std::cout << "Memory of 3D Textures in L0: " << (sizeof(uint16_t) * WORLD_SDF_RESOLUTION.x * WORLD_SDF_RESOLUTION.y * WORLD_SDF_RESOLUTION.z) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L1: " << (sizeof(uint16_t) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L2: " << (sizeof(uint16_t) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L3: " << (sizeof(uint16_t) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
 
     WORLD_SDF_RESOLUTION = worldImageRes;
 
