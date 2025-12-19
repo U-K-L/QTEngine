@@ -1379,11 +1379,9 @@ void VoxelizerPass::Create3DTextures()
     }
 }
 
-void VoxelizerPass::CreateImages() {
+glm::ivec3 VoxelizerPass::SetVoxelGridSize()
+{
     QTDoughApplication* app = QTDoughApplication::instance;
-
-    //Set the World image size.
-    //Move this to some settings.
     int GameQualitySettings = 0; //Highest.
     glm::ivec3 worldImageRes = glm::ivec3(2048, 2048, 256);
 
@@ -1450,7 +1448,17 @@ void VoxelizerPass::CreateImages() {
         }
     }
 
-    WORLD_SDF_RESOLUTION = worldImageRes;
+    return worldImageRes;
+}
+
+void VoxelizerPass::CreateImages() {
+
+    //Set the World image size.
+    //Move this to some settings.
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+
+    //WORLD_SDF_RESOLUTION = SetVoxelGridSize();
 
     std::cout << "Memory of 3D Textures in L0: " << (sizeof(uint16_t) * WORLD_SDF_RESOLUTION.x * WORLD_SDF_RESOLUTION.y * WORLD_SDF_RESOLUTION.z) / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Memory of 3D Textures in L1: " << (sizeof(uint16_t) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
