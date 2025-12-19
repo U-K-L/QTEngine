@@ -1397,7 +1397,7 @@ void VoxelizerPass::CreateImages() {
 
         if (ramRequired < app->TotalGPURam)
         {
-            std::cout << "High Quality Voxel Resolution. " << std::endl;
+            std::cout << "Ultra Quality Voxel Resolution. " << std::endl;
 
         }
         else
@@ -1407,6 +1407,22 @@ void VoxelizerPass::CreateImages() {
     }
 
     if (GameQualitySettings == 1)
+    {
+        worldImageRes = glm::ivec3(4096, 4096, 256);
+        int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
+
+        if (ramRequired < app->TotalGPURam)
+        {
+            std::cout << "High Quality Voxel Resolution. " << std::endl;
+
+        }
+        else
+        {
+            GameQualitySettings = 2;
+        }
+    }
+
+    if (GameQualitySettings == 2)
     {
         worldImageRes = glm::ivec3(2048, 2048, 256);
         int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
@@ -1418,11 +1434,11 @@ void VoxelizerPass::CreateImages() {
         }
         else
         {
-            GameQualitySettings = 2;
+            GameQualitySettings = 3;
         }
     }
 
-    if (GameQualitySettings == 2)
+    if (GameQualitySettings == 3)
     {
         worldImageRes = glm::ivec3(1024, 1024, 256);
         int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
@@ -2625,7 +2641,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if(lodLevel > 0 && lodLevel < 8)
 	{
-		//res = WORLD_SDF_RESOLUTION / pow(2, lodLevel-1);
+		res = res / pow(2, lodLevel-1);
 		groupCountX = (res + 7) / 8;
 		groupCountY = (res + 7) / 8;
 		groupCountZ = (res + 7) / 8;
@@ -2641,7 +2657,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 20)
     {
-        //res = WORLD_SDF_RESOLUTION / 2;
+        res = res / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2649,7 +2665,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 21)
     {
-        //res = WORLD_SDF_RESOLUTION / 2;
+        res = res / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2657,7 +2673,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 22)
     {
-        //res = WORLD_SDF_RESOLUTION / 2;
+        res = res / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2665,7 +2681,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 23)
     {
-        //res = WORLD_SDF_RESOLUTION / 2;
+        res = res / 2;
         groupCountX = (res + 7) / 8;
         groupCountY = (res + 7) / 8;
         groupCountZ = (res + 7) / 8;
@@ -2701,7 +2717,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Create Vertex Mask
     if (lodLevel == 60)
     {
-        //res = brushes[0].vertexCount / 3;
+        res = brushes[0].vertexCount / 3;
         pc.triangleCount = 0;
         groupCountX = (res + 7) / 8;
         groupCountY = 1;
