@@ -32,6 +32,7 @@ struct PushConsts
 {
     float lod;
     uint triangleCount;
+    int3 voxelResolution;
 };
 
 [[vk::push_constant]]
@@ -746,7 +747,7 @@ float CalculateSDFfromDensity(uint fixedPointDensity)
 
 void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
     
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
@@ -761,7 +762,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     int minId = 0;
     
     float tileWorldSize = TILE_SIZE * voxelSize;
-    int numTilesPerAxis = WORLD_SDF_RESOLUTION / TILE_SIZE;
+    int numTilesPerAxis = pc.voxelResolution.x / TILE_SIZE;
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 
@@ -1178,7 +1179,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 
 
     
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
     
@@ -1189,7 +1190,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
         return;
     }
     
-    int3 worldSDFCoords = int3(worldUVW * (WORLD_SDF_RESOLUTION - 1));
+    int3 worldSDFCoords = int3(worldUVW * (pc.voxelResolution - 1));
     
     float2 sdfValue = Read3D(0, worldSDFCoords);
     
@@ -1822,7 +1823,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 bool WorldPosToL1Index(float3 worldPos, out int3 coordL1, out uint idxL1)
 {
     // World SDF bounds (same physical box for all mips)
-    float2 worldInfo = GetVoxelResolutionWorldSDF(1.0f); // x = WORLD_SDF_RES, y = worldSize
+    float2 worldInfo = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution); // x = WORLD_SDF_RES, y = worldSize
     float halfScene = worldInfo.y * 0.5f;
 
     // Normalize to [0,1]

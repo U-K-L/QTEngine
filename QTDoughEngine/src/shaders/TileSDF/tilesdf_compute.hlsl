@@ -23,6 +23,7 @@ struct PushConsts
 {
     float lod;
     uint triangleCount;
+    int3 voxelResolution;
 };
 
 [[vk::push_constant]]
@@ -67,13 +68,13 @@ float ReadWorldSDF(float3 worldPos)
 {
     // Constants defining the world SDF volume (assuming these are defined in a helper)
     float worldHalfExtent = WORLD_SDF_BOUNDS * 0.5f;
-    float voxelSize = WORLD_SDF_BOUNDS / WORLD_SDF_RESOLUTION;
+    float voxelSize = WORLD_SDF_BOUNDS / pc.voxelResolution.x;
 
     // Convert world position to integer texture coordinates
     int3 texCoord = int3(floor((worldPos + worldHalfExtent) / voxelSize));
 
     // Bounds check to ensure we don't sample outside the volume
-    if (any(texCoord < 0) || any(texCoord >= WORLD_SDF_RESOLUTION))
+    if (any(texCoord < 0) || any(texCoord >= pc.voxelResolution.x))
     {
         return 64.0f; // Return a large distance if outside the world volume
     }
@@ -366,9 +367,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //brush.aabbmin = minBounds;
     
     float3 worldHalfExtent = WORLD_SDF_BOUNDS * 0.5f;
-    float voxelSize = WORLD_SDF_BOUNDS / WORLD_SDF_RESOLUTION;
+    float voxelSize = WORLD_SDF_BOUNDS / pc.voxelResolution.x;
     float tileWorldSize = TILE_SIZE * voxelSize;
-    int numOfTilesDim = (int) (WORLD_SDF_RESOLUTION / TILE_SIZE);
+    int numOfTilesDim = (int) (pc.voxelResolution.x / TILE_SIZE);
     
     int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
     int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);

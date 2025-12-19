@@ -115,7 +115,17 @@ float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 {
     float2 result = float2(WORLD_SDF_RESOLUTION, WORLD_SDF_BOUNDS);
     
-    result.x /= pow(2, sampleLevel - 1);
+    //result.x /= pow(2, sampleLevel - 1);
+    
+    return result;
+
+}
+
+float2 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
+{
+    float2 result = float2(256, WORLD_SDF_BOUNDS);
+    
+    result.x = voxelRes.x;
     
     return result;
 

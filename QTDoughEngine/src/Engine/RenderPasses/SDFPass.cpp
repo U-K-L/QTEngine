@@ -341,6 +341,20 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
+    VoxelizerPass::PushConsts pc{};
+    pc.lod = 8;
+    pc.triangleCount = 0;
+    pc.voxelResolution = voxelizer->WORLD_SDF_RESOLUTION;
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizer->voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(VoxelizerPass::PushConsts),
+        &pc
+    );
+
     VkDescriptorSet sets[] = {
         app->globalDescriptorSets[currentFrame],
         voxelizer->currentSdfSet

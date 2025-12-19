@@ -61,6 +61,17 @@ StructuredBuffer<Brush> Brushes : register(t9, space1);
 // For reading
 Texture3D<float> gBindless3D[] : register(t4, space0);
 
+struct PushConsts
+{
+    float lod;
+    uint triangleCount;
+    int3 voxelResolution;
+};
+
+[[vk::push_constant]]
+PushConsts pc;
+
+
 
 float Read3D(uint textureIndex, int3 coord)
 {
@@ -173,7 +184,7 @@ int GetVoxelIndexFromPosition(float3 position, float sampleLevel)
 
 float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     
     float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
     int3 base = int3(floor(gridPos));
@@ -254,7 +265,7 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 
 float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     
     float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
     int3 base = int3(floor(gridPos));
@@ -561,7 +572,7 @@ float4 SampleNormalSDF(float3 pos)
 
 float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(sampleLevel);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float halfScene = voxelSceneBounds.y * 0.5f;
     
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
@@ -665,7 +676,7 @@ float minFunction(float a, float b)
 float4 SphereMarch(float3 ro, float3 rd, inout float4 resultOutput)
 {
     float sampleLevelL1 = 1.0f;
-    float2 voxelSceneBoundsL1 = GetVoxelResolutionWorldSDF(sampleLevelL1);
+    float2 voxelSceneBoundsL1 = GetVoxelResolutionWorldSDFArbitrary(sampleLevelL1, pc.voxelResolution);
     float voxelSizeL1 = voxelSceneBoundsL1.y / voxelSceneBoundsL1.x;
     float minDistanceL1 = voxelSizeL1 * 0.5f;
     

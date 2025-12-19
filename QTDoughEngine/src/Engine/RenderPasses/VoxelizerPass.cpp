@@ -2071,24 +2071,24 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         DispatchLOD(commandBuffer, currentFrame, 1);
 
-        DispatchLOD(commandBuffer, currentFrame, 2);
-        DispatchLOD(commandBuffer, currentFrame, 3);
-        DispatchLOD(commandBuffer, currentFrame, 4);
-        DispatchLOD(commandBuffer, currentFrame, 5);
+        //DispatchLOD(commandBuffer, currentFrame, 2);
+        //DispatchLOD(commandBuffer, currentFrame, 3);
+        //DispatchLOD(commandBuffer, currentFrame, 4);
+        //DispatchLOD(commandBuffer, currentFrame, 5);
 
         //Meshing. Move to indirect dispatch.
-        DispatchLOD(commandBuffer, currentFrame, 40);
+        //DispatchLOD(commandBuffer, currentFrame, 40);
 
         //Dual Contour.
-        DispatchLOD(commandBuffer, currentFrame, 50);
+        //DispatchLOD(commandBuffer, currentFrame, 50);
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
-        for(int i = 0; i < brushes.size(); i++)
-            DispatchVertexMask(commandBuffer, currentFrame, i);
+        //for(int i = 0; i < brushes.size(); i++)
+        //    DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
-        DispatchLOD(commandBuffer, currentFrame, 100);
+        //DispatchLOD(commandBuffer, currentFrame, 100);
 
         VkBufferMemoryBarrier barriers[2] = {};
 
@@ -2426,6 +2426,7 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     PushConsts pc{};
     pc.lod = 8;
     pc.triangleCount = lodLevel;
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2471,6 +2472,7 @@ void VoxelizerPass::DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint
     PushConsts pc{};
     pc.lod = 14;
     pc.triangleCount = brushID;
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2516,6 +2518,7 @@ void VoxelizerPass::DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint3
     PushConsts pc{};
     pc.lod = lod;
     pc.triangleCount = brushID;
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2558,6 +2561,7 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2630,6 +2634,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     // Each LOD uses a different resolution
     uint32_t res = WORLD_SDF_RESOLUTION.z; //Expand.
@@ -2805,6 +2810,7 @@ void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t c
     PushConsts pc{};
     pc.lod = static_cast<float>(60.0f);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     // Each LOD uses a different resolution
     uint32_t res = WORLD_SDF_RESOLUTION.x; //Expand
