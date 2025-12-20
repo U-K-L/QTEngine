@@ -5,7 +5,7 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
-#define WORLD_SDF_RESOLUTION 512.0f
+#define WORLD_SDF_RESOLUTION 1024.0f
 #define WORLD_SDF_BOUNDS 32.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
@@ -115,7 +115,7 @@ float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 {
     float2 result = float2(WORLD_SDF_RESOLUTION, WORLD_SDF_BOUNDS);
     
-    //result.x /= pow(2, sampleLevel - 1);
+    result.x /= pow(2, sampleLevel - 1);
     
     return result;
 
@@ -123,9 +123,9 @@ float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 
 float2 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
 {
-    float2 result = float2(256, WORLD_SDF_BOUNDS);
+    float2 result = float2(voxelRes.x, WORLD_SDF_BOUNDS);
     
-    result.x = voxelRes.x;
+    result.x /= pow(2, sampleLevel - 1);
     
     return result;
 

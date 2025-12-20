@@ -762,7 +762,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     int minId = 0;
     
     float tileWorldSize = TILE_SIZE * voxelSize;
-    int numTilesPerAxis = pc.voxelResolution.x / TILE_SIZE;
+    int numTilesPerAxis = voxelSceneBounds.x / TILE_SIZE;
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 

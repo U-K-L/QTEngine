@@ -187,11 +187,14 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
     float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     
     float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
+    
+    
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
 
     base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
 
+    
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
 
