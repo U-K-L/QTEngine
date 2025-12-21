@@ -188,7 +188,6 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
     
     float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
     
-    
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
 

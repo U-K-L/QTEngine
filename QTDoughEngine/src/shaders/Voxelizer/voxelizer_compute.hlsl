@@ -770,7 +770,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
     
-
+    /*
     //Find the distance field closes to this voxel.
     float blendFactor = 0;
     float smoothness = 10;
@@ -786,7 +786,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         return;
     }
 
-
+    */
+    /*
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -815,7 +816,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
         }
     }
-    
+    */
         
     float distortionFieldSum = 0;
 
@@ -847,10 +848,11 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index3 = Flatten3DR(DTL3, voxelSceneBoundsl1.x);
     uint index4 = Flatten3DR(DTL4, voxelSceneBoundsl1.x);
     */
+    /*
     voxelsL1Out[index].brushId = minId;
     voxelsL1Out[index].normalDistance.w = blendFactor;
     voxelsL1Out[index].normalDistance.x = smoothness;
-
+    */
     //Final min distance to see if a smaller distance exist in our particle buffer.
     //minDist = min(voxelsL1Out[index].distance, minDist);
     
@@ -858,12 +860,15 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     //sdfVal = min(sdfVal, minDist);
     
+    /*
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-
+    */
+    float sdfSphere = sdSphere(center, 0.0f, 1.0f);
     
+    Write3DDist(0, DTid, sdfSphere);
     //minDist = min(sdfVal, minDist);
     
     //Write3DDist(0, DTid, minDist);
