@@ -770,14 +770,15 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
     
-    /*
     //Find the distance field closes to this voxel.
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
+    float3 worldSDFDivisor = (pc.voxelResolution / VOXEL_RESOLUTIONL1);
+    int3 DTL1 = DTid / worldSDFDivisor;
+
     if(brushCount == 0)
     {
-        int3 DTL1 = DTid / 2;
         float2 voxelSceneBoundsl1 = GetVoxelResolution(1.0f);
         uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
@@ -786,8 +787,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         return;
     }
 
-    */
-    /*
+
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -816,7 +816,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
         }
     }
-    */
+
         
     float distortionFieldSum = 0;
 
@@ -830,16 +830,15 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             for(int k = -kernelSize; k <= kernelSize; k++)
             {
                 int3 dtid = DTid + int3(l, j, k);
-                dtid = dtid / 2;
+                dtid = dtid / worldSDFDivisor;
                 uint index = Flatten3DR(dtid, voxelSceneBoundsl1.x);
                 distortionFieldSum += clamp(voxelsL1Out[index].normalDistance.z, 0, 1);
 
             }
     
-    int3 DTL1 = DTid / 2;
     uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
 
-    /*
+
     int3 DTL2 = DTid + int3(1, 0, 0);
     int3 DTL3 = DTid + int3(0, 1, 0);
     int3 DTL4 = DTid + int3(0, 0, 1);
@@ -847,26 +846,29 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index2 = Flatten3DR(DTL2, voxelSceneBoundsl1.x);
     uint index3 = Flatten3DR(DTL3, voxelSceneBoundsl1.x);
     uint index4 = Flatten3DR(DTL4, voxelSceneBoundsl1.x);
-    */
-    /*
+
     voxelsL1Out[index].brushId = minId;
     voxelsL1Out[index].normalDistance.w = blendFactor;
     voxelsL1Out[index].normalDistance.x = smoothness;
-    */
+
     //Final min distance to see if a smaller distance exist in our particle buffer.
     //minDist = min(voxelsL1Out[index].distance, minDist);
     
     float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
     
-    //sdfVal = min(sdfVal, minDist);
+    sdfVal = min(sdfVal, minDist);
     
-    /*
+    
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-    */
-    float sdfSphere = sdSphere(center, 0.0f, 1.0f);
+    
+    float t = time*0.001f;
+    float3 wave = float3(sin(t), cos(t), sin(t)) * 2.5f;
+    float sdfSphere = min(sdSphere(center, 0.0f + wave, 1.0f), sdfVal);
+    sdfSphere = min(sdfSphere, sdSphere(center, 2.0f + wave, 1.0f));
+    sdfSphere = min(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f));
     
     Write3DDist(0, DTid, sdfSphere);
     //minDist = min(sdfVal, minDist);
