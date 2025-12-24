@@ -2637,102 +2637,102 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     // Each LOD uses a different resolution
-    uint32_t res = WORLD_SDF_RESOLUTION.z; //Expand.
+    glm::ivec3 res = WORLD_SDF_RESOLUTION; //Expand.
 
-    uint32_t groupCountX = (res + 7) / 8;
-    uint32_t groupCountY = (res + 7) / 8;
-    uint32_t groupCountZ = (res + 7) / 8;
+    uint32_t groupCountX = (res.x + 7) / 8;
+    uint32_t groupCountY = (res.y + 7) / 8;
+    uint32_t groupCountZ = (res.z + 7) / 8;
 
 
     if (lodLevel == 0)
     {
         //res = WORLD_SDF_RESOLUTION;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if(lodLevel > 0 && lodLevel < 8)
 	{
-		res = res / pow(2, lodLevel-1);
-		groupCountX = (res + 7) / 8;
-		groupCountY = (res + 7) / 8;
-		groupCountZ = (res + 7) / 8;
+		res = res / (int)(pow(2, lodLevel-1));
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
 	}
 
     if (lodLevel >= 8)
     {
         //res = WORLD_SDF_RESOLUTION;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if (lodLevel == 20)
     {
         res = res / 2;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if (lodLevel == 21)
     {
         res = res / 2;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if (lodLevel == 22)
     {
         res = res / 2;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if (lodLevel == 23)
     {
         res = res / 2;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     //Clear Voxels
     if (lodLevel == 24)
     {
         //res = VOXEL_RESOLUTIONL1;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if (lodLevel == 40)
     {
         //res = VOXEL_RESOLUTIONL1;
         pc.triangleCount = 0;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     if (lodLevel == 50)
     {
         //res = VOXEL_RESOLUTIONL1;
         pc.triangleCount = 0;
-        groupCountX = (res + 7) / 8;
-        groupCountY = (res + 7) / 8;
-        groupCountZ = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
     }
 
     //Create Vertex Mask
     if (lodLevel == 60)
     {
-        res = brushes[0].vertexCount / 3;
+        res.x = brushes[0].vertexCount / 3;
         pc.triangleCount = 0;
-        groupCountX = (res + 7) / 8;
+        groupCountX = (res.x + 7) / 8;
         groupCountY = 1;
         groupCountZ = 1;
     }
@@ -2813,15 +2813,15 @@ void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t c
     pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
     // Each LOD uses a different resolution
-    uint32_t res = WORLD_SDF_RESOLUTION.x; //Expand
+    glm::ivec3 res = WORLD_SDF_RESOLUTION; //Expand
 
-    uint32_t groupCountX = (res + 7) / 8;
-    uint32_t groupCountY = (res + 7) / 8;
-    uint32_t groupCountZ = (res + 7) / 8;
+    uint32_t groupCountX = (res.x + 7) / 8;
+    uint32_t groupCountY = (res.y + 7) / 8;
+    uint32_t groupCountZ = (res.z + 7) / 8;
 
-    res = brushes[brushID].vertexCount / 3;
+    res.x = brushes[brushID].vertexCount / 3;
     pc.triangleCount = brushID;
-    groupCountX = (res + 7) / 8;
+    groupCountX = (res.x + 7) / 8;
     groupCountY = 1;
     groupCountZ = 1;
 

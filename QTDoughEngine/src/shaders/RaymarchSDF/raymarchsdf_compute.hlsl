@@ -184,21 +184,23 @@ int GetVoxelIndexFromPosition(float3 position, float sampleLevel)
 
 float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float3 voxelGridRes = voxelSceneBounds.xyz;
+    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
+    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
 
-    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
+    base = clamp(base, int3(0, 0, 0), voxelGridRes-2);
 
     
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    //float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    //float halfScene = voxelSceneBounds.y * 0.5f;
 
     // Convert voxel grid coords back to world positions for sampling
-    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    //float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
     
     /*
     float3 p100 = (float3(base + int3(1, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
@@ -267,19 +269,22 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 
 float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float3 voxelGridRes = voxelSceneBounds.xyz;
+    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + voxelSceneBounds.y * 0.5f) / voxelSceneBounds.y) * voxelSceneBounds.x;
+    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
 
-    base = clamp(base, int3(0, 0, 0), int3(voxelSceneBounds.x - 2, voxelSceneBounds.x - 2, voxelSceneBounds.x - 2));
+    base = clamp(base, int3(0, 0, 0), voxelGridRes - 2);
 
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    //float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    //float halfScene = voxelSceneBounds.y * 0.5f;
 
     // Convert voxel grid coords back to world positions for sampling
-    float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
+    //float3 p000 = (float3(base + int3(0, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
     
     /*
     float3 p100 = (float3(base + int3(1, 0, 0)) / voxelSceneBounds.x) * voxelSceneBounds.y - halfScene;
@@ -431,6 +436,8 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
     float blendFactor = voxelsL1In[index].normalDistance.w;
     float smoothness = voxelsL1In[index].normalDistance.x;
     
+    blendFactor = clamp(blendFactor, 0.0f, 0.05f);
+    smoothness = clamp(smoothness, 0.0f, 1.0f);
     //if (blendFactor < 0.00425f) //No blend, return triangle normals
     //        return 0;
     
@@ -574,10 +581,13 @@ float4 SampleNormalSDF(float3 pos)
 
 float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float3 voxelGridRes = voxelSceneBounds.xyz;
+    float3 sceneSize = GetSceneSize();
     
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
+    float halfScene = sceneSize * 0.5f;
+    
+    float voxelSize = sceneSize / voxelGridRes;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
         return DEFUALT_EMPTY_SPACE;
@@ -746,7 +756,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
     float3 light = normalize(float3(-0.85f, 1.0, 0.5f));
     
     float3 pos = ro;
-    int maxSteps = 512;
+    int maxSteps = 1024;
     float4 closesSDF = 1.0f;
     float4 currentSDF = 1.0f;
     float accumaltor = 0;

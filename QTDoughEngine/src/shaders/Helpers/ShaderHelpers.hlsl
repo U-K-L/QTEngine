@@ -5,7 +5,7 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
-#define WORLD_SDF_RESOLUTION 1024.0f
+#define WORLD_SDF_RESOLUTION 512.0f
 #define WORLD_SDF_BOUNDS 32.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
@@ -121,11 +121,16 @@ float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 
 }
 
-float2 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
+float3 GetSceneSize()
 {
-    float2 result = float2(voxelRes.x, WORLD_SDF_BOUNDS);
+    return float3(32, 32, 16);
+}
+
+float4 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
+{
+    float4 result = float4(voxelRes, WORLD_SDF_BOUNDS);
     
-    result.x /= pow(2, sampleLevel - 1);
+    result.xyz /= pow(2, sampleLevel - 1);
     
     return result;
 
@@ -265,6 +270,12 @@ int Flatten3D(int3 voxelCoord, int voxelResolution)
 {
     return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
 }
+
+int Flatten3D(int3 voxelCoord, int3 voxelResolution)
+{
+    return voxelCoord.x * voxelResolution.x * voxelResolution.y + voxelCoord.y * voxelResolution.z + voxelCoord.z;
+}
+
 
 int Flatten3DR(int3 voxelCoord, int voxelResolution)
 {

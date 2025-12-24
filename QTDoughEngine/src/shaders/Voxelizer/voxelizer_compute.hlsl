@@ -747,10 +747,12 @@ float CalculateSDFfromDensity(uint fixedPointDensity)
 
 void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
+    float3 voxelGridRes = voxelSceneBounds.xyz;
+    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    float3 voxelSize = sceneSize / voxelGridRes;
+    float3 halfScene = sceneSize * 0.5f;
     
     float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
 
@@ -761,12 +763,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float minDist = DEFUALT_EMPTY_SPACE;
     int minId = 0;
     
-    float tileWorldSize = TILE_SIZE * voxelSize;
-    int numTilesPerAxis = voxelSceneBounds.x / TILE_SIZE;
+    float3 tileWorldSize = TILE_SIZE * voxelSize;
+    int3 numTilesPerAxis = voxelGridRes / TILE_SIZE;
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 
-    tileCoord = clamp(tileCoord, int3(0, 0, 0), int3(numTilesPerAxis - 1, numTilesPerAxis - 1, numTilesPerAxis - 1));
+    tileCoord = clamp(tileCoord, int3(0, 0, 0), numTilesPerAxis-1);
 
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
     
@@ -784,7 +786,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
         Write3DDist(0, DTid, minDist);
-        return;
+        //return;
     }
 
 
@@ -858,12 +860,11 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     sdfVal = min(sdfVal, minDist);
     
-    
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-    
+
     float t = time*0.001f;
     float3 wave = float3(sin(t), cos(t), sin(t)) * 2.5f;
     float sdfSphere = min(sdSphere(center, 0.0f + wave, 1.0f), sdfVal);
