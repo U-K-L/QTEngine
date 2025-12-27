@@ -86,7 +86,7 @@ public:
 
     int DeformResolution = 1; //number of voxels per deform thread.
 
-    uint32_t TILE_SIZE = 16;          // voxels per edge
+    uint32_t TILE_SIZE = 8;          // voxels per edge
     uint32_t TILE_MAX_BRUSHES = 64;     // cap of brushes per tile
     uint32_t TILE_COUNTL1 = 0;
 

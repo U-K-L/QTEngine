@@ -368,8 +368,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float3 worldHalfExtent = GetSceneSize() * 0.5f;
     float3 voxelSize = GetSceneSize() / pc.voxelResolution;
-    float3 tileWorldSize = TILE_SIZE * voxelSize;
-    int3 numOfTilesDim = (pc.voxelResolution / TILE_SIZE);
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
+    int3 numOfTilesDim = (pc.voxelResolution / GetTileSize(pc.voxelResolution));
     
     int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
     int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);

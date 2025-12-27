@@ -16,8 +16,8 @@ UnigmaThread* QTDoughEngine;
 QTDoughApplication qtDoughApp;
 SDL_Window* QTSDLWindow;
 SDL_Surface* _screenSurface = NULL;
-int SCREEN_WIDTH = 960;
-int SCREEN_HEIGHT = 960;
+int SCREEN_WIDTH = 1024;
+int SCREEN_HEIGHT = 1024;
 
 void RunQTDough()
 {

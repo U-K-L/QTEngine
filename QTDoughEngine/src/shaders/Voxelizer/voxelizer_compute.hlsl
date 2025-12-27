@@ -765,8 +765,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float minDist = DEFUALT_EMPTY_SPACE;
     int minId = 0;
     
-    float3 tileWorldSize = TILE_SIZE * voxelSize;
-    int3 numTilesPerAxis = voxelGridRes / TILE_SIZE;
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
+    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution);
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 
@@ -2131,8 +2131,8 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     float minDist = 64.0f;
     
     
-    float tileWorldSize = TILE_SIZE * voxelSize;
-    int numTilesPerAxis = WORLD_SDF_RESOLUTION / TILE_SIZE;
+    float tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
+    int numTilesPerAxis = WORLD_SDF_RESOLUTION / GetTileSize(pc.voxelResolution);
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 

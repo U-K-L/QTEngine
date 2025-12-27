@@ -18,7 +18,7 @@
 #define SCENE_BOUNDSL3 64.0f
 
 #define TILE_MAX_BRUSHES 64.0f
-#define TILE_SIZE 16.0f
+#define TILE_SIZE 8.0f
 
 #define DEFORMATION_CHUNK 8.0f
 
@@ -119,6 +119,11 @@ float2 GetVoxelResolutionWorldSDF(float sampleLevel)
     
     return result;
 
+}
+
+float GetTileSize(int3 voxelRes)
+{
+    return voxelRes.z / 16;
 }
 
 float3 GetSceneSize()
