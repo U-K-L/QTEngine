@@ -630,10 +630,12 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     int blockSize = 2; //(256 / brush.resolution); //Highest resolution is L1 = 256.
     if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
     {
-        float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(1.0f);
+        float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
+        float3 voxelGridRes = voxelSceneBounds.xyz;
+        float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-        float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-        float halfScene = voxelSceneBounds.y * 0.5f;
+        float3 voxelSize = sceneSize / voxelGridRes;
+        float3 halfScene = sceneSize * 0.5f;
         
         float3 worldPos = mul(brush.model, float4(localPos, 1.0f)).xyz;
         uint particleOffset;
@@ -784,8 +786,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float2 voxelSceneBoundsl1 = GetVoxelResolution(1.0f);
         uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
-        minDist = min(sdfVal, minDist);
-        Write3DDist(0, DTid, minDist);
+        //minDist = min(sdfVal, minDist);
+        //Write3DDist(0, DTid, minDist);
         //return;
     }
 
@@ -858,13 +860,14 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
     
-    sdfVal = min(sdfVal, minDist);
+    sdfVal = min(minDist, minDist);
     
+    /*
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-
+    */
     float t = time*0.001f;
     float3 wave = float3(sin(t), cos(t), sin(t)) * 2.5f;
     float sdfSphere = min(sdSphere(center, 0.0f + wave, 1.0f), sdfVal);

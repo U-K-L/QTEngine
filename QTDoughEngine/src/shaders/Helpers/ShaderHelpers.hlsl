@@ -5,20 +5,20 @@
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
-#define WORLD_SDF_RESOLUTION 512.0f
-#define WORLD_SDF_BOUNDS 32.0f
+#define WORLD_SDF_RESOLUTION 1024.0f
+#define WORLD_SDF_BOUNDS 64.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
-#define SCENE_BOUNDSL1 32.0f
+#define SCENE_BOUNDSL1 64.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
-#define SCENE_BOUNDSL2 32.0f
+#define SCENE_BOUNDSL2 64.0f
 
 #define VOXEL_RESOLUTIONL3 64.0f
-#define SCENE_BOUNDSL3 32.0f
+#define SCENE_BOUNDSL3 64.0f
 
 #define TILE_MAX_BRUSHES 64.0f
-#define TILE_SIZE 8.0f
+#define TILE_SIZE 16.0f
 
 #define DEFORMATION_CHUNK 8.0f
 
@@ -123,7 +123,7 @@ float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 
 float3 GetSceneSize()
 {
-    return float3(32, 32, 16);
+    return float3(64, 64, 16);
 }
 
 float4 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
@@ -271,9 +271,9 @@ int Flatten3D(int3 voxelCoord, int voxelResolution)
     return voxelCoord.x * voxelResolution * voxelResolution + voxelCoord.y * voxelResolution + voxelCoord.z;
 }
 
-int Flatten3D(int3 voxelCoord, int3 voxelResolution)
+int Flatten3D(int3 c, int3 res)
 {
-    return voxelCoord.x * voxelResolution.x * voxelResolution.y + voxelCoord.y * voxelResolution.z + voxelCoord.z;
+    return c.x + c.y * res.x + c.z * res.x * res.y;
 }
 
 

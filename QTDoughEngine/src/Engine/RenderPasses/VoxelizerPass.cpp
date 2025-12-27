@@ -1383,17 +1383,17 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     int GameQualitySettings = 0; //Highest.
-    glm::ivec3 worldImageRes = glm::ivec3(2048, 2048, 256);
+    glm::ivec3 worldImageRes = glm::ivec3(1024, 1024, 256);
 
     //Start at highest resolution and work downwards. Note change this depending on user settings. 
     //Always check if possible to avoid crashing game.
 
     if (GameQualitySettings == 0)
     {
-        worldImageRes = glm::ivec3(5400, 5400, 256);
-        int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
+        worldImageRes = glm::ivec3(2048, 2048, 512);
+        uint64_t ramRequired = (uint64_t)(sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
 
-        if (ramRequired < app->TotalGPURam)
+        if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Ultra Quality Voxel Resolution. " << std::endl;
 
@@ -1406,10 +1406,10 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
 
     if (GameQualitySettings == 1)
     {
-        worldImageRes = glm::ivec3(4096, 4096, 256);
-        int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
+        worldImageRes = glm::ivec3(1024, 1024, 256);
+        uint64_t ramRequired = (uint64_t)(sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
 
-        if (ramRequired < app->TotalGPURam)
+        if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "High Quality Voxel Resolution. " << std::endl;
 
@@ -1422,10 +1422,10 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
 
     if (GameQualitySettings == 2)
     {
-        worldImageRes = glm::ivec3(2048, 2048, 256);
+        worldImageRes = glm::ivec3(512, 512, 128);
         int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
 
-        if (ramRequired < app->TotalGPURam)
+        if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Medium Quality Voxel Resolution. " << std::endl;
 
@@ -1438,10 +1438,10 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
 
     if (GameQualitySettings == 3)
     {
-        worldImageRes = glm::ivec3(1024, 1024, 256);
+        worldImageRes = glm::ivec3(256, 256, 64);
         int ramRequired = (sizeof(uint16_t) * worldImageRes.x * worldImageRes.y * worldImageRes.z) / 1024.0f / 1024.0f;
 
-        if (ramRequired < app->TotalGPURam)
+        if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Low Quality Voxel Resolution. " << std::endl;
 

@@ -585,9 +585,9 @@ float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize();
     
-    float halfScene = sceneSize * 0.5f;
+    float3 halfScene = sceneSize * 0.5f;
     
-    float voxelSize = sceneSize / voxelGridRes;
+    float3 voxelSize = sceneSize / voxelGridRes;
 
     if (any(pos < -halfScene) || any(pos > halfScene))
         return DEFUALT_EMPTY_SPACE;
