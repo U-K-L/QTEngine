@@ -783,12 +783,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     if(brushCount == 0)
     {
-        float2 voxelSceneBoundsl1 = GetVoxelResolution(1.0f);
-        uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
+        float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+        uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
-        //minDist = min(sdfVal, minDist);
-        //Write3DDist(0, DTid, minDist);
-        //return;
+        minDist = min(sdfVal, minDist);
+        Write3DDist(0, DTid, minDist);
+        return;
     }
 
 
@@ -825,7 +825,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float distortionFieldSum = 0;
 
     
-    float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     //Sum the distoration field.
     int kernelSize = 2;
     
@@ -835,21 +835,21 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             {
                 int3 dtid = DTid + int3(l, j, k);
                 dtid = dtid / worldSDFDivisor;
-                uint index = Flatten3DR(dtid, voxelSceneBoundsl1.x);
+                uint index = Flatten3D(dtid, voxelSceneBoundsl1);
                 distortionFieldSum += clamp(voxelsL1Out[index].normalDistance.z, 0, 1);
 
             }
     
-    uint index = Flatten3DR(DTL1, voxelSceneBoundsl1.x);
+    uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
 
 
     int3 DTL2 = DTid + int3(1, 0, 0);
     int3 DTL3 = DTid + int3(0, 1, 0);
     int3 DTL4 = DTid + int3(0, 0, 1);
 
-    uint index2 = Flatten3DR(DTL2, voxelSceneBoundsl1.x);
-    uint index3 = Flatten3DR(DTL3, voxelSceneBoundsl1.x);
-    uint index4 = Flatten3DR(DTL4, voxelSceneBoundsl1.x);
+    uint index2 = Flatten3D(DTL2, voxelSceneBoundsl1);
+    uint index3 = Flatten3D(DTL3, voxelSceneBoundsl1);
+    uint index4 = Flatten3D(DTL4, voxelSceneBoundsl1);
 
     voxelsL1Out[index].brushId = minId;
     voxelsL1Out[index].normalDistance.w = blendFactor;
@@ -862,14 +862,13 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     sdfVal = min(minDist, minDist);
     
-    /*
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-    */
-    float t = time*0.001f;
-    float3 wave = float3(sin(t), cos(t), sin(t)) * 2.5f;
+
+    float t = time*0.0001f;
+    float3 wave = float3(sin(t), cos(t) * 24, sin(t)) * 2.5f;
     float sdfSphere = min(sdSphere(center, 0.0f + wave, 1.0f), sdfVal);
     sdfSphere = min(sdfSphere, sdSphere(center, 2.0f + wave, 1.0f));
     sdfSphere = min(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f));
@@ -1351,19 +1350,20 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
     float3 minAABB = -SCENE_BOUNDSL1 * 0.5f;
     float3 maxAABB = SCENE_BOUNDSL1 * 0.5f;
-    float3 uvw = ((float3) DTid + 0.5f) / VOXEL_RESOLUTIONL1;
+    float3 uvw = ((float3) DTid + 0.5f) / GetVoxelResolutionL1().xyz;
     float3 minLocal = lerp(minAABB, maxAABB, uvw);
     
     //Read the second mip map.
     int mipLevel = 1;
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1); //It substracts by 1 inside function.
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution);
+    float3 sceneSize = GetSceneSize();
+    float3 halfScene = sceneSize * 0.5f;
     
 
     
     //Fetch the 8 corner values in the WORLD SDF.
     float3 worldUVW0 = (minLocal + halfScene) / (2.0f * halfScene);
-    int3 baseTexel = int3(worldUVW0 * voxelSceneBounds.x);
+    int3 baseTexel = int3(worldUVW0 * voxelSceneBounds.xyz);
     
     // Fetch 8 SDF values from mip level 1
     float2 sdf000 = Read3D(mipLevel, baseTexel + int3(0, 0, 0));
@@ -1390,7 +1390,7 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     //Need to convert find the active cell for the voxelsBuffer which is lower resolution.
     //Currently the main one is baseTexel, convert that to voxel buffer index.
     int3 baseTexelForBuffer = baseTexel / pow(2, mipLevel - 1); //just lower it one resolution, 256 -> 128.
-    uint flatIndex = Flatten3DR(baseTexelForBuffer, VOXEL_RESOLUTIONL1);
+    uint flatIndex = Flatten3D(baseTexelForBuffer, GetVoxelResolutionL1().xyz);
     
     if (!(minVal < 0.0f && maxVal > 0.0f))
     {
@@ -1579,9 +1579,10 @@ float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+    float3 sceneSize = GetSceneSize();
+    float3 voxelSize = sceneSize.xyz / voxelSceneBounds.xyz;
+    float3 halfScene = sceneSize.xyz * 0.5f;
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -1744,7 +1745,8 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
-    int index = Flatten3DR(DTid, VOXEL_RESOLUTIONL1);
+    float4 voxelL1Res = GetVoxelResolutionL1();
+    int index = Flatten3D(DTid, voxelL1Res.xyz);
     float activeValue = voxelsL1Out[index].normalDistance.y;
     int mipLevel = 1;
     int3 baseTexel = DTid * pow(2, mipLevel - 1); //ie 128 -> 256.
@@ -1759,9 +1761,9 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float distortionFieldSum = 0;
 
     
-    float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
+    float voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     
-    uint indexField = Flatten3DR(DTid, voxelSceneBoundsl1.x);
+    uint indexField = Flatten3D(DTid, voxelL1Res.xyz);
     uint brushIndex = voxelsL1Out[indexField].brushId;
     
     Brush brush = Brushes[brushIndex];
@@ -1774,7 +1776,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
             for (int k = -kernelSize; k <= kernelSize; k++)
             {
                 int3 dtid = DTid + int3(l, j, k);
-                uint indexField = Flatten3DR(dtid, voxelSceneBoundsl1.x);
+                uint indexField = Flatten3D(dtid, voxelL1Res.xyz);
                 distortionFieldSum += clamp(voxelsL1Out[indexField].normalDistance.z, 0, 1);
 
             }

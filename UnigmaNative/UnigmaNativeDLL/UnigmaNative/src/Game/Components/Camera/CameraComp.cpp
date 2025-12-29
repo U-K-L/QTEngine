@@ -159,7 +159,6 @@ void CameraComp::Update()
 
 void CameraComp::Start()
 {
-	std::cout << "Camera component started" << std::endl;
 	//Add this camera to global objects.
 
     /*

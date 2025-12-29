@@ -376,7 +376,6 @@ void UnigmaRenderingObject::CreateDescriptorSets(QTDoughApplication& app)
         vkUpdateDescriptorSets(app._logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 
-    std::cout << "Created descriptor sets" << std::endl;
 }
 
 void UnigmaRenderingObject::CreateDescriptorPool(QTDoughApplication& app)
@@ -397,7 +396,6 @@ void UnigmaRenderingObject::CreateDescriptorPool(QTDoughApplication& app)
         throw std::runtime_error("failed to create descriptor pool!");
     }
 
-    std::cout << "Created descriptor pools" << std::endl;
 }
 
 void UnigmaRenderingObject::CreateUniformBuffers(QTDoughApplication& app)
@@ -479,16 +477,12 @@ void UnigmaRenderingObject::CreateDescriptorSetLayout(QTDoughApplication& app)
 //Graphics pipeline has to be made per shader, and therefore per material using a different shader.
 void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
 {
-    printf("Start Creating Graphics Pipeline\n");
+    //printf("Start Creating Graphics Pipeline\n");
     auto vertShaderCode = readFile("src/shaders/vert.spv");
     auto fragShaderCode = readFile("src/shaders/frag.spv");
 
-    std::cout << "Shaders loaded" << std::endl;
-
     VkShaderModule vertShaderModule = app.CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = app.CreateShaderModule(fragShaderCode);
-
-    std::cout << "Shader modules created and cleaned" << std::endl;
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -540,8 +534,6 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
     viewportState.scissorCount = 1;
     viewportState.pScissors = &scissor;
 
-    std::cout << "Viewport created" << std::endl;
-
     VkPipelineRasterizationProvokingVertexStateCreateInfoEXT provokingVertexInfo{};
     provokingVertexInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT;
     provokingVertexInfo.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_FIRST_VERTEX_EXT;
@@ -559,8 +551,6 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
     rasterizer.depthBiasClamp = 0.0f; // Optional
     rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
     rasterizer.pNext = &provokingVertexInfo;
-
-    std::cout << "Rasterizer created" << std::endl;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -600,7 +590,6 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
     colorBlending.blendConstants[2] = 0.0f; // Optional
     colorBlending.blendConstants[3] = 0.0f; // Optional
 
-    std::cout << "Set Dynamic state" << std::endl;
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -642,7 +631,6 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
     pipelineInfo.renderPass = VK_NULL_HANDLE; // Not used with dynamic rendering
     pipelineInfo.subpass = 0;
 
-    std::cout << "Dynamic pipeline created" << std::endl;
 
     if (vkCreateGraphicsPipelines(app._logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &app.graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
@@ -651,6 +639,4 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
 
     vkDestroyShaderModule(app._logicalDevice, fragShaderModule, nullptr);
     vkDestroyShaderModule(app._logicalDevice, vertShaderModule, nullptr);
-
-    std::cout << "Graphics pipeline created" << std::endl;
 }

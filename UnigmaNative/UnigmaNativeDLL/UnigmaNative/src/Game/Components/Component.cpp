@@ -10,7 +10,7 @@ Component::~Component()
 
 void Component::InitializeData(nlohmann::json& componentData)
 {
-	std::cout << "Initializing Component" << std::endl;
+
 }
 
 void Component::Update()

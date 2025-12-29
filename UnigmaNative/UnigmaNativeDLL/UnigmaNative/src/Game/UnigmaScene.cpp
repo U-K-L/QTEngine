@@ -33,8 +33,6 @@ void UnigmaScene::Start()
 void UnigmaScene::AddGameObject(UnigmaGameObject& gameObject)
 {
 	//Add the game object to Game Manager global GameObjects array. And ensure proper indexing.
-	std::cout << "Adding game object: " << gameObject.name << std::endl;
-	std::cout << "Size of index: " << GameObjectsIndex.size() << std::endl;
 	gameObject.ID = GameObjectsIndex.size();
 	GameObjectsIndex.push_back(gameObject.ID); //Push this onto our scene gameobjects.
 	GameObjects[gameObject.ID] = gameObject; //Globally overwrite with this.
@@ -53,7 +51,6 @@ void UnigmaScene::AddObjectComponents(UnigmaGameObject& gameObject, json& gameOb
 	{
 
 		gameManager->AddComponent(*gobj, componentName);
-		std::cout << "Adding component: " << componentName << std::endl;
 		//Initialize the component data.
 		if (GameObjectsClasses[gameObject.ID].components.contains(componentName)) {
 
@@ -61,7 +58,6 @@ void UnigmaScene::AddObjectComponents(UnigmaGameObject& gameObject, json& gameOb
 			auto globalId = GameObjectsClasses[gameObject.ID].gameObject->components[index];
 
 			Component* comp = gameManager->Components[globalId];
-			std::cout << "Component initialized: " << componentName << std::endl;
 			comp->InitializeData(componentData);
 
 		}
@@ -116,13 +112,13 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 		if (strcmp(std::string(obj["type"]).c_str(), "Mesh") == 0)
 		{
-			std::cout << "Mesh object found: " << gameObject.name << std::endl;
+			//std::cout << "Mesh object found: " << gameObject.name << std::endl;
 			gameManager->RenderingManager->CreateRenderingObject(gameObject);
 		}
 
 		if(strcmp(std::string(obj["type"]).c_str(), "Light") == 0)
 		{
-			std::cout << "Light object found: " << gameObject.name << std::endl;
+			//std::cout << "Light object found: " << gameObject.name << std::endl;
 			gameManager->RenderingManager->CreateLightObject(gameObject);
 
 			//Get size of lights.
@@ -133,7 +129,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 			Lights.push_back(light);
 
-			std::cout << "Light Emission: " << Lights[size].emission.r << ", " << Lights[size].emission.g << ", " << Lights[size].emission.b << ", " << Lights[size].emission.a << std::endl;
+			//std::cout << "Light Emission: " << Lights[size].emission.r << ", " << Lights[size].emission.g << ", " << Lights[size].emission.b << ", " << Lights[size].emission.a << std::endl;
 		}
 	}
 }
@@ -141,7 +137,7 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 void UnigmaScene::CreateScene()
 {
 
-	std::cout << "Creating scene" << std::endl;
+	std::cout << "Creating scene: " << Name << std::endl;
 
 	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
 	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);

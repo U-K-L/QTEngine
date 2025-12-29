@@ -87,8 +87,6 @@ void UnigmaSceneManager::AddScene(UnigmaScene scene)
 
 UnigmaScene* UnigmaSceneManager::GetCurrentScene()
 {
-	std::cout << "Getting current scene" << std::endl;
-	std::cout << CurrentScene->Name << std::endl;
 	if(CurrentScene == nullptr)
 	{
 		std::cout << "Current scene is null" << std::endl;

@@ -14,7 +14,6 @@ bool perspectiveButtonDown = false;
 
 void SetButtonInputs(UnigmaInputStruct* input)
 {
-	//std::cout << "Key Pressed: " << SDL_GetKeyName(inputEvent.key.keysym.sym) << std::endl;
 	SDL_Event inputEvent;
 	while (SDL_PollEvent(&inputEvent))
 	{

@@ -37,12 +37,6 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
     unigmaRenderingObjects[gObj->RenderID]._material = renderObject->_material;
     //Set ID of renderer
     unigmaRenderingObjects[gObj->RenderID]._renderer.GID = gObj->ID;
-
-
-    for (auto& [key, value] : unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties) {
-        std::cout << key << " : " << value.x << " " << value.y << " " << value.z << " " << value.w << std::endl;
-    }
-
 }
 
 void QTDoughApplication::ClearObjectData()
@@ -2625,12 +2619,15 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 		}
 	}
     TotalGPURam = totalVRAM / (1024 * 1024);
+    std::cout << "========================: " << std::endl;
+    std::cout << "=========TOTAL VRAM============: " << std::endl;
     std::cout << "Device VRAM: " << TotalGPURam << " MB" << std::endl;
     std::cout << "Device Name: " << deviceProperties.deviceName << std::endl;
     std::cout << "Max Bound Descriptor Sets: " << maxBoundSets << std::endl;
     std::cout << "Max Per Stage Sampled Images: " << maxPerStageImages << std::endl;
     std::cout << "Max Total Sampled Images: " << maxTotalImages << std::endl;
     std::cout << "Max 3D Texture Size: " << max3DTextureSize << std::endl;
+    std::cout << "========================: " << std::endl;
 
 
     //return indices.isComplete() && extensionsSupported && swapChainAdequate;

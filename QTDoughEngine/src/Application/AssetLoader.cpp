@@ -33,8 +33,6 @@ int AssetLoader::LoadGLTF(std::string filePath, Model &model)
 		return -1;
 	}
 
-	std::cout << model.materials.size() << std::endl;
-
 	return 0;
 }
 

@@ -11,7 +11,7 @@ VoxelizerPass::~VoxelizerPass() {
 }
 
 VoxelizerPass::VoxelizerPass() {
-    VOXEL_COUNTL1 = VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1;
+    VOXEL_COUNTL1 = VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1 * (VOXEL_RESOLUTIONL1/4);
     VOXEL_COUNTL2 = VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2;
     VOXEL_COUNTL3 = VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3;
     TILE_COUNTL1 = VOXEL_RESOLUTIONL1 / TILE_SIZE;
@@ -1375,7 +1375,7 @@ void VoxelizerPass::Create3DTextures()
 
 
 		app->textures3D.insert({ "brush_" + std::to_string(i), std::move(brushTexture) });
-        std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
+        //std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
     }
 }
 
@@ -2020,7 +2020,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 			}
             if (brushes[i].type == 0) { //Mesh type
 
-                std::cout << "Dispatching tile for brush: " << i << " with texture ID: " << index << " Vertex offset: " << brushes[i].vertexOffset << std::endl;
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
             }
             textureIndexMap[index] = i; //Mark this texture as processed.
@@ -2072,16 +2071,16 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         DispatchLOD(commandBuffer, currentFrame, 1);
 
-        //DispatchLOD(commandBuffer, currentFrame, 2);
-        //DispatchLOD(commandBuffer, currentFrame, 3);
-        //DispatchLOD(commandBuffer, currentFrame, 4);
-        //DispatchLOD(commandBuffer, currentFrame, 5);
+        DispatchLOD(commandBuffer, currentFrame, 2);
+        DispatchLOD(commandBuffer, currentFrame, 3);
+        DispatchLOD(commandBuffer, currentFrame, 4);
+        DispatchLOD(commandBuffer, currentFrame, 5);
 
         //Meshing. Move to indirect dispatch.
-        //DispatchLOD(commandBuffer, currentFrame, 40);
+        DispatchLOD(commandBuffer, currentFrame, 40);
 
         //Dual Contour.
-        //DispatchLOD(commandBuffer, currentFrame, 50);
+        DispatchLOD(commandBuffer, currentFrame, 50);
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
@@ -2089,7 +2088,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //    DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
-        //DispatchLOD(commandBuffer, currentFrame, 100);
+        DispatchLOD(commandBuffer, currentFrame, 100);
 
         VkBufferMemoryBarrier barriers[2] = {};
 
@@ -2704,15 +2703,16 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Clear Voxels
     if (lodLevel == 24)
     {
-        //res = VOXEL_RESOLUTIONL1;
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
     }
 
+    //Meshing
     if (lodLevel == 40)
     {
-        //res = VOXEL_RESOLUTIONL1;
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
@@ -2721,7 +2721,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        //res = VOXEL_RESOLUTIONL1;
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;

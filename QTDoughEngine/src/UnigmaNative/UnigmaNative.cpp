@@ -96,20 +96,12 @@ void LoadScene(const char* sceneName) {
         UnigmaGameObject* gObj = UNGetGameObject(renderObj->GID);
         const auto GameObjectJson = sceneJson["GameObjects"][gObj->JID];
 
-        //print the name of the game object and its ID.
-        std::cout << "Game Object Name: " << gObj->name << std::endl;
-        std::cout << "Game Object ID: " << gObj->ID << std::endl;
-
         //check if the game object has a mesh.
         if(!GameObjectJson.contains("MeshID"))
 		{
 			std::cerr << "Game Object does not have a mesh!" << std::endl;
 			continue;
 		}
-        else
-            {
-            std::cout << "Game Object has a mesh!" << std::endl;
-			}
 
         uint32_t gameMeshID = GameObjectJson["MeshID"];
 

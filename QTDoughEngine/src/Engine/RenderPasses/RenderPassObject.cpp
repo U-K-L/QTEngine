@@ -512,7 +512,7 @@ void RenderPassObject::CreateImages() {
         for(int j = 0; j < renderingObjects[i]->_material.textures.size(); j++)
 		{
             //print path
-            std::cout << "Loading texture from file folders: " << renderingObjects[i]->_material.textures[j].TEXTURE_PATH << std::endl;
+            //std::cout << "Loading texture from file folders: " << renderingObjects[i]->_material.textures[j].TEXTURE_PATH << std::endl;
 			app->LoadTexture(renderingObjects[i]->_material.textures[j].TEXTURE_PATH);
 		}
 	}

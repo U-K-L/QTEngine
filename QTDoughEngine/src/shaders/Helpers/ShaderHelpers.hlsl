@@ -6,10 +6,10 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 #define WORLD_SDF_RESOLUTION 1024.0f
-#define WORLD_SDF_BOUNDS 64.0f
+#define WORLD_SDF_BOUNDS 16.0f
 
 #define VOXEL_RESOLUTIONL1 256.0f
-#define SCENE_BOUNDSL1 64.0f
+#define SCENE_BOUNDSL1 16.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
 #define SCENE_BOUNDSL2 64.0f
@@ -152,6 +152,12 @@ float2 GetVoxelResolution(float sampleLevel)
     float s3 = 1.0f - s1 - s2;
 
     return v1 * s1 + v2 * s2 + v3 * s3;
+}
+
+float4 GetVoxelResolutionL1()
+{
+    return float4(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f, 1.0f);
+
 }
 
 

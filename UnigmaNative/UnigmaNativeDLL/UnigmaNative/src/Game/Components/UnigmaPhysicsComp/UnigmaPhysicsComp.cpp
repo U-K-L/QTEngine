@@ -17,7 +17,6 @@ UnigmaPhysicsComp::~UnigmaPhysicsComp()
 
 void UnigmaPhysicsComp::InitializeData(nlohmann::json& componentData)
 {
-	std::cout << "Initializing Physics Component" << std::endl;
 	UnigmaGameObject* gobj = &GameObjects[GID];
 	// Initialize the component data from JSON
 	if (componentData.contains("GeometryType"))
@@ -98,7 +97,6 @@ void UnigmaPhysicsComp::Start()
 void UnigmaPhysicsComp::Init()
 {
 	UnigmaGameObject* gobj = &GameObjects[GID];
-	std::cout << "Creating Physics Component with gobj name: " << gobj->name << std::endl;
 	PxMaterial* material = gPhysics->createMaterial(staticFriction, dynamicFriction, restitution);
 
 	switch (geometryType)
