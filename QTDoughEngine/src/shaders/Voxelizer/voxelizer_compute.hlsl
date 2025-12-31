@@ -1215,12 +1215,13 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 
 float SampleSDF(float3 worldPos, int mipLevel)
 {
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution);
+    float3 sceneSize = GetSceneSize();
+    float halfScene = sceneSize.xyz * 0.5f;
 
     // Convert world position to continuous texel coordinates
     float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
-    float3 texelCoord = uvw * voxelSceneBounds.x;
+    float3 texelCoord = uvw * voxelRes.xyz;
 
     // Get the integer base coordinate and the fractional part for interpolation
     int3 baseTexel = int3(floor(texelCoord));
@@ -1348,10 +1349,12 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
 
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
-    float3 minAABB = -SCENE_BOUNDSL1 * 0.5f;
-    float3 maxAABB = SCENE_BOUNDSL1 * 0.5f;
+    float3 aabbCenterWS = float3(2, 2, 0);
+    float3 halfSceneAABB = (GetDCAABBSize()) * 0.5f;
+    float3 minAABB = -halfSceneAABB;
+    float3 maxAABB =  halfSceneAABB;
     float3 uvw = ((float3) DTid + 0.5f) / GetVoxelResolutionL1().xyz;
-    float3 minLocal = lerp(minAABB, maxAABB, uvw);
+    float3 minLocal = lerp(minAABB, maxAABB, uvw) + aabbCenterWS;
     
     //Read the second mip map.
     int mipLevel = 1;
@@ -1389,8 +1392,8 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     
     //Need to convert find the active cell for the voxelsBuffer which is lower resolution.
     //Currently the main one is baseTexel, convert that to voxel buffer index.
-    int3 baseTexelForBuffer = baseTexel / pow(2, mipLevel - 1); //just lower it one resolution, 256 -> 128.
-    uint flatIndex = Flatten3D(baseTexelForBuffer, GetVoxelResolutionL1().xyz);
+    //int3 baseTexelForBuffer = baseTexel / pow(2, mipLevel - 1);
+    uint flatIndex = Flatten3D(DTid, GetVoxelResolutionL1().xyz);
     
     if (!(minVal < 0.0f && maxVal > 0.0f))
     {
@@ -1579,10 +1582,15 @@ float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
 {
-    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+    float3 aabbCenterWS = float3(2, 2, 0);
+    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
+
+    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();
-    float3 voxelSize = sceneSize.xyz / voxelSceneBounds.xyz;
+    float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
+    
+    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -1607,7 +1615,7 @@ float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
     {
         // Get corner's integer offset (0,0,0), (1,0,0), (0,1,0), etc.
         int3 cornerOffset = int3((i & 1), (i & 2) >> 1, (i & 4) >> 2);
-        int3 cornerTexel = (cellCoord * mipLevel) + cornerOffset;
+        int3 cornerTexel = aabbMinTexelMip + cellCoord + cornerOffset;
         
         cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene;
         cornerSDFs[i] = Read3D(mipLevel, cornerTexel).x;
@@ -1745,11 +1753,23 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
+    
+    int mipLevel = 1;
+    float3 aabbCenterWS = float3(2, 2, 0);
+    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
+    float3 sceneSize = GetSceneSize();
+    float3 halfScene = sceneSize * 0.5f;
+    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+
+    
     float4 voxelL1Res = GetVoxelResolutionL1();
     int index = Flatten3D(DTid, voxelL1Res.xyz);
     float activeValue = voxelsL1Out[index].normalDistance.y;
-    int mipLevel = 1;
-    int3 baseTexel = DTid * pow(2, mipLevel - 1); //ie 128 -> 256.
+    
+    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
+    
+
+    int3 baseTexel = aabbMinTexelMip + DTid;
     
     float sdfOrigin = Read3D(mipLevel, baseTexel).x;
     
@@ -1759,9 +1779,6 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
     
     float distortionFieldSum = 0;
-
-    
-    float voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     
     uint indexField = Flatten3D(DTid, voxelL1Res.xyz);
     uint brushIndex = voxelsL1Out[indexField].brushId;
@@ -1786,10 +1803,10 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     //    return;
 
     //Check Every single face.
-    int offSet = mipLevel;
+    int offSet = 1;
     
     // Check edge along +X axis
-    int3 xNeighbor = DTid * offSet + int3(offSet, 0, 0);
+    int3 xNeighbor = baseTexel + int3(offSet, 0, 0);
     float sdfx = Read3D(mipLevel, xNeighbor).x;
     if ((sdfOrigin < 0) != (sdfx < 0))
     {
@@ -1805,7 +1822,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     // Check edge along +Y axis
-    int3 yNeighbor = DTid * offSet + int3(0, offSet, 0);
+    int3 yNeighbor = baseTexel + int3(0, offSet, 0);
     float sdfY = Read3D(mipLevel, yNeighbor).x;
     if ((sdfOrigin < 0) != (sdfY < 0))
     {
@@ -1819,7 +1836,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
 
     // Check edge along +Z axis
-    int3 zNeighbor = DTid * offSet + int3(0, 0, offSet);
+    int3 zNeighbor = baseTexel + int3(0, 0, offSet);
     float sdfZ = Read3D(mipLevel, zNeighbor).x;
     if ((sdfOrigin < 0) != (sdfZ < 0))
     {

@@ -52,7 +52,7 @@ void NormalPass::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageInde
         {
             renderingObjects[i]->UpdateUniformBuffer(*app, currentFrame, *renderingObjects[i], *CameraMain, _uniformBuffersMapped[currentFrame]);
 
-            renderingObjects[i]->RenderBrush(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame], voxelizer->meshingVertexBuffer, voxelizer->readBackVertexCount, voxelizer->indirectDrawBuffer);
         }
     }
+    renderingObjects[0]->RenderBrush(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame], voxelizer->meshingVertexBuffer, voxelizer->readBackVertexCount, voxelizer->indirectDrawBuffer);
 }
