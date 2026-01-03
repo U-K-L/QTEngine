@@ -71,6 +71,7 @@ public:
         float lod;
         uint32_t triangleCount;
         glm::ivec3 voxelResolution;
+        glm::vec3 aabbCenter;
     };
 
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.

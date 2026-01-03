@@ -2631,10 +2631,14 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
 
+    float time = app->currentTime.time_since_epoch().count() * 0.000000001f;
+    std::cout << "Time: " << time << std::endl;
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
     pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.aabbCenter = glm::vec3(0, 0, 0);
+
 
     // Each LOD uses a different resolution
     glm::ivec3 res = WORLD_SDF_RESOLUTION; //Expand.

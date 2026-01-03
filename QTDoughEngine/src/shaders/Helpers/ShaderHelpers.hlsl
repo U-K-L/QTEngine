@@ -128,7 +128,7 @@ float GetTileSize(int3 voxelRes)
 
 float3 GetDCAABBSize()
 {
-    return float3(32, 32, 8);
+    return float3(16, 16, 4);
 }
 
 float3 GetSceneSize()
