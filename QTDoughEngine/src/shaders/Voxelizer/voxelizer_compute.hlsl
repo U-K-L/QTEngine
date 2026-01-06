@@ -869,10 +869,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
 
     float t = time*0.0001f;
-    float3 wave = float3(sin(t), cos(t) * 24, sin(t)) * 2.5f;
-    float sdfSphere = min(sdSphere(center, 0.0f + wave, 1.0f), sdfVal);
-    sdfSphere = min(sdfSphere, sdSphere(center, 2.0f + wave, 1.0f));
-    sdfSphere = min(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f));
+    float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
+    float sdfSphere = smin(sdSphere(center, float3(1, 1, 1), 1.0f), sdfVal, abs(wave.x) * 0.25f);
+    sdfSphere = smin(sdfSphere, sdSphere(center, 2.0f + wave, 1.0f), abs(wave.x) * 0.25f);
+    sdfSphere = smin(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f), abs(wave.x) * 0.25f);
     
     Write3DDist(0, DTid, sdfSphere);
     //minDist = min(sdfVal, minDist);
@@ -1218,7 +1218,7 @@ float SampleSDF(float3 worldPos, int mipLevel)
 {
     float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution);
     float3 sceneSize = GetSceneSize();
-    float halfScene = sceneSize.xyz * 0.5f;
+    float3 halfScene = sceneSize.xyz * 0.5f;
 
     // Convert world position to continuous texel coordinates
     float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
@@ -1251,9 +1251,9 @@ float SampleSDF(float3 worldPos, int mipLevel)
 
 float3 GetNormal(float3 worldPos)
 {
-    const int mipLevel = 1;
+    const int mipLevel = 0;
     
-    const float epsilon = 0.15f;
+    const float epsilon = 0.025f;
 
     // Use small offset vectors for sampling along each axis.
     float3 offsetX = float3(epsilon, 0, 0);
@@ -1360,7 +1360,7 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
     
     //Read the second mip map.
-    int mipLevel = 1;
+    int mipLevel = 0;
     float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize * 0.5f;
@@ -1432,9 +1432,16 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
 {
     //Get basic values of this scene.
     Brush brush = Brushes[0];
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDF(mipLevel + 1);
-    float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
-    float halfScene = voxelSceneBounds.y * 0.5f;
+    
+    float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
+    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
+
+    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+    float3 sceneSize = GetSceneSize();
+    float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
+    float3 halfScene = sceneSize.xyz * 0.5f;
+    
+    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -1459,7 +1466,7 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     {
         // Get corner's integer offset (0,0,0), (1,0,0), (0,1,0), etc.
         int3 cornerOffset = int3((i & 1), (i & 2) >> 1, (i & 4) >> 2);
-        int3 cornerTexel = (cellCoord * mipLevel) + cornerOffset;
+        int3 cornerTexel = aabbMinTexelMip + cellCoord + cornerOffset;
         
         cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene;
         cornerSDFs[i] = Read3D(mipLevel, cornerTexel).x;
@@ -1495,14 +1502,14 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     //Move it along its gradient.
     float3 particlePos = massParticle;
     const int iterations = 8;
-    const float stepSize = 0.00225f;
+    const float stepSize = 0.0225f;
 
     [loop]
     for (int j = 0; j < iterations; ++j)
     {
         // Calculate the SDF value and normal at the particle's current position.
         float3 uvw = (particlePos + halfScene) / (2.0f * halfScene);
-        int3 baseTexel = int3(uvw * voxelSceneBounds.x);
+        int3 baseTexel = int3(uvw * voxelRes);
         float sdfAtParticle = Read3D(mipLevel, baseTexel).x;
         float3 normalAtParticle = GetNormal(particlePos);
 
@@ -1514,7 +1521,8 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
 
 
     //Transform the final world-space vertex back into the brush's local space
-    return mul(brush.invModel, float4(particlePos, 1.0f)).xyz;
+   // return mul(brush.invModel, float4(particlePos, 1.0f)).xyz;
+    return particlePos.xyz;
 
 }
 
@@ -1659,7 +1667,7 @@ float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualContour(int3 cellCoord, float mipLevel)
 {
-    return CalculateDualVertexCentroidWorld(cellCoord, mipLevel);
+    return CalculateDualVertexGradient(cellCoord, mipLevel);
 }
 
 void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
@@ -1726,7 +1734,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     if (normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
-        float t = clamp(1.0f - exp(-brush.smoothness), 0, 1.0f);
+        float t = clamp(1.0f - exp(-1.25f), 0, 1.0f);
         n0 = GetNormal(v0);
         n1 = GetNormal(v1);
         n2 = GetNormal(v2);
@@ -1766,7 +1774,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     if (DTid.x >= res.x - 1 || DTid.y >= res.y - 1 || DTid.z >= res.z - 1)
         return;
     
-    int mipLevel = 1;
+    int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
     float3 sceneSize = GetSceneSize();

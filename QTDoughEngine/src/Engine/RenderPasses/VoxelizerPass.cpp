@@ -2071,6 +2071,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         DispatchLOD(commandBuffer, currentFrame, 1);
 
+        //Mips
         DispatchLOD(commandBuffer, currentFrame, 2);
         DispatchLOD(commandBuffer, currentFrame, 3);
         DispatchLOD(commandBuffer, currentFrame, 4);

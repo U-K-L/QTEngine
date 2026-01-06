@@ -6,16 +6,16 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 #define WORLD_SDF_RESOLUTION 1024.0f
-#define WORLD_SDF_BOUNDS 16.0f
+#define WORLD_SDF_BOUNDS 64.0f
 
-#define VOXEL_RESOLUTIONL1 256.0f
+#define VOXEL_RESOLUTIONL1 512.0f
 #define SCENE_BOUNDSL1 16.0f
 
 #define VOXEL_RESOLUTIONL2 128.0f
-#define SCENE_BOUNDSL2 64.0f
+#define SCENE_BOUNDSL2 16.0f
 
 #define VOXEL_RESOLUTIONL3 64.0f
-#define SCENE_BOUNDSL3 64.0f
+#define SCENE_BOUNDSL3 16.0f
 
 #define TILE_MAX_BRUSHES 64.0f
 #define TILE_SIZE 8.0f
@@ -53,7 +53,7 @@ struct Voxel
     uint brushId;
     uint uniqueId;
     float4 normalDistance;
-    int4 materialIds;
+    //int4 materialIds;
 };
 
 struct Particle
