@@ -164,7 +164,7 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
         throw std::runtime_error("failed to create compute pipeline!");
     }
 
-    VkDeviceSize bufferSize = sizeof(ComputeVertex) * VOXEL_COUNTL3; // Or your max vertex count
+    VkDeviceSize bufferSize = sizeof(ComputeVertex) * VOXEL_COUNTL2; // Or your max vertex count
     app->CreateBuffer(
         bufferSize,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -635,8 +635,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     }
 
     //Create Vertex buffers appended.
-    uint32_t vertexBufferSize = sizeof(Vertex) * VOXEL_COUNTL3;
-    meshingVertexSoup.resize(VOXEL_COUNTL3);
+    uint32_t vertexBufferSize = sizeof(Vertex) * VOXEL_COUNTL2;
+    meshingVertexSoup.resize(VOXEL_COUNTL2);
 
     VkBuffer vertexStagingBuffer;
     VkDeviceMemory vertexStagingBufferMemory;
@@ -2633,7 +2633,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
 
     float time = app->currentTime.time_since_epoch().count() * 0.000000001f;
-    std::cout << "Time: " << time << std::endl;
+    //std::cout << "Time: " << time << std::endl;
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);

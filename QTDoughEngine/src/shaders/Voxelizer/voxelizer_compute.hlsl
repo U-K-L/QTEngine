@@ -789,7 +789,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
         Write3DDist(0, DTid, minDist);
-        return;
+        //return;
     }
 
 

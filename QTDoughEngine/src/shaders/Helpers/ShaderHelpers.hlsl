@@ -214,6 +214,12 @@ float dot2(in float3 v)
     return dot(v, v);
 }
 
+bool PointInAABB(float3 p, float3 aabbMin, float3 aabbMax)
+{
+    return all(p >= aabbMin) && all(p <= aabbMax);
+}
+
+
 float udTriangle(in float3 v1, in float3 v2, in float3 v3, in float3 p)
 {
     float3 v21 = v2 - v1;

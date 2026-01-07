@@ -152,7 +152,7 @@ float4 main(VSOutput i) : SV_Target
     if(pc.input == 1)
         return normalImage;
     if (pc.input == 2)
-        return sdfNormalImage;
+        return max(sdfNormalImage, normalImage);
     if (pc.input == 3)
         return fullFieldSDF;
     if (pc.input == 4)
@@ -170,7 +170,7 @@ float4 main(VSOutput i) : SV_Target
     //return sdfImage;
 
     
-
+    float4 combinedNormals = max(sdfNormalImage, normalImage);
     //Albedo.
     UnigmaMaterial material;
     material.baseColor = float4(0.90, 0.9, 0.78, 1.0);
@@ -189,9 +189,9 @@ float4 main(VSOutput i) : SV_Target
     float3 up = float3(0, 0, 1);
     float3 right = float3(1, 0, 0);
     
-    float weightFront = abs(normalImage.y);
-    float weightSides = abs(normalImage.x);
-    float weightTop = abs(normalImage.z);
+    float weightFront = abs(combinedNormals.y);
+    float weightSides = abs(combinedNormals.x);
+    float weightTop = abs(combinedNormals.z);
     
     float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
     weightFront /= total;
@@ -203,7 +203,7 @@ float4 main(VSOutput i) : SV_Target
     //Light is stored in w.
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
     
-    color = lerp(backgroundImage, colorWithLight, normalImage.w);
+    color = lerp(backgroundImage, colorWithLight, combinedNormals.w);
     
     
 
