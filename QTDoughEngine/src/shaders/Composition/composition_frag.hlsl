@@ -152,9 +152,9 @@ float4 main(VSOutput i) : SV_Target
     if(pc.input == 1)
         return normalImage;
     if (pc.input == 2)
-        return max(sdfNormalImage, normalImage);
+        return sdfNormalImage;
     if (pc.input == 3)
-        return fullFieldSDF;
+        return max(sdfNormalImage, normalImage);
     if (pc.input == 4)
         return albedoImage;
     if(pc.input == 5)

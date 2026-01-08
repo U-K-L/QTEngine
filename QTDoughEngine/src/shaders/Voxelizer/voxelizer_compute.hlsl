@@ -779,7 +779,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = (pc.voxelResolution / VOXEL_RESOLUTIONL1);
+    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
     int3 DTL1 = DTid / worldSDFDivisor;
 
     if(brushCount == 0)
@@ -789,7 +789,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
         Write3DDist(0, DTid, minDist);
-        //return;
+        return;
     }
 
 
@@ -861,13 +861,15 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
     
-    sdfVal = min(minDist, minDist);
-    
+    //sdfVal = min(sdfVal, sdfVal);
+    //Write3DDist(0, DTid, sdfVal); // Consider particles.
+
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
 
+    /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
     float sdfSphere = smin(sdSphere(center, float3(1, 1, 1), 1.0f), sdfVal, abs(wave.x) * 0.25f);
@@ -875,6 +877,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     sdfSphere = smin(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f), abs(wave.x) * 0.25f);
     
     Write3DDist(0, DTid, sdfSphere);
+    */
     //minDist = min(sdfVal, minDist);
     
     //Write3DDist(0, DTid, minDist);
@@ -1667,7 +1670,7 @@ float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualContour(int3 cellCoord, float mipLevel)
 {
-    return CalculateDualVertexGradient(cellCoord, mipLevel);
+    return CalculateDualVertexCentroidWorld(cellCoord, mipLevel);
 }
 
 void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)

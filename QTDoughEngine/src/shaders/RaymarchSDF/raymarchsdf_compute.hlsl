@@ -832,11 +832,13 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         accumaltor += abs((voxelSizeL1 * 4.0f * sampleLevel) - currentSDF.x) * 0.001f;
         pos += direction * stepSize;
         
+        /*
         bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
         if (inAABB)
         {
             return hitSample;
         }
+        */
 
     }
     

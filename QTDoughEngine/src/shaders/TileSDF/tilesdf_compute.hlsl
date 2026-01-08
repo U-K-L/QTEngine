@@ -160,7 +160,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     Particle particle = particlesL1In[DTid.x];
     Brush brush = Brushes[particle.particleIDs.x];
     
-    float sigma = 0.6325f * brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = 0.6325f * brush.smoothness * 0.25f; // Controls the spread of the Gaussian
     float amplitude = 1.0f; // Can be a particle attribute
 
     
@@ -205,14 +205,17 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
     if(distFromHeat > 0.125f)
-        position += 0.05f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+        position += 0.2885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
         
+    //position = float3(0, 0, 0);
+    float maxDist = sigma * 2.0f;
     
-    float maxDist = sigma * 3.0f;
+    float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
+    float3 sceneSize = GetSceneSize();
     
-    float voxelSize = SCENE_BOUNDSL1 / VOXEL_RESOLUTIONL1;
-    float3 halfScene = SCENE_BOUNDSL1 * 0.5f;
+    float3 voxelSize = sceneSize / voxelRes;
+    float3 halfScene = sceneSize * 0.5f;
 
     float3 minPos = position - maxDist;
     float3 maxPos = position + maxDist;
@@ -246,7 +249,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
                 if (contribution > 0)
                 {
-                    uint flatIndex = Flatten3DR(voxelIndex, VOXEL_RESOLUTIONL1);
+                    uint flatIndex = Flatten3D(voxelIndex, voxelRes);
                     
                     //Calculate the derivative of particle position to see
                     //How much it is changing and determine dirty.
