@@ -94,6 +94,7 @@ struct Brush
     float smoothness;
     int isDeformed;
     int materialId;
+    int density;
 };
 
 struct Vertex

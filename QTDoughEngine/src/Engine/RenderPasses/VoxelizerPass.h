@@ -59,6 +59,7 @@ public:
         float smoothness;
         int isDeformed;
         int materialId;
+        int density;
     };
 
     struct Tile
@@ -79,6 +80,7 @@ public:
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL2 = 128;
     int VOXEL_RESOLUTIONL3 = 64;
+    int VOXEL_RESOLUTIONL4 = 32;
     float SCENE_BOUNDSL1 = 16; //This is the size of the scene bounds. Uniform box. Positioned at the origin of the scene. This is given by the scene description.
     float SCENE_BOUNDSL2 = 16;
     float SCENE_BOUNDSL3 = 32;
@@ -191,13 +193,14 @@ public:
     void UpdateBrushesTextureIds(VkCommandBuffer commandBuffer);
     void CleanUpGPU(VkCommandBuffer commandBuffer);
     void DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID);
+    void DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount);
     void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
     //Some fluid particles test. Move this to its own pass later on.
-    int PARTICLE_COUNT = 362144;
+    int PARTICLE_COUNT = 5777216;
 
     //128 particle data fits in a single modern GPU data lane... try to get it to 64, but always keep it multiples of 32 since some lanes are 192.
     struct Particle {

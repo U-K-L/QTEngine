@@ -628,23 +628,30 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     //Add particle if SDF is close enough.
 
     //Blocks size
-    int blockSize = 2; //(256 / brush.resolution); //Highest resolution is L1 = 256.
+    int blockSize = brush.density; //Give each brush a density field.
     if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
     {
-        float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
-        float3 voxelGridRes = voxelSceneBounds.xyz;
-        float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+        float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
+        float3 sceneSize = GetSceneSize();
     
-        float3 voxelSize = sceneSize / voxelGridRes;
+        float3 voxelSize = sceneSize / voxelRes;
         float3 halfScene = sceneSize * 0.5f;
         
         float3 worldPos = mul(brush.model, float4(localPos, 1.0f)).xyz;
+        
+        int3 voxelIndex = floor((worldPos + halfScene) / voxelSize);
+        
+        uint flatIndex = Flatten3D(voxelIndex, voxelRes);
+        
+        //uint oldValue;
+        InterlockedMax(voxelsL1Out[flatIndex].brushId, index + 1);
+
         uint particleOffset;
         InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
         particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
         particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
         particlesL1Out[particleOffset + 1].particleIDs.x = index;
-            
+
 
     }
 
@@ -653,6 +660,41 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     {
         controlParticlesL1Out[index * CAGE_VERTS + i].position = float4(canonicalControlPoints[i].xyz, 0);
     }
+}
+
+void CreateParticles(uint3 DTid : SV_DispatchThreadID)
+{
+
+    float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
+    float3 sceneSize = GetSceneSize();
+    
+    float3 voxelSize = sceneSize / voxelRes;
+    float3 halfScene = sceneSize * 0.5f;
+        
+    float3 worldPos = ((float3) DTid + 0.5f) * voxelSize - halfScene;
+        
+    uint flatIndex = Flatten3D(DTid, voxelRes);
+        
+    uint occupancy = voxelsL1Out[flatIndex].brushId; //Occupancy.
+    
+    if(occupancy < 1)
+        return;
+    
+    int brushIndex = occupancy - 1;
+    Brush brush = Brushes[brushIndex];
+    
+    float3 minBounds = Brushes[brushIndex].aabbmin.xyz;
+    float3 maxBounds = Brushes[brushIndex].aabbmax.xyz;
+    float3 center = (minBounds + maxBounds) * 0.5f;
+    float maxExtent = Brushes[brushIndex].aabbmax.w;
+    
+    float3 localPos = mul(brush.invModel, float4(worldPos, 1.0f)).xyz;
+        
+    uint particleOffset;
+    InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
+    particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
+    particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
+    particlesL1Out[particleOffset + 1].particleIDs.x = brushIndex;
 }
 
 float4 GetVoxelValue(float sampleLevel, int index)
@@ -739,6 +781,7 @@ float CalculateSDFfromDensity(uint fixedPointDensity)
     
     
     float density = (float) fixedPointDensity / DENSITY_SCALE;
+    
 
     // Larger values means thinner iso surfaces.
     float x = brush.smoothness;
@@ -863,12 +906,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     //sdfVal = min(sdfVal, sdfVal);
     //Write3DDist(0, DTid, sdfVal); // Consider particles.
-
+    
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-
+    
     /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
@@ -2055,6 +2098,13 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     {
         CreateBrush(DTid);
         return;
+    }
+    
+    if(sampleLevelL == 9.0f)
+    {
+        CreateParticles(DTid);
+        return;
+
     }
     
     if (sampleLevelL == 14.0f)

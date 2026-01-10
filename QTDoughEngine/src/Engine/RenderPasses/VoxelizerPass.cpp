@@ -1190,6 +1190,8 @@ void VoxelizerPass::CreateBrushes()
 
         brush.materialId = i;
 
+        brush.density = 2;
+
         
         if (brush.id == 2)
         {
@@ -2003,6 +2005,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     //Dispatch only for unique volume textures as they might be shared between brushes.
     //Volume textures by index already processed.
     std::unordered_map<uint32_t, uint32_t> textureIndexMap;
+    uint64_t voxelCount = 0;
+    uint64_t particleCount = 0;
     if (dispatchCount < 4)
     {
         auto start = std::chrono::high_resolution_clock::now();
@@ -2021,16 +2025,25 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             if (brushes[i].type == 0) { //Mesh type
 
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
+
+                //Sum voxels.
+                voxelCount += (uint64_t)(brushes[i].resolution * brushes[i].resolution * brushes[i].resolution);
+                
             }
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
-
+        particleCount += voxelCount / 8; //Estimate particles.
 
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 
         // Print the duration
         std::cout << "Brush creation took: " << duration.count() << " milliseconds" << std::endl;
+        std::cout << "Brushes Processed: " << textureIndexMap.size() << std::endl;
+        std::cout << "Total Voxels Created: " << voxelCount << std::endl;
+        std::cout << "Estimated Particles Created: " << particleCount << std::endl;
+
+        //DispatchParticleCreation(commandBuffer, currentFrame, 0); //Create particles.
     }
     //Deform brush
     if (dispatchCount > 3)
@@ -2426,6 +2439,51 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
 
     PushConsts pc{};
     pc.lod = 8;
+    pc.triangleCount = lodLevel;
+    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+
+    vkCmdPushConstants(
+        commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    uint32_t groupCountX = (resolutionx + 7) / 8;
+    uint32_t groupCountY = (resolutiony + 7) / 8;
+    uint32_t groupCountZ = (resolutionz + 7) / 8;
+
+
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void VoxelizerPass::DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+
+    glm::ivec3 res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
+    uint32_t resolutionx = res.x;
+    uint32_t resolutiony = res.y;
+    uint32_t resolutionz = res.z;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    PushConsts pc{};
+    pc.lod = 9;
     pc.triangleCount = lodLevel;
     pc.voxelResolution = WORLD_SDF_RESOLUTION;
 
