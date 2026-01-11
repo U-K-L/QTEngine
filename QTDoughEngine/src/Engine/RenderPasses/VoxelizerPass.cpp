@@ -277,7 +277,7 @@ void VoxelizerPass::CreateComputePipeline()
     CreateComputePipelineName("tilesdf", tileGenerationComputePipeline, tileGenerationComputePipelineLayout);
     std::cout << "Compute pipeline created" << std::endl;
 
-    std::cout << "Memory of voxels in L1: " << sizeof(Voxel) * VOXEL_COUNTL1 / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of voxels in L1: " << sizeof(VoxelL1) * VOXEL_COUNTL1 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Memory of voxels in L2: " << sizeof(Voxel) * VOXEL_COUNTL2 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Memory of voxels in L3: " << sizeof(Voxel) * VOXEL_COUNTL3 / 1024.0f / 1024.0f << " MB" << std::endl;
     std::cout << "Size of voxel: " << sizeof(Voxel) << " bytes" << std::endl;
@@ -341,7 +341,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     voxelsL2.resize(VOXEL_COUNTL2);
     voxelsL3.resize(VOXEL_COUNTL3);
 
-    VkDeviceSize bufferSizeL1 = sizeof(Voxel) * VOXEL_COUNTL1;
+    VkDeviceSize bufferSizeL1 = sizeof(VoxelL1) * VOXEL_COUNTL1;
     VkDeviceSize bufferSizeL2 = sizeof(Voxel) * VOXEL_COUNTL2;
     VkDeviceSize bufferSizeL3 = sizeof(Voxel) * VOXEL_COUNTL3;
 
@@ -356,7 +356,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     void* data;
     vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSizeL1, 0, &data);
-    std::memcpy(data, voxelsL1.data(), voxelsL1.size() * sizeof(Voxel));
+    std::memcpy(data, voxelsL1.data(), voxelsL1.size() * sizeof(VoxelL1));
     vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
 
     voxelL1StorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
@@ -752,7 +752,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         VkDescriptorBufferInfo voxelL1BufferInfoLastFrame{};
         voxelL1BufferInfoLastFrame.buffer = voxelL1StorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
         voxelL1BufferInfoLastFrame.offset = 0;
-        voxelL1BufferInfoLastFrame.range = sizeof(Voxel) * VOXEL_COUNTL1;
+        voxelL1BufferInfoLastFrame.range = sizeof(VoxelL1) * VOXEL_COUNTL1;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = computeDescriptorSets[i];
@@ -765,7 +765,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         VkDescriptorBufferInfo voxelL1BufferInfoCurrentFrame{};
         voxelL1BufferInfoCurrentFrame.buffer = voxelL1StorageBuffers[i];
         voxelL1BufferInfoCurrentFrame.offset = 0;
-        voxelL1BufferInfoCurrentFrame.range = sizeof(Voxel) * VOXEL_COUNTL1;
+        voxelL1BufferInfoCurrentFrame.range = sizeof(VoxelL1) * VOXEL_COUNTL1;
 
         descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[3].dstSet = computeDescriptorSets[i];
@@ -1465,9 +1465,9 @@ void VoxelizerPass::CreateImages() {
     TILE_SIZE = WORLD_SDF_RESOLUTION.z / 16;
 
     std::cout << "Memory of 3D Textures WORLD SDF: " << (sizeof(uint16_t) * WORLD_SDF_RESOLUTION.x * WORLD_SDF_RESOLUTION.y * WORLD_SDF_RESOLUTION.z) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L1: " << (sizeof(uint16_t) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L2: " << (sizeof(uint16_t) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
-    std::cout << "Memory of 3D Textures in L3: " << (sizeof(uint16_t) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L1: " << (sizeof(VoxelL1) * VOXEL_COUNTL1) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L2: " << (sizeof(Voxel) * VOXEL_COUNTL2) / 1024.0f / 1024.0f << " MB" << std::endl;
+    std::cout << "Memory of 3D Textures in L3: " << (sizeof(Voxel) * VOXEL_COUNTL3) / 1024.0f / 1024.0f << " MB" << std::endl;
 
 
 
@@ -2129,7 +2129,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
         VkBufferCopy region{};
-        region.size = sizeof(Voxel) * VOXEL_COUNTL1;
+        region.size = sizeof(VoxelL1) * VOXEL_COUNTL1;
         vkCmdCopyBuffer(commandBuffer, voxelL1StorageBuffers[currentFrame], voxL1PingPong[0], 1, &region);
 
         region.size = sizeof(Voxel) * VOXEL_COUNTL2;
@@ -2165,7 +2165,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &depInfoBack);
 
         VkBufferCopy regionBack{};
-        regionBack.size = sizeof(Voxel) * VOXEL_COUNTL1;
+        regionBack.size = sizeof(VoxelL1) * VOXEL_COUNTL1;
         vkCmdCopyBuffer(commandBuffer, voxL1PingPong[0], voxelL1StorageBuffers[currentFrame], 1, &regionBack);
 
         regionBack.size = sizeof(Voxel) * VOXEL_COUNTL2;

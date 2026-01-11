@@ -56,6 +56,16 @@ struct Voxel
     //int4 materialIds;
 };
 
+struct VoxelL1
+{
+    int distance;
+    uint density;
+    float isoPhi;
+    float jacobian;
+    uint dc;
+};
+
+
 struct Particle
 {
     float4 position;

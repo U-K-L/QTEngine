@@ -30,8 +30,8 @@ struct PushConsts
 PushConsts pc;
 
 
-StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
-RWStructuredBuffer<Voxel> voxelsL1Out : register(u3, space1); // write
+StructuredBuffer<VoxelL1> voxelsL1In : register(t2, space1); // readonly
+RWStructuredBuffer<VoxelL1> voxelsL1Out : register(u3, space1); // write
 
 StructuredBuffer<Voxel> voxelsL2In : register(t4, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1); // write
@@ -303,7 +303,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 //Special flag.
                 if (particle.initPosition.w > 0.0005f)
                 {
-                    voxelsL1Out[flatIndex].normalDistance.z = 1; 
+                    voxelsL1Out[flatIndex].jacobian = 1; 
 
                 }
                 

@@ -35,6 +35,15 @@ public:
         //glm::ivec4 materialIds;   
     };
 
+    //Lower detail voxel.
+    struct VoxelL1 {
+        int distance;
+        uint32_t density;
+        float isoPhi;
+        float jacobian;
+        uint32_t dc;
+    };
+
     //Struct of brushes. Most brushes are meshes with a model matrix. However, analytical brushes can be provided as well.
     //Brushes are basically tied to gameObjects.
     //256 bytes is the limit.

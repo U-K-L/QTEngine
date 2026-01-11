@@ -45,8 +45,8 @@ PushConsts pc;
 //Instead of creating one large world voxel structure, this acts as smaller more coarse
 //data that stores information that doesn't need granularity, example being the 
 //distortion field.
-StructuredBuffer<Voxel> voxelsL1In : register(t2, space1); // readonly
-RWStructuredBuffer<Voxel> voxelsL1Out : register(u3, space1); // write
+StructuredBuffer<VoxelL1> voxelsL1In : register(t2, space1); // readonly
+RWStructuredBuffer<VoxelL1> voxelsL1Out : register(u3, space1); // write
 
 StructuredBuffer<Voxel> voxelsL2In : register(t4, space1);
 RWStructuredBuffer<Voxel> voxelsL2Out : register(u5, space1);
@@ -246,8 +246,8 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].distance = DEFUALT_EMPTY_SPACE;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].density = 0;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.x = 0;
+    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
+    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].isoPhi = 0;
     //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0; //Default is deformable field.
     //Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
 }
@@ -644,7 +644,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         uint flatIndex = Flatten3D(voxelIndex, voxelRes);
         
         //uint oldValue;
-        InterlockedMax(voxelsL1Out[flatIndex].brushId, index + 1);
+        //InterlockedMax(voxelsL1Out[flatIndex].brushId, index + 1);
 
         uint particleOffset;
         InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
@@ -675,7 +675,7 @@ void CreateParticles(uint3 DTid : SV_DispatchThreadID)
         
     uint flatIndex = Flatten3D(DTid, voxelRes);
         
-    uint occupancy = voxelsL1Out[flatIndex].brushId; //Occupancy.
+    uint occupancy = 1; //voxelsL1Out[flatIndex].brushId; //Occupancy.
     
     if(occupancy < 1)
         return;
@@ -699,7 +699,7 @@ void CreateParticles(uint3 DTid : SV_DispatchThreadID)
 
 float4 GetVoxelValue(float sampleLevel, int index)
 {
-    float4 v1 = float4(voxelsL1In[index].normalDistance.xyz, asfloat(voxelsL1In[index].distance));
+    float4 v1 = 1.0f; //float4(voxelsL1In[index].normalDistance.xyz, asfloat(voxelsL1In[index].distance));
     float4 v2 = float4(voxelsL2In[index].normalDistance.xyz, asfloat(voxelsL2In[index].distance));
     float4 v3 = float4(voxelsL3In[index].normalDistance.xyz, asfloat(voxelsL3In[index].distance));
 
@@ -895,7 +895,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
                 int3 dtid = DTid + int3(l, j, k);
                 dtid = dtid / worldSDFDivisor;
                 uint index = Flatten3D(dtid, voxelSceneBoundsl1);
-                distortionFieldSum += clamp(voxelsL1Out[index].normalDistance.z, 0, 1);
+                distortionFieldSum += clamp(voxelsL1Out[index].jacobian, 0, 1);
 
             }
     
@@ -910,15 +910,15 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index3 = Flatten3D(DTL3, voxelSceneBoundsl1);
     uint index4 = Flatten3D(DTL4, voxelSceneBoundsl1);
 
-    voxelsL1Out[index].brushId = minId;
-    voxelsL1Out[index].normalDistance.w = blendFactor;
+    //voxelsL1Out[index].brushId = minId;
+    //voxelsL1Out[index].normalDistance.w = blendFactor;
     //voxelsL1Out[index].normalDistance.x = smoothness;
 
     //Final min distance to see if a smaller distance exist in our particle buffer.
     //minDist = min(voxelsL1Out[index].distance, minDist);
     
     //float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
-    float sdfVal = voxelsL1Out[index].normalDistance.x; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
+    float sdfVal = voxelsL1Out[index].isoPhi; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     
     //sdfVal = min(sdfVal, sdfVal);
     //Write3DDist(0, DTid, sdfVal); // Consider particles.
@@ -1022,7 +1022,7 @@ void InitLabels(uint3 DTid : SV_DispatchThreadID)
         p.y = NO_LABELF(); // sentinel (bit-pattern NaN)
     }
 
-    voxelsL1Out[Flatten3DR(blockCoord, voxelSceneBounds.x)].id = p.y; //Write3D(0, blockOrigin, p);
+    //voxelsL1Out[Flatten3DR(blockCoord, voxelSceneBounds.x)].id = p.y; //Write3D(0, blockOrigin, p);
 
 
 }
@@ -1060,7 +1060,7 @@ void SetLabel(uint oldLabel, uint newParent)
     float2 voxelSceneBounds = GetVoxelResolution(0.0f);
     int3 labelVoxel = LabelToVoxelR(oldLabel);
     float val = (float)(newParent);
-    voxelsL1Out[Flatten3DR(labelVoxel, voxelSceneBounds.x)].id = val; //Write3D(0, labelVoxel, val);
+    //voxelsL1Out[Flatten3DR(labelVoxel, voxelSceneBounds.x)].id = val; //Write3D(0, labelVoxel, val);
 
 }
 
@@ -1069,13 +1069,13 @@ void SetLabel(uint oldLabel, uint newParent)
 uint Find(int3 voxel)
 {
     float2 voxelSceneBounds = GetVoxelResolution(0.0f);
-    float lbl = voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].id; //Read3D(0, voxel).y;
+    float lbl = 1.0f; //voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].id; //Read3D(0, voxel).y;
     if (lbl == NO_LABELF())
         return NO_LABELF(); // background
 
     for (uint iter = 0; iter < 128; ++iter) 
     {
-        float parent = voxelsL1Out[Flatten3DR(LabelToVoxelR(lbl), voxelSceneBounds.x)].id; //Read3D(0, LabelToVoxel(lbl)).y;
+        float parent = 1.0f; //voxelsL1Out[Flatten3DR(LabelToVoxelR(lbl), voxelSceneBounds.x)].id; //Read3D(0, LabelToVoxel(lbl)).y;
         if (parent == lbl || parent == NO_LABELF())
             return lbl; // root found
         lbl = parent;
@@ -1207,7 +1207,7 @@ void BroadcastLabels(uint3 DTid : SV_DispatchThreadID)
     float label = v.y;
     int3 voxel = DTid; ///LabelToVoxelR(label);
     
-    uint brushID = voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].brushId;
+    uint brushID = 0; //voxelsL1Out[Flatten3DR(voxel, voxelSceneBounds.x)].brushId;
     uint labelID = asuint(label);
     uint finalID = (brushID << 24) | (labelID & 0xFFFFFF);
     
@@ -1408,7 +1408,7 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
     }
     
     //Set Active cell.
-    voxelsL1Out[flatIndex].normalDistance.y = 1;
+    voxelsL1Out[flatIndex].dc = 1;
 }
 
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
@@ -1470,7 +1470,7 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     }
     
     //Set Active cell.
-    voxelsL1Out[flatIndex].normalDistance.y = 1;
+    voxelsL1Out[flatIndex].dc = 1;
 }
 
 
@@ -1847,7 +1847,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     float4 voxelL1Res = GetVoxelResolutionL1();
     int index = Flatten3D(DTid, voxelL1Res.xyz);
-    float activeValue = voxelsL1Out[index].normalDistance.y;
+    float activeValue = voxelsL1Out[index].dc;
     
     int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
     
@@ -1864,7 +1864,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float distortionFieldSum = 0;
     
     uint indexField = Flatten3D(DTid, voxelL1Res.xyz);
-    uint brushIndex = voxelsL1Out[indexField].brushId;
+    uint brushIndex = 1; //voxelsL1Out[indexField].brushId;
     
     Brush brush = Brushes[brushIndex];
     
@@ -1877,7 +1877,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
             {
                 int3 dtid = DTid + int3(l, j, k);
                 uint indexField = Flatten3D(dtid, voxelL1Res.xyz);
-                distortionFieldSum += clamp(voxelsL1Out[indexField].normalDistance.z, 0, 1);
+                distortionFieldSum += clamp(voxelsL1Out[indexField].jacobian, 0, 1);
 
             }
     
@@ -1983,7 +1983,7 @@ bool ReadDeformingField(float3 worldPos)
     int3 c;
     uint i;
     WorldPosToL1Index(worldPos, c, i);
-    if (voxelsL1Out[i].normalDistance.z > 0.00f)
+    if (voxelsL1Out[i].jacobian > 0.00f)
     {
         return true;
     }
@@ -2009,7 +2009,7 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
             {
                 int3 cc = clamp(c + int3(dx, dy, dz), int3(0, 0, 0), int3(res - 1, res - 1, res - 1));
                 uint idx = Flatten3DR(cc, res);
-                if (voxelsL1Out[idx].normalDistance.z > 0.0f)
+                if (voxelsL1Out[idx].jacobian > 0.0f)
                     return true;
             }
     return false;
@@ -2090,7 +2090,7 @@ float GetPhi(uint3 index)
     float3 voxelRes = GetVoxelResolutionL1().xyz;
     uint flatIndex = Flatten3D(index, voxelRes);
     
-    float phi = voxelsL1In[flatIndex].normalDistance.x;
+    float phi = voxelsL1In[flatIndex].isoPhi;
 
     return phi;
 }
@@ -2137,7 +2137,7 @@ void SmoothGrid(uint3 DTid : SV_DispatchThreadID)
     float outv = sum / 27.0f;
 
     uint flatIndex = Flatten3D(DTid, voxelRes);
-    voxelsL1Out[flatIndex].normalDistance.x = outv;
+    voxelsL1Out[flatIndex].isoPhi = outv;
 }
 
 [numthreads(8, 8, 8)]
@@ -2150,7 +2150,7 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
     float c = ComputePhi(DTid);
     
     uint flatIndex = Flatten3D(DTid, voxelRes);
-    voxelsL1Out[flatIndex].normalDistance.x = c;
+    voxelsL1Out[flatIndex].isoPhi = c;
 }
 
 [numthreads(8, 8, 8)]
