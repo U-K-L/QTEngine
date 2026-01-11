@@ -11,6 +11,7 @@ VoxelizerPass::~VoxelizerPass() {
 }
 
 VoxelizerPass::VoxelizerPass() {
+    WORLD_SDF_RESOLUTION = SetVoxelGridSize();
     VOXEL_COUNTL1 = VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1 * (VOXEL_RESOLUTIONL1/4);
     VOXEL_COUNTL2 = VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2;
     VOXEL_COUNTL3 = VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3;
@@ -1405,6 +1406,8 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         {
             GameQualitySettings = 1;
         }
+
+        VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
     }
 
     if (GameQualitySettings == 1)
@@ -1421,6 +1424,8 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         {
             GameQualitySettings = 2;
         }
+
+        VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
     }
 
     if (GameQualitySettings == 2)
@@ -1437,6 +1442,8 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         {
             GameQualitySettings = 3;
         }
+
+        VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
     }
 
     if (GameQualitySettings == 3)
@@ -1449,6 +1456,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
             std::cout << "Low Quality Voxel Resolution. " << std::endl;
 
         }
+        VOXEL_RESOLUTIONL1 = worldImageRes.x;
     }
 
     return worldImageRes;
@@ -1461,7 +1469,6 @@ void VoxelizerPass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
 
 
-    WORLD_SDF_RESOLUTION = SetVoxelGridSize();
     TILE_SIZE = WORLD_SDF_RESOLUTION.z / 16;
 
     std::cout << "Memory of 3D Textures WORLD SDF: " << (sizeof(uint16_t) * WORLD_SDF_RESOLUTION.x * WORLD_SDF_RESOLUTION.y * WORLD_SDF_RESOLUTION.z) / 1024.0f / 1024.0f << " MB" << std::endl;

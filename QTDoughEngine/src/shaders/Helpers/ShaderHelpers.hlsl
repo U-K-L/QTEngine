@@ -177,6 +177,11 @@ float4 GetVoxelResolutionL1()
 
 }
 
+float4 GetVoxelResolutionL1(int3 voxelRes)
+{
+    float3 res = float3(voxelRes.x / 2.0f, voxelRes.y / 2.0f, voxelRes.z / 2.0f);
+    return float4(res.x, res.y, res.z, 1.0f);
+}
 
 float GetSampleLevel(float3 pos, float3 camPos)
 {
