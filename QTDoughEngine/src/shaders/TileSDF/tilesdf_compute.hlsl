@@ -234,7 +234,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float amplitude = 1.0f; // Can be a particle attribute
     float radiusParticleSpacing = brush.particleRadius;
     
-    float supportWS = sigma * 3.0f;
+    float supportWS = sigma * 1.75f;
     
     float3 position = particle.position.xyz;
     
@@ -254,7 +254,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
     if(distFromHeat < 2.125f)
-        position += 0.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+        position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;

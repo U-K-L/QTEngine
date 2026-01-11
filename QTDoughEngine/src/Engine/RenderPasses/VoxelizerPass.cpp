@@ -1190,7 +1190,7 @@ void VoxelizerPass::CreateBrushes()
 
         brush.materialId = i;
 
-        brush.density = 4;
+        brush.density = 2;
         brush.particleRadius = 2.0f;
 
         
@@ -2115,13 +2115,71 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Smoothing Kernel Pass
         DispatchLOD(commandBuffer, currentFrame, 10);
+
+        VkMemoryBarrier2 memBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        memBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        memBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+        memBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        memBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+
+        VkDependencyInfo depInfo{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        depInfo.memoryBarrierCount = 1;
+        depInfo.pMemoryBarriers = &memBarrier;
+
+        vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+        VkBufferCopy region{};
+        region.size = sizeof(Voxel) * VOXEL_COUNTL1;
+        vkCmdCopyBuffer(commandBuffer, voxelL1StorageBuffers[currentFrame], voxL1PingPong[0], 1, &region);
+
+        region.size = sizeof(Voxel) * VOXEL_COUNTL2;
+        vkCmdCopyBuffer(commandBuffer, voxelL2StorageBuffers[currentFrame], voxL2PingPong[0], 1, &region);
+
+        region.size = sizeof(Voxel) * VOXEL_COUNTL3;
+        vkCmdCopyBuffer(commandBuffer, voxelL3StorageBuffers[currentFrame], voxL3PingPong[0], 1, &region);
+
+        memBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        memBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        memBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        memBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+        vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
         bool swapPing = true;
-        for (int i = 0; i < 12; ++i)
+        for (int i = 0; i < 3; ++i)
         {
             DispatchLOD(commandBuffer, currentFrame, 11, swapPing);
             swapPing = !swapPing;
         }
 
+        VkMemoryBarrier2 memBarrierBack{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        memBarrierBack.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        memBarrierBack.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+        memBarrierBack.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        memBarrierBack.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+
+        VkDependencyInfo depInfoBack{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        depInfoBack.memoryBarrierCount = 1;
+        depInfoBack.pMemoryBarriers = &memBarrierBack;
+
+        vkCmdPipelineBarrier2(commandBuffer, &depInfoBack);
+
+        VkBufferCopy regionBack{};
+        regionBack.size = sizeof(Voxel) * VOXEL_COUNTL1;
+        vkCmdCopyBuffer(commandBuffer, voxL1PingPong[0], voxelL1StorageBuffers[currentFrame], 1, &regionBack);
+
+        regionBack.size = sizeof(Voxel) * VOXEL_COUNTL2;
+        vkCmdCopyBuffer(commandBuffer, voxL2PingPong[0], voxelL2StorageBuffers[currentFrame], 1, &regionBack);
+
+        regionBack.size = sizeof(Voxel) * VOXEL_COUNTL3;
+        vkCmdCopyBuffer(commandBuffer, voxL3PingPong[0], voxelL3StorageBuffers[currentFrame], 1, &regionBack);
+
+        memBarrierBack.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        memBarrierBack.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        memBarrierBack.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        memBarrierBack.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+        vkCmdPipelineBarrier2(commandBuffer, &depInfoBack);
 
         DispatchLOD(commandBuffer, currentFrame, 1);
 

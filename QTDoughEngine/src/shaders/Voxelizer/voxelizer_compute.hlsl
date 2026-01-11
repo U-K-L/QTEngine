@@ -796,7 +796,7 @@ float CalculateSDFGaussDistance(int distanceW, uint densityW)
     float phi;
     if (densityW == 0)
     {
-        phi = 1e6f;
+        phi = DEFUALT_EMPTY_SPACE;
     }
     else
     {
@@ -920,14 +920,14 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
     float sdfVal = voxelsL1Out[index].normalDistance.x; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     
-    sdfVal = min(sdfVal, sdfVal);
-    Write3DDist(0, DTid, sdfVal); // Consider particles.
-    /*
+    //sdfVal = min(sdfVal, sdfVal);
+    //Write3DDist(0, DTid, sdfVal); // Consider particles.
+    
     if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-    */
+    
     /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
@@ -2114,24 +2114,30 @@ void SmoothGrid(uint3 DTid : SV_DispatchThreadID)
 
     float c = GetPhi(DTid);
 
-    // clamp sampling at boundaries (or skip boundary voxels)
-    uint3 xm = uint3(max(int(DTid.x) - 1, 0), DTid.y, DTid.z);
-    uint3 xp = uint3(min(DTid.x + 1, voxelRes.x - 1), DTid.y, DTid.z);
-    uint3 ym = uint3(DTid.x, max(int(DTid.y) - 1, 0), DTid.z);
-    uint3 yp = uint3(DTid.x, min(DTid.y + 1, voxelRes.y - 1), DTid.z);
-    uint3 zm = uint3(DTid.x, DTid.y, max(int(DTid.z) - 1, 0));
-    uint3 zp = uint3(DTid.x, DTid.y, min(DTid.z + 1, voxelRes.z - 1));
+    float sum = 0.0f;
 
-    float sum6 =
-        GetPhi(xm) + GetPhi(xp) +
-        GetPhi(ym) + GetPhi(yp) +
-        GetPhi(zm) + GetPhi(zp);
+    [unroll]
+    for (int z = -1; z <= 1; z++)
+    {
+        [unroll]
+        for (int y = -1; y <= 1; y++)
+        {
+            [unroll]
+            for (int x = -1; x <= 1; x++)
+            {
+                int3 coord = int3(DTid) + int3(x, y, z);
+                
+                coord = max(0, min(coord, int3(voxelRes) - 1));
 
-    float lambda = 0.5f; // start here
-    float outv = (1.0f - lambda) * c + (lambda / 6.0f) * sum6;
+                float val = GetPhi(coord);
+                sum += val;
+            }
+        }
+    }
+    float outv = sum / 27.0f;
 
     uint flatIndex = Flatten3D(DTid, voxelRes);
-    voxelsL1Out[flatIndex].normalDistance.x = c;
+    voxelsL1Out[flatIndex].normalDistance.x = outv;
 }
 
 [numthreads(8, 8, 8)]
