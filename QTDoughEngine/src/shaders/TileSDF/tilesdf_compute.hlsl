@@ -111,6 +111,8 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
     return abs(maxBounds - minBounds);
 }
 
+
+
 void ClearTileCount(uint3 DTid : SV_DispatchThreadID)
 {
     TileBrushCounts[DTid.x] = 0;
@@ -154,20 +156,71 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
     return abs(maxBounds - minBounds);
 }
 
+
+float SampleSDF(float3 worldPos, int mipLevel)
+{
+    float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution);
+    float3 sceneSize = GetSceneSize();
+    float3 halfScene = sceneSize.xyz * 0.5f;
+
+    // Convert world position to continuous texel coordinates
+    float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
+    float3 texelCoord = uvw * voxelRes.xyz;
+
+    // Get the integer base coordinate and the fractional part for interpolation
+    int3 baseTexel = int3(floor(texelCoord));
+    float3 frac = texelCoord - baseTexel;
+
+    // Fetch the 8 corner SDF values
+    float d000 = Read3D(mipLevel, baseTexel + int3(0, 0, 0)).x;
+    float d100 = Read3D(mipLevel, baseTexel + int3(1, 0, 0)).x;
+    float d010 = Read3D(mipLevel, baseTexel + int3(0, 1, 0)).x;
+    float d110 = Read3D(mipLevel, baseTexel + int3(1, 1, 0)).x;
+    float d001 = Read3D(mipLevel, baseTexel + int3(0, 0, 1)).x;
+    float d101 = Read3D(mipLevel, baseTexel + int3(1, 0, 1)).x;
+    float d011 = Read3D(mipLevel, baseTexel + int3(0, 1, 1)).x;
+    float d111 = Read3D(mipLevel, baseTexel + int3(1, 1, 1)).x;
+
+    // Perform trilinear interpolation (7 lerps)
+    float c00 = lerp(d000, d100, frac.x);
+    float c10 = lerp(d010, d110, frac.x);
+    float c01 = lerp(d001, d101, frac.x);
+    float c11 = lerp(d011, d111, frac.x);
+    float c0 = lerp(c00, c10, frac.y);
+    float c1 = lerp(c01, c11, frac.y);
+    return lerp(c0, c1, frac.z);
+}
+
+float3 GetNormal(float3 worldPos)
+{
+    const int mipLevel = 0;
+    
+    const float epsilon = 0.025f;
+
+    // Use small offset vectors for sampling along each axis.
+    float3 offsetX = float3(epsilon, 0, 0);
+    float3 offsetY = float3(0, epsilon, 0);
+    float3 offsetZ = float3(0, 0, epsilon);
+
+    // Calculate the gradient using central differences on the interpolated SDF values.
+    float dx = SampleSDF(worldPos + offsetX, mipLevel) - SampleSDF(worldPos - offsetX, mipLevel);
+    float dy = SampleSDF(worldPos + offsetY, mipLevel) - SampleSDF(worldPos - offsetY, mipLevel);
+    float dz = SampleSDF(worldPos + offsetZ, mipLevel) - SampleSDF(worldPos - offsetZ, mipLevel);
+    
+    // The gradient vector points in the direction of the normal.
+    // Add a tiny value to prevent normalization of a zero vector.
+    return normalize(float3(dx, dy, dz) + 1e-6);
+}
+
+
+
 void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
     //Move to world space if connected to a brush.
     Particle particle = particlesL1In[DTid.x];
     Brush brush = Brushes[particle.particleIDs.x];
     
-    float sigma = 0.6325f * brush.smoothness; // Controls the spread of the Gaussian
-    float amplitude = 1.0f; // Can be a particle attribute
-
-    
-
-    
-    
-    if(particle.position.w < 1)
+    if (particle.position.w < 1)
     {
         
         particlesL1Out[DTid.x].position = particle.position;
@@ -176,6 +229,12 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
         return;
     }
 
+    
+    float sigma = 0.6325f * brush.smoothness; // Controls the spread of the Gaussian
+    float amplitude = 1.0f; // Can be a particle attribute
+    float radiusParticleSpacing = brush.particleRadius;
+    
+    float supportWS = sigma * 3.0f;
     
     float3 position = particle.position.xyz;
     
@@ -188,28 +247,15 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float3 direction = normalize(position - float3(0, 0, 0));
 
-
-    
-
-    
-
-
-    
-        
     position = mul(brush.model, float4(position, 1.0f)).xyz;
-    
 
-    
     float3 positionOld = position;
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
     if(distFromHeat < 2.125f)
-        position += 0.6885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+        position += 0.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
-        
-    //position = float3(0, 0, 0);
-    float maxDist = sigma * 3.0f;
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();
@@ -217,18 +263,14 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 voxelSize = sceneSize / voxelRes;
     float3 halfScene = sceneSize * 0.5f;
 
-    float3 minPos = position - maxDist;
-    float3 maxPos = position + maxDist;
+    float3 minPos = position - supportWS;
+    float3 maxPos = position + supportWS;
 
     int3 minVoxel = floor((minPos + halfScene) / voxelSize);
     int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
+    
+    //float3 n = GetNormal(position);
 
-    /*
-    if (any(minVoxel > maxVoxel))
-    {
-        return;
-    }
-    */
     float3 initialPosition = mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
     
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
@@ -236,40 +278,41 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
             {
                 int3 voxelIndex = int3(x, y, z);
+                
+                int3 res = int3(voxelRes);
+                if (x < 0 || y < 0 || z < 0 || x >= res.x || y >= res.y || z >= res.z)
+                    continue;
                   
                 // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
                 float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
-
-                float3 diff = worldPos - position;
-                float squaredDist = dot(diff, diff);
+                
+                float3 diffWS = worldPos - position;
+                float squaredDist = dot(diffWS, diffWS);
 
                 float gaussianValue = amplitude * exp(-squaredDist / (2.0f * sigma * sigma));
 
-                uint contribution = (uint) (gaussianValue * DENSITY_SCALE);
+                uint guassContribution = (uint) round(gaussianValue * DENSITY_SCALE);
+                
+                uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
-                if (contribution > 0)
+                    
+                float3 velocity = ((position.xyz - initialPosition.xyz) + (positionOld - position)) * deltaTime;
+                float mag = length(velocity);
+                particle.initPosition.w += mag;
+                    
+                //Special flag.
+                if (particle.initPosition.w > 0.0005f)
                 {
-                    uint flatIndex = Flatten3D(voxelIndex, voxelRes);
-                    
-                    //Calculate the derivative of particle position to see
-                    //How much it is changing and determine dirty.
-                    
-                    float3 velocity = ((position.xyz - initialPosition.xyz) + (positionOld - position)) * deltaTime;
-                    float mag = length(velocity);
-                    
-                    particle.initPosition.w += mag;
-                    
-                    //Particles are stable, MESH.
-                    if (particle.initPosition.w > 0.0005f)
-                    {
-                        //Deformation.
-                        voxelsL1Out[flatIndex].normalDistance.z = 1; //particle.initPosition.w;
+                    voxelsL1Out[flatIndex].normalDistance.z = 1; 
 
-                    }
-                    InterlockedAdd(voxelsL1Out[flatIndex].distance, contribution);
-
-                    
                 }
+                
+                float sd = length(worldPos - position) - radiusParticleSpacing;
+                
+                int distanceContribution = (int) round(sd * (float) guassContribution);
+                
+                InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
+                InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
 
             }
     

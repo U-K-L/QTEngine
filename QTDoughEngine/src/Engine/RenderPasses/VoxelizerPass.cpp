@@ -133,7 +133,7 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(float);
+    pushConstantRange.size = sizeof(PushConsts);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1190,7 +1190,8 @@ void VoxelizerPass::CreateBrushes()
 
         brush.materialId = i;
 
-        brush.density = 2;
+        brush.density = 4;
+        brush.particleRadius = 2.0f;
 
         
         if (brush.id == 2)
@@ -1327,7 +1328,7 @@ void VoxelizerPass::Create3DTextures()
     for (int i = 0; i < brushes.size()*2; i++)
     {
         int index = i / 2;
-        Brush& brush = brushes[0];
+        Brush& brush = brushes[index];
 
         if(brush.type != 0) {
 			continue;
@@ -1871,6 +1872,36 @@ void VoxelizerPass::PerformEikonalSweeps(VkCommandBuffer cmd, uint32_t curFrame)
     currentSdfSet = sweepSets[false];
 }
 
+void VoxelizerPass::BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    VkDescriptorSet sets[2] = {
+        app->globalDescriptorSets[curFrame],
+        sweepSets[pingRead ? 0 : 1]
+    };
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets, 0, nullptr);
+}
+
+void VoxelizerPass::BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    VkDescriptorSet sets[2] = {
+        app->globalDescriptorSets[curFrame],
+        computeDescriptorSets[curFrame]
+    };
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets, 0, nullptr);
+}
+
+
+
 void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
 {
 
@@ -2081,6 +2112,16 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     {
         
         //DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
+
+        //Smoothing Kernel Pass
+        DispatchLOD(commandBuffer, currentFrame, 10);
+        bool swapPing = true;
+        for (int i = 0; i < 12; ++i)
+        {
+            DispatchLOD(commandBuffer, currentFrame, 11, swapPing);
+            swapPing = !swapPing;
+        }
+
 
         DispatchLOD(commandBuffer, currentFrame, 1);
 
@@ -2723,6 +2764,23 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountZ = (res.z + 7) / 8;
 	}
 
+    if (lodLevel == 10)
+    {
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
+    }
+
+    //Smoothing Kernel
+    if (lodLevel == 11)
+    {
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
+    }
+
     if (lodLevel >= 8)
     {
         //res = WORLD_SDF_RESOLUTION;
@@ -2817,9 +2875,16 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         &pc
     );
 
+
+    if (lodLevel == 11)
+        BindSetsForVoxels(commandBuffer, currentFrame, pingFlag); // sweepSets ping/pong
+    else
+        BindSetsNormal(commandBuffer, currentFrame);              // computeDescriptorSets path
+
+    /*
     VkDescriptorSet sets[] = {
-        app->globalDescriptorSets[currentFrame],
-        computeDescriptorSets[currentFrame]
+    app->globalDescriptorSets[currentFrame],
+    computeDescriptorSets[currentFrame]
     };
 
     vkCmdBindDescriptorSets(commandBuffer,
@@ -2827,7 +2892,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         voxelizeComputePipelineLayout,
         0, 2, sets,
         0, nullptr);
-
+        */
     /*
     // Add debug label for Nsight
     VkDebugUtilsLabelEXT label{};
@@ -2845,7 +2910,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
     mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 
     VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
     dep.memoryBarrierCount = 1;

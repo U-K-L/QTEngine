@@ -28,9 +28,9 @@ public:
     //This voxel is for L1, in the future we also want a Voxel struct with more information but higher MIP.
     struct Voxel {
         int distance;
+        uint32_t density;
         float id;
         uint32_t brushId;
-        uint32_t pad3;
         glm::vec4 normalDistance;
         //glm::ivec4 materialIds;   
     };
@@ -60,6 +60,7 @@ public:
         int isDeformed;
         int materialId;
         int density;
+        float particleRadius;
     };
 
     struct Tile
@@ -196,6 +197,8 @@ public:
     void DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount);
     void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
+    void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
+    void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 

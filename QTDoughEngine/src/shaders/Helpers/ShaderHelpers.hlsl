@@ -28,7 +28,7 @@
 
 #define MAX_BRUSHES 8192
 
-#define DENSITY_SCALE 32
+#define DENSITY_SCALE 1048576.0f
 
 #define NO_LABEL 16777215  // safe max exact int
 float NO_LABELF()
@@ -49,9 +49,9 @@ inline float lenFast(float3 v)
 struct Voxel
 {
     int distance;
+    uint density;
     float id;
     uint brushId;
-    uint uniqueId;
     float4 normalDistance;
     //int4 materialIds;
 };
@@ -95,6 +95,7 @@ struct Brush
     int isDeformed;
     int materialId;
     int density;
+    float particleRadius;
 };
 
 struct Vertex
