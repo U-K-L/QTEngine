@@ -2836,7 +2836,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
     }
-
+    /*
     //Smoothing Kernel
     if (lodLevel == 11)
     {
@@ -2845,7 +2845,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
     }
-
+    */
     if (lodLevel >= 8)
     {
         //res = WORLD_SDF_RESOLUTION;
