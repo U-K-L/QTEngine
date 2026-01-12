@@ -1407,7 +1407,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
             GameQualitySettings = 1;
         }
 
-        VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
+        //VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
     }
 
     if (GameQualitySettings == 1)
@@ -1425,7 +1425,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
             GameQualitySettings = 2;
         }
 
-        VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
+        //VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
     }
 
     if (GameQualitySettings == 2)
@@ -1443,7 +1443,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
             GameQualitySettings = 3;
         }
 
-        VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
+        //VOXEL_RESOLUTIONL1 = worldImageRes.x / 2.0f;
     }
 
     if (GameQualitySettings == 3)
@@ -1456,7 +1456,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
             std::cout << "Low Quality Voxel Resolution. " << std::endl;
 
         }
-        VOXEL_RESOLUTIONL1 = worldImageRes.x;
+        //VOXEL_RESOLUTIONL1 = worldImageRes.x;
     }
 
     return worldImageRes;
@@ -2898,7 +2898,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Meshing
     if (lodLevel == 40)
     {
-        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
+        res = WORLD_SDF_RESOLUTION / 2;
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
@@ -2907,7 +2907,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
+        res = WORLD_SDF_RESOLUTION / 2;
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;

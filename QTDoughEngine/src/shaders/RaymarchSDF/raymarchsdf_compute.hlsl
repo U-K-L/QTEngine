@@ -776,8 +776,11 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         currentSDF.x = sampleId.x;
         closesSDF = min(closesSDF, currentSDF);
 
+                
+        bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
+        
         bool canTerminate =
-        (closesSDF.x < minDistReturn);
+        (closesSDF.x < minDistReturn) && !inAABB;
         
         if(closesSDF.x > 1)
             return hitSample;
@@ -818,7 +821,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
 
         float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.05f, voxelSizeL1 * (sampleLevel +1));
         /*
-        if (bounces == 0)
+        if (bounces == 0)43423454
         {
             if (closesSDF.x < minDistanceL0)
                 stepSize = voxelSizeL1 * 0.075f;
@@ -831,14 +834,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         
         accumaltor += abs((voxelSizeL1 * 4.0f * sampleLevel) - currentSDF.x) * 0.001f;
         pos += direction * stepSize;
-        
-        /*
-        bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
-        if (inAABB)
-        {
-            return hitSample;
-        }
-        */
+
 
     }
     

@@ -249,7 +249,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
     voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].isoPhi = 0;
     //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0; //Default is deformable field.
-    //Write3DDist(0, DTid, DEFUALT_EMPTY_SPACE);
+    Write3DDist(1, DTid, 0);
 }
 
 void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -1470,7 +1470,8 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     }
     
     //Set Active cell.
-    voxelsL1Out[flatIndex].dc = 1;
+    //voxelsL1Out[flatIndex].dc = 1;
+    Write3D(1, DTid, 1);
 }
 
 
@@ -1847,7 +1848,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     float4 voxelL1Res = GetVoxelResolutionL1(pc.voxelResolution);
     int index = Flatten3D(DTid, voxelL1Res.xyz);
-    float activeValue = voxelsL1Out[index].dc;
+    float activeValue = Read3D(1, DTid); //voxelsL1Out[index].dc;
     
     int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
     
