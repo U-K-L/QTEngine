@@ -262,6 +262,7 @@ void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
     //voxelsL1Out[voxelIndex].id = NO_LABELF();
     voxelsL1Out[voxelIndex].distance = 2;
     Write3D(0, DTid, clearValue);
+    Write3D(1, DTid/2, 0);
     GlobalIDCounter[1] = 0;
 
 }
@@ -631,7 +632,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     int blockSize = brush.density; //Give each brush a density field.
     if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
     {
-        float3 voxelRes = GetVoxelResolutionL1(pc.voxelResolution).xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
+        float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
         float3 sceneSize = GetSceneSize();
     
         float3 voxelSize = sceneSize / voxelRes;
@@ -665,7 +666,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 void CreateParticles(uint3 DTid : SV_DispatchThreadID)
 {
 
-    float3 voxelRes = GetVoxelResolutionL1(pc.voxelResolution).xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();
     
     float3 voxelSize = sceneSize / voxelRes;
@@ -837,12 +838,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1(pc.voxelResolution).xyz);
+    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
     int3 DTL1 = DTid / worldSDFDivisor;
 
     if(brushCount == 0)
     {
-        float3 voxelSceneBoundsl1 = GetVoxelResolutionL1(pc.voxelResolution);
+        float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
         uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
@@ -884,7 +885,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float distortionFieldSum = 0;
 
     
-    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1(pc.voxelResolution);
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     //Sum the distoration field.
     int kernelSize = 2;
     
@@ -1413,18 +1414,20 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
 
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
+    int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 halfSceneAABB = (GetDCAABBSize()) * 0.5f;
     float3 minAABB = -halfSceneAABB;
     float3 maxAABB =  halfSceneAABB;
+    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
     float3 uvw = ((float3) DTid + 0.5f) / GetVoxelResolutionL1(pc.voxelResolution).xyz;
     float3 minLocal = lerp(minAABB, maxAABB, uvw) + aabbCenterWS;
     
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
     
     //Read the second mip map.
-    int mipLevel = 0;
-    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+
+
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize * 0.5f;
     
@@ -1462,7 +1465,7 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     //Need to convert find the active cell for the voxelsBuffer which is lower resolution.
     //Currently the main one is baseTexel, convert that to voxel buffer index.
     //int3 baseTexelForBuffer = baseTexel / pow(2, mipLevel - 1);
-    uint flatIndex = Flatten3D(DTid, GetVoxelResolutionL1(pc.voxelResolution).xyz);
+    uint flatIndex = Flatten3D(DTid, GetVoxelResolutionL1().xyz);
     
     if (!(minVal < 0.0f && maxVal > 0.0f))
     {
@@ -1832,12 +1835,6 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
     
-    int3 res = int3(GetVoxelResolutionL1(pc.voxelResolution).xyz);
-    if (DTid.x == 0 || DTid.y == 0 || DTid.z == 0)
-        return;
-    if (DTid.x >= res.x - 1 || DTid.y >= res.y - 1 || DTid.z >= res.z - 1)
-        return;
-    
     int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
@@ -1846,7 +1843,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
 
     
-    float4 voxelL1Res = GetVoxelResolutionL1(pc.voxelResolution);
+    float4 voxelL1Res = GetVoxelResolutionL1();
     int index = Flatten3D(DTid, voxelL1Res.xyz);
     float activeValue = Read3D(1, DTid); //voxelsL1Out[index].dc;
     
@@ -2088,7 +2085,7 @@ void FinalizeMesh()
 
 float GetPhi(uint3 index)
 {
-    float3 voxelRes = GetVoxelResolutionL1(pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
     uint flatIndex = Flatten3D(index, voxelRes);
     
     float phi = voxelsL1In[flatIndex].isoPhi;
@@ -2098,7 +2095,7 @@ float GetPhi(uint3 index)
 
 float ComputePhi(uint3 index)
 {
-    float3 voxelRes = GetVoxelResolutionL1(pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
     uint flatIndex = Flatten3D(index, voxelRes);
     
     float phi = CalculateSDFGaussDistance(voxelsL1Out[flatIndex].distance, voxelsL1Out[flatIndex].density);
@@ -2109,7 +2106,7 @@ float ComputePhi(uint3 index)
 [numthreads(8, 8, 8)]
 void SmoothGrid(uint3 DTid : SV_DispatchThreadID)
 {
-    float3 voxelRes = GetVoxelResolutionL1(pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
     if (any(DTid >= voxelRes))
         return;
 
@@ -2144,7 +2141,7 @@ void SmoothGrid(uint3 DTid : SV_DispatchThreadID)
 [numthreads(8, 8, 8)]
 void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
 {
-    float3 voxelRes = GetVoxelResolutionL1(pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
     if (any(DTid >= voxelRes))
         return;
 

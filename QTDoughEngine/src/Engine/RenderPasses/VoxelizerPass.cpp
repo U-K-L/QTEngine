@@ -2889,7 +2889,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Clear Voxels
     if (lodLevel == 24)
     {
-        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f);
+        res = WORLD_SDF_RESOLUTION / 2;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
