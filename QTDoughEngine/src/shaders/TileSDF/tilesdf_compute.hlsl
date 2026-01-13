@@ -303,7 +303,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 //Special flag.
                 if (particle.initPosition.w > 0.0005f)
                 {
-                    voxelsL1Out[flatIndex].jacobian = 1; 
+                    voxelsL1Out[flatIndex].jacobian = 1;
 
                 }
                 
@@ -316,14 +316,13 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
             }
     
-    //if(particle.initPosition.w > 0.0f)
-    //    Brushes[particle.particleIDs.x].isDeformed = 1;
+    if(particle.initPosition.w > 0.05f)
+        Brushes[particle.particleIDs.x].isDeformed = true;
     
     particle.initPosition.w *= 0.95f;
     
     particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
     particlesL1Out[DTid.x].initPosition = particle.initPosition;
-    brush.isDeformed = true;
 
 }
 

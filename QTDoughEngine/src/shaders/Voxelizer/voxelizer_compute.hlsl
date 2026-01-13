@@ -911,7 +911,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index3 = Flatten3D(DTL3, voxelSceneBoundsl1);
     uint index4 = Flatten3D(DTL4, voxelSceneBoundsl1);
 
-    //voxelsL1Out[index].brushId = minId;
+    voxelsL1Out[index].brushId = minId;
     //voxelsL1Out[index].normalDistance.w = blendFactor;
     //voxelsL1Out[index].normalDistance.x = smoothness;
 
@@ -1862,12 +1862,16 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float distortionFieldSum = 0;
     
     uint indexField = Flatten3D(DTid, voxelL1Res.xyz);
-    uint brushIndex = 1; //voxelsL1Out[indexField].brushId;
+    uint brushIndex = voxelsL1Out[indexField].brushId;
     
     Brush brush = Brushes[brushIndex];
     
+    if (brush.isDeformed == false)
+        return;
+    
     //Sum the distoration field.
-    int kernelSize = 8;
+    /*
+    int kernelSize = 3;
     
     for (int l = -kernelSize; l <= kernelSize; l++)
         for (int j = -kernelSize; j <= kernelSize; j++)
@@ -1878,9 +1882,9 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
                 distortionFieldSum += clamp(voxelsL1Out[indexField].jacobian, 0, 1);
 
             }
-    
-    //If the distortion field and its nieghbors greater than 0 ignore dual contour.
-    //if (!(distortionFieldSum > 0))
+    */
+    //If the distortion field is lower than deformation threshold ignore DC.
+    //if (distortionFieldSum < 0.1f)
     //    return;
 
     //Check Every single face.

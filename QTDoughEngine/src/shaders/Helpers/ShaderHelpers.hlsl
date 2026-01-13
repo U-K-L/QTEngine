@@ -60,6 +60,7 @@ struct VoxelL1
 {
     int distance;
     uint density;
+    uint brushId;
     float isoPhi;
     float jacobian;
     uint dc;
