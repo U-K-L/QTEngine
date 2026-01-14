@@ -2189,14 +2189,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &depInfoBack);
 
         DispatchLOD(commandBuffer, currentFrame, 1);
+        //Write deformed brushes.
+        DispatchLOD(commandBuffer, currentFrame, 15);
 
-        //Mips
-        DispatchLOD(commandBuffer, currentFrame, 2);
-        DispatchLOD(commandBuffer, currentFrame, 3);
-        DispatchLOD(commandBuffer, currentFrame, 4);
-        DispatchLOD(commandBuffer, currentFrame, 5);
 
-        //Meshing. Move to indirect dispatch.
         DispatchLOD(commandBuffer, currentFrame, 40);
 
         //Dual Contour.
@@ -2204,11 +2200,21 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
-        for(int i = 0; i < brushes.size(); i++)
-            DispatchVertexMask(commandBuffer, currentFrame, i);
+        //for (int i = 0; i < brushes.size(); i++)
+        //    DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
+
+        //Mips
+        DispatchLOD(commandBuffer, currentFrame, 2);
+        DispatchLOD(commandBuffer, currentFrame, 3);
+        DispatchLOD(commandBuffer, currentFrame, 4);
+        DispatchLOD(commandBuffer, currentFrame, 5);
+
+
+
+
 
         VkBufferMemoryBarrier barriers[2] = {};
 
@@ -2828,6 +2834,14 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
 	}
+
+    if (lodLevel == 15)
+    {
+        res = res / 2;
+        groupCountX = (res.x + 7) / 8;
+        groupCountY = (res.y + 7) / 8;
+        groupCountZ = (res.z + 7) / 8;
+    }
 
     if (lodLevel == 10)
     {

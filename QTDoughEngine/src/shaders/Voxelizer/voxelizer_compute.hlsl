@@ -943,6 +943,87 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //Write3DDist(0, DTid, minDist);
 }
 
+void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
+{
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(2.0f, pc.voxelResolution);
+    float3 voxelGridRes = voxelSceneBounds.xyz;
+    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    
+    float3 voxelSize = sceneSize / voxelGridRes;
+    float3 halfScene = sceneSize * 0.5f;
+    
+    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
+
+    float3 voxelMin = center - voxelSize * 0.5f;
+    float3 voxelMax = center + voxelSize * 0.5f;
+
+    
+    float minDist = DEFUALT_EMPTY_SPACE;
+    int minId = 0;
+    
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
+    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution);
+
+    int3 tileCoord = floor((center + halfScene) / tileWorldSize);
+
+    tileCoord = clamp(tileCoord, int3(0, 0, 0), numTilesPerAxis - 1);
+
+    uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
+    
+    //Find the distance field closes to this voxel.
+    float blendFactor = 0;
+    float smoothness = 10;
+    uint brushCount = TileBrushCounts[tileIndex];
+    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
+    int3 DTL1 = DTid / worldSDFDivisor;
+
+    if (brushCount == 0)
+    {
+        float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+        uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
+        float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
+        minDist = min(sdfVal, minDist);
+        Write3DDist(1, DTid, minDist);
+        return;
+    }
+
+
+    for (uint i = 0; i < brushCount; i++)
+    {
+        uint offset = tileIndex * TILE_MAX_BRUSHES + i;
+        uint index = BrushesIndices[offset];
+        
+        Brush brush = Brushes[index];
+        
+        //if(brush.isDeformed == 1)
+        //    continue;
+        
+
+        float d = Read3DTransformed(brush, center).x;
+
+
+        if (brush.opcode == 1)
+            minDist = max(-d + 1, minDist);
+        else if (brush.opcode == 0)
+        {
+            blendFactor += brush.blend;
+            //This brush actually gets added.
+            if (minDist > (d + 0.25f))
+            {
+                minId = brush.materialId;
+
+            }
+
+            minDist = smin(minDist, d, blendFactor + 0.0001f);
+            smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
+
+        }
+    }
+
+    Write3DDist(1, DTid, minDist);
+    
+}
+
 void GenerateMIPS(uint3 DTid : SV_DispatchThreadID, float sampleLevel)
 {
     /*
@@ -1414,7 +1495,7 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
 
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
-    int mipLevel = 0;
+    int mipLevel = 1;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 halfSceneAABB = (GetDCAABBSize()) * 0.5f;
     float3 minAABB = -halfSceneAABB;
@@ -1835,7 +1916,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
     
-    int mipLevel = 0;
+    int mipLevel = 1;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
     float3 sceneSize = GetSceneSize();
@@ -1866,8 +1947,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     Brush brush = Brushes[brushIndex];
     
-    if (brush.isDeformed == false)
-        return;
+    //if (brush.isDeformed == false)
+    //    return;
     
     //Sum the distoration field.
     /*
@@ -2210,6 +2291,12 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     if (sampleLevelL == 14.0f)
     {
         DeformBrush(DTid, gIndex, lThreadID);
+        return;
+    }
+    
+    if (sampleLevelL == 15.0f)
+    {
+        WriteToWorldSDFL2(DTid);
         return;
     }
     
