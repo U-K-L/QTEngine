@@ -253,8 +253,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
-    if(distFromHeat < 2.125f)
-        position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+    //if(distFromHeat < 2.125f)
+    //    position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
@@ -303,7 +303,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 //Special flag.
                 if (particle.initPosition.w > 0.0005f)
                 {
-                    voxelsL1Out[flatIndex].jacobian = 1;
+                    voxelsL1Out[flatIndex].jacobian = 0;
 
                 }
                 

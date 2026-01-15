@@ -887,7 +887,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     //Sum the distoration field.
-    int kernelSize = 2;
+    int kernelSize = 3;
     
     for(int l = -kernelSize; l <= kernelSize; l++)
         for(int j = -kernelSize; j <= kernelSize; j++)
@@ -961,8 +961,8 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     float minDist = DEFUALT_EMPTY_SPACE;
     int minId = 0;
     
-    float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
-    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution);
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution/2) * voxelSize;
+    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution/2);
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 
@@ -974,7 +974,7 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
+    float3 worldSDFDivisor = ((pc.voxelResolution/2) / GetVoxelResolutionL1().xyz);
     int3 DTL1 = DTid / worldSDFDivisor;
 
     if (brushCount == 0)
@@ -995,8 +995,8 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
         
         Brush brush = Brushes[index];
         
-        //if(brush.isDeformed == 1)
-        //    continue;
+        if(brush.isDeformed == 0)
+            continue;
         
 
         float d = Read3DTransformed(brush, center).x;
@@ -1019,8 +1019,52 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
 
         }
     }
+    float distortionFieldSum = 0;
 
-    Write3DDist(1, DTid, minDist);
+    
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+    //Sum the distoration field.
+    int kernelSize = 2;
+    
+    for (int l = -kernelSize; l <= kernelSize; l++)
+        for (int j = -kernelSize; j <= kernelSize; j++)
+            for (int k = -kernelSize; k <= kernelSize; k++)
+            {
+                int3 dtid = DTid + int3(l, j, k);
+                dtid = dtid / worldSDFDivisor;
+                uint index = Flatten3D(dtid, voxelSceneBoundsl1);
+                distortionFieldSum += clamp(voxelsL1Out[index].jacobian, 0, 1);
+
+            }
+    
+    uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
+
+
+    int3 DTL2 = DTid + int3(1, 0, 0);
+    int3 DTL3 = DTid + int3(0, 1, 0);
+    int3 DTL4 = DTid + int3(0, 0, 1);
+
+    uint index2 = Flatten3D(DTL2, voxelSceneBoundsl1);
+    uint index3 = Flatten3D(DTL3, voxelSceneBoundsl1);
+    uint index4 = Flatten3D(DTL4, voxelSceneBoundsl1);
+
+    voxelsL1Out[index].brushId = minId;
+    //voxelsL1Out[index].normalDistance.w = blendFactor;
+    //voxelsL1Out[index].normalDistance.x = smoothness;
+
+    //Final min distance to see if a smaller distance exist in our particle buffer.
+    //minDist = min(voxelsL1Out[index].distance, minDist);
+    
+    //float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
+    float sdfVal = voxelsL1Out[index].isoPhi; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
+    
+    //sdfVal = min(sdfVal, sdfVal);
+    //Write3DDist(0, DTid, sdfVal); // Consider particles.
+    if (distortionFieldSum > 0.0f)
+        Write3DDist(1, DTid, sdfVal); // Consider particles.
+    else
+        Write3DDist(1, DTid, minDist); // Ignore particle contribution.
+    
     
 }
 
@@ -1495,7 +1539,7 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
 
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
-    int mipLevel = 1;
+    int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 halfSceneAABB = (GetDCAABBSize()) * 0.5f;
     float3 minAABB = -halfSceneAABB;
@@ -1916,7 +1960,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
     
-    int mipLevel = 1;
+    int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
     float3 sceneSize = GetSceneSize();
@@ -1951,7 +1995,6 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     //    return;
     
     //Sum the distoration field.
-    /*
     int kernelSize = 3;
     
     for (int l = -kernelSize; l <= kernelSize; l++)
@@ -1963,10 +2006,9 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
                 distortionFieldSum += clamp(voxelsL1Out[indexField].jacobian, 0, 1);
 
             }
-    */
     //If the distortion field is lower than deformation threshold ignore DC.
-    //if (distortionFieldSum < 0.1f)
-    //    return;
+    if (distortionFieldSum < 0.1f)
+        return;
 
     //Check Every single face.
     int offSet = 1;
@@ -2081,7 +2123,7 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
     if (!WorldPosToL1Index(worldPos, c, i))
         return false;
 
-    int res = (int) GetVoxelResolution(1.0f).x;
+    int3 res = GetVoxelResolutionL1().xyz;
 
     [unroll]
     for (int dz = -radius; dz <= radius; ++dz)
@@ -2090,8 +2132,8 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
     [unroll]
             for (int dx = -radius; dx <= radius; ++dx)
             {
-                int3 cc = clamp(c + int3(dx, dy, dz), int3(0, 0, 0), int3(res - 1, res - 1, res - 1));
-                uint idx = Flatten3DR(cc, res);
+                int3 cc = clamp(c + int3(dx, dy, dz), int3(0, 0, 0), int3(res - 1));
+                uint idx = Flatten3D(cc, res);
                 if (voxelsL1Out[idx].jacobian > 0.0f)
                     return true;
             }
@@ -2109,8 +2151,8 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     Brush brush = Brushes[brushID];
     
     //If the brush is deformed remove it from the default static mesh.
-    if(brush.isDeformed == 1)
-        return;
+    //if(brush.isDeformed == 1)
+    //    return;
     
     const uint triIdx = DTid.x;
     if (triIdx >= brush.vertexCount * 3)
