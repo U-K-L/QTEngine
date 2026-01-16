@@ -213,6 +213,77 @@ float3 GetNormal(float3 worldPos)
 }
 
 
+// Tiny smooth clamp helpers
+float saturate01(float x)
+{
+    return saturate(x);
+}
+
+// Cheap pseudo-noise (continuous) for extra "dance"
+float3 SinNoise3(float3 p, float t)
+{
+    // Continuous, no texture, deterministic.
+    float n1 = sin(dot(p, float3(12.9898, 78.233, 37.719)) + t * 1.13);
+    float n2 = sin(dot(p, float3(39.3467, 11.135, 83.155)) + t * 0.97);
+    float n3 = sin(dot(p, float3(73.156, 52.235, 9.151)) + t * 1.21);
+    return float3(n1, n2, n3);
+}
+
+// Main effect: swirling sphere + radial breathing + slight axial bob
+float3 SwirlSphereDanceWS(
+    float3 pWS,
+    float3 centerWS,
+    float t,
+    float dt,
+    float radius,
+    float swirlStrength, // tangential speed
+    float radialStrength, // in/out breathing
+    float noiseStrength // small chaotic wobble
+)
+{
+    float3 v = pWS - centerWS;
+    float r = length(v);
+    if (r < 1e-6f)
+        return pWS;
+
+    float3 dir = v / r;
+
+    // A slowly precessing axis so it doesn't look like a rigid turntable.
+    float3 axis = normalize(float3(
+        sin(t * 0.73f) * 0.6f + 0.2f,
+        cos(t * 0.91f) * 0.7f + 0.1f,
+        sin(t * 0.57f) * 0.8f + 0.3f
+    ));
+
+    // Tangential direction around the axis
+    float3 tangent = cross(axis, dir);
+    float tangLen = length(tangent);
+    tangent = (tangLen > 1e-6f) ? (tangent / tangLen) : float3(0, 0, 0);
+
+    // Falloff: strongest near center, fades to 0 at/beyond radius.
+    // smoothstep(radius, 0, r) => 1 at r=0, 0 at r>=radius
+    float falloff = smoothstep(radius, 0.0f, r);
+
+    // Radial breathing: phase depends on radius for nice layered waves.
+    float pulse = sin(t * 2.4f + r * 6.0f);
+
+    // Add a gentle axial bob so the sphere "stirs" in 3D.
+    float axial = sin(t * 1.7f + r * 2.5f);
+
+    // Small continuous wobble (kept subtle to avoid exploding motion).
+    float3 wobble = SinNoise3(pWS * 1.3f, t) * noiseStrength;
+
+    // Compose velocity
+    float3 vel =
+        tangent * (swirlStrength * falloff * (0.65f + 0.35f * pulse)) +
+        dir * (radialStrength * falloff * pulse) +
+        axis * (0.25f * radialStrength * falloff * axial) +
+        wobble * falloff;
+
+    return pWS + vel * dt;
+}
+
+
 
 void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
@@ -253,8 +324,25 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
-    //if(distFromHeat < 2.125f)
-    //    position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+    float t = time.x * 0.001f; // your existing speed scaling
+    float3 centerWS = mul(brush.model, float4(0, 0, 0, 1)).xyz; // or any world-space pivot
+
+    float danceRadius = 20.0f;
+
+    position = SwirlSphereDanceWS(
+    position,
+    centerWS,
+    t,
+    deltaTime,
+    danceRadius,
+    /*swirlStrength=*/ 23.5f,
+    /*radialStrength=*/ 20.0f,
+    /*noiseStrength=*/ 1.6f
+);
+
+    
+    if(distFromHeat < 2.125f)
+        position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
@@ -303,7 +391,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 //Special flag.
                 if (particle.initPosition.w > 0.0005f)
                 {
-                    voxelsL1Out[flatIndex].jacobian = 0;
+                    voxelsL1Out[flatIndex].jacobian = 0.1;
 
                 }
                 

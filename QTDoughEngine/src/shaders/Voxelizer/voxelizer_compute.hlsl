@@ -242,12 +242,14 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {   
-    int3 DTL1 = DTid;
-    float2 voxelSceneBoundsl1 = GetVoxelResolution(0.0f);
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].distance = DEFUALT_EMPTY_SPACE;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].density = 0;
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1().xyz;
+    int3 idVoxel = DTid * (voxelSceneBoundsl1 / (pc.voxelResolution / 2));
+    uint index = Flatten3D(idVoxel, voxelSceneBoundsl1);
+    voxelsL1Out[index].distance = DEFUALT_EMPTY_SPACE;
+    voxelsL1Out[index].density = 0;
+    voxelsL1Out[index].jacobian = 0;
     //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
-    voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].isoPhi = 0;
+    voxelsL1Out[index].isoPhi = 0;
     //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0; //Default is deformable field.
     Write3DDist(1, DTid, 0);
 }
@@ -924,10 +926,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //sdfVal = min(sdfVal, sdfVal);
     //Write3DDist(0, DTid, sdfVal); // Consider particles.
     
-    if (distortionFieldSum > 0.0f)
+    //if (distortionFieldSum > 0.0f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
-    else
-        Write3DDist(0, DTid, minDist); // Ignore particle contribution.
+    //else
+    //    Write3DDist(0, DTid, minDist); // Ignore particle contribution.
     
     /*
     float t = time*0.0001f;
@@ -1926,7 +1928,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     if (normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
-        float t = clamp(1.0f - exp(-1.25f), 0, 1.0f);
+        float t = clamp(1.0f - exp(-4.25f), 0, 1.0f);
         n0 = GetNormal(v0);
         n1 = GetNormal(v1);
         n2 = GetNormal(v2);
@@ -2007,8 +2009,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
             }
     //If the distortion field is lower than deformation threshold ignore DC.
-    if (distortionFieldSum < 0.1f)
-        return;
+    //if (distortionFieldSum < 0.1f)
+    //    return;
 
     //Check Every single face.
     int offSet = 1;

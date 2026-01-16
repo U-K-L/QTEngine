@@ -2153,7 +2153,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
         bool swapPing = true;
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 6; ++i)
         {
             DispatchLOD(commandBuffer, currentFrame, 11, swapPing);
             swapPing = !swapPing;
@@ -2200,8 +2200,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
-        for (int i = 0; i < brushes.size(); i++)
-            DispatchVertexMask(commandBuffer, currentFrame, i);
+        //for (int i = 0; i < brushes.size(); i++)
+        //    DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
