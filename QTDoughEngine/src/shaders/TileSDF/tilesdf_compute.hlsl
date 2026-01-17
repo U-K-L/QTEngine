@@ -319,8 +319,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 direction = normalize(position - float3(0, 0, 0));
 
     position = mul(brush.model, float4(position, 1.0f)).xyz;
-
     float3 positionOld = position;
+
+    /*
+
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
@@ -335,15 +337,16 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     t,
     deltaTime,
     danceRadius,
-    /*swirlStrength=*/ 23.5f,
-    /*radialStrength=*/ 20.0f,
-    /*noiseStrength=*/ 1.6f
+    23.5f,
+    20.0f,
+    1.6f
 );
 
     
     if(distFromHeat < 2.125f)
         position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
+    */
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();

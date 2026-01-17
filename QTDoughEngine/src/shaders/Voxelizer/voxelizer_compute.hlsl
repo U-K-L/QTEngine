@@ -926,10 +926,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //sdfVal = min(sdfVal, sdfVal);
     //Write3DDist(0, DTid, sdfVal); // Consider particles.
     
-    //if (distortionFieldSum > 0.0f)
+    if (distortionFieldSum > 0.1f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
-    //else
-    //    Write3DDist(0, DTid, minDist); // Ignore particle contribution.
+    else
+        Write3DDist(0, DTid, minDist); // Ignore particle contribution.
     
     /*
     float t = time*0.0001f;
@@ -1928,7 +1928,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     if (normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
-        float t = clamp(1.0f - exp(-4.25f), 0, 1.0f);
+        float t = clamp(1.0f - exp(-1.25f), 0, 1.0f);
         n0 = GetNormal(v0);
         n1 = GetNormal(v1);
         n2 = GetNormal(v2);

@@ -622,10 +622,20 @@ void QTDoughApplication::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usag
     VkMemoryRequirements memRequirements;
     vkGetBufferMemoryRequirements(_logicalDevice, buffer, &memRequirements);
 
+    VkMemoryAllocateFlagsInfo allocFlags{
+    VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO
+    };
+    allocFlags.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
+
+    allocInfo.pNext =
+        (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        ? &allocFlags
+        : nullptr;
 
     if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate buffer memory!");
@@ -2584,12 +2594,23 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
 
     //After getting GPU features create list of features we want GPU to have to run program.
 
-    //Must support raytracing. Remove this later, adding this for now due to testing....
+    //Must support raytracing.
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
+    accelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingFeatures = {};
     rayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    rayTracingFeatures.pNext = &accelFeatures;
+
+
     VkPhysicalDeviceFeatures2 deviceFeatures2{};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures2.pNext = &rayTracingFeatures;
+
+
+    vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
+
     
     //Get the features of this device. Does it support ray tracing?
     vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
@@ -2629,13 +2650,27 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
     std::cout << "Max 3D Texture Size: " << max3DTextureSize << std::endl;
     std::cout << "========================: " << std::endl;
 
+    if(TotalGPURam < 6000)
+	{
+		std::cout << "Warning: System RAM is less than 6GB, less than minimum requirements." << std::endl;
+	}
+
+    if(!rayTracingFeatures.rayTracingPipeline || !accelFeatures.accelerationStructure)
+    {
+        std::cout << "Device does not support required ray tracing features." << std::endl;
+	}
+
 
     //return indices.isComplete() && extensionsSupported && swapChainAdequate;
 
     //return true;
 
-    return rayTracingFeatures.rayTracingPipeline &&
-           indices.graphicsAndComputeFamily.has_value();
+    return indices.isComplete()
+        && extensionsSupported
+        && swapChainAdequate
+        && rayTracingFeatures.rayTracingPipeline
+        && accelFeatures.accelerationStructure
+        && (TotalGPURam >= 6000); //At least 6GB VRAM
 }
 
 std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {
@@ -2695,36 +2730,25 @@ void QTDoughApplication::CreateLogicalDevice()
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsAndComputeFamily.value(), indices.presentFamily.value() };
 
-    float queuePriority = 1.0f;
+    float queuePriorities[2] = { 1.0f, 1.0f };
     for (uint32_t queueFamily : uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfo.queueCount = (queueFamily == indices.graphicsAndComputeFamily.value()) ? 2 : 1;
+        queueCreateInfo.pQueuePriorities = queuePriorities;
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    _createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     _createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     _createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphicsAndComputeFamily.value();
-    queueCreateInfo.queueCount = 1;
-
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-
-    _createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
     VkPhysicalDeviceFeatures deviceFeatures;
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
     vkGetPhysicalDeviceFeatures(_physicalDevice, &deviceFeatures);
+    deviceFeatures.samplerAnisotropy = VK_TRUE;;
 
-    _createInfo.pQueueCreateInfos = &queueCreateInfo;
-    _createInfo.queueCreateInfoCount = 1;
-
-    _createInfo.pEnabledFeatures = &deviceFeatures;
+    _createInfo.pEnabledFeatures = nullptr;
 
     _createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     _createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -2748,18 +2772,51 @@ void QTDoughApplication::CreateLogicalDevice()
     descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
 
+
+    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddress{};
+    bufferDeviceAddress.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+    bufferDeviceAddress.bufferDeviceAddress = VK_TRUE;
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructure{};
+    accelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    accelerationStructure.accelerationStructure = VK_TRUE;
+
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR raytracingPipeline{};
+    raytracingPipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    raytracingPipeline.rayTracingPipeline = VK_TRUE;
+
     // Chain them
     descriptorIndexingFeatures.pNext = &scalarBlockLayoutFeatures;
+    scalarBlockLayoutFeatures.pNext = &bufferDeviceAddress;
+    bufferDeviceAddress.pNext = &accelerationStructure;
+    accelerationStructure.pNext = &raytracingPipeline;
+    raytracingPipeline.pNext = nullptr;
+
+    VkPhysicalDeviceVulkan13Features vulkan13Features{};
+    vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vulkan13Features.dynamicRendering = VK_TRUE;
+    vulkan13Features.synchronization2 = VK_TRUE;
 
     VkPhysicalDeviceFeatures2 deviceFeatures2{};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures2.features = deviceFeatures;
-    deviceFeatures2.pNext = &descriptorIndexingFeatures;
+    deviceFeatures2.pNext = &vulkan13Features;
+    vulkan13Features.pNext = &descriptorIndexingFeatures;
+
 
     // Plug into VkDeviceCreateInfo
     _createInfo.pNext = &deviceFeatures2;
+    _createInfo.pEnabledFeatures = nullptr;
 
+    uint32_t qCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &qCount, nullptr);
+    std::vector<VkQueueFamilyProperties> qProps(qCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &qCount, qProps.data());
 
+    uint32_t fam = indices.graphicsAndComputeFamily.value();
+    if (qProps[fam].queueCount < 2) {
+        throw std::runtime_error("Selected queue family does not support 2 queues.");
+    }
 
     //Finally instantiate this device.
     if (vkCreateDevice(_physicalDevice, &_createInfo, nullptr, &_logicalDevice) != VK_SUCCESS) {
@@ -2767,7 +2824,8 @@ void QTDoughApplication::CreateLogicalDevice()
     }
 
     vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkGraphicsQueue);
-    vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkComputeQueue);
+    vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 1, &_vkComputeQueue);
+
     vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
 }
 

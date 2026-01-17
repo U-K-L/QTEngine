@@ -213,7 +213,7 @@ public:
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
     //Some fluid particles test. Move this to its own pass later on.
-    int PARTICLE_COUNT = 5777216;
+    int PARTICLE_COUNT = 1048576;
 
     //128 particle data fits in a single modern GPU data lane... try to get it to 64, but always keep it multiples of 32 since some lanes are 192.
     struct Particle {

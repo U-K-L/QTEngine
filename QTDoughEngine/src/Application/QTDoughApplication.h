@@ -59,9 +59,24 @@ const std::vector<const char*> validationLayers = {
 };
 
 const std::vector<const char*> deviceExtensions = {
+    // Swapchain
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
+
+    // Descriptor indexing
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+
+    // Ray Tracing
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+
+    // MISC
+    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+    VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 };
+
 
 static const std::string AssetsPath = "Assets/";
 
@@ -277,6 +292,13 @@ public:
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
     int TotalGPURam = 1024; //In MB.
 
+    //Fields.
+    VkInstance _vkInstance;
+    VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
+    VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
+    VkQueue _vkComputeQueue = VK_NULL_HANDLE;
+    VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
+
 
 
 private:
@@ -358,12 +380,7 @@ private:
         VkExtent2D extent,
         VkRenderingAttachmentInfo* colorAttachment,
         VkRenderingAttachmentInfo* depthAttachment);
-    //Fields.
-    VkInstance _vkInstance;
-    VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
-    VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
-    VkQueue _vkComputeQueue = VK_NULL_HANDLE;
-    VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
+
 
     std::vector<VkBuffer> globalShaderGameObjs;
     std::vector<VkDeviceMemory> globalShaderGameObjsMemory;
