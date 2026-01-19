@@ -59,6 +59,126 @@ void RayTracerPass::CreateTriangleSoup()
 
 }
 
+void RayTracerPass::CreateImages() {
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    //Get the images path tied to this material.
+    for (int i = 0; i < material.textures.size(); i++) {
+        app->LoadTexture(material.textures[i].TEXTURE_PATH);
+    }
+
+    //Load all textures for all objects within this pass.
+    for (int i = 0; i < renderingObjects.size(); i++)
+    {
+        for (int j = 0; j < renderingObjects[i]->_material.textures.size(); j++)
+        {
+            app->LoadTexture(renderingObjects[i]->_material.textures[j].TEXTURE_PATH);
+        }
+    }
+
+    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;//app->_swapChainImageFormat;
+
+    // Create the offscreen image
+    app->CreateImage(
+        passWidth,
+        passHeight,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        image,
+        imageMemory
+    );
+
+    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    // Create the image view for the offscreen image
+    imageView = app->CreateImageView(image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    commandBuffer = app->BeginSingleTimeCommands();
+
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    app->EndSingleTimeCommands(commandBuffer);
+
+    // Store the offscreen texture for future references
+    UnigmaTexture offscreenTexture;
+    offscreenTexture.u_image = image;
+    offscreenTexture.u_imageView = imageView;
+    offscreenTexture.u_imageMemory = imageMemory;
+    offscreenTexture.TEXTURE_PATH = PassName;
+
+    // Use a unique key for the offscreen image
+    std::string textureKey = PassName;
+    app->textures.insert({ textureKey, offscreenTexture });
+
+    //Creating the rest of the images.
+    for (int i = 0; i < images.size(); i++)
+    {
+        app->CreateImage(
+            passWidth,
+            passHeight,
+            imageFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            images[i],
+            imagesMemory[i]
+        );
+
+        VkImageView imageView = app->CreateImageView(images[i], imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+        imagesViews.push_back(imageView);
+
+        UnigmaTexture texture;
+        texture.u_image = images[i];
+        texture.u_imageView = imageView;
+        texture.u_imageMemory = imagesMemory[i];
+        texture.TEXTURE_PATH = PassNames[i];
+
+        app->textures.insert({ PassNames[i], texture });
+    }
+}
+
 void RayTracerPass::CreateMaterials() {
 
 }
@@ -67,6 +187,7 @@ void RayTracerPass::CreateComputePipeline()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    std::cout << "Creating Ray Tracing Pipeline..." << std::endl;
     //Load RT function pointers
     vkCreateRayTracingPipelinesKHR_fn =
         (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(app->_logicalDevice, "vkCreateRayTracingPipelinesKHR");
@@ -105,11 +226,19 @@ void RayTracerPass::CreateComputePipeline()
     //Create Remaining Pipeline:
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
+    std::cout << "Loading ray tracing shader files..." << std::endl;
 
-    VkShaderModule rgen = app->CreateShaderModule(readFile("src/shaders/raygen.spv"));
-    VkShaderModule rmiss = app->CreateShaderModule(readFile("src/shaders/miss.spv"));
-    VkShaderModule rahit = app->CreateShaderModule(readFile("src/shaders/anyhit.spv"));
-    VkShaderModule rchit = app->CreateShaderModule(readFile("src/shaders/closesthit.spv"));
+    auto loadRayTracingShaders = [](const char* path, QTDoughApplication* app) -> VkShaderModule {
+        std::vector<char> filePath = readFile(path);
+        return app->CreateShaderModule(filePath);
+
+    };
+
+    VkShaderModule rgen = loadRayTracingShaders("src/shaders/raygen.spv", app);
+    VkShaderModule rmiss = loadRayTracingShaders("src/shaders/miss.spv", app);
+    VkShaderModule rahit = loadRayTracingShaders("src/shaders/anyhit.spv", app);
+    VkShaderModule rchit = loadRayTracingShaders("src/shaders/closesthit.spv", app);
+
 
     std::array<VkPipelineShaderStageCreateInfo, 4> stages{};
     stages[0] = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_RAYGEN_BIT_KHR,        rgen,  "main" };
@@ -164,6 +293,9 @@ void RayTracerPass::CreateComputePipeline()
     vkDestroyShaderModule(app->_logicalDevice, rmiss, nullptr);
     vkDestroyShaderModule(app->_logicalDevice, rchit, nullptr);
     vkDestroyShaderModule(app->_logicalDevice, rahit, nullptr);
+
+    std::cout << "Ray Tracing Pipeline created successfully." << std::endl;
+
 }
 
 void RayTracerPass::CreateComputeDescriptorSetLayout()

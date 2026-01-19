@@ -12,6 +12,7 @@
 #include "../Engine/RenderPasses/ComputePass.h"
 #include "../Engine/RenderPasses/SDFPass.h"
 #include "../Engine/RenderPasses/VoxelizerPass.h"
+#include "../Engine/RenderPasses/RayTracerPass.h"
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
@@ -21,6 +22,7 @@ GameObjectShaderData gameObjectShaderDataArray[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 std::vector<ComputePass*> computePassStack;
+std::vector<RayTracerPass*> rayTracePassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
@@ -743,7 +745,12 @@ void QTDoughApplication::AddPasses()
     computePassStack.push_back(voxelizerPass);
     computePassStack.push_back(sdfPass);
 
+    //Ray tracer passes.
+    RayTracerPass* rayTracerPass = new RayTracerPass();
+    rayTracerPass->AddObjects(unigmaRenderingObjects);
 
+    //Add ray tracer pass to the stack.
+    rayTracePassStack.push_back(rayTracerPass);
 
 
 
@@ -989,6 +996,11 @@ void QTDoughApplication::CreateComputeDescriptorSets() {
 	{
 		computePassStack[i]->CreateComputeDescriptorSets();
 	}
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        rayTracePassStack[i]->CreateComputeDescriptorSets();
+    }
 }
 
 void QTDoughApplication::CreateShaderStorageBuffers() {
@@ -996,6 +1008,11 @@ void QTDoughApplication::CreateShaderStorageBuffers() {
     for (int i = 0; i < computePassStack.size(); i++)
     {
         computePassStack[i]->CreateShaderStorageBuffers();
+    }
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        rayTracePassStack[i]->CreateShaderStorageBuffers();
     }
 }
 
@@ -1005,6 +1022,12 @@ void QTDoughApplication::CreateComputePipeline() {
 	{
 		computePassStack[i]->CreateComputePipeline();
 	}
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        rayTracePassStack[i]->CreateComputePipeline();
+    }
+	
 }
 
 void QTDoughApplication::CreateComputeDescriptorSetLayout() {
@@ -1012,6 +1035,11 @@ void QTDoughApplication::CreateComputeDescriptorSetLayout() {
     for(int i = 0; i < computePassStack.size(); i++)
     {
         computePassStack[i]->CreateComputeDescriptorSetLayout();
+	}
+    
+	for (int i = 0; i < rayTracePassStack.size(); i++)
+	{
+		rayTracePassStack[i]->CreateComputeDescriptorSetLayout();
 	}
 }
 
@@ -1043,6 +1071,11 @@ void QTDoughApplication::CreateImages()
     for (int i = 0; i < computePassStack.size(); i++)
 	{
 		computePassStack[i]->CreateImages();
+	}
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+	{
+		rayTracePassStack[i]->CreateImages();
 	}
 
 }
@@ -1495,6 +1528,12 @@ void QTDoughApplication::CreateDescriptorPool()
     {
         computePassStack[i]->CreateDescriptorPool();
     }
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+	{
+		rayTracePassStack[i]->CreateDescriptorPool();
+	}
+
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if (unigmaRenderingObjects[i].isRendering)
@@ -2125,6 +2164,11 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
     for (int i = 0; i < computePassStack.size(); i++)
     {
         computePassStack[i]->Dispatch(commandBuffer, imageIndex);
+    }
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        //rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
 }
 

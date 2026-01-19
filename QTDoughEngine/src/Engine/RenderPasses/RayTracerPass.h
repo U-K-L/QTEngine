@@ -25,6 +25,7 @@ public:
     void AddObjects(UnigmaRenderingObject* unigmaRenderingObjects);
     void CreateTriangleSoup();
     void CreateSBT();
+    void CreateImages();
 
     float passWidth = 720;
     float passHeight = 720;

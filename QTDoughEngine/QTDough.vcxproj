@@ -191,6 +191,25 @@
       <FileType>Document</FileType>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\RayTraceAccel\anyhit.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\RayTraceAccel\closesthit.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\RayTraceAccel\miss.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\RayTraceAccel\raygen.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\RayTraceAccel\rayTracingAccelHelper.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

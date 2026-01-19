@@ -227,11 +227,9 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
     VkDeviceSize copySize = sizeof(ComputeVertex) * vertexCount;
     vkMapMemory(app->_logicalDevice, meshingStagingBufferMemory, 0, copySize, 0, &data);
 
-    // 6. Create a CPU-side vector and copy the data into it
     std::vector<ComputeVertex> cpuVertices(vertexCount);
     memcpy(cpuVertices.data(), data, static_cast<size_t>(copySize));
 
-    // 7. Unmap the GPU memory
     vkUnmapMemory(app->_logicalDevice, meshingStagingBufferMemory);
 
     for(int i = 0; i < vertexCount; ++i) {
