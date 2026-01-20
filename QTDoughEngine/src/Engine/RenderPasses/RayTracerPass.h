@@ -26,6 +26,7 @@ public:
     void CreateTriangleSoup();
     void CreateSBT();
     void CreateImages();
+    void CreateUniformBuffers();
 
     float passWidth = 720;
     float passHeight = 720;
@@ -99,6 +100,14 @@ public:
             {0,1,0,0},
             {0,0,1,0}
         } });
+
+    struct UniformBufferObject {
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
+        alignas(16) glm::vec4 texelSize;
+        alignas(16) float isOrtho;
+    };
 
 
     //Output storage image view

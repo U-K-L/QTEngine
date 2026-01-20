@@ -47,6 +47,7 @@ struct Images
     uint SDFPositionPass;
     uint CombineSDFRasterPass;
     uint FullSDFField;
+    uint RayAlbedoPass;
 };
 
 Images InitImages()
@@ -64,6 +65,7 @@ Images InitImages()
     image.SDFPositionPass = intArray[8];
     image.CombineSDFRasterPass = intArray[9];
     image.FullSDFField = intArray[10];
+    image.RayAlbedoPass = intArray[11];
     
     return image;
 }
@@ -146,6 +148,8 @@ float4 main(VSOutput i) : SV_Target
     float4 combineSDFRasterImage = textures[images.CombineSDFRasterPass].Sample(samplers[images.CombineSDFRasterPass], textureUVs);
     float4 fullFieldSDF = textures[images.FullSDFField].Sample(samplers[images.FullSDFField], textureUVs);
     
+    float4 rayAlbedoPass = textures[images.RayAlbedoPass].Sample(samplers[images.RayAlbedoPass], textureUVs);
+    
     
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
@@ -158,7 +162,7 @@ float4 main(VSOutput i) : SV_Target
     if (pc.input == 4)
         return albedoImage;
     if(pc.input == 5)
-        return sdfImage.w;
+        return rayAlbedoPass; //sdfImage.w;
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);

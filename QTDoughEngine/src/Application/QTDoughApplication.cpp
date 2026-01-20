@@ -1477,6 +1477,11 @@ void QTDoughApplication::CreateUniformBuffers()
 		computePassStack[i]->CreateUniformBuffers();
 	}
 
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        rayTracePassStack[i]->CreateUniformBuffers();
+    }
+
     for (int i = 0; i < NUM_OBJECTS; i++)
     {
         if (unigmaRenderingObjects[i].isRendering)
@@ -2143,6 +2148,11 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
 		computePassStack[i]->UpdateUniformBuffer(commandBuffer, imageIndex, currentFrame, CameraMain);
 	}
 
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        rayTracePassStack[i]->UpdateUniformBuffer(commandBuffer, imageIndex, currentFrame, CameraMain);
+    }
+
 }
 
 void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -2400,6 +2410,11 @@ void QTDoughApplication::CreateMaterials() {
     {
 		computePassStack[i]->CreateMaterials();
 	}
+
+    for (int i = 0; i < rayTracePassStack.size(); i++)
+    {
+        rayTracePassStack[i]->CreateMaterials();
+    }
 
     for (int i = 0; i < NUM_OBJECTS; i++)
     {

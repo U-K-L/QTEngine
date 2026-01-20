@@ -179,9 +179,84 @@ void RayTracerPass::CreateImages() {
     }
 }
 
-void RayTracerPass::CreateMaterials() {
+void RayTracerPass::CreateUniformBuffers()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    _uniformBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
+    _uniformBuffersMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
+    _uniformBuffersMapped.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
+        app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _uniformBuffers[i], _uniformBuffersMemory[i]);
+
+        vkMapMemory(app->_logicalDevice, _uniformBuffersMemory[i], 0, bufferSize, 0, &_uniformBuffersMapped[i]);
+    }
 
 }
+
+
+void RayTracerPass::CreateMaterials() {
+    material.Clean();
+    material.shader = UnigmaShader("raygen");
+
+
+    material.textureNames[0] = "RayAlbedoPass";
+    material.textureNames[1] = "RayNormalPass";
+    material.textureNames[2] = "RayDepthPass";
+
+    images.resize(3);
+    imagesMemory.resize(3);
+    imagesViews.resize(3);
+    PassNames.push_back("RayAlbedoPass");
+    PassNames.push_back("RayNormalPass");
+    PassNames.push_back("RayDepthPass");
+
+}
+
+void RayTracerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    UniformBufferObject ubo{};
+    ubo.model = glm::mat4(1.0f);
+    ubo.view = glm::mat4(1.0f);
+    ubo.proj = glm::mat4(1.0f);
+    ubo.texelSize = glm::vec4(glm::vec2(1.0f / app->swapChainExtent.width, 1.0f / app->swapChainExtent.height), 0, 0);
+    ubo.isOrtho = CameraMain.isOrthogonal;
+
+    ubo.view = glm::lookAt(CameraMain.position(), CameraMain.position() + CameraMain.forward(), CameraMain.up);
+    ubo.proj = CameraMain.getProjectionMatrix();
+
+    //print view matrix.
+    //Update int array assignments.
+
+    // Determine the size of the array (should be the same as used during buffer creation)
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+
+    for (int i = 0; i < MAX_NUM_TEXTURES; i++)
+    {
+        if (app->textures.count(material.textureNames[i]) > 0)
+        {
+            material.textureIDs[i] = app->textures[material.textureNames[i]].ID;
+        }
+        else
+            material.textureIDs[i] = 0;
+    }
+
+    memcpy(_uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
+
+    void* data;
+    vkMapMemory(app->_logicalDevice, intArrayBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
+    vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
+
+
+}
+
 
 void RayTracerPass::CreateComputePipeline()
 {
@@ -302,26 +377,45 @@ void RayTracerPass::CreateComputeDescriptorSetLayout()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    VkDescriptorSetLayoutBinding tlasBinding{};
-    tlasBinding.binding = 0;
-    tlasBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    tlasBinding.descriptorCount = 1;
-    tlasBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    // Create intArrayBuffer exactly like VoxelizerPass
+    VkDeviceSize bufferSize = sizeof(uint32_t) * MAX_NUM_TEXTURES;
+    app->CreateBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        intArrayBuffer,
+        intArrayBufferMemory
+    );
 
+    VkDescriptorSetLayoutBinding ubo{};
+    ubo.binding = 0;
+    ubo.descriptorCount = 1;
+    ubo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubo.stageFlags =
+        VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+        VK_SHADER_STAGE_MISS_BIT_KHR |
+        VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+        VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding outBinding{};
-    outBinding.binding = 1;
-    outBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    outBinding.descriptorCount = 1;
-    outBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    VkDescriptorSetLayoutBinding ids{};
+    ids.binding = 1;
+    ids.descriptorCount = 1;
+    ids.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ids.stageFlags = ubo.stageFlags;
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { tlasBinding, outBinding };
+    VkDescriptorSetLayoutBinding tlas{};
+    tlas.binding = 2;
+    tlas.descriptorCount = 1;
+    tlas.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    tlas.stageFlags = ubo.stageFlags;
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-    layoutInfo.bindingCount = (uint32_t)bindings.size();
-    layoutInfo.pBindings = bindings.data();
+    std::array<VkDescriptorSetLayoutBinding, 3> bindings = { ubo, ids, tlas };
 
-    VK_CHECK(vkCreateDescriptorSetLayout(app->_logicalDevice, &layoutInfo, nullptr, &rtDescriptorSetLayout));
+    VkDescriptorSetLayoutCreateInfo info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+    info.bindingCount = (uint32_t)bindings.size();
+    info.pBindings = bindings.data();
+
+    VK_CHECK(vkCreateDescriptorSetLayout(app->_logicalDevice, &info, nullptr, &rtDescriptorSetLayout));
 }
 
 
@@ -329,12 +423,15 @@ void RayTracerPass::CreateDescriptorPool()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
 
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
+
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    poolSizes[2].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = (uint32_t)poolSizes.size();
@@ -349,10 +446,8 @@ void RayTracerPass::CreateDescriptorPool()
 void RayTracerPass::CreateComputeDescriptorSets()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
-    rtOutputView = imageView;
 
     rtDescriptorSets.resize(app->MAX_FRAMES_IN_FLIGHT);
-    rtAS.resize(app->MAX_FRAMES_IN_FLIGHT);
 
     std::vector<VkDescriptorSetLayout> layouts(app->MAX_FRAMES_IN_FLIGHT, rtDescriptorSetLayout);
 
@@ -360,28 +455,41 @@ void RayTracerPass::CreateComputeDescriptorSets()
     allocInfo.descriptorPool = descriptorPool;
     allocInfo.descriptorSetCount = (uint32_t)rtDescriptorSets.size();
     allocInfo.pSetLayouts = layouts.data();
-    VK_CHECK(vkAllocateDescriptorSets(app->_logicalDevice, &allocInfo, rtDescriptorSets.data()));
 
+    VK_CHECK(vkAllocateDescriptorSets(app->_logicalDevice, &allocInfo, rtDescriptorSets.data()));
 
     for (uint32_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        VkDescriptorImageInfo outInfo{};
-        outInfo.imageView = rtOutputView;
-        outInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        VkDescriptorBufferInfo uboInfo{};
+        uboInfo.buffer = _uniformBuffers[i];
+        uboInfo.offset = 0;
+        uboInfo.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet outWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        outWrite.dstSet = rtDescriptorSets[i];
-        outWrite.dstBinding = 1;
-        outWrite.descriptorCount = 1;
-        outWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        outWrite.pImageInfo = &outInfo;
+        VkDescriptorBufferInfo idInfo{};
+        idInfo.buffer = intArrayBuffer;
+        idInfo.offset = 0;
+        idInfo.range = VK_WHOLE_SIZE;
 
-        vkUpdateDescriptorSets(app->_logicalDevice, 1, &outWrite, 0, nullptr);
+        std::array<VkWriteDescriptorSet, 2> ws{};
+
+        ws[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        ws[0].dstSet = rtDescriptorSets[i];
+        ws[0].dstBinding = 0;
+        ws[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        ws[0].descriptorCount = 1;
+        ws[0].pBufferInfo = &uboInfo;
+
+        ws[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        ws[1].dstSet = rtDescriptorSets[i];
+        ws[1].dstBinding = 1;
+        ws[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        ws[1].descriptorCount = 1;
+        ws[1].pBufferInfo = &idInfo;
+
+        vkUpdateDescriptorSets(app->_logicalDevice, (uint32_t)ws.size(), ws.data(), 0, nullptr);
     }
 }
-void RayTracerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain) {
 
-}
 
 void RayTracerPass::CreateShaderStorageBuffers()
 {
@@ -742,7 +850,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     VkWriteDescriptorSet tlasWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
     tlasWrite.dstSet = rtDescriptorSets[currentFrame];
-    tlasWrite.dstBinding = 0;
+    tlasWrite.dstBinding = 2;
     tlasWrite.descriptorCount = 1;
     tlasWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     tlasWrite.pNext = &asInfo;

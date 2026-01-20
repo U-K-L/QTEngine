@@ -82,6 +82,7 @@ void CompositionPass::CreateMaterials() {
     material.textureNames[8] = "SDFPositionPass";
     material.textureNames[9] = "CombineSDFRasterPass";
     material.textureNames[10] = "FullSDFField";
+    material.textureNames[11] = "RayAlbedoPass";
 
     //material.textures.push_back(UnigmaTexture("animeGirl"));
     //material.textures[0].TEXTURE_PATH = "Assets/Textures/animeGirl.png";
