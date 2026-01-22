@@ -3,10 +3,11 @@
 RWTexture2D<float4> outImage : register(u1);
 RaytracingAccelerationStructure tlas : register(t0);
 
-Texture2D textures[] : register(t0, space0); //Global
-SamplerState samplers[] : register(s0, space0); //Global
-
+RWTexture2D<float4> OutputImage;
+RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 StructuredBuffer<uint> intArray : register(t1, space1);
+
+SamplerState samplers[] : register(s1, space0); //Global
 
 cbuffer UniformBufferObject : register(b0, space1)
 {
@@ -41,8 +42,7 @@ void main()
 {
     Images images = InitImages();
     uint2 pix = DispatchRaysIndex().xy;
-    float4 rayAlbedoImage = textures[images.RayAlbedoImage].Sample(samplers[images.RayAlbedoImage], pix);
-    
+    uint outputImageHandle = NonUniformResourceIndex(images.RayAlbedoImage);
     // Just write something obvious
-    rayAlbedoImage[pix] = float4(1, 0, 0, 1); // red = raygen executed
+    gBindlessStorage[0][pix] = float4(1, 1, 0, 1); // red = raygen executed
 }

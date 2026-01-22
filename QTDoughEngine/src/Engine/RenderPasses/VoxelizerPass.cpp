@@ -165,7 +165,7 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
         throw std::runtime_error("failed to create compute pipeline!");
     }
 
-    VkDeviceSize bufferSize = sizeof(ComputeVertex) * VOXEL_COUNTL2; // Or your max vertex count
+    VkDeviceSize bufferSize = sizeof(Vertex) * VOXEL_COUNTL2; // Or your max vertex count
     app->CreateBuffer(
         bufferSize,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -643,10 +643,10 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     void* vertexData;
     vkMapMemory(app->_logicalDevice, vertexStagingBufferMemory, 0, vertexBufferSize, 0, &vertexData);
-    std::memcpy(vertexData, meshingVertexSoup.data(), meshingVertexSoup.size() * sizeof(ComputeVertex));
+    std::memcpy(vertexData, meshingVertexSoup.data(), meshingVertexSoup.size() * sizeof(Vertex));
     vkUnmapMemory(app->_logicalDevice, vertexStagingBufferMemory);
 
-    app->CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshingVertexBuffer, meshingVertexBufferMemory);
+    app->CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshingVertexBuffer, meshingVertexBufferMemory);
     app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
 
     //Indirect mesh draw.

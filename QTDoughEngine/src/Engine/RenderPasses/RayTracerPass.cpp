@@ -448,6 +448,7 @@ void RayTracerPass::CreateComputeDescriptorSets()
     QTDoughApplication* app = QTDoughApplication::instance;
 
     rtDescriptorSets.resize(app->MAX_FRAMES_IN_FLIGHT);
+    rtAS.resize(app->MAX_FRAMES_IN_FLIGHT);
 
     std::vector<VkDescriptorSetLayout> layouts(app->MAX_FRAMES_IN_FLIGHT, rtDescriptorSetLayout);
 
@@ -836,6 +837,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
 
     BuildBLAS_FromTriangleSoup(commandBuffer, currentFrame, voxelizer->meshingVertexBuffer, 0, voxelizer->readBackVertexCount, sizeof(Vertex));
     BuildTLAS_SingleInstance(commandBuffer, currentFrame);

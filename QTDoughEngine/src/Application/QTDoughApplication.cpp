@@ -2178,7 +2178,7 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
 
     for (int i = 0; i < rayTracePassStack.size(); i++)
     {
-        //rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
+        rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
 }
 
