@@ -1,7 +1,7 @@
 #include "rayTracingAccelHelper.hlsl"
 
 [shader("miss")]
-void main(inout Payload payload : SV_RayPayload)
+void main(inout Payload p)
 {
-    payload.color = float4(0, 0, 0, 1);
+    p.color = float4(0, 0, 0, 1);
 }

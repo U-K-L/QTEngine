@@ -205,7 +205,7 @@ public:
     void CleanUpGPU(VkCommandBuffer commandBuffer);
     void DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID);
     void DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
-    void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount);
+    void GetMeshFromGPU();
     void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
     void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);

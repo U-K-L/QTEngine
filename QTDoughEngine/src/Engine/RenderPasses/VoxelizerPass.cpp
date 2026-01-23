@@ -186,10 +186,12 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
 }
 
-void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
+void VoxelizerPass::GetMeshFromGPU()
 {
 
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    uint32_t vertexCount = 0;
 
     app->ReadbackBufferData(
         globalIDCounterStorageBuffers, // Source buffer on GPU
@@ -210,7 +212,7 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
     VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
     VkBufferCopy copyRegion{};
-    copyRegion.size = sizeof(ComputeVertex) * vertexCount;
+    copyRegion.size = sizeof(Vertex) * vertexCount;
     vkCmdCopyBuffer(
         commandBuffer,
         meshingVertexBuffer,   
@@ -224,19 +226,13 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
     vkWaitForFences(app->_logicalDevice, 1, &meshingReadbackFence, VK_TRUE, UINT64_MAX);
     vkResetFences(app->_logicalDevice, 1, &meshingReadbackFence);
     void* data;
-    VkDeviceSize copySize = sizeof(ComputeVertex) * vertexCount;
+    VkDeviceSize copySize = sizeof(Vertex) * vertexCount;
     vkMapMemory(app->_logicalDevice, meshingStagingBufferMemory, 0, copySize, 0, &data);
 
-    std::vector<ComputeVertex> cpuVertices(vertexCount);
+    std::vector<Vertex> cpuVertices(vertexCount);
     memcpy(cpuVertices.data(), data, static_cast<size_t>(copySize));
 
     vkUnmapMemory(app->_logicalDevice, meshingStagingBufferMemory);
-
-    for(int i = 0; i < vertexCount; ++i) {
-		meshVertices[i].pos = cpuVertices[i].position;
-		meshVertices[i].normal = cpuVertices[i].normal;
-		meshVertices[i].texCoord = cpuVertices[i].texCoord;
-	}
 
     VkDeviceSize bufferSize = sizeof(Vertex) * meshVertices.size();
 
@@ -265,7 +261,7 @@ void VoxelizerPass::GetMeshFromGPU(uint32_t vertexCount)
     }
     */
 
-    readBackVertexCount = vertexCount;
+    readBackVertexCount = 139524;
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -2247,7 +2243,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             0, nullptr
         );
 
-        //GetMeshFromGPU(0);
+        GetMeshFromGPU(); //Important.
         /*
         if(IDDispatchIteration == 0)
 		{

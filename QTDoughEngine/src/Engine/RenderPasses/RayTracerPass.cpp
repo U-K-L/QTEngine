@@ -254,6 +254,22 @@ void RayTracerPass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t 
     memcpy(data, material.textureIDs, bufferSize); // Copy your unsigned int array
     vkUnmapMemory(app->_logicalDevice, intArrayBufferMemory);
 
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.buffer = intArrayBuffer;
+    barrier.offset = 0;
+    barrier.size = bufferSize;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        0,
+        0, nullptr,
+        1, &barrier,
+        0, nullptr);
 
 }
 
@@ -583,18 +599,22 @@ void RayTracerPass::BuildBLAS_FromTriangleSoup(
     QTDoughApplication* app = QTDoughApplication::instance;
     auto& F = rtAS[frame];
 
-    VkDeviceAddress vaddr = GetBufferAddress(vertexBuffer) + vertexOffset;
+    if (vertexCount < 3) return;
+
+    std::cout << "Vertex Count for BLAS: " << vertexCount << std::endl;
+
+    VkDeviceSize posOffset = offsetof(Vertex, pos);
+
+    VkDeviceAddress vaddr = GetBufferAddress(vertexBuffer) + vertexOffset + posOffset;
 
     VkAccelerationStructureGeometryTrianglesDataKHR tri{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR
     };
-    tri.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+    tri.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT; 
     tri.vertexData.deviceAddress = vaddr;
     tri.vertexStride = vertexStride;
     tri.maxVertex = vertexCount - 1;
     tri.indexType = VK_INDEX_TYPE_NONE_KHR;
-    tri.indexData.deviceAddress = 0;
-    tri.transformData.deviceAddress = 0;
 
     VkAccelerationStructureGeometryKHR geom{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR
@@ -823,6 +843,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     QTDoughApplication* app = QTDoughApplication::instance;
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
+    CreateSBT();
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -874,12 +895,62 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, 2, sets,
         0, nullptr);
 
+    auto transitionImage = [&](VkImage img,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
+        VkAccessFlags srcAccess,
+        VkAccessFlags dstAccess,
+        VkPipelineStageFlags srcStage,
+        VkPipelineStageFlags dstStage)
+        {
+            VkImageMemoryBarrier b{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+            b.oldLayout = oldLayout;
+            b.newLayout = newLayout;
+            b.srcAccessMask = srcAccess;
+            b.dstAccessMask = dstAccess;
+            b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.image = img;
+            b.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+            vkCmdPipelineBarrier(commandBuffer,
+                srcStage, dstStage,
+                0, 0, nullptr, 0, nullptr, 1, &b);
+        };
+
+    // These are the images raygen is ACTUALLY writing via bindless:
+    VkImage albedoImg = app->textures["RayAlbedoPass"].u_image;
+    VkImage normalImg = app->textures["RayNormalPass"].u_image;
+
+    // Make them writable for ray tracing:
+    transitionImage(albedoImg,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+        0, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+
+
+    transitionImage(normalImg,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+        0, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+
     vkCmdTraceRaysKHR_fn(commandBuffer,
         &raygenRegion,
         &missRegion,
         &hitRegion,
         &callableRegion,
         (uint32_t)passWidth, (uint32_t)passHeight, 1);
+
+    transitionImage(albedoImg,
+        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    transitionImage(normalImg,
+        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
 
     VkImageMemoryBarrier barrierBack{};
     barrierBack.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

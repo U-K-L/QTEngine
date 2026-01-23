@@ -1,48 +1,63 @@
 #include "rayTracingAccelHelper.hlsl"
+#include "../Helpers/ShaderHelpers.hlsl"
 
-RWTexture2D<float4> outImage : register(u1);
 RaytracingAccelerationStructure tlas : register(t0);
 
-RWTexture2D<float4> OutputImage;
 RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 StructuredBuffer<uint> intArray : register(t1, space1);
 
-SamplerState samplers[] : register(s1, space0); //Global
-
 cbuffer UniformBufferObject : register(b0, space1)
 {
-    float4x4 model; // Model matrix
-    float4x4 view; // View matrix
-    float4x4 proj; // Projection matrix
-    float4 texelSize;
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+    float4 texelSize; // xy = 1/width, 1/height
     float isOrtho;
 }
-
-struct Images
-{
-    uint RayAlbedoImage;
-    uint RayNormalImage;
-    uint RayDepthImage;
-};
-
-Images InitImages()
-{
-    Images image;
-    
-    image.RayAlbedoImage = intArray[0];
-    image.RayNormalImage = intArray[1];
-    image.RayDepthImage = intArray[2];
-    
-    return image;
-}
-
 
 [shader("raygeneration")]
 void main()
 {
-    Images images = InitImages();
     uint2 pix = DispatchRaysIndex().xy;
-    uint outputImageHandle = NonUniformResourceIndex(images.RayAlbedoImage);
-    // Just write something obvious
-    gBindlessStorage[0][pix] = float4(1, 1, 0, 1); // red = raygen executed
+
+    // NDC in [-1,1]
+    float2 uv = ((float2(pix) + 0.5f) * texelSize.xy) * 2.0f - 1.0f;
+    uv.y = -uv.y;
+
+    float4x4 invProj = inverse(proj);
+    float4x4 invView = inverse(view);
+
+    // Camera origin in world
+    float3 ro = invView[3].xyz;
+
+    // Ray direction in world (perspective)
+    float4 viewPos = mul(invProj, float4(uv, 0.0f, 1.0f));
+    viewPos.xyz /= viewPos.w;
+    float3 rd = normalize(mul((float3x3) invView, normalize(viewPos.xyz)));
+
+    Payload p;
+    p.color = float4(0, 0, 0, 1);
+
+    RayDesc ray;
+    ray.Origin = ro;
+    ray.Direction = rd;
+    ray.TMin = 0.001f;
+    ray.TMax = 50;
+    
+    /*
+    // Trace ray
+    TraceRay(
+    tlas,
+    0, // RayFlags
+    0xFF, // cull mask
+    0, // sbtRecordOffset (RayContribution)
+    1, // sbtRecordStride
+    0, // missIndex
+    ray,
+    p
+);
+
+*/
+    uint outHandle = NonUniformResourceIndex(intArray[0]);
+    gBindlessStorage[outHandle][pix] = float4(p.color.xyz, 1.0f);
 }
