@@ -139,6 +139,14 @@ public:
     VkBuffer globalIDCounterStorageBuffers;
     VkDeviceMemory globalIDCounterStorageMemory;
 
+
+    //Create globalIdCounter.
+    VkBuffer stagingGlobalIDCounterBuffer;
+    VkDeviceMemory stagingGlobalIDCounterMemory;
+
+    //For IDs and Verts.
+    uint32_t globalIDCounterSize = 2;
+
     int UpdateOnce = 0;
 
     struct Triangle {
@@ -209,6 +217,8 @@ public:
     void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
     void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
+    void RecordCounterReadback(VkCommandBuffer commandBuffer);
+    void ReadCounterOnCPU();
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 

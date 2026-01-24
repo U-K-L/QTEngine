@@ -159,6 +159,23 @@ float4 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
 
 }
 
+bool RayAABB(float3 ro, float3 rd, float3 bmin, float3 bmax, out float tHit)
+{
+    float3 invD = rcp(rd);
+    float3 t0 = (bmin - ro) * invD;
+    float3 t1 = (bmax - ro) * invD;
+
+    float3 tmin3 = min(t0, t1);
+    float3 tmax3 = max(t0, t1);
+
+    float tEnter = max(tmin3.x, max(tmin3.y, tmin3.z));
+    float tExit = min(tmax3.x, min(tmax3.y, tmax3.z));
+
+    tHit = max(tEnter, 0.0);
+    return (tEnter <= tExit) && (tExit >= 0.0);
+}
+
+
 float2 GetVoxelResolution(float sampleLevel)
 {
     float2 v1 = float2(VOXEL_RESOLUTIONL1, SCENE_BOUNDSL1);

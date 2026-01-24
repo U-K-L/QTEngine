@@ -7,3 +7,4 @@ struct Attributes
 {
     float2 bary : SV_Barycentrics;
 };
+

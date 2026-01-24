@@ -109,6 +109,13 @@ public:
         alignas(16) float isOrtho;
     };
 
+    struct PushConsts {
+        float lod;
+        uint32_t triangleCount;
+        glm::ivec3 voxelResolution;
+        glm::vec3 aabbCenter;
+    };
+
 
     //Output storage image view
     VkImageView rtOutputView = VK_NULL_HANDLE;

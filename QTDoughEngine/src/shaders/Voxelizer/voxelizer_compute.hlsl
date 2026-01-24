@@ -923,15 +923,16 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
     float sdfVal = voxelsL1Out[index].isoPhi; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     
-    //sdfVal = min(sdfVal, sdfVal);
+    sdfVal = minDist; //min(sdfVal, minDist);
     //Write3DDist(0, DTid, sdfVal); // Consider particles.
     
+    /*
     if (distortionFieldSum > 0.1f)
         Write3DDist(0, DTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-    
-    /*
+    */
+
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
     float sdfSphere = smin(sdSphere(center, float3(1, 1, 1), 1.0f), sdfVal, abs(wave.x) * 0.25f);
@@ -939,7 +940,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     sdfSphere = smin(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f), abs(wave.x) * 0.25f);
     
     Write3DDist(0, DTid, sdfSphere);
-    */
+
     //minDist = min(sdfVal, minDist);
     
     //Write3DDist(0, DTid, minDist);

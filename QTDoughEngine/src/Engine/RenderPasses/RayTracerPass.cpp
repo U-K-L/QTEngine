@@ -364,11 +364,27 @@ void RayTracerPass::CreateComputePipeline()
         rtDescriptorSetLayout           // set = 1
     };
 
+    VkPushConstantRange pcr{};
+    pcr.stageFlags =
+        VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+        VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+        VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
+        VK_SHADER_STAGE_MISS_BIT_KHR;
+    pcr.offset = 0;
+    pcr.size = sizeof(PushConsts);
+
     VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
     pl.setLayoutCount = (uint32_t)setLayouts.size();
     pl.pSetLayouts = setLayouts.data();
-    VK_CHECK(vkCreatePipelineLayout(app->_logicalDevice, &pl, nullptr, &rtPipelineLayout));
+    pl.pushConstantRangeCount = 1;
+    pl.pPushConstantRanges = &pcr;
 
+    VK_CHECK(vkCreatePipelineLayout(
+        app->_logicalDevice,
+        &pl,
+        nullptr,
+        &rtPipelineLayout
+    ));
 
     VkRayTracingPipelineCreateInfoKHR pci{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
     pci.stageCount = (uint32_t)stages.size();
@@ -425,7 +441,13 @@ void RayTracerPass::CreateComputeDescriptorSetLayout()
     tlas.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     tlas.stageFlags = ubo.stageFlags;
 
-    std::array<VkDescriptorSetLayoutBinding, 3> bindings = { ubo, ids, tlas };
+    VkDescriptorSetLayoutBinding vb{};
+    vb.binding = 3;
+    vb.descriptorCount = 1;
+    vb.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vb.stageFlags = ubo.stageFlags;
+
+    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { ubo, ids, tlas, vb };
 
     VkDescriptorSetLayoutCreateInfo info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
     info.bindingCount = (uint32_t)bindings.size();
@@ -444,7 +466,7 @@ void RayTracerPass::CreateDescriptorPool()
     poolSizes[0].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
 
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
+    poolSizes[1].descriptorCount = app->MAX_FRAMES_IN_FLIGHT * 2;
 
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     poolSizes[2].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
@@ -877,6 +899,38 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     tlasWrite.descriptorCount = 1;
     tlasWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     tlasWrite.pNext = &asInfo;
+
+    PushConsts pc{};
+    pc.lod = 0;
+    pc.triangleCount = 0;
+    pc.voxelResolution = voxelizer->WORLD_SDF_RESOLUTION;
+
+    vkCmdPushConstants(
+        commandBuffer,
+        rtPipelineLayout,
+        VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+        VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+        VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
+        VK_SHADER_STAGE_MISS_BIT_KHR,
+        0,
+        sizeof(PushConsts),
+        &pc
+    );
+
+    VkDescriptorBufferInfo vbInfo{};
+    vbInfo.buffer = voxelizer->meshingVertexBuffer;
+    vbInfo.offset = 0;
+    vbInfo.range = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet vbWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    vbWrite.dstSet = rtDescriptorSets[currentFrame];
+    vbWrite.dstBinding = 3;
+    vbWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vbWrite.descriptorCount = 1;
+    vbWrite.pBufferInfo = &vbInfo;
+
+    vkUpdateDescriptorSets(app->_logicalDevice, 1, &vbWrite, 0, nullptr);
+
 
     vkUpdateDescriptorSets(app->_logicalDevice, 1, &tlasWrite, 0, nullptr);
 

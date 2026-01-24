@@ -186,6 +186,62 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
 }
 
+void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
+{
+    // make counter visible to transfer
+    VkBufferMemoryBarrier barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = globalIDCounterStorageBuffers;
+    barrier.offset = 0;
+    barrier.size = sizeof(uint32_t) * globalIDCounterSize;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        1, &barrier,
+        0, nullptr
+    );
+
+    VkBufferCopy copy{};
+    copy.srcOffset = 0;
+    copy.dstOffset = 0;
+    copy.size = sizeof(uint32_t) * globalIDCounterSize;
+
+    vkCmdCopyBuffer(
+        commandBuffer,
+        globalIDCounterStorageBuffers,
+        stagingGlobalIDCounterBuffer,
+        1, &copy
+    );
+
+    // optional: make transfer visible to host (not strictly required if you wait on fence)
+    VkBufferMemoryBarrier hostBarrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    hostBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    hostBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    hostBarrier.buffer = stagingGlobalIDCounterBuffer;
+    hostBarrier.offset = 0;
+    hostBarrier.size = sizeof(uint32_t) * globalIDCounterSize;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        0,
+        0, nullptr,
+        1, &hostBarrier,
+        0, nullptr
+    );
+}
+
+
 void VoxelizerPass::GetMeshFromGPU()
 {
 
@@ -193,75 +249,53 @@ void VoxelizerPass::GetMeshFromGPU()
 
     uint32_t vertexCount = 0;
 
-    app->ReadbackBufferData(
-        globalIDCounterStorageBuffers, // Source buffer on GPU
-        sizeof(uint32_t),              // Size of data to read
-        &vertexCount,                   // Pointer to CPU destination
-        4 //Get the second element.
+    uint32_t counters[2] = { 0,0 };
+
+    VkCommandBuffer cb = app->BeginSingleTimeCommands();
+
+    VkBufferMemoryBarrier barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;     
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;   
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = globalIDCounterStorageBuffers;
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(
+        cb,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        1, &barrier,
+        0, nullptr
     );
+
+    VkBufferCopy copy{};
+    copy.srcOffset = 0;
+    copy.dstOffset = 0;
+    copy.size = sizeof(uint32_t) * globalIDCounterSize;
+
+    vkCmdCopyBuffer(cb, globalIDCounterStorageBuffers, stagingGlobalIDCounterBuffer, 1, &copy);
+
+    app->EndSingleTimeCommands(cb);
+    vkDeviceWaitIdle(app->_logicalDevice);
+
+
+    void* mapped = nullptr;
+    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
+    memcpy(counters, mapped, sizeof(counters));
+    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+
+    vertexCount = counters[1];
 
     if(vertexCount == 0) {
-		std::cout << "No vertices found in the mesh." << std::endl;
-        vertexCount = 10;
+		std::cout << "No vertices generated in voxelization." << std::endl;
 	}
 
-    //std::cout << "Vertex Count: " << vertexCount << std::endl;
+    readBackVertexCount = vertexCount;
 
-    meshVertices.resize(vertexCount);
-
-    VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = sizeof(Vertex) * vertexCount;
-    vkCmdCopyBuffer(
-        commandBuffer,
-        meshingVertexBuffer,   
-        meshingStagingBuffer,   
-        1,
-        &copyRegion
-    );
-
-    app->EndSingleTimeCommands(commandBuffer, meshingReadbackFence);
-
-    vkWaitForFences(app->_logicalDevice, 1, &meshingReadbackFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(app->_logicalDevice, 1, &meshingReadbackFence);
-    void* data;
-    VkDeviceSize copySize = sizeof(Vertex) * vertexCount;
-    vkMapMemory(app->_logicalDevice, meshingStagingBufferMemory, 0, copySize, 0, &data);
-
-    std::vector<Vertex> cpuVertices(vertexCount);
-    memcpy(cpuVertices.data(), data, static_cast<size_t>(copySize));
-
-    vkUnmapMemory(app->_logicalDevice, meshingStagingBufferMemory);
-
-    VkDeviceSize bufferSize = sizeof(Vertex) * meshVertices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data2;
-    vkMapMemory(app->_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data2);
-    memcpy(data2, meshVertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(app->_logicalDevice, stagingBufferMemory);
-    app->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferReadbackBuffer, vertexBufferReadbackMemory);
-
-    app->CopyBuffer(stagingBuffer, vertexBufferReadbackBuffer, bufferSize);
-
-    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingBufferMemory, nullptr);
-
-    /*
-    for (int i = 0; i < vertexCount; ++i) {
-        std::cout << "Vertex " << i << ": "
-            << "Position: (" << cpuVertices[i].position.x << ", " << cpuVertices[i].position.y << ", " << cpuVertices[i].position.z << "), "
-            << "Normal: (" << cpuVertices[i].normal.x << ", " << cpuVertices[i].normal.y << ", " << cpuVertices[i].normal.z << "), "
-            << "TexCoord: (" << cpuVertices[i].texCoord.x << ", " << cpuVertices[i].texCoord.y << ")"
-            << std::endl;
-    }
-    */
-
-    readBackVertexCount = 139524;
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -500,19 +534,14 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     vkFreeMemory(app->_logicalDevice, stagingBrushIndicesMemory, nullptr);
 
 
-    //Create globalIdCounter.
-    VkBuffer stagingGlobalIDCounterBuffer;
-    VkDeviceMemory stagingGlobalIDCounterMemory;
-
-    //For IDs and Verts.
-    uint32_t globalIDCounterSize = 2;
 
     GlobalIDCounter.resize(globalIDCounterSize, 0); // initialize with 0.
     app->CreateBuffer(
         sizeof(uint32_t)* globalIDCounterSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingGlobalIDCounterBuffer, stagingGlobalIDCounterMemory
+        stagingGlobalIDCounterBuffer,
+        stagingGlobalIDCounterMemory
     );
 
     void* globalIDCounterData;
@@ -523,15 +552,19 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     app->CreateBuffer(
         sizeof(uint32_t)* globalIDCounterSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        globalIDCounterStorageBuffers, globalIDCounterStorageMemory
+        globalIDCounterStorageBuffers,
+        globalIDCounterStorageMemory
     );
+
 
     app->CopyBuffer(stagingGlobalIDCounterBuffer, globalIDCounterStorageBuffers, sizeof(uint32_t)* globalIDCounterSize);
 
-    vkDestroyBuffer(app->_logicalDevice, stagingGlobalIDCounterBuffer, nullptr);
-    vkFreeMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, nullptr);
+    //vkDestroyBuffer(app->_logicalDevice, stagingGlobalIDCounterBuffer, nullptr);
+    //vkFreeMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, nullptr);
 
     //Tile Brush Counts.
     VkBuffer stagingBrushCountsBuffer;
@@ -642,7 +675,17 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     std::memcpy(vertexData, meshingVertexSoup.data(), meshingVertexSoup.size() * sizeof(Vertex));
     vkUnmapMemory(app->_logicalDevice, vertexStagingBufferMemory);
 
-    app->CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshingVertexBuffer, meshingVertexBufferMemory);
+    VkBufferUsageFlags usage =
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+
+    app->CreateBuffer(vertexBufferSize, usage,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        meshingVertexBuffer, meshingVertexBufferMemory);
+
     app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
 
     //Indirect mesh draw.
@@ -2243,7 +2286,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             0, nullptr
         );
 
-        GetMeshFromGPU(); //Important.
+
+        RecordCounterReadback(commandBuffer);
+        ReadCounterOnCPU();
+
+        //GetMeshFromGPU(); //Important.
         /*
         if(IDDispatchIteration == 0)
 		{
@@ -2529,6 +2576,21 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
 }
+
+void VoxelizerPass::ReadCounterOnCPU()
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    uint32_t counters[2] = { 0,0 };
+
+    void* mapped = nullptr;
+    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
+    memcpy(counters, mapped, sizeof(counters));
+    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+
+    // pick the right slot (see next section)
+    readBackVertexCount = counters[1];
+}
+
 
 void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
 {
