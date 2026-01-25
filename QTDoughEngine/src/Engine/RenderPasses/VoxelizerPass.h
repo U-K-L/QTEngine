@@ -219,6 +219,7 @@ public:
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
     void RecordCounterReadback(VkCommandBuffer commandBuffer);
     void ReadCounterOnCPU();
+    void ReadBackGPUData() override;
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 

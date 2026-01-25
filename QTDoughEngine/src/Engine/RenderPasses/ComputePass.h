@@ -99,4 +99,5 @@ public:
     virtual void DebugCompute(uint32_t currentFrame);
     virtual void UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain);
     virtual void CreateTriangleSoup();
+    virtual void ReadBackGPUData();
 };

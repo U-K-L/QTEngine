@@ -2591,7 +2591,7 @@ void VoxelizerPass::ReadCounterOnCPU()
     memcpy(counters, mapped, sizeof(counters));
     vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
 
-    readBackVertexCount = std::min(counters[1], VertexMaxCount);
+    readBackVertexCount =  std::min(counters[1] + 65536, VertexMaxCount);
 }
 
 
@@ -3168,6 +3168,11 @@ void VoxelizerPass::BindVoxelBuffers(uint32_t curFrame, uint32_t prevFrame, bool
     ws[5].dstBinding = 7; ws[5].pBufferInfo = &wL3;
 
     vkUpdateDescriptorSets(app->_logicalDevice, 6, ws, 0, nullptr);
+}
+
+void VoxelizerPass::ReadBackGPUData()
+{
+    ReadCounterOnCPU();
 }
 
 

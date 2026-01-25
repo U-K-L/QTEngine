@@ -742,6 +742,10 @@ void ComputePass::DebugCompute(uint32_t currentFrame)
         });
 }
 
+void ComputePass::ReadBackGPUData()
+{
+
+}
 
 void ComputePass::CreateMaterials() {
     material.Clean();
