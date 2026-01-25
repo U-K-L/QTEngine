@@ -11,11 +11,11 @@ VoxelizerPass::~VoxelizerPass() {
 }
 
 VoxelizerPass::VoxelizerPass() {
-    WORLD_SDF_RESOLUTION = SetVoxelGridSize();
     VOXEL_COUNTL1 = VOXEL_RESOLUTIONL1 * VOXEL_RESOLUTIONL1 * (VOXEL_RESOLUTIONL1/4);
     VOXEL_COUNTL2 = VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2 * VOXEL_RESOLUTIONL2;
     VOXEL_COUNTL3 = VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3 * VOXEL_RESOLUTIONL3;
     TILE_COUNTL1 = VOXEL_RESOLUTIONL1 / TILE_SIZE;
+    WORLD_SDF_RESOLUTION = SetVoxelGridSize();
     PassName = "VoxelizerPass";
     PassNames.push_back("VoxelizerPass");
 }
@@ -165,7 +165,7 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
         throw std::runtime_error("failed to create compute pipeline!");
     }
 
-    VkDeviceSize bufferSize = sizeof(Vertex) * VOXEL_COUNTL2; // Or your max vertex count
+    VkDeviceSize bufferSize = sizeof(Vertex) * VertexMaxCount; // Or your max vertex count
     app->CreateBuffer(
         bufferSize,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -663,8 +663,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     }
 
     //Create Vertex buffers appended.
-    uint32_t vertexBufferSize = sizeof(Vertex) * VOXEL_COUNTL2;
-    meshingVertexSoup.resize(VOXEL_COUNTL2);
+    uint32_t vertexBufferSize = sizeof(Vertex) * VertexMaxCount;
+    meshingVertexSoup.resize(VertexMaxCount);
 
     VkBuffer vertexStagingBuffer;
     VkDeviceMemory vertexStagingBufferMemory;
@@ -1437,7 +1437,8 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Ultra Quality Voxel Resolution. " << std::endl;
-
+            VertexMaxCount = VOXEL_COUNTL1;
+			std::cout << "Max Vertex Count set to: " << VertexMaxCount << std::endl;
         }
         else
         {
@@ -1455,7 +1456,8 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "High Quality Voxel Resolution. " << std::endl;
-
+            VertexMaxCount = VOXEL_COUNTL2;
+            std::cout << "Max Vertex Count set to: " << VertexMaxCount << std::endl;
         }
         else
         {
@@ -1473,6 +1475,8 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Medium Quality Voxel Resolution. " << std::endl;
+            VertexMaxCount = VOXEL_COUNTL3;
+            std::cout << "Max Vertex Count set to: " << VertexMaxCount << std::endl;
 
         }
         else
@@ -2288,7 +2292,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
 
         RecordCounterReadback(commandBuffer);
-        ReadCounterOnCPU();
+        //ReadCounterOnCPU();
 
         //GetMeshFromGPU(); //Important.
         /*
@@ -2587,8 +2591,7 @@ void VoxelizerPass::ReadCounterOnCPU()
     memcpy(counters, mapped, sizeof(counters));
     vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
 
-    // pick the right slot (see next section)
-    readBackVertexCount = counters[1];
+    readBackVertexCount = std::min(counters[1], VertexMaxCount);
 }
 
 

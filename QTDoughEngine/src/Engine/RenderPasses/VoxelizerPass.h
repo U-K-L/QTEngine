@@ -97,7 +97,7 @@ public:
     float SCENE_BOUNDSL3 = 32;
     int VOXEL_COUNTL2 = 1;
     int VOXEL_COUNTL3 = 1;
-
+	uint32_t VertexMaxCount = 65536; //Max number of vertices for the triangle soup.
     int DeformResolution = 1; //number of voxels per deform thread.
 
     uint32_t TILE_SIZE = 8;          // voxels per edge

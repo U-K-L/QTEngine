@@ -215,6 +215,9 @@ void QTDoughApplication::DrawFrame()
     //Waits for this fence to finish. 
     vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
+	//Get data from previous frame.
+	ReadBackGPUData();
+
     // Write previous frame's bytes to ffmpeg
     if (recorder && recorder->IsRecording()) {
         recorder->DrainFrameToEncoder(currentFrame);
@@ -3127,6 +3130,15 @@ VkExtent2D QTDoughApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
 
 }
 
+void QTDoughApplication::ReadBackGPUData() {
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+        if (auto* voxelizer = dynamic_cast<VoxelizerPass*>(computePassStack[i])) {
+            voxelizer->ReadCounterOnCPU();
+        }
+
+    }
+}
 
 void QTDoughApplication::CreateQuadBuffers() {
 

@@ -258,6 +258,7 @@ public:
     void CreateGlobalDescriptorSet();
     void CreateGlobalDescriptorSetLayout();
     void UpdateGlobalDescriptorSet();
+    void ReadBackGPUData();
     //void DebugPrintParticles(uint32_t currentFrame);
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
