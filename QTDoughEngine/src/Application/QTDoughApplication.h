@@ -304,6 +304,10 @@ public:
     VkQueue _vkComputeQueue = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
 
+    //Graphics Quality Settings.
+    int GameQualityLevel = 0;
+    int GeneratedMeshSmoothness = 0;
+
 
 
 private:

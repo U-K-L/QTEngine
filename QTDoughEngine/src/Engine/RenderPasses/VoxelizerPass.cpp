@@ -1423,7 +1423,7 @@ void VoxelizerPass::Create3DTextures()
 glm::ivec3 VoxelizerPass::SetVoxelGridSize()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
-    int GameQualitySettings = 0; //Highest.
+    int GameQualitySettings = app->GameQualityLevel;
     glm::ivec3 worldImageRes = glm::ivec3(1024, 1024, 256);
 
     //Start at highest resolution and work downwards. Note change this depending on user settings. 
@@ -2193,8 +2193,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
+
         bool swapPing = true;
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < app->GeneratedMeshSmoothness; ++i)
         {
             DispatchLOD(commandBuffer, currentFrame, 11, swapPing);
             swapPing = !swapPing;
