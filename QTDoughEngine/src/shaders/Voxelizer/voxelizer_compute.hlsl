@@ -240,19 +240,7 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
         (a.z < voxelMin.z - eps && b.z < voxelMin.z - eps && c.z < voxelMin.z - eps); // behind
 }
 
-void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
-{   
-    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1().xyz;
-    int3 idVoxel = DTid * (voxelSceneBoundsl1 / (pc.voxelResolution / 2));
-    uint index = Flatten3D(idVoxel, voxelSceneBoundsl1);
-    voxelsL1Out[index].distance = DEFUALT_EMPTY_SPACE;
-    voxelsL1Out[index].density = 0;
-    voxelsL1Out[index].jacobian = 0;
-    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.w = 0.00125f;
-    voxelsL1Out[index].isoPhi = 0;
-    //voxelsL1Out[Flatten3DR(DTL1, voxelSceneBoundsl1.x)].normalDistance.z = 0; //Default is deformable field.
-    Write3DDist(1, DTid, 0);
-}
+
 
 void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
 {
@@ -811,37 +799,48 @@ float CalculateSDFGaussDistance(int distanceW, uint densityW)
 
 void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
-    float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
-    
-    float3 voxelSize = sceneSize / voxelGridRes;
-    float3 halfScene = sceneSize * 0.5f;
-    
-    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
-
-    float3 voxelMin = center - voxelSize * 0.5f;
-    float3 voxelMax = center + voxelSize * 0.5f;
-
     
     float minDist = DEFUALT_EMPTY_SPACE;
     int minId = 0;
     
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
+    float3 voxelGridRes = voxelSceneBounds.xyz;
+    float3 sceneSize = GetSceneSize();
+    
+    int3 regionRes = voxelGridRes / 2;
+    int3 regionOffset = (voxelGridRes - regionRes) / 2;
+    int3 fullDTid = int3(DTid) + regionOffset;
+    
+    
+    //Get the voxel position.
+    float3 voxelSize = sceneSize / voxelGridRes;
+    float3 halfScene = sceneSize * 0.5f;
+    
+    float3 center = ((float3) fullDTid + 0.5f) * voxelSize - halfScene;
+    
+    /*
+    //Early out camera rejection AABB.
+    bool inAABB = PointInAABB(center, -GetSceneSize() * 0.25, GetSceneSize() * 0.25);
+    if(!inAABB)
+        return; //reject.
+    */
+    
+    float3 voxelMin = center - voxelSize * 0.5f;
+    float3 voxelMax = center + voxelSize * 0.5f;
+    
+    //Get this tile for brushes.
     float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
     int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution);
-
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
-
     tileCoord = clamp(tileCoord, int3(0, 0, 0), numTilesPerAxis-1);
-
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
     
     //Find the distance field closes to this voxel.
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
-    int3 DTL1 = DTid / worldSDFDivisor;
+    float3 worldSDFDivisor = ((pc.voxelResolution / 2) / GetVoxelResolutionL1().xyz);
+    int3 DTL1 = fullDTid / worldSDFDivisor;
 
     if(brushCount == 0)
     {
@@ -849,7 +848,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
-        Write3DDist(0, DTid, minDist);
+        Write3DDist(0, fullDTid, minDist);
         return;
     }
 
@@ -857,45 +856,39 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
-        uint index = BrushesIndices[offset];
-        
+        uint index = BrushesIndices[offset];        
         Brush brush = Brushes[index];
-        
 
         float d = Read3DTransformed(brush, center).x;
 
-
-        if (brush.opcode == 1)
-            minDist = max(-d + 1, minDist);
-        else if (brush.opcode == 0)
+        switch (brush.opcode)
         {
-            blendFactor += brush.blend;
-            //This brush actually gets added.
-            if (minDist > (d + 0.25f))
-            {
-                minId = brush.materialId;
-
-            }
-
-            minDist = smin(minDist, d, blendFactor + 0.0001f);
-            smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
-
+            case 0:
+                blendFactor += brush.blend;
+                if (minDist > (d + 0.25f))
+                {
+                    minId = brush.materialId;
+                }
+                minDist = smin(minDist, d, blendFactor + 0.0001f);
+                smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
+                break;
+            case 1:
+                minDist = max(-d + 1, minDist);
+                break;
         }
+
     }
 
-        
-    float distortionFieldSum = 0;
-
-    
-    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     //Sum the distoration field.
-    int kernelSize = 3;
+    int kernelSize = 1;
+    float distortionFieldSum = 0;
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     
     for(int l = -kernelSize; l <= kernelSize; l++)
         for(int j = -kernelSize; j <= kernelSize; j++)
             for(int k = -kernelSize; k <= kernelSize; k++)
             {
-                int3 dtid = DTid + int3(l, j, k);
+                int3 dtid = fullDTid + int3(l, j, k);
                 dtid = dtid / worldSDFDivisor;
                 uint index = Flatten3D(dtid, voxelSceneBoundsl1);
                 distortionFieldSum += clamp(voxelsL1Out[index].jacobian, 0, 1);
@@ -903,83 +896,60 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             }
     
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
+    float sdfVal = voxelsL1Out[index].isoPhi; 
 
-
-    int3 DTL2 = DTid + int3(1, 0, 0);
-    int3 DTL3 = DTid + int3(0, 1, 0);
-    int3 DTL4 = DTid + int3(0, 0, 1);
-
-    uint index2 = Flatten3D(DTL2, voxelSceneBoundsl1);
-    uint index3 = Flatten3D(DTL3, voxelSceneBoundsl1);
-    uint index4 = Flatten3D(DTL4, voxelSceneBoundsl1);
-
-    voxelsL1Out[index].brushId = minId;
-    //voxelsL1Out[index].normalDistance.w = blendFactor;
-    //voxelsL1Out[index].normalDistance.x = smoothness;
-
-    //Final min distance to see if a smaller distance exist in our particle buffer.
-    //minDist = min(voxelsL1Out[index].distance, minDist);
     
-    //float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
-    float sdfVal = voxelsL1Out[index].isoPhi; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
-    
-    sdfVal = minDist; //min(sdfVal, minDist);
-    //Write3DDist(0, DTid, sdfVal); // Consider particles.
-    
-    /*
     if (distortionFieldSum > 0.1f)
-        Write3DDist(0, DTid, sdfVal); // Consider particles.
+        Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     else
-        Write3DDist(0, DTid, minDist); // Ignore particle contribution.
-    */
-
+        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    
+    voxelsL1Out[index].brushId = minId;
+    /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
     float sdfSphere = smin(sdSphere(center, float3(1, 1, 1), 1.0f), sdfVal, abs(wave.x) * 0.25f);
     sdfSphere = smin(sdfSphere, sdSphere(center, 2.0f + wave, 1.0f), abs(wave.x) * 0.25f);
     sdfSphere = smin(sdfSphere, sdSphere(center, -1.0f + wave, 1.0f), abs(wave.x) * 0.25f);
-    
     Write3DDist(0, DTid, sdfSphere);
-
-    //minDist = min(sdfVal, minDist);
-    
-    //Write3DDist(0, DTid, minDist);
+    */
 }
 
 void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
 {
+    //Set initial values.
+    float minDist = DEFUALT_EMPTY_SPACE;
+    int minId = 0;
+    
+    //Calculate the position of this voxel.
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(2.0f, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = GetSceneSize();
+   
+    int3 regionRes = voxelGridRes / 2;
+    int3 regionOffset = (voxelGridRes - regionRes) / 2;
+    int3 fullDTid = int3(DTid) + regionOffset;
     
     float3 voxelSize = sceneSize / voxelGridRes;
     float3 halfScene = sceneSize * 0.5f;
     
-    float3 center = ((float3) DTid + 0.5f) * voxelSize - halfScene;
-
-    float3 voxelMin = center - voxelSize * 0.5f;
-    float3 voxelMax = center + voxelSize * 0.5f;
-
+    float3 center = ((float3) fullDTid + 0.5f) * voxelSize - halfScene;
     
-    float minDist = DEFUALT_EMPTY_SPACE;
-    int minId = 0;
-    
+    //Get the current tile and tileIndex for brush.
     float3 tileWorldSize = GetTileSize(pc.voxelResolution/2) * voxelSize;
     int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution/2);
-
+    
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
-
     tileCoord = clamp(tileCoord, int3(0, 0, 0), numTilesPerAxis - 1);
-
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
     
-    //Find the distance field closes to this voxel.
-    float blendFactor = 0;
-    float smoothness = 10;
+    //Get the brush count and set the indices of this thread.
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = ((pc.voxelResolution/2) / GetVoxelResolutionL1().xyz);
+    float3 worldSDFDivisor = ((pc.voxelResolution / 2) / GetVoxelResolutionL1().xyz);
     int3 DTL1 = DTid / worldSDFDivisor;
+    
 
+    //Exit out early.
     if (brushCount == 0)
     {
         float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
@@ -989,45 +959,49 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
         Write3DDist(1, DTid, minDist);
         return;
     }
+    
+    
+    //Setting values for proper blending.
+    float blendFactor = 0;
+    float smoothness = 10;
 
-
+    //Perform signed distance field.
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
         uint index = BrushesIndices[offset];
-        
         Brush brush = Brushes[index];
         
+        //If the brush isn't deformed at all, skip.
+        //Used for initial triangle mesh.
         if(brush.isDeformed == 0)
             continue;
         
-
+        
         float d = Read3DTransformed(brush, center).x;
 
-
-        if (brush.opcode == 1)
-            minDist = max(-d + 1, minDist);
-        else if (brush.opcode == 0)
+        //Perform CG operations, adding, subtraction, etc.
+        switch (brush.opcode)
         {
-            blendFactor += brush.blend;
-            //This brush actually gets added.
-            if (minDist > (d + 0.25f))
-            {
-                minId = brush.materialId;
-
-            }
-
-            minDist = smin(minDist, d, blendFactor + 0.0001f);
-            smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
-
+            case 0:
+                blendFactor += brush.blend;
+                //Which material applies to this id.
+                if (minDist > (d + 0.25f))
+                {
+                    minId = brush.materialId;
+                }
+                minDist = smin(minDist, d, blendFactor + 0.0001f);
+                smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
+            case 1:
+                minDist = max(-d + 1, minDist);
         }
     }
-    float distortionFieldSum = 0;
 
-    
-    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
-    //Sum the distoration field.
+   
+    //Sum the distoration field to determine how much neighbors have been deformed.
+    float distortionFieldSum = 0;
     int kernelSize = 2;
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     
     for (int l = -kernelSize; l <= kernelSize; l++)
         for (int j = -kernelSize; j <= kernelSize; j++)
@@ -1043,30 +1017,16 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
 
 
-    int3 DTL2 = DTid + int3(1, 0, 0);
-    int3 DTL3 = DTid + int3(0, 1, 0);
-    int3 DTL4 = DTid + int3(0, 0, 1);
-
-    uint index2 = Flatten3D(DTL2, voxelSceneBoundsl1);
-    uint index3 = Flatten3D(DTL3, voxelSceneBoundsl1);
-    uint index4 = Flatten3D(DTL4, voxelSceneBoundsl1);
-
     voxelsL1Out[index].brushId = minId;
-    //voxelsL1Out[index].normalDistance.w = blendFactor;
-    //voxelsL1Out[index].normalDistance.x = smoothness;
 
-    //Final min distance to see if a smaller distance exist in our particle buffer.
-    //minDist = min(voxelsL1Out[index].distance, minDist);
     
-    //float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
-    float sdfVal = voxelsL1Out[index].isoPhi; //CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
-    
+    float sdfVal = voxelsL1Out[index].isoPhi;
     //sdfVal = min(sdfVal, sdfVal);
     //Write3DDist(0, DTid, sdfVal); // Consider particles.
     if (distortionFieldSum > 0.0f)
-        Write3DDist(1, DTid, sdfVal); // Consider particles.
+        Write3DDist(1, fullDTid, sdfVal); // Consider particles.
     else
-        Write3DDist(1, DTid, minDist); // Ignore particle contribution.
+        Write3DDist(1, fullDTid, minDist); // Ignore particle contribution.
     
     
 }
@@ -2279,6 +2239,27 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
     
     uint flatIndex = Flatten3D(DTid, voxelRes);
     voxelsL1Out[flatIndex].isoPhi = c;
+}
+
+void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
+{
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
+    if (any(DTid >= voxelRes))
+        return;
+    
+    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution / 2));
+    uint index = Flatten3D(idVoxel, voxelRes);
+    
+    float c = ComputePhi(DTid);
+    
+    VoxelL1 v;
+    v.distance = DEFUALT_EMPTY_SPACE;
+    v.density = 0;
+    v.jacobian = 0;
+    v.isoPhi = c;
+
+    voxelsL1Out[index] = v;
+    Write3DDist(1, DTid, 0);
 }
 
 [numthreads(8, 8, 8)]

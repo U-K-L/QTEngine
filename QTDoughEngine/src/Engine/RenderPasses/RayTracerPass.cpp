@@ -623,8 +623,6 @@ void RayTracerPass::BuildBLAS_FromTriangleSoup(
 
     if (vertexCount < 3) return;
 
-    std::cout << "Vertex Count for BLAS: " << vertexCount << std::endl;
-
     VkDeviceSize posOffset = offsetof(Vertex, pos);
 
     VkDeviceAddress vaddr = GetBufferAddress(vertexBuffer) + vertexOffset + posOffset;
