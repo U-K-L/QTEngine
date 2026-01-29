@@ -5,6 +5,7 @@
 #include "Camera/CameraComp.h"
 #include "UnigmaPhysicsComp/UnigmaPhysicsComp.h"
 #include "Gameplay/Pedestrian/PedestrianComp.h"
+#include "Render/RenderComp.h"
 
 //Maps ints to the correct component.
 Component* GetComponent(uint32_t componentType);

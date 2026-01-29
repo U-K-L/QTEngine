@@ -184,6 +184,7 @@
     <ClInclude Include="src\Game\Components\Component.h" />
     <ClInclude Include="src\Game\Components\ComponentsHeaders.h" />
     <ClInclude Include="src\Game\Components\Gameplay\Pedestrian\PedestrianComp.h" />
+    <ClInclude Include="src\Game\Components\Render\RenderComp.h" />
     <ClInclude Include="src\Game\Components\UnigmaPhysicsComp\UnigmaPhysicsComp.h" />
     <ClInclude Include="src\Game\GlobalObjects.h" />
     <ClInclude Include="src\Game\UnigmaGameManager.h" />
@@ -211,6 +212,7 @@
     <ClCompile Include="src\Game\Components\Component.cpp" />
     <ClCompile Include="src\Game\Components\ComponentsHeaders.cpp" />
     <ClCompile Include="src\Game\Components\Gameplay\Pedestrian\PedestrianComp.cpp" />
+    <ClCompile Include="src\Game\Components\Render\RenderComp.cpp" />
     <ClCompile Include="src\Game\Components\UnigmaPhysicsComp\UnigmaPhysicsComp.cpp" />
     <ClCompile Include="src\Game\GlobalObjects.cpp" />
     <ClCompile Include="src\Game\UnigmaGameManager.cpp" />
