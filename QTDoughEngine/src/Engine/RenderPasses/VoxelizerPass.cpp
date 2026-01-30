@@ -1210,7 +1210,8 @@ void VoxelizerPass::CreateBrushes()
         UnigmaRenderingObject* obj = renderingObjects[i];
         
         //Get the brush data from the object.
-        auto ptrNull = obj->GetGameObject();
+        auto ptrNull = obj->GetGameObject()->GetComponentAttr<int>("Dog", "claw");
+        std::cout << ptrNull << std::endl;
 
         Brush brush;
         brush.type = 0; //Mesh type
