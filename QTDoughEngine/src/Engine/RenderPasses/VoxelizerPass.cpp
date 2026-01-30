@@ -1208,6 +1208,10 @@ void VoxelizerPass::CreateBrushes()
     {
         int imageIndex = (i * 2) + mipsCount; //MIPs must be avoided.
         UnigmaRenderingObject* obj = renderingObjects[i];
+        
+        //Get the brush data from the object.
+        auto ptrNull = obj->GetGameObject();
+
         Brush brush;
         brush.type = 0; //Mesh type
         brush.vertexCount = obj->_renderer.vertices.size();

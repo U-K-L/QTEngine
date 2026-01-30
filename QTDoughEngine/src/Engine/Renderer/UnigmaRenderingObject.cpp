@@ -1,5 +1,6 @@
 #include "UnigmaRenderingObject.h"
 #include "../../Application/QTDoughApplication.h"
+#include "../../UnigmaNative/UnigmaNative.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
@@ -639,4 +640,17 @@ void UnigmaRenderingObject::CreateGraphicsPipeline(QTDoughApplication& app)
 
     vkDestroyShaderModule(app._logicalDevice, fragShaderModule, nullptr);
     vkDestroyShaderModule(app._logicalDevice, vertShaderModule, nullptr);
+}
+
+UnigmaGameObject* UnigmaRenderingObject::GetGameObject()
+{
+    auto GID = _renderer.GID;
+    UnigmaGameObject* gObj = UNGetGameObject(GID);
+    if (gObj != nullptr)
+        return gObj;
+
+    std::cout << "UnigmaRenderingObject: GameObject with GID: " << GID << " not found." << std::endl;
+    std::cout << "Rendering Object Dump: " << std::endl;
+    _renderer.Print();
+	return nullptr;
 }

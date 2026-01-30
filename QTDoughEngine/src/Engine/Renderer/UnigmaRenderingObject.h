@@ -12,6 +12,7 @@
 #include "../Core/UnigmaTransform.h"
 #include "../Camera/UnigmaCamera.h"
 #include "UnigmaRenderingStruct.h"
+#include "../Core/UnigmaGameObject.h"
 
 
 class UnigmaRenderingObject {
@@ -82,5 +83,6 @@ class UnigmaRenderingObject {
 		void CreateDescriptorSetLayout(QTDoughApplication& app);
 		void CreateGraphicsPipeline(QTDoughApplication& app);
 		void RenderBrush(QTDoughApplication& app, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, VkPipeline& pipeline, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSet, VkBuffer& vertexBuffer, uint32_t readBackVertexCount, VkBuffer indirectDrawBuffer);
+		UnigmaGameObject* GetGameObject();
 	private:
 };
