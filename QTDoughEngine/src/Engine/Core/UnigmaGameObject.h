@@ -86,7 +86,7 @@ struct UnigmaGameObject
     }
 
     template <typename T>
-    T GetComponentAttr(char* componentName, char* componentAttr)
+    T GetComponentAttr(const char* componentName, const char* componentAttr)
     {
         //Get the hash of the name so it can cross DLL boundaries.
         size_t hashNameSizeT = std::hash<std::string_view>{}(componentName);
@@ -95,24 +95,42 @@ struct UnigmaGameObject
         size_t hashAttrSizeT = std::hash<std::string_view>{}(componentAttr);
         uint64_t componentAttrHash = static_cast<uint64_t>(hashAttrSizeT);
 
-        std::cout << "Getting Component Attr: " << componentHash << " for GameObject ID: " << ID << std::endl;
-        std::cout << "Attribute Hash: " << componentAttrHash << std::endl;
-
         //Assume we call some function from dll: GetComponentAttribute(uint32_t gameObjectID, uint64_t componentHash, uint64_t componentAttrHash)
         //And that function returned a Value struct.
         Value val;
-        //val = getComponentAttribute(ID, componentHash, componentAttrHash);
-        val = Value{}; // Dummy initialization
-        val.type = ValueType::FLOAT32;
-        val.data.i32 = 42; // Dummy value
+        val = GetComponentAttribute(ID, componentHash, componentAttrHash);
 
-        if(TypeMatches<float>(val))
-            std::cout << "Type Matches!" << std::endl;
+        if (!TypeMatches<T>(val)) {
+            throw std::runtime_error("Type mismatch");
+        }
 
-        //Check if val matches type T.
+        switch (val.type)
+        {
+        case ValueType::INT32:
+            return static_cast<T>(val.data.i32);
 
+        case ValueType::FLOAT32:
+            return static_cast<T>(val.data.f32);
 
-        return T{};
+        case ValueType::BOOL:
+            return static_cast<T>(val.data.b);
+
+        case ValueType::CHAR:
+            return static_cast<T>(val.data.c);
+
+        case ValueType::FIXEDSTRING:
+        {
+            auto begin = val.data.fstr.fstr;
+            auto end = std::find(begin, begin + 8, '\0');
+            std::string s(begin, end);
+
+            if constexpr (std::is_same_v<T, std::string>)
+                return reinterpret_cast<T>(s);
+        }
+
+        default:
+            throw std::runtime_error("Unknown ValueType");
+        }
     }
 };
 
