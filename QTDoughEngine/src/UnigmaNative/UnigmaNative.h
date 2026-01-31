@@ -19,7 +19,6 @@ typedef void (*FnStartProgram)();
 typedef void (*FnEndProgram)();
 typedef void (*FnUpdateProgram)();
 
-typedef UnigmaGameObject* (*FnGetGameObject)(uint32_t ID);
 
 typedef UnigmaRenderingStruct* (*FnGetRenderObjectAt)(uint32_t ID);
 typedef uint32_t (*FnGetRenderObjectsSize)();
@@ -35,11 +34,14 @@ typedef void (*FnRegisterLoadSceneCallback)(LoadSceneCallbackType); //Generic fu
 typedef void (*FnRegisterLoadInputCallback)(LoadInputCallbackType); //Generic function pointer type for registering a callback function
 
 
+
+
+
+
 // Function pointers for the functions exported from the DLL
 extern FnStartProgram UNStartProgram;
 extern FnEndProgram UNEndProgram;
 extern FnUpdateProgram UNUpdateProgram;
-extern FnGetGameObject UNGetGameObject;
 extern FnGetRenderObjectAt UNGetRenderObjectAt;
 extern FnGetRenderObjectsSize UNGetRenderObjectsSize;
 extern FnGetCamera UNGetCamera;
@@ -58,4 +60,5 @@ UnigmaInputStruct LoadInput(int flag);
 extern HMODULE unigmaNative;
 
 void LoadUnigmaNativeFunctions();
+void LoadGameObjectHooks();
 

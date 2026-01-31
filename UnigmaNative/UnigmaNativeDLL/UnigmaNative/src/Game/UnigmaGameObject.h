@@ -7,7 +7,23 @@
 
 
 #define MAX_NUM_COMPONENTS 32
-#pragma pack(push, 1) // Sets 1-byte alignment
+struct FixedString { char fstr[8]; };
+
+enum class ValueType : uint8_t { INT32, FLOAT32, BOOL, CHAR, FIXEDSTRING };
+
+struct Value
+{
+    ValueType type;
+    union {
+        int32_t  i32;
+        float    f32;
+        uint8_t  b;   // store bool as byte for ABI stability
+        char     c;
+        FixedString fstr;
+    } data;
+};
+
+
 struct UnigmaGameObject
 {
     UnigmaTransform transform;
@@ -55,7 +71,6 @@ class UnigmaGameObjectClass
 		{
 			components[name] = ID;
         }
-        /*
         template<typename T>
         T* GetComponent()
         {
@@ -70,7 +85,6 @@ class UnigmaGameObjectClass
             }
 			return nullptr;
         }
-        */
         void RemoveComponent(std::string name)
         {
             components.erase(name);

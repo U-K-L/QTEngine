@@ -8,11 +8,11 @@
 
 AssetLoader assetLoader;
 
+
 // Define the global variables here
 FnStartProgram UNStartProgram;
 FnEndProgram UNEndProgram;
 FnUpdateProgram UNUpdateProgram;
-FnGetGameObject UNGetGameObject;
 FnGetRenderObjectAt UNGetRenderObjectAt;
 FnGetRenderObjectsSize UNGetRenderObjectsSize;
 FnGetCamera UNGetCamera;
@@ -22,14 +22,26 @@ FnGetLightsSize UNGetLightsSize;
 FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
+
+FnGetGameObject UNGetGameObject;
+FnGetComponentAttribute UNGetComponentAttribute;
+
 HMODULE unigmaNative;
+
+void LoadGameObjectHooks()
+{
+    UNGetGameObject = (FnGetGameObject)GetProcAddress(unigmaNative, "GetGameObject");
+    UNGetComponentAttribute = (FnGetComponentAttribute)GetProcAddress(unigmaNative, "GetComponentAttribute");
+}
 
 void LoadUnigmaNativeFunctions()
 {
     UNStartProgram = (FnStartProgram)GetProcAddress(unigmaNative, "StartProgram");
     UNEndProgram = (FnEndProgram)GetProcAddress(unigmaNative, "EndProgram");
     UNUpdateProgram = (FnUpdateProgram)GetProcAddress(unigmaNative, "UpdateProgram");
-    UNGetGameObject = (FnGetGameObject)GetProcAddress(unigmaNative, "GetGameObject");
+
+    LoadGameObjectHooks();
+
     UNGetRenderObjectAt = (FnGetRenderObjectAt)GetProcAddress(unigmaNative, "GetRenderObjectAt");
     UNGetRenderObjectsSize = (FnGetRenderObjectsSize)GetProcAddress(unigmaNative, "GetRenderObjectsSize");
     UNGetCamera = (FnGetCamera)GetProcAddress(unigmaNative, "GetCamera");
@@ -45,6 +57,7 @@ void LoadUnigmaNativeFunctions()
     UNRegisterLoadSceneCallback(LoadScene);
     UNRegisterLoadInputCallback(LoadInput);
 }
+
 
 void ApplicationFunction(const char* message) {
     std::cout << "Application received message: " << message << std::endl;

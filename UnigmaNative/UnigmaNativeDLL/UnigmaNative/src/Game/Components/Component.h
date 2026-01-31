@@ -17,6 +17,7 @@ class Component
 	Component();
 	~Component();
 
+	Value GetAttribute(const char* componentAttribute);
 	virtual void InitializeData(nlohmann::json& componentData);
 	virtual void Update();
 	virtual void Start();
@@ -30,4 +31,7 @@ class Component
 	bool IsActive;
 	bool IsCreated;
 	bool IsStarted;
+
+	//Attributes.
+	std::unordered_map<std::string, Value> componentAttributes;
 };

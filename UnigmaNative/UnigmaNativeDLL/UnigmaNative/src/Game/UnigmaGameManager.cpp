@@ -147,8 +147,39 @@ void UnigmaGameManager::EndGame()
 	PhysicsShutdown();
 }
 
+UnigmaGameObjectClass* GetGameObjectClass(uint32_t ID)
+{
+	auto gObj = &GameObjects[ID];
+	auto gObjClass = &GameObjectsClasses[gObj->ID];
+	return gObjClass;
+	if (GameObjects[ID].isCreated)
+	{
+		return &GameObjectsClasses[gObj->ID];
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+Component* GetComponent(const UnigmaGameObjectClass& gObj, const char* componentName)
+{
+	std::string compNameStr = std::string(componentName);
+	if (gObj.components.contains(compNameStr))
+	{
+		auto it = gObj.components.find(compNameStr);
+		auto index = it->second;
+
+		Component* comp = UnigmaGameManager::instance->Components[index];
+
+		return comp;
+	}
+	return nullptr;
+}
+
 UNIGMANATIVE_API UnigmaGameObject* GetGameObject(uint32_t ID)
 {
+	//REMOVE RETURN IN FUTURE....
 	return &GameObjects[ID];
 	if(GameObjects[ID].isCreated)
 	{
@@ -158,6 +189,16 @@ UNIGMANATIVE_API UnigmaGameObject* GetGameObject(uint32_t ID)
 	{
 		return nullptr;
 	}
+}
+
+
+UNIGMANATIVE_API Value GetComponentAttribute(uint32_t GID, const char* componentName, const char* componentAttr)
+{
+	//Get Game Object so we can get the component attached.
+	UnigmaGameObjectClass* gObj = GetGameObjectClass(GID);
+	auto component = GetComponent(*gObj, componentName);
+	Value val = component->GetAttribute(componentAttr);
+	return val;
 }
 
 

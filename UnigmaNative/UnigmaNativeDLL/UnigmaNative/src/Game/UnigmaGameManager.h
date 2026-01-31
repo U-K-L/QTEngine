@@ -13,6 +13,8 @@
 // Function declarations.
 void AddGameObject(UnigmaGameObject gameObject);
 void RemoveGameObject(uint32_t ID);
+UnigmaGameObjectClass* GetGameObjectClass(uint32_t ID);
+Component* GetComponent(const UnigmaGameObjectClass& gObj, const char* componentName);
 
 //Typedef for callback register loadScene function
 typedef void (*LoadSceneCallbackType)(const char* sceneName);
@@ -82,6 +84,7 @@ public:
 
 extern "C" {
     UNIGMANATIVE_API UnigmaGameObject* GetGameObject(uint32_t ID);
+    UNIGMANATIVE_API Value GetComponentAttribute(uint32_t GID, const char* componentName, const char* componentAttr);
 
     // Function to get the size of the RenderingObjects vector
     UNIGMANATIVE_API uint32_t GetRenderObjectsSize();

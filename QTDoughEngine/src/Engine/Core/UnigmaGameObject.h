@@ -2,36 +2,40 @@
 #include <iostream>
 #include <vector>
 #include "../Core/UnigmaTransform.h"
+#include <cstdint>
 
 #define MAX_NUM_COMPONENTS 32
 
-struct FixedString
-{
-    char fstr[8];
-};
+struct FixedString { char fstr[8]; };
 
-enum class ValueType : uint8_t
-{
-    INT32,
-    FLOAT32,
-    BOOL,
-    CHAR,
-    FIXEDSTRING
-};
+enum class ValueType : uint8_t { INT32, FLOAT32, BOOL, CHAR, FIXEDSTRING };
 
 struct Value
 {
-    ValueType type; //Tag for what type of data, how to interpret.
+    ValueType type;
     union {
-
-        int i32;
-        float f32;
-        bool b;
-        char c;
+        int32_t  i32;
+        float    f32;
+        uint8_t  b;   // store bool as byte for ABI stability
+        char     c;
         FixedString fstr;
-    } data; //The actual data itself.
+    } data;
 };
 
+
+typedef Value(*FnGetComponentAttribute)(uint32_t GID, const char* componentName, const char* componentAttr);
+extern FnGetComponentAttribute UNGetComponentAttribute;
+
+template <typename T>
+Value GetComponentAttribute(uint32_t ID, const char* componentName, const char* componentAttr)
+{
+
+    Value v = UNGetComponentAttribute(ID, componentName, componentAttr);
+
+    std::cout << "Value value: " << v.data.f32 << std::endl;
+
+    return v;
+}
 
 struct UnigmaGameObject
 {
@@ -88,17 +92,8 @@ struct UnigmaGameObject
     template <typename T>
     T GetComponentAttr(const char* componentName, const char* componentAttr)
     {
-        //Get the hash of the name so it can cross DLL boundaries.
-        size_t hashNameSizeT = std::hash<std::string_view>{}(componentName);
-        uint64_t componentHash = static_cast<uint64_t>(hashNameSizeT);
-
-        size_t hashAttrSizeT = std::hash<std::string_view>{}(componentAttr);
-        uint64_t componentAttrHash = static_cast<uint64_t>(hashAttrSizeT);
-
-        //Assume we call some function from dll: GetComponentAttribute(uint32_t gameObjectID, uint64_t componentHash, uint64_t componentAttrHash)
-        //And that function returned a Value struct.
         Value val;
-        val = GetComponentAttribute(ID, componentHash, componentAttrHash);
+        val = GetComponentAttribute<T>(ID, componentName, componentAttr);
 
         if (!TypeMatches<T>(val)) {
             throw std::runtime_error("Type mismatch");
@@ -133,6 +128,9 @@ struct UnigmaGameObject
         }
     }
 };
+
+typedef UnigmaGameObject* (*FnGetGameObject)(uint32_t ID);
+extern FnGetGameObject UNGetGameObject;
 
 
 struct UnigmaGameObjectDummy
