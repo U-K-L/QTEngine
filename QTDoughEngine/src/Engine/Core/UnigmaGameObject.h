@@ -67,8 +67,16 @@ struct UnigmaGameObject
     template <typename T>
     constexpr ValueType TypeToValueType()
     {
+        using U = std::remove_cv_t<std::remove_reference_t<T>>;
+
         //Compile time if brnach.
-        if constexpr (std::is_same_v<T, int32_t>) return ValueType::INT32;
+        if constexpr (std::is_same_v<U, int32_t>) return ValueType::INT32;
+        else if constexpr (std::is_same_v<U, float>) return ValueType::FLOAT32;
+        else if constexpr (std::is_same_v<U, bool>) return ValueType::BOOL;
+        else if constexpr (std::is_same_v<U, char>) return ValueType::CHAR;
+        else if constexpr (std::is_same_v<U, std::string>) return ValueType::FIXEDSTRING;
+        else
+            static_assert(!sizeof(T), "Unsupported type in TypeToValueType");
     }
 
     template <typename T>
@@ -98,7 +106,7 @@ struct UnigmaGameObject
         val.type = ValueType::FLOAT32;
         val.data.i32 = 42; // Dummy value
 
-        if(TypeMatches<int>(val))
+        if(TypeMatches<float>(val))
             std::cout << "Type Matches!" << std::endl;
 
         //Check if val matches type T.
