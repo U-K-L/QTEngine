@@ -27,25 +27,11 @@ void RenderComp::Start()
 
 void RenderComp::InitializeData(nlohmann::json& componentData)
 {
-    for (auto key : componentData)
-    {
-        //std::string type = componentData[key].get<std::string>();
-
-        //std::cout << key << std::endl;
-        //std::cout << type << std::endl;
-
-    }
-
-
     if (componentData.contains("Blend"))
     {
         blend = componentData["Blend"];
-        //componentAttributes["Blend"] = blend;
-            //Store component data.
-        Value v;
-        v.type = ValueType::FLOAT32;
-        v.data.f32 = 100;
-        componentAttributes["Blend"] = v;
+        std::cout << "Game Object ID: " << GID << "Blend value: " << blend << std::endl;
+        SetValue<float>("Blend", "float", blend);
     }
 
 

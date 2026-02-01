@@ -17,7 +17,14 @@ class Component
 	Component();
 	~Component();
 
+	template <typename T>
+	Value TypeToValue(const char* type, T value);
+
 	Value GetAttribute(const char* componentAttribute);
+
+	template <typename T>
+    void SetValue(const char* componentAttribute, const char* type, T value);
+
 	virtual void InitializeData(nlohmann::json& componentData);
 	virtual void Update();
 	virtual void Start();
@@ -35,3 +42,49 @@ class Component
 	//Attributes.
 	std::unordered_map<std::string, Value> componentAttributes;
 };
+
+template <typename T>
+Value Component::TypeToValue(const char* type, T value)
+{
+    Value v{};
+
+    if (strcmp(type, "int") == 0 || strcmp(type, "int32") == 0)
+    {
+        v.type = ValueType::INT32;
+        v.data.i32 = (int32_t)value;
+    }
+    else if (strcmp(type, "float") == 0 || strcmp(type, "float32") == 0)
+    {
+        v.type = ValueType::FLOAT32;
+        v.data.f32 = (float)value;
+    }
+    else if (strcmp(type, "bool") == 0)
+    {
+        v.type = ValueType::BOOL;
+        v.data.b = (bool)value;
+    }
+    else if (strcmp(type, "char") == 0)
+    {
+        v.type = ValueType::CHAR;
+        v.data.c = (char)value;
+    }
+    /*
+    else if (strcmp(type, "fixedstring") == 0 || strcmp(type, "char8") == 0)
+    {
+        v.type = ValueType::FIXEDSTRING;
+        v.data.fstr = (ValueType::FIXEDSTRING) value;
+    }
+    */
+    //else if (strcmp(type, "vector3") == 0 || strcmp(type, "vec3") == 0)
+    //    v.type = ValueType::VECTOR3;
+
+    return v;
+};
+
+template <typename T>
+void Component::SetValue(const char* componentAttribute, const char* type, T value)
+{
+    Value v = TypeToValue<T>(type, value);
+    componentAttributes[std::string(componentAttribute)] = v;
+}
+

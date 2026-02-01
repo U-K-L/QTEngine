@@ -1208,10 +1208,11 @@ void VoxelizerPass::CreateBrushes()
     {
         int imageIndex = (i * 2) + mipsCount; //MIPs must be avoided.
         UnigmaRenderingObject* obj = renderingObjects[i];
+        UnigmaGameObject* gObj = obj->GetGameObject();
         
         //Get the brush data from the object.
-        auto ptrNull = obj->GetGameObject()->GetComponentAttr<float>("RenderComp", "Blend");
-        std::cout << ptrNull << std::endl;
+        auto blend = gObj->GetComponentAttr<float>("RenderComp", "Blend");
+        std::cout << "GameObject ID: " << gObj->ID << ", " << blend << std::endl;
 
         Brush brush;
         brush.type = 0; //Mesh type
@@ -1228,7 +1229,7 @@ void VoxelizerPass::CreateBrushes()
         brush.stiffness = 1.0f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
-        brush.blend = 0.0225f; // Set a default blend value
+        brush.blend = blend; // Set a default blend value
         brush.smoothness = 0.1f; //Solid object.
 
         brush.materialId = i;

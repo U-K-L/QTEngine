@@ -169,8 +169,9 @@ Component* GetComponent(const UnigmaGameObjectClass& gObj, const char* component
 	{
 		auto it = gObj.components.find(compNameStr);
 		auto index = it->second;
+		auto globalId = gObj.gameObject->components[index];
 
-		Component* comp = UnigmaGameManager::instance->Components[index];
+		Component* comp = UnigmaGameManager::instance->Components[globalId];
 
 		return comp;
 	}
@@ -196,6 +197,7 @@ UNIGMANATIVE_API Value GetComponentAttribute(uint32_t GID, const char* component
 {
 	//Get Game Object so we can get the component attached.
 	UnigmaGameObjectClass* gObj = GetGameObjectClass(GID);
+	std::cout << "GID at Component attr: " << GID << std::endl;
 	auto component = GetComponent(*gObj, componentName);
 	Value val = component->GetAttribute(componentAttr);
 	return val;

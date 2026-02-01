@@ -31,9 +31,6 @@ Value GetComponentAttribute(uint32_t ID, const char* componentName, const char* 
 {
 
     Value v = UNGetComponentAttribute(ID, componentName, componentAttr);
-
-    std::cout << "Value value: " << v.data.f32 << std::endl;
-
     return v;
 }
 
@@ -94,6 +91,7 @@ struct UnigmaGameObject
     {
         Value val;
         val = GetComponentAttribute<T>(ID, componentName, componentAttr);
+        std::cout << "ID double check: " << ID << std::endl;
 
         if (!TypeMatches<T>(val)) {
             throw std::runtime_error("Type mismatch");
