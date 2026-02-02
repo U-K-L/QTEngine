@@ -6,4 +6,5 @@ class UnigmaGameObjectTests
 {
 	public:
 		bool TestTypeToMatch();
+		bool TestGetAttributes();
 };

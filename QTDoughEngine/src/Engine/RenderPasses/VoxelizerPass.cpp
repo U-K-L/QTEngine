@@ -1203,6 +1203,18 @@ float Read3DTransformedDebug(const glm::mat4& modelMatrix, int resolution, const
 
 void VoxelizerPass::CreateBrushes()
 {
+    auto GetVoxelResolution = [this](int res) {
+            switch (res)
+            {
+            case(0):
+                return VOXEL_RESOLUTIONL3;
+            case(1):
+                return VOXEL_RESOLUTIONL2;
+            case(2):
+                return VOXEL_RESOLUTIONL15;
+            }
+    };
+
     int vertexOffset = 0;
     for (int i = 0; i < renderingObjects.size(); i++)
     {
@@ -1212,10 +1224,14 @@ void VoxelizerPass::CreateBrushes()
         
         //Get the brush data from the object.
         auto blend = gObj->GetComponentAttr<float>("RenderComp", "Blend");
-        std::cout << "GameObject ID: " << gObj->ID << ", " << blend << std::endl;
+        auto smoothness = gObj->GetComponentAttr<float>("RenderComp", "Smoothness");
+        auto resolution = gObj->GetComponentAttr<int>("RenderComp", "Resolution");
+        resolution = GetVoxelResolution(resolution);
+
+        auto primType = gObj->GetComponentAttr<int>("RenderComp", "Type");
 
         Brush brush;
-        brush.type = 0; //Mesh type
+        brush.type = primType; //Mesh type
         brush.vertexCount = obj->_renderer.vertices.size();
 
         //std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
@@ -1224,26 +1240,18 @@ void VoxelizerPass::CreateBrushes()
         brush.textureID2 = imageIndex + 1;
 
         //Set the resolution for the brush.
-        brush.resolution = VOXEL_RESOLUTIONL2; //Set to L1 for now. Later on this is read from the object.
+        brush.resolution = resolution; //Set to L1 for now. Later on this is read from the object.
 
         brush.stiffness = 1.0f; // Set a default stiffness value
         brush.id = i+1; // Set the brush ID to the index of the object
         brush.opcode = 0; // Set a default opcode, e.g., 0 for "add" operation
         brush.blend = blend; // Set a default blend value
-        brush.smoothness = 0.1f; //Solid object.
+        brush.smoothness = smoothness; //Solid object.
 
         brush.materialId = i;
 
         brush.density = 2;
         brush.particleRadius = 2.0f;
-
-        
-        if (brush.id == 2)
-        {
-            brush.stiffness = 1.0f; // Set a different stiffness for the second brush
-			brush.blend = 0.1f; // Set a different blend value for the second brush
-            brush.smoothness = 0.1f;
-        }
         
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
@@ -1374,9 +1382,11 @@ void VoxelizerPass::Create3DTextures()
         int index = i / 2;
         Brush& brush = brushes[index];
 
+        /*
         if(brush.type != 0) {
 			continue;
 		}
+        */
 
         Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
 		app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
@@ -2107,7 +2117,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 				//Already processed this texture.
 				continue;
 			}
-            if (brushes[i].type == 0) { //Mesh type
+            if (brushes[i].type >= 0) { //Mesh type
 
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
 
@@ -2137,7 +2147,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         for (uint32_t i = 0; i < brushes.size(); i++)
         {
             uint32_t index = brushes[i].textureID;
-            if (brushes[i].type == 0) { //Mesh type
+            if (brushes[i].type >= 0) { //Mesh type
 
                 //Make this indirect.
                 //if(brushes[i].isDirty == true)
@@ -2606,11 +2616,13 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     QTDoughApplication* app = QTDoughApplication::instance;
 
     //Get the volume texture from the lodlevel.
-    Unigma3DTexture& volumeTexture = app->textures3D["brush_" + std::to_string(lodLevel)];
+    Brush brush = brushes[lodLevel];
 
-    uint32_t resolutionx = volumeTexture.WIDTH;
-    uint32_t resolutiony = volumeTexture.HEIGHT;
-    uint32_t resolutionz = volumeTexture.DEPTH;
+    std::cout << "Brush resolution and ID: " << lodLevel << " , " << brush.resolution << std::endl;
+
+    uint32_t resolutionx = brush.resolution;
+    uint32_t resolutiony = brush.resolution;
+    uint32_t resolutionz = brush.resolution;
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
 

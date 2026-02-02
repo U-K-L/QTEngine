@@ -89,6 +89,7 @@ public:
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024,256);
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3
+    int VOXEL_RESOLUTIONL15 = 256;
     int VOXEL_RESOLUTIONL2 = 128;
     int VOXEL_RESOLUTIONL3 = 64;
     int VOXEL_RESOLUTIONL4 = 32;

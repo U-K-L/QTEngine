@@ -51,7 +51,7 @@ Value Component::TypeToValue(const char* type, T value)
     if (strcmp(type, "int") == 0 || strcmp(type, "int32") == 0)
     {
         v.type = ValueType::INT32;
-        v.data.i32 = (int32_t)value;
+        v.data.i32 = (int)value;
     }
     else if (strcmp(type, "float") == 0 || strcmp(type, "float32") == 0)
     {

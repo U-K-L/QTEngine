@@ -301,7 +301,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     }
 
     
-    float sigma = 0.6325f * brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = 0.6325f * 0.1f; //brush.smoothness; // Controls the spread of the Gaussian
     float amplitude = 1.0f; // Can be a particle attribute
     float radiusParticleSpacing = brush.particleRadius;
     

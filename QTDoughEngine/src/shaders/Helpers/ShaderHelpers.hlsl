@@ -36,6 +36,10 @@ float NO_LABELF()
     return 16777215.0f;
 }
 
+static const uint PrimMesh = 0;
+static const uint PrimSphere = 1;
+
+
 // cheap length (dot*rsqrt)
 inline float lenFast(float3 v)
 {

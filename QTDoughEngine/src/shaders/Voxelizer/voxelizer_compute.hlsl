@@ -136,7 +136,7 @@ float2 Read3DTransformed(in Brush brush, float3 worldPos)
     
     int3 res = int3(brush.resolution, brush.resolution, brush.resolution);
     if (any(voxelCoord < 0) || any(voxelCoord >= res))
-        return 1.0f;
+        return DEFUALT_EMPTY_SPACE;
     
     return gBindless3D[brush.textureID2].Load(int4(voxelCoord, 0));
 }
@@ -578,24 +578,40 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     float3 closesVert = 0;
     
-    for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
+    if (brush.type == PrimMesh)
     {
-        uint3 idx = uint3(i, i + 1, i + 2);
-        float3 a = vertexBuffer[idx.x].position.xyz;
-        float3 b = vertexBuffer[idx.y].position.xyz;
-        float3 c = vertexBuffer[idx.z].position.xyz;
+        for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
+        {
+            uint3 idx = uint3(i, i + 1, i + 2);
+            float3 a = vertexBuffer[idx.x].position.xyz;
+            float3 b = vertexBuffer[idx.y].position.xyz;
+            float3 c = vertexBuffer[idx.z].position.xyz;
 
-        float dist = DistanceToTriangle(localPos, a, b, c);
-        if (minDist > dist)
-            closesVert = a;
+            float dist = DistanceToTriangle(localPos, a, b, c);
+            if (minDist > dist)
+                closesVert = a;
         
-        minDist = min(minDist, dist);
-        windingSum += GetSolidAngle(localPos, a, b, c);
-    }
+            minDist = min(minDist, dist);
+            windingSum += GetSolidAngle(localPos, a, b, c);
+        }
 
-    if (abs(windingSum) > 2.0f * 3.14159265f)
+        if (abs(windingSum) > 2.0f * 3.14159265f)
+        {
+            minDist = -minDist;
+        }
+
+    }
+    else if (brush.type == PrimSphere) //Sphere
     {
-        minDist = -minDist;
+        float3 position = model[3].xyz;
+        float3 scale;
+        scale.x = length(model[0].xyz);
+        scale.y = length(model[1].xyz);
+        scale.z = length(model[2].xyz);
+        
+        float radius = max(scale.y, max(scale.x, scale.z));
+        minDist = sdSphere(localPos, center, radius);
+
     }
 
     float sdf = minDist;
@@ -839,7 +855,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = ((pc.voxelResolution / 2) / GetVoxelResolutionL1().xyz);
+    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
     int3 DTL1 = fullDTid / worldSDFDivisor;
 
     if(brushCount == 0)
@@ -865,10 +881,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         {
             case 0:
                 blendFactor += brush.blend;
-                if (minDist > (d + 0.25f))
-                {
-                    minId = brush.materialId;
-                }
+                if(minDist > d)
+                    minId = index;
                 minDist = smin(minDist, d, blendFactor + 0.0001f);
                 smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
                 break;
@@ -1869,23 +1883,22 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
         n3 = faceNormal;
     }
     
-    /*
     //Interpolate based on smoothness.
     if(normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
-        float t = clamp(1.0f -  exp(-brush.smoothness), 0, 1.0f);
-        n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
-        n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
-        n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
-        n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
+        float t = clamp(1.0f - exp(-brush.smoothness), 0, 1.0f);
+        n0 = GetNormal(v0);
+        n1 = GetNormal(v1);
+        n2 = GetNormal(v2);
+        n3 = GetNormal(v3);
         
         n0 = lerp(faceNormal, n0, t);
         n1 = lerp(faceNormal, n1, t);
         n2 = lerp(faceNormal, n2, t);
         n3 = lerp(faceNormal, n3, t);
     }
-*/
+    /*
     if (normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
@@ -1900,6 +1913,7 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
         n2 = lerp(faceNormal, n2, t);
         n3 = lerp(faceNormal, n3, t);
     }
+*/
     meshingVertices[vertOffset + 0].normal = float4(n0, brush.materialId);
     meshingVertices[vertOffset + 1].normal = float4(n1, brush.materialId);
     meshingVertices[vertOffset + 2].normal = float4(n2, brush.materialId);
@@ -1940,6 +1954,13 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
     int3 baseTexel = aabbMinTexelMip + DTid;
     
+    float3 worldSDFDivisor = (pc.voxelResolution / voxelL1Res.xyz);
+    int3 DTidL1 = DTid / worldSDFDivisor;
+    
+    int3 l1Texel = floor(((aabbMinWS + halfScene) / sceneSize) * voxelL1Res.xyz) + DTidL1;
+
+
+    
     float sdfOrigin = Read3D(mipLevel, baseTexel).x;
     
     if(activeValue < 0.001f)
@@ -1949,7 +1970,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     float distortionFieldSum = 0;
     
-    uint indexField = Flatten3D(DTid, voxelL1Res.xyz);
+    
+    uint indexField = Flatten3D(l1Texel, voxelL1Res.xyz);
     uint brushIndex = voxelsL1Out[indexField].brushId;
     
     Brush brush = Brushes[brushIndex];

@@ -53,3 +53,9 @@ bool UnigmaGameObjectTests::TestTypeToMatch()
 		return false;
 	}
 }
+
+bool UnigmaGameObjectTests::TestGetAttributes()
+{
+	auto gObj = std::make_unique<UnigmaGameObject>();
+	return true;
+}

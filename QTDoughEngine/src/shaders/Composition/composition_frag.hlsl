@@ -154,7 +154,7 @@ float4 main(VSOutput i) : SV_Target
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
     if(pc.input == 1)
-        return normalImage;
+        return fullFieldSDF;
     if (pc.input == 2)
         return sdfNormalImage;
     if (pc.input == 3)
