@@ -603,14 +603,15 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
     else if (brush.type == PrimSphere) //Sphere
     {
-        float3 position = model[3].xyz;
+        float3 position = brush.model[3].xyz; //Fourth Column
         float3 scale;
-        scale.x = length(model[0].xyz);
-        scale.y = length(model[1].xyz);
-        scale.z = length(model[2].xyz);
+        scale.x = length(brush.model[0].xyz);
+        scale.y = length(brush.model[1].xyz);
+        scale.z = length(brush.model[2].xyz);
         
         float radius = max(scale.y, max(scale.x, scale.z));
         minDist = sdSphere(localPos, center, radius);
+        
 
     }
 
@@ -636,7 +637,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     //Blocks size
     int blockSize = brush.density; //Give each brush a density field.
-    if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
+    if (sdf <= 0.001f && all((DTid.xyz % blockSize) == 0))
     {
         float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
         float3 sceneSize = GetSceneSize();
@@ -913,10 +914,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float sdfVal = voxelsL1Out[index].isoPhi; 
 
     
-    if (distortionFieldSum > 0.1f)
+    //if (distortionFieldSum > 0.1f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    else
-        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    //else
+    //    Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
     voxelsL1Out[index].brushId = minId;
     /*
