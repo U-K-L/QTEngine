@@ -167,6 +167,7 @@ void UnigmaPhysicsComp::Update()
 			gobj->transform.rotation.y = euler.y;
 			gobj->transform.rotation.z = euler.z;
 
+			//gobj->transform.rotation.z += glm::radians(12.0f);
 			gobj->transform.UpdateTransform();
 		}
 	}

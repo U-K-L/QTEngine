@@ -47,7 +47,7 @@ class OBJECT_OT_add_component(bpy.types.Operator):
             elif typ == "float":
                 new[field] = float(default) if default is not None else 0.0
             elif typ == "vector3":
-                new[field] = default if default is not None else [0.0, 0.0, 0.0]
+                new[field] = default if default is not None else [1.0, 1.0, 1.0]
             elif typ == "int":
                 new[field] = int(default) if default is not None else 0
             else:

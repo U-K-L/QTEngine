@@ -114,31 +114,65 @@ float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out fl
 
 
 
+
+float2 Load3D(uint texId, int3 p)
+{
+    return gBindless3D[texId].Load(int4(p, 0));
+}
+
+float2 Read3DTrilinearManual(uint texId, float3 uvw, int res)
+{
+    // clamp uvw to [0,1] so we don’t read outside
+    uvw = saturate(uvw);
+
+    // texel space coordinate where texel centers are at i+0.5
+    float3 t = uvw * res - 0.5f;
+
+    int3 p0 = (int3) floor(t);
+    float3 f = t - (float3) p0;
+
+    int3 p1 = p0 + 1;
+
+    // clamp integer coords
+    int3 lo = int3(0, 0, 0);
+    int3 hi = int3(res - 1, res - 1, res - 1);
+    p0 = clamp(p0, lo, hi);
+    p1 = clamp(p1, lo, hi);
+
+    // 8 corners
+    float2 c000 = Load3D(texId, int3(p0.x, p0.y, p0.z));
+    float2 c100 = Load3D(texId, int3(p1.x, p0.y, p0.z));
+    float2 c010 = Load3D(texId, int3(p0.x, p1.y, p0.z));
+    float2 c110 = Load3D(texId, int3(p1.x, p1.y, p0.z));
+    float2 c001 = Load3D(texId, int3(p0.x, p0.y, p1.z));
+    float2 c101 = Load3D(texId, int3(p1.x, p0.y, p1.z));
+    float2 c011 = Load3D(texId, int3(p0.x, p1.y, p1.z));
+    float2 c111 = Load3D(texId, int3(p1.x, p1.y, p1.z));
+
+    // trilinear
+    float2 c00 = lerp(c000, c100, f.x);
+    float2 c10 = lerp(c010, c110, f.x);
+    float2 c01 = lerp(c001, c101, f.x);
+    float2 c11 = lerp(c011, c111, f.x);
+
+    float2 c0 = lerp(c00, c10, f.y);
+    float2 c1 = lerp(c01, c11, f.y);
+
+    return lerp(c0, c1, f.z);
+}
+
 float2 Read3DTransformed(in Brush brush, float3 worldPos)
 {
-    
-    // 1. Transform from world space to local mesh space
     float3 localPos = mul(brush.invModel, float4(worldPos, 1.0f)).xyz;
 
-    // 2. Get AABB in local mesh space
-    float maxExtent = brush.aabbmax.w;
-    float3 center = brush.center.xyz;
+    // map localPos into [0,1] using the SAME bounds used to author the volume
+    float3 uvw = (localPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
 
-
-    // 3. Normalize localPos using AABB
-    float3 normalized = (localPos - center) / (0.5f * maxExtent);
-
-    // 4. Convert to voxel coord space
-    float3 uvw = (normalized + 1.0f) * 0.5f;
-    float3 voxelCoordf = uvw * brush.resolution;
-    int3 voxelCoord = int3(voxelCoordf);
-    
-    
-    int3 res = int3(brush.resolution, brush.resolution, brush.resolution);
-    if (any(voxelCoord < 0) || any(voxelCoord >= res))
+    // outside = empty
+    if (any(uvw < 0.0f) || any(uvw > 1.0f))
         return DEFUALT_EMPTY_SPACE;
-    
-    return gBindless3D[brush.textureID2].Load(int4(voxelCoord, 0));
+
+    return Read3DTrilinearManual(brush.textureID2, uvw, (int) brush.resolution);
 }
 
 
@@ -1988,8 +2022,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     Brush brush = Brushes[brushIndex];
     
-    //if (brush.isDeformed == false)
-    //    return;
+    if (brush.isDeformed == false)
+        return;
     
     //Sum the distoration field.
     int kernelSize = 3;
@@ -2148,8 +2182,8 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     Brush brush = Brushes[brushID];
     
     //If the brush is deformed remove it from the default static mesh.
-    //if(brush.isDeformed == 1)
-    //    return;
+    if(brush.isDeformed == 1)
+        return;
     
     const uint triIdx = DTid.x;
     if (triIdx >= brush.vertexCount * 3)

@@ -329,7 +329,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 centerWS = mul(brush.model, float4(0, 0, 0, 1)).xyz; // or any world-space pivot
 
     float danceRadius = 20.0f;
-    /*
+/*
     position = SwirlSphereDanceWS(
     position,
     centerWS,
@@ -340,12 +340,12 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     20.0f,
     1.6f
 );
+    */
 
     if(distFromHeat < 2.125f)
         position += 0.096885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
-    
-    */
+
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();

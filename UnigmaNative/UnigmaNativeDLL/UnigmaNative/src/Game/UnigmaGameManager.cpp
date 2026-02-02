@@ -33,7 +33,7 @@ void UnigmaGameManager::Create()
 
 	std::cout << "UnigmaGameManager created" << std::endl;
 
-	std::string defaultSceneString = "CubeExample";
+	std::string defaultSceneString = "SunnyRoom";
 
 	SceneManager->CreateScene(defaultSceneString);
 	SceneManager->LoadScene(defaultSceneString);
