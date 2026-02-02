@@ -301,7 +301,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     }
 
     
-    float sigma = 0.6325f * 0.1f; //brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = 0.6325f * 0.1f;//brush.smoothness; // Controls the spread of the Gaussian
     float amplitude = 1.0f; // Can be a particle attribute
     float radiusParticleSpacing = brush.particleRadius;
     
@@ -329,7 +329,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 centerWS = mul(brush.model, float4(0, 0, 0, 1)).xyz; // or any world-space pivot
 
     float danceRadius = 20.0f;
-
+    /*
     position = SwirlSphereDanceWS(
     position,
     centerWS,
@@ -341,11 +341,11 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     1.6f
 );
 
-    
     if(distFromHeat < 2.125f)
-        position += 1.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+        position += 0.096885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
-
+    
+    */
     
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();
@@ -391,7 +391,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 particle.initPosition.w += mag;
                     
                 //Special flag.
-                if (particle.initPosition.w > 0.0005f)
+                if (particle.initPosition.w > 0.005f)
                 {
                     voxelsL1Out[flatIndex].jacobian = 0.1;
 

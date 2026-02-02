@@ -23,15 +23,22 @@ public:
 
 	enum ResolutionType
 	{
-		Low,
-		Medium,
-		High
+		LowRes,
+		MediumRes,
+		HighRes
 	};
 
 	enum PrimitiveType
 	{
 		Mesh,
 		Sphere,
+	};
+
+	enum ParticleDensity
+	{
+		LowDens,
+		MediumDens,
+		HighDens
 	};
 };
 #pragma once

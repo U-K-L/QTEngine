@@ -43,11 +43,11 @@ void RenderComp::InitializeData(nlohmann::json& componentData)
     {
         std::string resTypeStr = componentData["Resolution"];
         if (resTypeStr == "Low")
-            resolution = Low;
+            resolution = LowRes;
         else if (resTypeStr == "Medium")
-            resolution = Medium;
+            resolution = MediumRes;
         else if (resTypeStr == "High")
-            resolution = High;
+            resolution = HighRes;
 
         SetValue<int>("Resolution", "int", resolution);
     }
@@ -62,6 +62,19 @@ void RenderComp::InitializeData(nlohmann::json& componentData)
             primType = Sphere;
 
         SetValue<int>("Type", "int", primType);
+    }
+
+    if (componentData.contains("Density"))
+    {
+        std::string densityTypeStr = componentData["Density"];
+        if (densityTypeStr == "Low")
+            density = LowDens;
+        else if (densityTypeStr == "Medium")
+            density = MediumDens;
+        else if (densityTypeStr == "High")
+            density = HighDens;
+
+        SetValue<int>("Density", "int", density);
     }
 
 }

@@ -1215,6 +1215,18 @@ void VoxelizerPass::CreateBrushes()
             }
     };
 
+    auto GetParticleDensity = [this](int dens) {
+        switch (dens)
+        {
+        case(0):
+            return 4;
+        case(1):
+            return 3;
+        case(2):
+            return 2;
+        }
+        };
+
     int vertexOffset = 0;
     for (int i = 0; i < renderingObjects.size(); i++)
     {
@@ -1227,6 +1239,9 @@ void VoxelizerPass::CreateBrushes()
         auto smoothness = gObj->GetComponentAttr<float>("RenderComp", "Smoothness");
         auto resolution = gObj->GetComponentAttr<int>("RenderComp", "Resolution");
         resolution = GetVoxelResolution(resolution);
+
+        auto particleDens = gObj->GetComponentAttr<int>("RenderComp", "Density");
+        particleDens = GetParticleDensity(particleDens);
 
         auto primType = gObj->GetComponentAttr<int>("RenderComp", "Type");
 
@@ -1250,8 +1265,8 @@ void VoxelizerPass::CreateBrushes()
 
         brush.materialId = i;
 
-        brush.density = 2;
-        brush.particleRadius = 2.0f;
+        brush.density = particleDens;
+        brush.particleRadius = 2.0f * (particleDens - 1);
         
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now

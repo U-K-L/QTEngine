@@ -244,13 +244,24 @@ bool TriangleOutsideVoxel(float3 a, float3 b, float3 c, float3 voxelMin, float3 
 
 void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
 {
-    float2 voxelSceneBounds = GetVoxelResolution(0.0f);
-    uint3 gridSize = uint3(voxelSceneBounds.x, voxelSceneBounds.x, voxelSceneBounds.x);
-    uint voxelIndex = DTid.x * gridSize.y * gridSize.z + DTid.y * gridSize.z + DTid.z;
+    float4 voxelWorldRes = GetVoxelResolutionWorldSDFArbitrary(1, pc.voxelResolution.xyz);
+    float4 voxelL1Res = GetVoxelResolutionL1();
+    float3 voxelL1Divisor = voxelWorldRes.xyz / voxelL1Res.xyz;
+    uint3 voxelIndex = DTid * voxelL1Divisor;
+    
+    uint vindex = Flatten3D(voxelIndex, voxelL1Res.xyz);
+    
+    
+    VoxelL1 v;
+    v.distance = DEFUALT_EMPTY_SPACE;
+    v.density = 0;
+    v.jacobian = 0;
+    v.isoPhi = 0;
+
+    voxelsL1Out[vindex] = v;
     
     float2 clearValue = float2(DEFUALT_EMPTY_SPACE, NO_LABELF());
     //voxelsL1Out[voxelIndex].id = NO_LABELF();
-    voxelsL1Out[voxelIndex].distance = 2;
     Write3D(0, DTid, clearValue);
     Write3D(1, DTid/2, 0);
     GlobalIDCounter[1] = 0;
@@ -914,10 +925,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float sdfVal = voxelsL1Out[index].isoPhi; 
 
     
-    //if (distortionFieldSum > 0.1f)
+    if (distortionFieldSum > 0.1f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    //else
-    //    Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    else
+        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
     voxelsL1Out[index].brushId = minId;
     /*
@@ -2278,6 +2289,27 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
+    v.jacobian = voxelsL1Out[index].jacobian;
+    v.isoPhi = c;
+
+    voxelsL1Out[index] = v;
+    Write3DDist(1, DTid, 0);
+}
+
+void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
+{
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
+    if (any(DTid >= voxelRes))
+        return;
+    
+    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution / 2));
+    uint index = Flatten3D(idVoxel, voxelRes);
+    
+    float c = ComputePhi(DTid);
+    
+    VoxelL1 v;
+    v.distance = DEFUALT_EMPTY_SPACE;
+    v.density = 0;
     v.jacobian = 0;
     v.isoPhi = c;
 
@@ -2295,6 +2327,7 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
 
     if (sampleLevelL == 0.0f)
     {
+        ClearVoxelDataInit(DTid / 2);
         InitVoxelData(DTid);
         return;
     }
