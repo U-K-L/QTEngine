@@ -299,13 +299,22 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
         return;
     }
+    
+        
+    float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
+    float3 sceneSize = GetSceneSize();
+    
+    float3 voxelSize = sceneSize / voxelRes;
+    float3 halfScene = sceneSize * 0.5f;
+    
+    float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
 
     
-    float sigma = 0.6325f * 0.1f;//brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = h * 1.75;//brush.smoothness; // Controls the spread of the Gaussian
     float amplitude = 1.0f; // Can be a particle attribute
-    float radiusParticleSpacing = brush.particleRadius;
+    float radiusParticleSpacing = 6 * 0.35f;
     
-    float supportWS = sigma * 1.75f;
+    float supportWS = sigma * 2.75f;
     
     float3 position = particle.position.xyz;
     
@@ -342,16 +351,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 );
     */
 
-    if(distFromHeat < 2.125f)
-        position += 0.096885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+    //if(distFromHeat > 0.4125f)
+    //    position += 0.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
 
 
-    
-    float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
-    float3 sceneSize = GetSceneSize();
-    
-    float3 voxelSize = sceneSize / voxelRes;
-    float3 halfScene = sceneSize * 0.5f;
 
     float3 minPos = position - supportWS;
     float3 maxPos = position + supportWS;
@@ -385,21 +388,23 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
-                    
-                float3 velocity = ((position.xyz - initialPosition.xyz) + (positionOld - position)) * deltaTime;
-                float mag = length(velocity);
-                particle.initPosition.w += mag;
-                    
-                //Special flag.
-                if (particle.initPosition.w > 0.005f)
-                {
-                    voxelsL1Out[flatIndex].jacobian = 0.1;
+                float disp = length(position - initialPosition);
+                if (disp > 0.5f)
+                    voxelsL1Out[flatIndex].jacobian = 0.1f;
 
-                }
                 
-                float sd = length(worldPos - position) - radiusParticleSpacing;
-                
+                float sd = length(worldPos - position) - radiusParticleSpacing * h;
+
+                float kInflate = 0.275f;
+                sd -= kInflate * sigma;
+
+                float sdN = sd / sigma;
+                sdN = sign(sdN) * (1.0f - exp(-abs(sdN)));
+                sd = sdN * sigma;
+
                 int distanceContribution = (int) round(sd * (float) guassContribution);
+
+
                 
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);

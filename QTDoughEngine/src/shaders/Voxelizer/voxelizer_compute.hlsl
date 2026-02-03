@@ -614,9 +614,9 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
 
-    float3 uvw = ((float3) DTid) / brush.resolution;
-    float3 samplePos = uvw * 2.0f - 1.0f;
-    float3 localPos = samplePos * (maxExtent * 0.5f) + center;
+    float3 uvw = ((float3) DTid + 0.5f) / brush.resolution; // use centers
+    float3 localPos = lerp(minBounds, maxBounds, uvw); // SAME bounds you stored
+
 
     float minDist = DEFUALT_EMPTY_SPACE;
     float windingSum = 0.0f;
@@ -663,9 +663,10 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float sdf = minDist;
     
     float3 cell = (brush.aabbmax.xyz - brush.aabbmin.xyz) / brush.resolution;
-    float expand = min(cell.x, min(cell.y, cell.z));
-    //sdf -= expand; // inflate surface outward by ~1 voxel
+    float shrink = min(cell.x, min(cell.y, cell.z)) * 4;
+    sdf += shrink; // shrink voxel
     
+    /*
     float3 posLocal = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
     float3 uvwS = (posLocal - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
     float3 texel = uvwS * brush.resolution;
@@ -673,7 +674,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     {
         sdf = DEFUALT_EMPTY_SPACE;
     }
-
+    */
     float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
     Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
     Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
@@ -682,7 +683,10 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     //Blocks size
     int blockSize = brush.density; //Give each brush a density field.
-    if (sdf <= 0.001f && all((DTid.xyz % blockSize) == 0))
+    //if (any( (DTid.xyz >= (brush.resolution - (brush.resolution / 16))) ))
+    //    return;
+    
+    if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
     {
         float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
         float3 sceneSize = GetSceneSize();
@@ -940,7 +944,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     }
 
     //Sum the distoration field.
-    int kernelSize = 1;
+    int kernelSize = 3;
     float distortionFieldSum = 0;
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     
@@ -959,7 +963,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float sdfVal = voxelsL1Out[index].isoPhi; 
 
     
-    if (distortionFieldSum > 0.1f)
+    if (distortionFieldSum > 0.0001f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
@@ -2022,24 +2026,32 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     Brush brush = Brushes[brushIndex];
     
-    if (brush.isDeformed == false)
-        return;
+    //if (brush.isDeformed == false)
+    //    return;
     
     //Sum the distoration field.
-    int kernelSize = 3;
+    //mesh
+    if(brush.type == 0)
+    {
     
-    for (int l = -kernelSize; l <= kernelSize; l++)
-        for (int j = -kernelSize; j <= kernelSize; j++)
-            for (int k = -kernelSize; k <= kernelSize; k++)
-            {
-                int3 dtid = DTid + int3(l, j, k);
-                uint indexField = Flatten3D(dtid, voxelL1Res.xyz);
-                distortionFieldSum += clamp(voxelsL1Out[indexField].jacobian, 0, 1);
+        int kernelSize = 3;
+    
+        for (int l = -kernelSize; l <= kernelSize; l++)
+            for (int j = -kernelSize; j <= kernelSize; j++)
+                for (int k = -kernelSize; k <= kernelSize; k++)
+                {
+                    int3 dtid = DTid + int3(l, j, k);
+                    uint indexField = Flatten3D(dtid, voxelL1Res.xyz);
+                    distortionFieldSum += clamp(voxelsL1Out[indexField].jacobian, 0, 1);
 
-            }
-    //If the distortion field is lower than deformation threshold ignore DC.
-    //if (distortionFieldSum < 0.1f)
-    //    return;
+                }
+        distortionFieldSum /= (pow(3, kernelSize + 1));
+
+        bool isInBand = distortionFieldSum > 0.01f;
+        if (distortionFieldSum > 0.09f)
+            if (!isInBand)
+                return;
+    }
 
     //Check Every single face.
     int offSet = 1;
@@ -2094,8 +2106,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 bool WorldPosToL1Index(float3 worldPos, out int3 coordL1, out uint idxL1)
 {
     // World SDF bounds (same physical box for all mips)
-    float2 worldInfo = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution); // x = WORLD_SDF_RES, y = worldSize
-    float halfScene = worldInfo.y * 0.5f;
+    float4 worldInfo = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution); // x = WORLD_SDF_RES, y = worldSize
+    float3 halfScene = GetSceneSize() * 0.5f;
 
     // Normalize to [0,1]
     float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
@@ -2109,14 +2121,14 @@ bool WorldPosToL1Index(float3 worldPos, out int3 coordL1, out uint idxL1)
     }
 
     // L1 grid resolution
-    float2 l1Info = GetVoxelResolution(1.0f); // x = VOXEL_RESOLUTIONL1, y = worldSize (same y)
-    int res = (int) l1Info.x;
+    float4 l1Info = GetVoxelResolutionL1(); // x = VOXEL_RESOLUTIONL1, y = worldSize (same y)
+    int3 res = l1Info.xyz;
 
     // Map to integer texel coord on L1
     coordL1 = clamp(int3(uvw * res), 0, res - 1);
 
     // Your row-major 3D flattener that matches how you write voxelsL1*
-    idxL1 = Flatten3DR(coordL1, res);
+    idxL1 = Flatten3D(coordL1, res);
     return true;
 }
 
@@ -2151,11 +2163,11 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
 {
     int3 c;
     uint i;
+    int3 res = GetVoxelResolutionL1().xyz;
     if (!WorldPosToL1Index(worldPos, c, i))
         return false;
 
-    int3 res = GetVoxelResolutionL1().xyz;
-
+    float distorationSum = 0.0f;
     [unroll]
     for (int dz = -radius; dz <= radius; ++dz)
     [unroll]
@@ -2165,9 +2177,10 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
             {
                 int3 cc = clamp(c + int3(dx, dy, dz), int3(0, 0, 0), int3(res - 1));
                 uint idx = Flatten3D(cc, res);
-                if (voxelsL1Out[idx].jacobian > 0.0f)
-                    return true;
+                distorationSum += voxelsL1Out[idx].jacobian;
             }
+    if (distorationSum / (pow(3, radius+1)) > 0.09f)
+        return true;
     return false;
 }
 
@@ -2182,8 +2195,8 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     Brush brush = Brushes[brushID];
     
     //If the brush is deformed remove it from the default static mesh.
-    if(brush.isDeformed == 1)
-        return;
+    //if(brush.isDeformed == 1)
+    //    return;
     
     const uint triIdx = DTid.x;
     if (triIdx >= brush.vertexCount * 3)
@@ -2206,7 +2219,8 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
 
     //Check neighboring field to also remove from default mesh.
-    bool deformed = ReadDeformingFieldKernel(pW0, 5);
+    int radius = 3;
+    bool deformed = ReadDeformingFieldKernel(pW0, radius);
 
     if (deformed)
         return;

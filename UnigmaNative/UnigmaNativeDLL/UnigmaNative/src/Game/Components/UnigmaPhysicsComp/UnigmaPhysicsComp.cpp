@@ -1,6 +1,6 @@
 #include "UnigmaPhysicsComp.h"
 #include "../../../Physics/UnigmaPhysicsManager.h"
-
+#include "../../UnigmaGameManager.h"
 
 UnigmaPhysicsComp::UnigmaPhysicsComp()
 {
@@ -166,6 +166,13 @@ void UnigmaPhysicsComp::Update()
 			gobj->transform.rotation.x = euler.x;
 			gobj->transform.rotation.y = euler.y;
 			gobj->transform.rotation.z = euler.z;
+
+			std::cout << std::string(gobj->name) << std::endl;
+			if (std::string(gobj->name) == "Sphere")
+			{
+				float xMove = std::sin(UnigmaGameManager::instance->currentTime * 0.25f) * 5.0f;
+				gobj->transform.position.x += xMove;
+			}
 
 			//gobj->transform.rotation.z += glm::radians(12.0f);
 			gobj->transform.UpdateTransform();
