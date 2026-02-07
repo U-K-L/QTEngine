@@ -314,7 +314,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float amplitude = 1.0f; // Can be a particle attribute
     float radiusParticleSpacing = 6 * 0.35f;
     
-    float supportWS = sigma * 2.75f;
+    float supportWS = sigma * 2.25f;
     
     float3 position = particle.position.xyz;
     
@@ -351,8 +351,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 );
     */
 
-    //if(distFromHeat > 0.4125f)
-    //    position += 0.96885f * (direction + float3(0, 0, -9.9)) * deltaTime * distFromHeat;
+    if(position.y > 0)
+        position += 0.66885f * (direction + float3(0, 0, -9.9)) * deltaTime;
 
 
 
@@ -389,13 +389,13 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
                 float disp = length(position - initialPosition);
-                if (disp > 0.5f)
+                if (disp > 0.005f)
                     voxelsL1Out[flatIndex].jacobian = 0.1f;
 
                 
                 float sd = length(worldPos - position) - radiusParticleSpacing * h;
 
-                float kInflate = 0.275f;
+                float kInflate = 0.315f;
                 sd -= kInflate * sigma;
 
                 float sdN = sd / sigma;

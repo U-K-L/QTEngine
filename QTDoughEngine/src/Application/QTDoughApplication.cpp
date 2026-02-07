@@ -778,6 +778,10 @@ void QTDoughApplication::InitVulkan()
     CreateLogicalDevice();
     CreateSwapChain();
 
+    //Create command pool early so GPU benchmark can use it.
+    CreateCommandPool();
+    RunGPUBenchmark();
+
     AddPasses();
 
     //Create all the image views.
@@ -797,7 +801,6 @@ void QTDoughApplication::InitVulkan()
 
     //Create Depths
     CreateDepthResources();
-    CreateCommandPool();
 
     //Create the images and their samplers.
     //CreateTextureImage();
@@ -832,6 +835,329 @@ void QTDoughApplication::InitVulkan()
     //Sync the buffers.
     CreateSyncObjects();
 
+}
+
+void QTDoughApplication::RunGPUBenchmark()
+{
+    std::cout << "========================" << std::endl;
+    std::cout << "Running GPU Benchmark..." << std::endl;
+    std::cout << "========================" << std::endl;
+
+    // Get timestamp period from device properties.
+    VkPhysicalDeviceProperties devProps{};
+    vkGetPhysicalDeviceProperties(_physicalDevice, &devProps);
+    float timestampPeriod = devProps.limits.timestampPeriod; // nanoseconds per tick
+
+    if (timestampPeriod == 0.0f) {
+        std::cout << "GPU timestamps not supported, skipping benchmark." << std::endl;
+        return;
+    }
+
+    // Create timestamp query pool (4 queries: before/after ALU, before/after BW).
+    VkQueryPoolCreateInfo queryPoolInfo{};
+    queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    queryPoolInfo.queryCount = 4;
+
+    VkQueryPool queryPool;
+    VK_CHECK(vkCreateQueryPool(_logicalDevice, &queryPoolInfo, nullptr, &queryPool));
+
+    // --- ALU throughput test resources ---
+    const uint32_t aluElementCount = 65536; // 65536 float4 = 1 MB
+    VkDeviceSize aluBufferSize = aluElementCount * sizeof(float) * 4;
+
+    VkBuffer aluBuffer;
+    VkDeviceMemory aluBufferMemory;
+    CreateBuffer(aluBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, aluBuffer, aluBufferMemory);
+
+    // ALU descriptor set layout: binding 0 = storage buffer.
+    VkDescriptorSetLayoutBinding aluBinding{};
+    aluBinding.binding = 0;
+    aluBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    aluBinding.descriptorCount = 1;
+    aluBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutCreateInfo aluDslCI{};
+    aluDslCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    aluDslCI.bindingCount = 1;
+    aluDslCI.pBindings = &aluBinding;
+
+    VkDescriptorSetLayout aluDSL;
+    VK_CHECK(vkCreateDescriptorSetLayout(_logicalDevice, &aluDslCI, nullptr, &aluDSL));
+
+    // ALU pipeline.
+    auto aluShaderCode = readFile("src/shaders/benchmark_alu.spv");
+    VkShaderModule aluShaderModule = CreateShaderModule(aluShaderCode);
+
+    VkPipelineLayoutCreateInfo aluPlCI{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+    aluPlCI.setLayoutCount = 1;
+    aluPlCI.pSetLayouts = &aluDSL;
+
+    VkPipelineLayout aluPipelineLayout;
+    VK_CHECK(vkCreatePipelineLayout(_logicalDevice, &aluPlCI, nullptr, &aluPipelineLayout));
+
+    VkPipelineShaderStageCreateInfo aluStage{};
+    aluStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    aluStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    aluStage.module = aluShaderModule;
+    aluStage.pName = "main";
+
+    VkComputePipelineCreateInfo aluPipelineCI{};
+    aluPipelineCI.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    aluPipelineCI.stage = aluStage;
+    aluPipelineCI.layout = aluPipelineLayout;
+
+    VkPipeline aluPipeline;
+    VK_CHECK(vkCreateComputePipelines(_logicalDevice, VK_NULL_HANDLE, 1, &aluPipelineCI, nullptr, &aluPipeline));
+
+    // --- Bandwidth test resources ---
+    const uint32_t bwElementCount = 2 * 1024 * 1024; // 2M float4 = 32 MB each
+    VkDeviceSize bwBufferSize = bwElementCount * sizeof(float) * 4;
+
+    VkBuffer bwSrcBuffer, bwDstBuffer;
+    VkDeviceMemory bwSrcMemory, bwDstMemory;
+    CreateBuffer(bwBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bwSrcBuffer, bwSrcMemory);
+    CreateBuffer(bwBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bwDstBuffer, bwDstMemory);
+
+    // BW descriptor set layout: binding 0 + binding 1 = storage buffers.
+    VkDescriptorSetLayoutBinding bwBindings[2]{};
+    bwBindings[0].binding = 0;
+    bwBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bwBindings[0].descriptorCount = 1;
+    bwBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    bwBindings[1].binding = 1;
+    bwBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bwBindings[1].descriptorCount = 1;
+    bwBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutCreateInfo bwDslCI{};
+    bwDslCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    bwDslCI.bindingCount = 2;
+    bwDslCI.pBindings = bwBindings;
+
+    VkDescriptorSetLayout bwDSL;
+    VK_CHECK(vkCreateDescriptorSetLayout(_logicalDevice, &bwDslCI, nullptr, &bwDSL));
+
+    // BW pipeline.
+    auto bwShaderCode = readFile("src/shaders/benchmark_bw.spv");
+    VkShaderModule bwShaderModule = CreateShaderModule(bwShaderCode);
+
+    VkPipelineLayoutCreateInfo bwPlCI{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+    bwPlCI.setLayoutCount = 1;
+    bwPlCI.pSetLayouts = &bwDSL;
+
+    VkPipelineLayout bwPipelineLayout;
+    VK_CHECK(vkCreatePipelineLayout(_logicalDevice, &bwPlCI, nullptr, &bwPipelineLayout));
+
+    VkPipelineShaderStageCreateInfo bwStage{};
+    bwStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    bwStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    bwStage.module = bwShaderModule;
+    bwStage.pName = "main";
+
+    VkComputePipelineCreateInfo bwPipelineCI{};
+    bwPipelineCI.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    bwPipelineCI.stage = bwStage;
+    bwPipelineCI.layout = bwPipelineLayout;
+
+    VkPipeline bwPipeline;
+    VK_CHECK(vkCreateComputePipelines(_logicalDevice, VK_NULL_HANDLE, 1, &bwPipelineCI, nullptr, &bwPipeline));
+
+    // --- Descriptor pool and sets ---
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSize.descriptorCount = 3; // ALU(1) + BW(2)
+
+    VkDescriptorPoolCreateInfo dpCI{};
+    dpCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    dpCI.maxSets = 2;
+    dpCI.poolSizeCount = 1;
+    dpCI.pPoolSizes = &poolSize;
+
+    VkDescriptorPool benchPool;
+    VK_CHECK(vkCreateDescriptorPool(_logicalDevice, &dpCI, nullptr, &benchPool));
+
+    // ALU descriptor set.
+    VkDescriptorSetAllocateInfo aluDsAI{};
+    aluDsAI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    aluDsAI.descriptorPool = benchPool;
+    aluDsAI.descriptorSetCount = 1;
+    aluDsAI.pSetLayouts = &aluDSL;
+
+    VkDescriptorSet aluDS;
+    VK_CHECK(vkAllocateDescriptorSets(_logicalDevice, &aluDsAI, &aluDS));
+
+    VkDescriptorBufferInfo aluBufInfo{};
+    aluBufInfo.buffer = aluBuffer;
+    aluBufInfo.offset = 0;
+    aluBufInfo.range = aluBufferSize;
+
+    VkWriteDescriptorSet aluWrite{};
+    aluWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    aluWrite.dstSet = aluDS;
+    aluWrite.dstBinding = 0;
+    aluWrite.descriptorCount = 1;
+    aluWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    aluWrite.pBufferInfo = &aluBufInfo;
+
+    vkUpdateDescriptorSets(_logicalDevice, 1, &aluWrite, 0, nullptr);
+
+    // BW descriptor set.
+    VkDescriptorSetAllocateInfo bwDsAI{};
+    bwDsAI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    bwDsAI.descriptorPool = benchPool;
+    bwDsAI.descriptorSetCount = 1;
+    bwDsAI.pSetLayouts = &bwDSL;
+
+    VkDescriptorSet bwDS;
+    VK_CHECK(vkAllocateDescriptorSets(_logicalDevice, &bwDsAI, &bwDS));
+
+    VkDescriptorBufferInfo bwSrcInfo{ bwSrcBuffer, 0, bwBufferSize };
+    VkDescriptorBufferInfo bwDstInfo{ bwDstBuffer, 0, bwBufferSize };
+
+    VkWriteDescriptorSet bwWrites[2]{};
+    bwWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    bwWrites[0].dstSet = bwDS;
+    bwWrites[0].dstBinding = 0;
+    bwWrites[0].descriptorCount = 1;
+    bwWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bwWrites[0].pBufferInfo = &bwSrcInfo;
+    bwWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    bwWrites[1].dstSet = bwDS;
+    bwWrites[1].dstBinding = 1;
+    bwWrites[1].descriptorCount = 1;
+    bwWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bwWrites[1].pBufferInfo = &bwDstInfo;
+
+    vkUpdateDescriptorSets(_logicalDevice, 2, bwWrites, 0, nullptr);
+
+    // --- Record and submit command buffer ---
+    VkCommandBufferAllocateInfo cmdAI{};
+    cmdAI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cmdAI.commandPool = _commandPool;
+    cmdAI.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cmdAI.commandBufferCount = 1;
+
+    VkCommandBuffer cmd;
+    VK_CHECK(vkAllocateCommandBuffers(_logicalDevice, &cmdAI, &cmd));
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
+
+    vkCmdResetQueryPool(cmd, queryPool, 0, 4);
+
+    VkMemoryBarrier memBarrier{};
+    memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    memBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    memBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+    // ALU benchmark: timestamp -> dispatch -> barrier -> timestamp.
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, 0);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, aluPipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            aluPipelineLayout, 0, 1, &aluDS, 0, nullptr);
+    vkCmdDispatch(cmd, 256, 1, 1); // 256 groups * 256 threads = 65536 threads
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, 1);
+
+    // BW benchmark: timestamp -> 8x dispatch -> timestamp.
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, 2);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bwPipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            bwPipelineLayout, 0, 1, &bwDS, 0, nullptr);
+
+    uint32_t bwGroupCount = bwElementCount / 256;
+    for (int rep = 0; rep < 8; rep++) {
+        vkCmdDispatch(cmd, bwGroupCount, 1, 1);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+    }
+
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, 3);
+
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    // Submit and wait.
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmd;
+
+    vkQueueSubmit(_vkComputeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(_vkComputeQueue);
+
+    // --- Read results ---
+    uint64_t timestamps[4];
+    VK_CHECK(vkGetQueryPoolResults(_logicalDevice, queryPool, 0, 4,
+        sizeof(timestamps), timestamps, sizeof(uint64_t),
+        VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT));
+
+    // ALU: 65536 threads * 1024 FMA iterations * 8 FLOPs per FMA on float4 = 536,870,912 FLOPs.
+    double aluTicks = static_cast<double>(timestamps[1] - timestamps[0]);
+    double aluTimeSec = (aluTicks * static_cast<double>(timestampPeriod)) * 1e-9;
+    double totalFLOPs = 65536.0 * 1024.0 * 8.0;
+    double gflops = (totalFLOPs / aluTimeSec) / 1e9;
+
+    // BW: 8 reps * (32MB read + 32MB write) = 512 MB transferred.
+    double bwTicks = static_cast<double>(timestamps[3] - timestamps[2]);
+    double bwTimeSec = (bwTicks * static_cast<double>(timestampPeriod)) * 1e-9;
+    double totalBytes = 8.0 * 2.0 * static_cast<double>(bwBufferSize);
+    double gbps = (totalBytes / bwTimeSec) / 1e9;
+
+    std::cout << "GPU Benchmark Results:" << std::endl;
+    std::cout << "  Compute throughput: " << gflops << " GFLOPS" << std::endl;
+    std::cout << "  Memory bandwidth:   " << gbps << " GB/s" << std::endl;
+
+    // --- Set quality level ---
+    if (gflops >= 8000.0 && gbps >= 300.0) {
+        GameQualityLevel = 0; // Ultra
+    } else if (gflops >= 4000.0 && gbps >= 150.0) {
+        GameQualityLevel = 1; // High
+    } else if (gflops >= 1000.0 && gbps >= 50.0) {
+        GameQualityLevel = 2; // Medium
+    } else {
+        GameQualityLevel = 3; // Low
+    }
+
+    const char* qualityNames[] = { "Ultra", "High", "Medium", "Low" };
+    std::cout << "  Selected quality level: " << qualityNames[GameQualityLevel]
+              << " (" << GameQualityLevel << ")" << std::endl;
+    std::cout << "========================" << std::endl;
+
+    // --- Cleanup ---
+    vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, &cmd);
+    vkDestroyQueryPool(_logicalDevice, queryPool, nullptr);
+
+    vkDestroyPipeline(_logicalDevice, aluPipeline, nullptr);
+    vkDestroyPipelineLayout(_logicalDevice, aluPipelineLayout, nullptr);
+    vkDestroyPipeline(_logicalDevice, bwPipeline, nullptr);
+    vkDestroyPipelineLayout(_logicalDevice, bwPipelineLayout, nullptr);
+
+    vkDestroyDescriptorPool(_logicalDevice, benchPool, nullptr);
+    vkDestroyDescriptorSetLayout(_logicalDevice, aluDSL, nullptr);
+    vkDestroyDescriptorSetLayout(_logicalDevice, bwDSL, nullptr);
+
+    vkDestroyShaderModule(_logicalDevice, aluShaderModule, nullptr);
+    vkDestroyShaderModule(_logicalDevice, bwShaderModule, nullptr);
+
+    vkDestroyBuffer(_logicalDevice, aluBuffer, nullptr);
+    vkFreeMemory(_logicalDevice, aluBufferMemory, nullptr);
+    vkDestroyBuffer(_logicalDevice, bwSrcBuffer, nullptr);
+    vkFreeMemory(_logicalDevice, bwSrcMemory, nullptr);
+    vkDestroyBuffer(_logicalDevice, bwDstBuffer, nullptr);
+    vkFreeMemory(_logicalDevice, bwDstMemory, nullptr);
 }
 
 VkResult QTDoughApplication::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {

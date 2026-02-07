@@ -315,6 +315,7 @@ private:
     //Methods.
     void InitSDLWindow();
     void InitVulkan();
+    void RunGPUBenchmark();
     void SetupDebugMessenger();
     void MainLoop();
     void CreateInstance();

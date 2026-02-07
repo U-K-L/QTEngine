@@ -18,6 +18,9 @@ C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Outline/outline_
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Outline/outline_vert.hlsl -Fo outlinevert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Composition/composition_frag.hlsl -Fo compositionfrag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Composition/composition_vert.hlsl -Fo compositionvert.spv
+REM --- Benchmark (HLSL -> SPIR-V) ---
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv Benchmark/benchmark_alu_compute.hlsl -Fo benchmark_alu.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv Benchmark/benchmark_bw_compute.hlsl -Fo benchmark_bw.spv
 REM --- Ray Tracing (HLSL -> SPIR-V) ---
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe -spirv -fspv-target-env=vulkan1.2 -T lib_6_3 RayTraceAccel/raygen.hlsl    -Fo raygen.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe -spirv -fspv-target-env=vulkan1.2 -T lib_6_3 RayTraceAccel/miss.hlsl      -Fo miss.spv

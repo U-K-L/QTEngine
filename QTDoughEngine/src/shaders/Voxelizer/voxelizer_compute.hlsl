@@ -961,7 +961,6 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
-
     
     if (distortionFieldSum > 0.0001f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
