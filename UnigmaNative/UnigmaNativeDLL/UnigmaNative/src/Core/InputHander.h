@@ -10,7 +10,7 @@ struct UnigmaInputStruct
 	bool orthoButtonDown;
 	bool perspectiveButtonDown;
 	bool cameraZoom;
-	bool mouseMiddle, mouseRight;
+	uint8_t mouseMiddle, mouseRight;
 	glm::vec2 wheel;
 	glm::vec2 movement;
 	UnigmaInputStruct()

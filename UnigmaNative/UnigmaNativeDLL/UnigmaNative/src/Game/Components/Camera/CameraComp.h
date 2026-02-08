@@ -15,9 +15,12 @@ class CameraComp : public Component
 	void Update() override;
 	void Start() override;
 	void InitializeData(nlohmann::json& componentData) override;
+	void GetInputs();
 
 	//This is the camera struct that will be used to render the scene.
 	static constexpr const char* TypeName = "CameraComp";
 	uint32_t CameraID;
 	UnigmaCameraStruct* camera;
+
+	bool rotationHeld;
 };

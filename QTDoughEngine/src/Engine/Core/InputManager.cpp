@@ -80,16 +80,41 @@ void cameraInputButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 			printf("Middle mouse button pressed\n");
 			input->mouseMiddle = true;
 		}
+
+		if (inputEvent.button.button == SDL_BUTTON_RIGHT)
+		{
+			// Check keyboard modifiers at this moment
+			SDL_Keymod mods = SDL_GetModState();
+
+			if (mods & KMOD_SHIFT)
+			{
+				printf("Shift + Right Mouse Button pressed\n");
+				input->mouseMiddle = true;
+			}
+		}
 	}
 
 	if (inputEvent.type == SDL_MOUSEBUTTONUP)
 	{
 		if (inputEvent.button.button == SDL_BUTTON_MIDDLE)
 		{
-			printf("Middle mouse button released\n");
-			input->mouseMiddle = false;
+			printf("Middle mouse button pressed\n");
+			input->mouseMiddle = 2;
+		}
+
+		if (inputEvent.button.button == SDL_BUTTON_RIGHT)
+		{
+			// Check keyboard modifiers at this moment
+			SDL_Keymod mods = SDL_GetModState();
+
+			if (mods & KMOD_SHIFT)
+			{
+				printf("Shift + Right Mouse Button pressed\n");
+				input->mouseMiddle = 2;
+			}
 		}
 	}
+
 }
 
 void SetMovement(SDL_Event& inputEvent, UnigmaInputStruct* input)

@@ -14,13 +14,26 @@ CameraComp::~CameraComp()
 {
 }
 
+void CameraComp::GetInputs()
+{
+    UnigmaInputStruct* Controller0 = &UnigmaGameManager::instance->Controller0;
+    if (Controller0->mouseMiddle == 1)
+    {
+        rotationHeld = true;
+    }
+	else if (Controller0->mouseMiddle == 2)
+	{
+		rotationHeld = false;
+	}
+}
 
 void CameraComp::Update()
 {
+    GetInputs();
     UnigmaInputStruct *Controller0 = &UnigmaGameManager::instance->Controller0;
     std::cout << "input struct size DLL: " << sizeof(UnigmaInputStruct) << std::endl;
 
-    std::cout << "Middle Mouse button: " << Controller0->mouseMiddle << " Right Mouse button: " << Controller0->mouseRight << std::endl;
+    std::cout << "Middle Mouse button: " << rotationHeld << " Right Mouse button: " << Controller0->mouseRight << std::endl;
 
     /*
     // Get the input event
@@ -135,7 +148,7 @@ void CameraComp::Update()
 
 
     // MMB orbit (Blender-style)
-    if (Controller0->mouseMiddle)
+    if (rotationHeld)
     {
         int dx, dy;
         SDL_GetRelativeMouseState(&dx, &dy);
@@ -144,20 +157,31 @@ void CameraComp::Update()
         float yaw   = -static_cast<float>(dx) * rotationRate;
         float pitch  = -static_cast<float>(dy) * rotationRate;
 
-        // Yaw: orbit around world Z axis
+        // Yaw: orbit around world Z axis (no gimbal issues here)
         camera->rotateAroundPoint(glm::vec3(0.0f), yaw, glm::vec3(0.0f, 0.0f, 1.0f));
 
-        // Pitch: orbit around camera right axis (clamped to prevent flipping)
-        glm::vec3 fwd = camera->forward();
-        glm::vec3 fwdFlat = glm::vec3(fwd.x, fwd.y, 0.0f);
-        if (glm::length(fwdFlat) > 0.01f)
+        // Pitch: clamp elevation angle to prevent flipping past poles
+        glm::vec3 pos = camera->position();
+        float dist = glm::length(pos);
+        if (dist > 0.001f)
         {
-            camera->rotateAroundPoint(glm::vec3(0.0f), pitch, camera->_transform.right());
+            float currentElevation = asinf(glm::clamp(pos.z / dist, -1.0f, 1.0f));
+            float maxElev = glm::radians(89.0f);
+
+            // Clamp pitch so elevation stays within [-89, +89] degrees
+            float newElevation = currentElevation + pitch;
+            if (newElevation > maxElev)  pitch = maxElev - currentElevation;
+            if (newElevation < -maxElev) pitch = -maxElev - currentElevation;
+
+            if (fabsf(pitch) > 0.0001f)
+            {
+                camera->rotateAroundPoint(glm::vec3(0.0f), pitch, camera->_transform.right());
+            }
         }
     }
     else
     {
-        // Drain any accumulated relative state so it doesn't spike on next MMB press
+        // Drain accumulated relative state so it doesn't spike on next MMB press
         SDL_GetRelativeMouseState(nullptr, nullptr);
     }
 }
