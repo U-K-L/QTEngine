@@ -20,11 +20,13 @@ void SetButtonInputs(UnigmaInputStruct* input)
 		cameraProjectionButtons(inputEvent, input);
 		SetMovement(inputEvent, input);
 	}
+
+
+
 }
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 {
-
 	if (inputEvent.type == SDL_KEYDOWN)
 	{
 

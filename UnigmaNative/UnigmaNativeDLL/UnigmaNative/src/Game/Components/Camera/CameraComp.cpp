@@ -18,6 +18,10 @@ CameraComp::~CameraComp()
 void CameraComp::Update()
 {
     UnigmaInputStruct *Controller0 = &UnigmaGameManager::instance->Controller0;
+    std::cout << "input struct size DLL: " << sizeof(UnigmaInputStruct) << std::endl;
+
+    std::cout << "Middle Mouse button: " << Controller0->mouseMiddle << " Right Mouse button: " << Controller0->mouseRight << std::endl;
+
     /*
     // Get the input event
     SDL_Event inputEvent = UnigmaGameManager::instance->inputEvent;

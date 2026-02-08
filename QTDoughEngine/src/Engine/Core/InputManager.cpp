@@ -32,6 +32,8 @@ void SetButtonInputs(UnigmaInputStruct* input)
 		SetMovement(inputEvent, input);
 		input->inputReceived = true;
 	}
+
+	std::cout << "input struct size EXE: " << sizeof(UnigmaInputStruct) << std::endl;
 }
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
@@ -69,6 +71,24 @@ void cameraInputButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 		glm::vec2 wheel = glm::vec2(inputEvent.wheel.x, inputEvent.wheel.y);
 		input->wheel = wheel;
 		input->cameraZoom = true;
+	}
+
+	if (inputEvent.type == SDL_MOUSEBUTTONDOWN)
+	{
+		if (inputEvent.button.button == SDL_BUTTON_MIDDLE)
+		{
+			printf("Middle mouse button pressed\n");
+			input->mouseMiddle = true;
+		}
+	}
+
+	if (inputEvent.type == SDL_MOUSEBUTTONUP)
+	{
+		if (inputEvent.button.button == SDL_BUTTON_MIDDLE)
+		{
+			printf("Middle mouse button released\n");
+			input->mouseMiddle = false;
+		}
 	}
 }
 
