@@ -134,29 +134,31 @@ void CameraComp::Update()
     //std::cout << "Clip far plane: " << camera->farClip << std::endl;
 
 
-    //rotate camera.
-    glm::vec3 targetPoint = glm::vec3(0, 0, 0);
-    //float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.0000000125) * 360;
-    //camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
-
-    //std::cout << "Delta time: " << UnigmaGameManager::instance->deltaTime << std::endl;
-
-                // Get rotation rate from the camera
-    float rotationRate = 0.004f;
-
-    // Calculate angles in radians
-    float angleX = 1.0f * rotationRate;
-    float angleY = 0 * rotationRate;
-
-    // Orbit horizontally around the Y-axis
-    camera->rotateAroundPoint(glm::vec3(0.0f), angleX, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    // Orbit vertically around the X-axis (optional, limited to avoid flipping)
-    glm::vec3 cameraForward = camera->forward();
-    glm::vec3 forwardProjection = glm::vec3(cameraForward.x, 0.0f, cameraForward.z); // Forward projected to XZ plane
-    if (glm::length(forwardProjection) > 0.01f) // Prevent flipping at zenith
+    // MMB orbit (Blender-style)
+    if (Controller0->mouseMiddle)
     {
-        camera->rotateAroundPoint(glm::vec3(0.0f), angleY, camera->_transform.right());
+        int dx, dy;
+        SDL_GetRelativeMouseState(&dx, &dy);
+
+        float rotationRate = 0.005f;
+        float yaw   = -static_cast<float>(dx) * rotationRate;
+        float pitch  = -static_cast<float>(dy) * rotationRate;
+
+        // Yaw: orbit around world Z axis
+        camera->rotateAroundPoint(glm::vec3(0.0f), yaw, glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // Pitch: orbit around camera right axis (clamped to prevent flipping)
+        glm::vec3 fwd = camera->forward();
+        glm::vec3 fwdFlat = glm::vec3(fwd.x, fwd.y, 0.0f);
+        if (glm::length(fwdFlat) > 0.01f)
+        {
+            camera->rotateAroundPoint(glm::vec3(0.0f), pitch, camera->_transform.right());
+        }
+    }
+    else
+    {
+        // Drain any accumulated relative state so it doesn't spike on next MMB press
+        SDL_GetRelativeMouseState(nullptr, nullptr);
     }
 }
 
