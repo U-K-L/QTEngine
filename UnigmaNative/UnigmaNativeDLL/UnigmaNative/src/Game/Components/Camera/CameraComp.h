@@ -23,4 +23,6 @@ class CameraComp : public Component
 	UnigmaCameraStruct* camera;
 
 	bool rotationHeld;
+	bool panHeld;
+	glm::vec3 orbitPivot = glm::vec3(0.0f);
 };

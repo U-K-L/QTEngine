@@ -25,6 +25,15 @@ void CameraComp::GetInputs()
 	{
 		rotationHeld = false;
 	}
+
+    if (Controller0->mouseLeft == 1)
+    {
+        panHeld = true;
+    }
+    else if (Controller0->mouseLeft == 2)
+    {
+        panHeld = false;
+    }
 }
 
 void CameraComp::Update()
@@ -157,31 +166,44 @@ void CameraComp::Update()
         float yaw   = -static_cast<float>(dx) * rotationRate;
         float pitch  = -static_cast<float>(dy) * rotationRate;
 
-        // Yaw: orbit around world Z axis (no gimbal issues here)
-        camera->rotateAroundPoint(glm::vec3(0.0f), yaw, glm::vec3(0.0f, 0.0f, 1.0f));
+        // Yaw: orbit around pivot on world Z axis
+        camera->rotateAroundPoint(orbitPivot, yaw, glm::vec3(0.0f, 0.0f, 1.0f));
 
         // Pitch: clamp elevation angle to prevent flipping past poles
-        glm::vec3 pos = camera->position();
-        float dist = glm::length(pos);
+        glm::vec3 toCamera = camera->position() - orbitPivot;
+        float dist = glm::length(toCamera);
         if (dist > 0.001f)
         {
-            float currentElevation = asinf(glm::clamp(pos.z / dist, -1.0f, 1.0f));
+            float currentElevation = asinf(glm::clamp(toCamera.z / dist, -1.0f, 1.0f));
             float maxElev = glm::radians(89.0f);
 
-            // Clamp pitch so elevation stays within [-89, +89] degrees
             float newElevation = currentElevation + pitch;
             if (newElevation > maxElev)  pitch = maxElev - currentElevation;
             if (newElevation < -maxElev) pitch = -maxElev - currentElevation;
 
             if (fabsf(pitch) > 0.0001f)
             {
-                camera->rotateAroundPoint(glm::vec3(0.0f), pitch, camera->_transform.right());
+                camera->rotateAroundPoint(orbitPivot, pitch, camera->_transform.right());
             }
         }
     }
+    else if (panHeld)
+    {
+        // Shift+LMB pan (Blender-style)
+        int dx, dy;
+        SDL_GetRelativeMouseState(&dx, &dy);
+
+        float panSpeed = 0.01f;
+        glm::vec3 cameraRight = camera->_transform.right();
+        glm::vec3 cameraUp = camera->_transform.up();
+        glm::vec3 offset = cameraRight * (-static_cast<float>(dx) * panSpeed)
+                         + cameraUp * (static_cast<float>(dy) * panSpeed);
+        camera->setPosition(camera->position() + offset);
+        orbitPivot += offset;
+    }
     else
     {
-        // Drain accumulated relative state so it doesn't spike on next MMB press
+        // Drain accumulated relative state so it doesn't spike on next press
         SDL_GetRelativeMouseState(nullptr, nullptr);
     }
 }
