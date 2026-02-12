@@ -33,7 +33,6 @@ void SetButtonInputs(UnigmaInputStruct* input)
 		input->inputReceived = true;
 	}
 
-	std::cout << "input struct size EXE: " << sizeof(UnigmaInputStruct) << std::endl;
 }
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)

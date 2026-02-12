@@ -5,6 +5,7 @@
 #include "json.hpp"
 #include "../Engine/Renderer/UnigmaRenderingObject.h"
 #include "stb_image.h"
+#include "../Engine/RenderPasses/VoxelizerPass.h"
 
 AssetLoader assetLoader;
 
@@ -22,6 +23,7 @@ FnGetLightsSize UNGetLightsSize;
 FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
+FnRegisterAddBrushCallback UNRegisterAddBrushCallback;
 
 FnGetGameObject UNGetGameObject;
 FnGetComponentAttribute UNGetComponentAttribute;
@@ -51,11 +53,13 @@ void LoadUnigmaNativeFunctions()
     UNRegisterCallback = (FnRegisterCallback)GetProcAddress(unigmaNative, "RegisterCallback");
     UNRegisterLoadSceneCallback = (FnRegisterLoadSceneCallback)GetProcAddress(unigmaNative, "RegisterLoadSceneCallback");
     UNRegisterLoadInputCallback = (FnRegisterLoadInputCallback)GetProcAddress(unigmaNative, "RegisterLoadInputCallback");
+    UNRegisterAddBrushCallback = (FnRegisterAddBrushCallback)GetProcAddress(unigmaNative, "RegisterAddBrushCallback");
 
     //Register the callback function
     UNRegisterCallback(ApplicationFunction);
     UNRegisterLoadSceneCallback(LoadScene);
     UNRegisterLoadInputCallback(LoadInput);
+    UNRegisterAddBrushCallback(AddBrushFromNative);
 }
 
 
@@ -66,6 +70,16 @@ void ApplicationFunction(const char* message) {
 UnigmaInputStruct LoadInput(int flag)
 {
     return GetInput(flag);
+}
+
+int AddBrushFromNative(uint32_t type, float px, float py, float pz,
+    float sx, float sy, float sz, int resolution,
+    float blend, float smoothness, uint32_t opcode, int density, float stiffness)
+{
+    if (!VoxelizerPass::instance) return -1;
+    return VoxelizerPass::instance->AddBrush(type,
+        glm::vec3(px, py, pz), glm::vec3(sx, sy, sz),
+        resolution, blend, smoothness, opcode, density, stiffness);
 }
 
 //Loads the scene and all its initial models. This may or may not include the player.
@@ -351,7 +365,7 @@ void LoadScene(const char* sceneName) {
             v.color = { colors[i][0],    colors[i][1],    colors[i][2], 0.0f };
 
             flatVerts.emplace_back(v);
-            flatIdx.emplace_back(n);        // 0,1,2,…  (keeps pipeline happy if it still expects an IBO)
+            flatIdx.emplace_back(n);        // 0,1,2,ï¿½  (keeps pipeline happy if it still expects an IBO)
         }
 
         // swap into the struct you push to the renderer

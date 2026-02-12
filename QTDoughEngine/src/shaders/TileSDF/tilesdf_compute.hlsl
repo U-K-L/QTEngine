@@ -289,16 +289,24 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
     //Move to world space if connected to a brush.
     Particle particle = particlesL1In[DTid.x];
-    Brush brush = Brushes[particle.particleIDs.x];
+    int brushIndex = max(particle.particleIDs.x - 1, 0);
+    //if(particle.particleIDs.x >= 0)
+    //    brushIndex = particle.particleIDs.x-1;
     
+    Brush brush = Brushes[brushIndex];
+    
+    /*
     if (particle.position.w < 1)
     {
         
-        particlesL1Out[DTid.x].position = particle.position;
-        particlesL1Out[DTid.x].initPosition = particle.initPosition;
+        particlesL1Out[DTid.x].position.xyz = randPos(DTid.x + time) * GetSceneSize()*0.5;
+        particlesL1Out[DTid.x].position.w = 1;
+        particlesL1Out[DTid.x].initPosition = particle.position;
+        particlesL1Out[DTid.x].particleIDs.x = 0;
 
         return;
     }
+    */
     
         
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
@@ -323,18 +331,21 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
     
     float speed = 0.001f;
-    float timeX = time.x * speed;
+    float timeX = time * speed;
     
     float3 direction = normalize(position - float3(0, 0, 0));
 
-    position = mul(brush.model, float4(position, 1.0f)).xyz;
+
+    //if(particle.particleIDs.x > 0)
+        position = mul(brush.model, float4(position, 1.0f)).xyz;
+    
     float3 positionOld = position;
 
 
     
     float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
     
-    float t = time.x * 0.001f; // your existing speed scaling
+    float t = time * 0.001f; // your existing speed scaling
     float3 centerWS = mul(brush.model, float4(0, 0, 0, 1)).xyz; // or any world-space pivot
 
     float danceRadius = 20.0f;
@@ -351,11 +362,17 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 );
     */
 
+    /*
     if(position.y > 0)
         position += 0.66885f * (direction + float3(0, 0, -9.9)) * deltaTime;
-
-
-
+    */
+    
+    /*
+    if (particle.particleIDs.x == 0)
+    {
+        position = clamp(position + randPos(DTid.x + time) * deltaTime*100, -GetSceneSize() * 0.5f, GetSceneSize() * 0.5f);
+    }
+    */
     float3 minPos = position - supportWS;
     float3 maxPos = position + supportWS;
 
@@ -411,9 +428,17 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
             }
     
-    if(particle.initPosition.w > 0.05f)
-        Brushes[particle.particleIDs.x].isDeformed = true;
+    /*
+    if(particle.particleIDs.x == 0)
+    {
+        particlesL1Out[DTid.x].position.xyz = position;
+        return;
+
+    }
     
+    if(particle.initPosition.w > 0.05f)
+        Brushes[particle.particleIDs.x-1].isDeformed = true;
+    */
     particle.initPosition.w *= 0.95f;
     
     particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;

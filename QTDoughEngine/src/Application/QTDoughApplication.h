@@ -89,9 +89,10 @@ struct SwapChainSupportDetails {
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsAndComputeFamily;
     std::optional<uint32_t> presentFamily;
+    std::optional<uint32_t> physicsFamily;
 
     bool isComplete() {
-        return graphicsAndComputeFamily.has_value() && presentFamily.has_value();
+        return graphicsAndComputeFamily.has_value() && presentFamily.has_value() && physicsFamily.has_value();
     }
 };
 
@@ -302,6 +303,9 @@ public:
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
     VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
     VkQueue _vkComputeQueue = VK_NULL_HANDLE;
+    VkQueue _vkPhysicsQueue = VK_NULL_HANDLE;
+    VkFence _physicsFence = VK_NULL_HANDLE;
+    VkCommandBuffer _physicsCommandBuffer = VK_NULL_HANDLE;
     VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
 
     //Graphics Quality Settings.
@@ -336,6 +340,7 @@ private:
     void CreateShaderStorageBuffers();
     void RunMainGameLoop();
     void DrawFrame();
+    void ComputePhysics();
     void CreateSyncObjects();
     void CreateVertexBuffer();
     void CreateIndexBuffer();
@@ -372,6 +377,7 @@ private:
     void GetMeshDataAllObjects();
     void CameraToBlender();
     void CreateComputeCommandBuffers();
+    void CreatePhysicsCommandBuffer();
     void CreateComputeDescriptorSetLayout();
     void CreateComputeDescriptorSets();
     void CreateComputePipeline();

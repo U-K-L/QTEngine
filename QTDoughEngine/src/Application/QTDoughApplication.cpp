@@ -148,12 +148,6 @@ void QTDoughApplication::RunMainGameLoop()
     //std::cout << "Updating frame..." << std::endl;
 
 
-    DrawFrame();
-    if (GatherBlenderInfo() == 0)
-    {
-        CameraToBlender();
-        GetMeshDataAllObjects();
-    }
 
 
     // Calculate the elapsed time in milliseconds
@@ -164,6 +158,11 @@ void QTDoughApplication::RunMainGameLoop()
         timeSecondPassed = currentTime;
     }
 
+    if (elapsedTime.count() >= 33)
+    {
+        ComputePhysics();
+    }
+
     elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeMinutePassed);
 
     if (elapsedTime.count() >= 1000 * 60) {
@@ -171,7 +170,41 @@ void QTDoughApplication::RunMainGameLoop()
         timeMinutePassed = currentTime;
     }
 
+
+    DrawFrame();
+    if (GatherBlenderInfo() == 0)
+    {
+        CameraToBlender();
+        GetMeshDataAllObjects();
+    }
+
     //RecreateResources();
+}
+
+void QTDoughApplication::ComputePhysics()
+{
+    vkWaitForFences(_logicalDevice, 1, &_physicsFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(_logicalDevice, 1, &_physicsFence);
+
+    vkResetCommandBuffer(_physicsCommandBuffer, 0);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(_physicsCommandBuffer, &beginInfo);
+
+    // TODO: Bind physics compute pipeline and dispatch here.
+
+    vkEndCommandBuffer(_physicsCommandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &_physicsCommandBuffer;
+
+    if (vkQueueSubmit(_vkPhysicsQueue, 1, &submitInfo, _physicsFence) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit physics command buffer!");
+    }
 }
 
 void QTDoughApplication::DrawFrame()
@@ -201,7 +234,7 @@ void QTDoughApplication::DrawFrame()
     vkResetFences(_logicalDevice, 1, &computeInFlightFences[currentFrame]);
 
     vkResetCommandBuffer(computeCommandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-    RecordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
+    RecordComputeCommandBuffer(computeCommandBuffers[currentFrame]); //Begin command buffers.
 
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &computeCommandBuffers[currentFrame];
@@ -828,6 +861,7 @@ void QTDoughApplication::InitVulkan()
     //Create command buffers.
     CreateCommandBuffers();
     CreateComputeCommandBuffers();
+    CreatePhysicsCommandBuffer();
 
     //Imgui.
     InitImGui();
@@ -1394,6 +1428,18 @@ void QTDoughApplication::CreateComputeCommandBuffers() {
     }
 
     std::cout << "Allocated compute command buffers" << std::endl;
+}
+
+void QTDoughApplication::CreatePhysicsCommandBuffer() {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = _commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, &_physicsCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate physics command buffer!");
+    }
 }
 
 void QTDoughApplication::CreateImages()
@@ -2371,6 +2417,10 @@ void QTDoughApplication::CreateSyncObjects()
             throw std::runtime_error("failed to create compute synchronization objects for a frame!");
         }
     }
+
+    if (vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &_physicsFence) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create physics fence!");
+    }
 }
 
 
@@ -3101,6 +3151,12 @@ QueueFamilyIndices QTDoughApplication::FindQueueFamilies(VkPhysicalDevice device
             indices.graphicsAndComputeFamily = i;
         }
 
+
+        if(queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
+        {
+            indices.physicsFamily = i;
+		}
+
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _vkSurface, &presentSupport);
 
@@ -3123,9 +3179,39 @@ void QTDoughApplication::CreateLogicalDevice()
     QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsAndComputeFamily.value(), indices.presentFamily.value() };
 
-    float queuePriorities[2] = { 1.0f, 1.0f };
+    std::map<uint32_t, uint32_t> familyQueueCountMap;
+
+    familyQueueCountMap[indices.graphicsAndComputeFamily.value()] = std::max(familyQueueCountMap[indices.graphicsAndComputeFamily.value()], (uint32_t)3);
+    familyQueueCountMap[indices.presentFamily.value()] = std::max(familyQueueCountMap[indices.presentFamily.value()], (uint32_t)1);
+    familyQueueCountMap[indices.physicsFamily.value()] = std::max(familyQueueCountMap[indices.physicsFamily.value()], (uint32_t)1);
+
+
+
+    //Want compute, graphics, and physics queues.
+    float queuePriorities[4] = { 1.0f, 1.0f, 0.5f, 0.5f };
+
+    for (auto [queue, count] : familyQueueCountMap)
+    {
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queue;
+		queueCreateInfo.queueCount = count;
+		queueCreateInfo.pQueuePriorities = queuePriorities;
+		queueCreateInfos.push_back(queueCreateInfo);
+    }
+    /*
+    for(int i = 0; i < QueueFamilies.size(); i++)
+	{
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = QueueFamilies[i];
+        queueCreateInfo.queueCount = i;
+        queueCreateInfo.pQueuePriorities = queuePriorities;
+        queueCreateInfos.push_back(queueCreateInfo);
+	}
+    */
+    /*
     for (uint32_t queueFamily : uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -3134,7 +3220,7 @@ void QTDoughApplication::CreateLogicalDevice()
         queueCreateInfo.pQueuePriorities = queuePriorities;
         queueCreateInfos.push_back(queueCreateInfo);
     }
-
+    */
     _createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     _createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     _createInfo.pQueueCreateInfos = queueCreateInfos.data();
@@ -3209,8 +3295,8 @@ void QTDoughApplication::CreateLogicalDevice()
     vkGetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &qCount, qProps.data());
 
     uint32_t fam = indices.graphicsAndComputeFamily.value();
-    if (qProps[fam].queueCount < 2) {
-        throw std::runtime_error("Selected queue family does not support 2 queues.");
+    if (qProps[fam].queueCount < 3) {
+        throw std::runtime_error("Selected queue family does not support 3 queues.");
     }
 
     //Finally instantiate this device.
@@ -3220,6 +3306,7 @@ void QTDoughApplication::CreateLogicalDevice()
 
     vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 0, &_vkGraphicsQueue);
     vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 1, &_vkComputeQueue);
+    vkGetDeviceQueue(_logicalDevice, indices.graphicsAndComputeFamily.value(), 2, &_vkPhysicsQueue);
 
     vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
 }
@@ -3566,6 +3653,7 @@ void QTDoughApplication::Cleanup()
         vkDestroyFence(_logicalDevice, _inFlightFences[i], nullptr);
     }
 
+    vkDestroyFence(_logicalDevice, _physicsFence, nullptr);
     vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);

@@ -121,7 +121,8 @@ public:
 
     //This is the list of brushes. Brushes are basically gameObjects with a model matrix.
     //Some fields only updated once per generation which can take multiple frames. However, the vector itself updates every frame.
-    std::vector<Brush> brushes; 
+    std::vector<Brush> brushes;
+    uint32_t maxBrushCapacity = 0; // Pre-allocated GPU buffer capacity for dynamic brush addition.
     VkBuffer brushesStorageBuffers;
     VkDeviceMemory brushesStorageMemory;
 
@@ -221,7 +222,10 @@ public:
     void RecordCounterReadback(VkCommandBuffer commandBuffer);
     void ReadCounterOnCPU();
     void ReadBackGPUData() override;
-    void AddBrush();
+    int AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,
+                  float blend = 0.0225f, float smoothness = 0.1f, uint32_t opcode = 0,
+                  int density = 3, float stiffness = 1.0f);
+    void CreateBrushTextures(int brushIndex);
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
