@@ -472,9 +472,11 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer3, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
 
-    //Create brushes buffers
+    //Create brushes buffers. Pre-allocate extra capacity for dynamic brush addition.
+    maxBrushCapacity = static_cast<uint32_t>(brushes.size()) + 32;
+
     app->CreateBuffer(
-        sizeof(Brush) * brushes.size(),
+        sizeof(Brush) * maxBrushCapacity,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         brushesStorageBuffers,
@@ -1191,11 +1193,11 @@ float Read3DTransformedDebug(const glm::mat4& modelMatrix, int resolution, const
     if (voxelCoord.x < 0 || voxelCoord.y < 0 || voxelCoord.z < 0 ||
         voxelCoord.x >= resolution || voxelCoord.y >= resolution || voxelCoord.z >= resolution)
     {
-        std::cout << "Out of bounds — returning 1.0f\n";
+        std::cout << "Out of bounds ï¿½ returning 1.0f\n";
         return 1.0f; // Outside brush volume
     }
 
-    std::cout << "Within bounds — would sample texture here\n";
+    std::cout << "Within bounds ï¿½ would sample texture here\n";
 
     // NOTE: This is a debug function, so we return dummy 0
     return 0.0f; // Replace with actual texture sampling if you want
@@ -1310,6 +1312,8 @@ void VoxelizerPass::CreateBrushes()
         vertexOffset += brush.vertexCount;
 
     }
+
+    AddBrush(0, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), 128);
 }
 
 void VoxelizerPass::Create3DTextures()
@@ -3209,16 +3213,141 @@ void VoxelizerPass::ReadBackGPUData()
     ReadCounterOnCPU();
 }
 
-void VoxelizerPass::AddBrush()
+int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,
+                             float blend, float smoothness, uint32_t opcode,
+                             int density, float stiffness)
 {
-    Brush newBrush;
-	newBrush.type = 0; //Mesh type
-	newBrush.opcode = 0; //Add
-	newBrush.textureID = static_cast<uint32_t>(brushes.size());
-    newBrush.model = glm::mat4(1.0f);
-	newBrush.vertexOffset = static_cast<uint32_t>(vertices.size());
-	newBrush.vertexCount = 0; //To be updated when mesh is assigned.
-	brushes.push_back(newBrush);
+    if (brushes.size() >= maxBrushCapacity) {
+        std::cout << "AddBrush: capacity exceeded (" << maxBrushCapacity << ")" << std::endl;
+        return -1;
+    }
+
+    int index = static_cast<int>(brushes.size());
+    int imageIndex = (index * 2) + mipsCount;
+
+    Brush brush{};
+    brush.type = 1;
+    brush.vertexCount = 0;
+    brush.vertexOffset = 0;
+    brush.textureID = imageIndex;
+    brush.textureID2 = imageIndex + 1;
+    brush.resolution = 128;
+    brush.id = index + 1;
+    brush.opcode = opcode;
+    brush.blend = blend;
+    brush.smoothness = smoothness;
+    brush.stiffness = stiffness;
+    brush.isDirty = 1;
+    brush.density = density;
+    brush.particleRadius = 2.0f * (density - 1);
+    brush.materialId = index;
+    brush.isDeformed = 0;
+
+    brush.model = glm::translate(glm::mat4(1.0f), position)
+                * glm::scale(glm::mat4(1.0f), scale);
+    brush.invModel = glm::inverse(brush.model);
+
+    brushes.push_back(brush);
+
+    // Create the 2 volume textures for this brush.
+    CreateBrushTextures(index);
+
+    // Upload the new brush to the GPU buffer at the correct offset.
+    QTDoughApplication* app = QTDoughApplication::instance;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    app->CreateBuffer(
+        sizeof(Brush),
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer, stagingMemory
+    );
+
+    void* data;
+    vkMapMemory(app->_logicalDevice, stagingMemory, 0, sizeof(Brush), 0, &data);
+    memcpy(data, &brushes[index], sizeof(Brush));
+    vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+    VkCommandBuffer cmd = app->BeginSingleTimeCommands();
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = sizeof(Brush) * index;
+    copyRegion.size = sizeof(Brush);
+    vkCmdCopyBuffer(cmd, stagingBuffer, brushesStorageBuffers, 1, &copyRegion);
+    app->EndSingleTimeCommands(cmd);
+
+    vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
+    // Reset dispatch counter so the creation pass runs again for all brushes.
+    dispatchCount = 0;
+
+    std::cout << "AddBrush: added brush " << index << " type=" << type
+              << " at (" << position.x << "," << position.y << "," << position.z << ")" << std::endl;
+
+    return index;
+}
+
+void VoxelizerPass::CreateBrushTextures(int brushIndex)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+    Brush& brush = brushes[brushIndex];
+
+    VkFormat brushSdfFormat = app->FindSupportedFormat(
+        { VK_FORMAT_R16_SFLOAT },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
+    );
+
+    // Each brush gets 2 volume textures (ping-pong pair).
+    for (int t = 0; t < 2; t++)
+    {
+        int texIndex = brushIndex * 2 + t + mipsCount; // match AddBrush
+
+
+        Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
+        app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
+            brushSdfFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            brushTexture.u_image, brushTexture.u_imageMemory);
+
+        brushTexture.u_imageView = app->Create3DImageView(
+            brushTexture.u_image,
+            brushSdfFormat,
+            VK_IMAGE_ASPECT_COLOR_BIT
+        );
+        brushTexture.ID = app->textures3D.size();
+
+        VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = brushTexture.u_image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr,
+            1, &barrier);
+
+        app->EndSingleTimeCommands(commandBuffer);
+
+        app->textures3D.insert({ "brush_" + std::to_string(texIndex), std::move(brushTexture) });
+    }
 }
 
 

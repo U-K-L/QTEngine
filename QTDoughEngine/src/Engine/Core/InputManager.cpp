@@ -33,7 +33,6 @@ void SetButtonInputs(UnigmaInputStruct* input)
 		input->inputReceived = true;
 	}
 
-	std::cout << "input struct size EXE: " << sizeof(UnigmaInputStruct) << std::endl;
 }
 
 void cameraProjectionButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
@@ -78,7 +77,27 @@ void cameraInputButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 		if (inputEvent.button.button == SDL_BUTTON_MIDDLE)
 		{
 			printf("Middle mouse button pressed\n");
-			input->mouseMiddle = true;
+			input->mouseMiddle = 1;
+		}
+
+		if (inputEvent.button.button == SDL_BUTTON_RIGHT)
+		{
+			SDL_Keymod mods = SDL_GetModState();
+			if (mods & KMOD_SHIFT)
+			{
+				printf("Shift + Right Mouse Button pressed\n");
+				input->mouseMiddle = 1;
+			}
+		}
+
+		if (inputEvent.button.button == SDL_BUTTON_LEFT)
+		{
+			SDL_Keymod mods = SDL_GetModState();
+			if (mods & KMOD_SHIFT)
+			{
+				printf("Shift + Left Mouse Button pressed\n");
+				input->mouseLeft = 1;
+			}
 		}
 	}
 
@@ -86,10 +105,20 @@ void cameraInputButtons(SDL_Event& inputEvent, UnigmaInputStruct* input)
 	{
 		if (inputEvent.button.button == SDL_BUTTON_MIDDLE)
 		{
-			printf("Middle mouse button released\n");
-			input->mouseMiddle = false;
+			input->mouseMiddle = 2;
+		}
+
+		if (inputEvent.button.button == SDL_BUTTON_RIGHT)
+		{
+			input->mouseMiddle = 2;
+		}
+
+		if (inputEvent.button.button == SDL_BUTTON_LEFT)
+		{
+			input->mouseLeft = 2;
 		}
 	}
+
 }
 
 void SetMovement(SDL_Event& inputEvent, UnigmaInputStruct* input)

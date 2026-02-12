@@ -14,13 +14,33 @@ CameraComp::~CameraComp()
 {
 }
 
+void CameraComp::GetInputs()
+{
+    UnigmaInputStruct* Controller0 = &UnigmaGameManager::instance->Controller0;
+    if (Controller0->mouseMiddle == 1)
+    {
+        AddBrushCallbackPointer(1, 0, 0, 0, 1, 1, 1, 1,0.023f, 0.1f, 0, 1, 1);
+        rotationHeld = true;
+    }
+	else if (Controller0->mouseMiddle == 2)
+	{
+		rotationHeld = false;
+	}
+
+    if (Controller0->mouseLeft == 1)
+    {
+        panHeld = true;
+    }
+    else if (Controller0->mouseLeft == 2)
+    {
+        panHeld = false;
+    }
+}
 
 void CameraComp::Update()
 {
+    GetInputs();
     UnigmaInputStruct *Controller0 = &UnigmaGameManager::instance->Controller0;
-    std::cout << "input struct size DLL: " << sizeof(UnigmaInputStruct) << std::endl;
-
-    std::cout << "Middle Mouse button: " << Controller0->mouseMiddle << " Right Mouse button: " << Controller0->mouseRight << std::endl;
 
     /*
     // Get the input event
@@ -134,29 +154,55 @@ void CameraComp::Update()
     //std::cout << "Clip far plane: " << camera->farClip << std::endl;
 
 
-    //rotate camera.
-    glm::vec3 targetPoint = glm::vec3(0, 0, 0);
-    //float angle = sin(UnigmaGameManager::instance->currentTime * UnigmaGameManager::instance->deltaTime*0.0000000125) * 360;
-    //camera->rotateAroundPoint(targetPoint, angle, glm::vec3(0, 0, 1));
-
-    //std::cout << "Delta time: " << UnigmaGameManager::instance->deltaTime << std::endl;
-
-                // Get rotation rate from the camera
-    float rotationRate = 0.004f;
-
-    // Calculate angles in radians
-    float angleX = 1.0f * rotationRate;
-    float angleY = 0 * rotationRate;
-
-    // Orbit horizontally around the Y-axis
-    camera->rotateAroundPoint(glm::vec3(0.0f), angleX, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    // Orbit vertically around the X-axis (optional, limited to avoid flipping)
-    glm::vec3 cameraForward = camera->forward();
-    glm::vec3 forwardProjection = glm::vec3(cameraForward.x, 0.0f, cameraForward.z); // Forward projected to XZ plane
-    if (glm::length(forwardProjection) > 0.01f) // Prevent flipping at zenith
+    // MMB orbit (Blender-style)
+    if (rotationHeld)
     {
-        camera->rotateAroundPoint(glm::vec3(0.0f), angleY, camera->_transform.right());
+        int dx, dy;
+        SDL_GetRelativeMouseState(&dx, &dy);
+
+        float rotationRate = 0.005f;
+        float yaw   = -static_cast<float>(dx) * rotationRate;
+        float pitch  = -static_cast<float>(dy) * rotationRate;
+
+        // Yaw: orbit around pivot on world Z axis
+        camera->rotateAroundPoint(orbitPivot, yaw, glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // Pitch: clamp elevation angle to prevent flipping past poles
+        glm::vec3 toCamera = camera->position() - orbitPivot;
+        float dist = glm::length(toCamera);
+        if (dist > 0.001f)
+        {
+            float currentElevation = asinf(glm::clamp(toCamera.z / dist, -1.0f, 1.0f));
+            float maxElev = glm::radians(89.0f);
+
+            float newElevation = currentElevation + pitch;
+            if (newElevation > maxElev)  pitch = maxElev - currentElevation;
+            if (newElevation < -maxElev) pitch = -maxElev - currentElevation;
+
+            if (fabsf(pitch) > 0.0001f)
+            {
+                camera->rotateAroundPoint(orbitPivot, pitch, camera->_transform.right());
+            }
+        }
+    }
+    else if (panHeld)
+    {
+        // Shift+LMB pan (Blender-style)
+        int dx, dy;
+        SDL_GetRelativeMouseState(&dx, &dy);
+
+        float panSpeed = 0.01f;
+        glm::vec3 cameraRight = camera->_transform.right();
+        glm::vec3 cameraUp = camera->_transform.up();
+        glm::vec3 offset = cameraRight * (-static_cast<float>(dx) * panSpeed)
+                         + cameraUp * (static_cast<float>(dy) * panSpeed);
+        camera->setPosition(camera->position() + offset);
+        orbitPivot += offset;
+    }
+    else
+    {
+        // Drain accumulated relative state so it doesn't spike on next press
+        SDL_GetRelativeMouseState(nullptr, nullptr);
     }
 }
 

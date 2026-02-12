@@ -19,10 +19,14 @@ Component* GetComponent(const UnigmaGameObjectClass& gObj, const char* component
 //Typedef for callback register loadScene function
 typedef void (*LoadSceneCallbackType)(const char* sceneName);
 typedef UnigmaInputStruct (*LoadInputCallbackType)(int flag);
+typedef int (*AddBrushCallbackType)(uint32_t type, float px, float py, float pz,
+    float sx, float sy, float sz, int resolution,
+    float blend, float smoothness, uint32_t opcode, int density, float stiffness);
 
 //pointer to the callback function
 extern LoadSceneCallbackType LoadSceneCallbackPointer;
 extern LoadInputCallbackType LoadInputCallbackPointer;
+extern AddBrushCallbackType AddBrushCallbackPointer;
 
 class UnigmaGameManager
 {
@@ -109,4 +113,7 @@ extern "C" {
 
     //Register loading input callback
     extern UNIGMANATIVE_API void RegisterLoadInputCallback(LoadInputCallbackType callback);
+
+    //Register add brush callback
+    extern UNIGMANATIVE_API void RegisterAddBrushCallback(AddBrushCallbackType callback);
 }

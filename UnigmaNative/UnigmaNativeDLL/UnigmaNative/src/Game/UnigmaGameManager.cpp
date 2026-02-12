@@ -9,6 +9,7 @@ UnigmaGameManager* UnigmaGameManager::instance = nullptr; // Define the static m
 //pointer to the callback function
 extern LoadSceneCallbackType LoadSceneCallbackPointer = nullptr;
 extern LoadInputCallbackType LoadInputCallbackPointer = nullptr;
+extern AddBrushCallbackType AddBrushCallbackPointer = nullptr;
 
 
 
@@ -245,6 +246,12 @@ UNIGMANATIVE_API void RegisterLoadSceneCallback(LoadSceneCallbackType callback)
 UNIGMANATIVE_API void RegisterLoadInputCallback(LoadInputCallbackType callback)
 {
 	LoadInputCallbackPointer = callback;
+}
+
+//Register add brush callback
+UNIGMANATIVE_API void RegisterAddBrushCallback(AddBrushCallbackType callback)
+{
+	AddBrushCallbackPointer = callback;
 }
 
 // Function to get the size of the RenderingObjects vector

@@ -32,6 +32,10 @@ typedef uint32_t(*FnGetLightsSize)();
 typedef void (*FnRegisterCallback)(AppFunctionType); //Generic function pointer type for registering a callback function
 typedef void (*FnRegisterLoadSceneCallback)(LoadSceneCallbackType); //Generic function pointer type for registering a callback function
 typedef void (*FnRegisterLoadInputCallback)(LoadInputCallbackType); //Generic function pointer type for registering a callback function
+typedef int (*AddBrushCallbackType)(uint32_t type, float px, float py, float pz,
+    float sx, float sy, float sz, int resolution,
+    float blend, float smoothness, uint32_t opcode, int density, float stiffness);
+typedef void (*FnRegisterAddBrushCallback)(AddBrushCallbackType);
 
 
 
@@ -51,11 +55,15 @@ extern FnGetLightsSize UNGetLightsSize;
 extern FnRegisterCallback UNRegisterCallback;
 extern FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 extern FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
+extern FnRegisterAddBrushCallback UNRegisterAddBrushCallback;
 
 
 void ApplicationFunction(const char* message);
 void LoadScene(const char* sceneName);
 UnigmaInputStruct LoadInput(int flag);
+int AddBrushFromNative(uint32_t type, float px, float py, float pz,
+    float sx, float sy, float sz, int resolution,
+    float blend, float smoothness, uint32_t opcode, int density, float stiffness);
 
 extern HMODULE unigmaNative;
 

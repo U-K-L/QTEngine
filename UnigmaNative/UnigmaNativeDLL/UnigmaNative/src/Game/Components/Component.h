@@ -68,16 +68,6 @@ Value Component::TypeToValue(const char* type, T value)
         v.type = ValueType::CHAR;
         v.data.c = (char)value;
     }
-    /*
-    else if (strcmp(type, "fixedstring") == 0 || strcmp(type, "char8") == 0)
-    {
-        v.type = ValueType::FIXEDSTRING;
-        v.data.fstr = (ValueType::FIXEDSTRING) value;
-    }
-    */
-    //else if (strcmp(type, "vector3") == 0 || strcmp(type, "vec3") == 0)
-    //    v.type = ValueType::VECTOR3;
-
     return v;
 };
 

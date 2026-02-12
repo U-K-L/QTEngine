@@ -91,7 +91,6 @@ struct UnigmaGameObject
     {
         Value val;
         val = GetComponentAttribute<T>(ID, componentName, componentAttr);
-        std::cout << "ID double check: " << ID << std::endl;
 
         if (!TypeMatches<T>(val)) {
             throw std::runtime_error("Type mismatch");
