@@ -14,6 +14,7 @@
 #include "../Engine/RenderPasses/VoxelizerPass.h"
 #include "../Engine/RenderPasses/RayTracerPass.h"
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
+#include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
 #include <random>
@@ -26,6 +27,8 @@ std::vector<RayTracerPass*> rayTracePassStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
+
+MaterialSimulation* materialSimulationPass;
 
 uint32_t currentFrame = 0;
 
@@ -814,6 +817,11 @@ void QTDoughApplication::InitVulkan()
     //Create command pool early so GPU benchmark can use it.
     CreateCommandPool();
     RunGPUBenchmark();
+
+    //Create Material Sim.
+    materialSimulationPass = new MaterialSimulation();
+    materialSimulationPass->InitMaterialSim();
+    materialSimulationPass->SetInstance(materialSimulationPass);
 
     AddPasses();
 

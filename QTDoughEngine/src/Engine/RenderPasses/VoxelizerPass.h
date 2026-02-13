@@ -17,6 +17,8 @@ public:
         alignas(16) float isOrtho;
     };
 
+    Unigma3DTexture worldTexture;
+
     static void SetInstance(VoxelizerPass* voxelizer)
     {
         instance = voxelizer;

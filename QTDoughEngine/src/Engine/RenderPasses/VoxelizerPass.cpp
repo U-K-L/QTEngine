@@ -1346,7 +1346,7 @@ void VoxelizerPass::Create3DTextures()
         resolution.z = clamp(WORLD_SDF_RESOLUTION.z / int(pow(2, divisor)), 32, WORLD_SDF_RESOLUTION.z);
 
 
-        Unigma3DTexture worldTexture = Unigma3DTexture(resolution.x, resolution.y, resolution.z);
+        worldTexture = Unigma3DTexture(resolution.x, resolution.y, resolution.z);
         app->CreateImages3D(resolution.x, resolution.y, resolution.z,
             sdfFormat,
             VK_IMAGE_TILING_OPTIMAL,
