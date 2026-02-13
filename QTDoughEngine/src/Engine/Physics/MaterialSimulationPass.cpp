@@ -20,12 +20,35 @@ void MaterialSimulation::InitMaterialSim()
 
 void MaterialSimulation::InitQuanta()
 {
-	uint64_t quantaMemorySize = sizeof(Quanta) * QUANTA_COUNT;
+	QTDoughApplication* app = QTDoughApplication::instance;
+	quantaMemorySize = sizeof(Quanta) * QUANTA_COUNT;
 	std::cout << "Required size for Quanta is: " << quantaMemorySize << std::endl;
 	Field.Quantas = (Quanta*)malloc(quantaMemorySize);
 	InitQuantaPositions();
-	//SerializeQuantaBlob(AssetsPath + "Fields/quanta.blob");
-	//SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
+
+	//Allocate on the GPU.
+	//Make staging buffers.
+	VkBuffer quantaStagingBuffer;
+	VkDeviceMemory quantaStagingMemory;
+	app->CreateBuffer(quantaMemorySize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		quantaStagingBuffer, quantaStagingMemory);
+
+	//Map quanta data to staging buffer.
+	void* quantaData;
+	vkMapMemory(app->_logicalDevice, quantaStagingMemory, 0, quantaMemorySize, 0, &quantaData);
+	memcpy(quantaData, Field.Quantas, quantaMemorySize);
+	vkUnmapMemory(app->_logicalDevice, quantaStagingMemory);
+
+	//Create device local buffer for quanta.
+	QuantaStorageBuffers.resize(3); //Triple buffering. In, Out, and READ.
+	QuantaStorageMemory.resize(3);
+
+	for (int i = 0; i < QuantaStorageBuffers.size(); i++)
+	{
+		app->CreateBuffer(quantaMemorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, QuantaStorageBuffers[i], QuantaStorageMemory[i]);
+	}
 }
 
 void MaterialSimulation::InitQuantaPositions()

@@ -441,8 +441,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     */
     particle.initPosition.w *= 0.95f;
     
-    particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
-    particlesL1Out[DTid.x].initPosition = particle.initPosition;
+    //particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
+    //particlesL1Out[DTid.x].initPosition = particle.initPosition;
 
 }
 

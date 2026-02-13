@@ -44,4 +44,9 @@ class MaterialSimulation
 		void SerializeQuantaText(const std::string& path);
 		void DeserializeQuantaBlob(const std::string& path);
 		UnigmaField Field; //Underlying field of everything.
+
+	private:
+		uint64_t quantaMemorySize;
+		std::vector<VkBuffer> QuantaStorageBuffers;
+		std::vector<VkDeviceMemory> QuantaStorageMemory;
 };
