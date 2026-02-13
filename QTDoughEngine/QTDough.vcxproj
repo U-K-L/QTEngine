@@ -35,6 +35,7 @@
     <ClCompile Include="src\Engine\Core\UnigmaGameObject.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaGameObjectManager.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaScenes.cpp" />
+    <ClCompile Include="src\Engine\Physics\MaterialSimulationPass.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingManager.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingObject.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\AlbedoPass.cpp" />
@@ -72,6 +73,7 @@
     <ClInclude Include="src\Engine\Core\UnigmaGameObjectManager.h" />
     <ClInclude Include="src\Engine\Core\UnigmaScenes.h" />
     <ClInclude Include="src\Engine\Core\UnigmaTransform.h" />
+    <ClInclude Include="src\Engine\Physics\MaterialSimulationPass.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaLights.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMaterial.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMesh.h" />

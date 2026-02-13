@@ -607,34 +607,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     std::cout << "VoxelizerPass: " << PassName << " - ";
 
 
-    //Create Particles.
-
-    uint32_t particleBufferSize = sizeof(Particle) * PARTICLE_COUNT;
-
-    //Initialize particles data.
-    particles.resize(PARTICLE_COUNT);
-    for (uint32_t i = 0; i < PARTICLE_COUNT; ++i) {
-        particles[i].position = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-        particles[i].velocity = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-
-    VkBuffer pStagingBuffer;
-    VkDeviceMemory pStagingBufferMemory;
-    app->CreateBuffer(particleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, pStagingBuffer, pStagingBufferMemory);
-
-    void* pdata;
-    vkMapMemory(app->_logicalDevice, pStagingBufferMemory, 0, particleBufferSize, 0, &pdata);
-    std::memcpy(pdata, particles.data(), particles.size() * sizeof(Particle));
-    vkUnmapMemory(app->_logicalDevice, pStagingBufferMemory);
-
-    particlesStorageBuffers.resize(app->MAX_FRAMES_IN_FLIGHT);
-    particlesStorageMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
-
-    // Copy initial data to all storage buffers
-    for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++) {
-        app->CreateBuffer(particleBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, particlesStorageBuffers[i], particlesStorageMemory[i]);
-        app->CopyBuffer(pStagingBuffer, particlesStorageBuffers[i], particleBufferSize);
-    }
+    //Particles use Quanta buffers from MaterialSimulation.
+    particlesStorageBuffers = MaterialSimulation::instance->QuantaStorageBuffers;
 
     //Control Particles.
 
@@ -910,9 +884,9 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         //Particles.
 
         VkDescriptorBufferInfo particleBufferInfoLastFrame{};
-        particleBufferInfoLastFrame.buffer = particlesStorageBuffers[(i - 1) % app->MAX_FRAMES_IN_FLIGHT];
+        particleBufferInfoLastFrame.buffer = particlesStorageBuffers[2]; //READ buffer only.
         particleBufferInfoLastFrame.offset = 0;
-        particleBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+        particleBufferInfoLastFrame.range = sizeof(Quanta) * QUANTA_COUNT;
 
         descriptorWrites[12].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[12].dstSet = computeDescriptorSets[i];
@@ -923,9 +897,9 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[12].pBufferInfo = &particleBufferInfoLastFrame;
 
         VkDescriptorBufferInfo particleBufferInfoCurrentFrame{};
-        particleBufferInfoCurrentFrame.buffer = particlesStorageBuffers[i];
+        particleBufferInfoCurrentFrame.buffer = particlesStorageBuffers[2]; //READ buffer only.
         particleBufferInfoCurrentFrame.offset = 0;
-        particleBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+        particleBufferInfoCurrentFrame.range = sizeof(Quanta) * QUANTA_COUNT;
 
         descriptorWrites[13].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[13].dstSet = computeDescriptorSets[i];
@@ -1346,7 +1320,7 @@ void VoxelizerPass::Create3DTextures()
         resolution.z = clamp(WORLD_SDF_RESOLUTION.z / int(pow(2, divisor)), 32, WORLD_SDF_RESOLUTION.z);
 
 
-        Unigma3DTexture worldTexture = Unigma3DTexture(resolution.x, resolution.y, resolution.z);
+        worldTexture = Unigma3DTexture(resolution.x, resolution.y, resolution.z);
         app->CreateImages3D(resolution.x, resolution.y, resolution.z,
             sdfFormat,
             VK_IMAGE_TILING_OPTIMAL,

@@ -4,6 +4,7 @@
 #include "../Renderer/UnigmaRenderingManager.h"
 #include "../Camera/UnigmaCamera.h"
 #include "ComputePass.h"
+#include "../Physics/MaterialSimulationPass.h"
 
 class VoxelizerPass : public ComputePass
 {
@@ -16,6 +17,8 @@ public:
         alignas(16) glm::vec4 texelSize;
         alignas(16) float isOrtho;
     };
+
+    Unigma3DTexture worldTexture;
 
     static void SetInstance(VoxelizerPass* voxelizer)
     {

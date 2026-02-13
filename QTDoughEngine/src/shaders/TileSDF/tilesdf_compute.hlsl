@@ -52,8 +52,7 @@ RWStructuredBuffer<uint> BrushesIndices : register(u10, space1);
 
 RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 
-StructuredBuffer<Particle> particlesL1In : register(t12, space1); // readonly
-RWStructuredBuffer<Particle> particlesL1Out : register(u13, space1); // write
+StructuredBuffer<Quanta> quantaBuffer : register(t12, space1); // readonly
 
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
@@ -288,12 +287,12 @@ float3 SwirlSphereDanceWS(
 void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
     //Move to world space if connected to a brush.
-    Particle particle = particlesL1In[DTid.x];
-    int brushIndex = max(particle.particleIDs.x - 1, 0);
+    Quanta quanta = quantaBuffer[DTid.x];
+    //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
     //    brushIndex = particle.particleIDs.x-1;
     
-    Brush brush = Brushes[brushIndex];
+    //Brush brush = Brushes[brushIndex];
     
     /*
     if (particle.position.w < 1)
@@ -308,7 +307,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     }
     */
     
-        
+    
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
     float3 sceneSize = GetSceneSize();
     
@@ -324,7 +323,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float supportWS = sigma * 2.25f;
     
-    float3 position = particle.position.xyz;
+    float3 position = quanta.position.xyz;
     
     
 
@@ -337,8 +336,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
 
     //if(particle.particleIDs.x > 0)
-        position = mul(brush.model, float4(position, 1.0f)).xyz;
+    //    position = mul(brush.model, float4(position, 1.0f)).xyz;
     
+    /*
     float3 positionOld = position;
 
 
@@ -349,6 +349,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 centerWS = mul(brush.model, float4(0, 0, 0, 1)).xyz; // or any world-space pivot
 
     float danceRadius = 20.0f;
+    */
 /*
     position = SwirlSphereDanceWS(
     position,
@@ -381,8 +382,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     //float3 n = GetNormal(position);
 
-    float3 initialPosition = mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
-    
+    float3 initialPosition = quanta.position.xyz; //mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
+    /*
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
         for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
@@ -427,7 +428,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
 
             }
-    
+    */
     /*
     if(particle.particleIDs.x == 0)
     {
@@ -439,10 +440,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     if(particle.initPosition.w > 0.05f)
         Brushes[particle.particleIDs.x-1].isDeformed = true;
     */
-    particle.initPosition.w *= 0.95f;
+    //particle.initPosition.w *= 0.95f;
     
-    particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
-    particlesL1Out[DTid.x].initPosition = particle.initPosition;
+    //particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
+    //particlesL1Out[DTid.x].initPosition = particle.initPosition;
 
 }
 
