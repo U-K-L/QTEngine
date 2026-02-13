@@ -71,15 +71,12 @@ struct VoxelL1
 };
 
 
-struct Particle
+struct Quanta
 {
     float4 position;
-    float4 velocity;
-    float4 force;
-    float4 initPosition;
-    float4 particleIDs; //x = brush.
-    float4 tbd3;
-    float4 tbd4;
+    float4 resonance;
+    int4 information;
+    float4 mana;
 };
 
 struct ControlParticle
@@ -674,7 +671,7 @@ float3 randPos(float seed, float3 pos)
     return float3(rand(seed + pos.x), rand(seed + pos.y + 1 ), rand(seed + pos.z + 2));
 }
 
-// Returns a pseudorandom number. By Ronja Böhringer
+// Returns a pseudorandom number. By Ronja Bï¿½hringer
 float rand(float4 value)
 {
     float4 smallValue = sin(value);
@@ -694,7 +691,7 @@ float randNegative1to1(float3 pos, float offset)
     return rand(pos, offset) * 2 - 1;
 }
 
-//Box–Muller transform: https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-37-efficient-random-number-generation-and-application
+//Boxï¿½Muller transform: https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-37-efficient-random-number-generation-and-application
 float2 randGaussian(float3 pos, float offset)
 {
     float u1 = rand(pos, offset);
@@ -850,7 +847,7 @@ float opSmoothIntersection(float d1, float d2, float k)
     //-----------------------------------
 static const float3 canonicalControlPoints[CAGE_VERTS] =
 {
-        // 0-7  corners  (+X first, then –X)
+        // 0-7  corners  (+X first, then ï¿½X)
         float3(1, 1, 1), // 0
         float3(-1, 1, 1), // 1
         float3(1, -1, 1), // 2
@@ -884,7 +881,7 @@ static const float3 canonicalControlPoints[CAGE_VERTS] =
 };
 
     // ------------------------------------------
-    // 48 TRIANGLES (6 faces × 8 tris)
+    // 48 TRIANGLES (6 faces ï¿½ 8 tris)
     // ------------------------------------------
 static const uint3 triangles[] =
 {
@@ -894,7 +891,7 @@ static const uint3 triangles[] =
         uint3(3, 9, 20), uint3(9, 2, 20),
         uint3(2, 12, 20), uint3(12, 0, 20),
 
-        // BACK (–Z)
+        // BACK (ï¿½Z)
         uint3(4, 10, 21), uint3(10, 5, 21),
         uint3(5, 15, 21), uint3(15, 7, 21),
         uint3(7, 11, 21), uint3(11, 6, 21),
@@ -906,7 +903,7 @@ static const uint3 triangles[] =
         uint3(6, 18, 22), uint3(18, 2, 22),
         uint3(2, 12, 22), uint3(12, 0, 22),
 
-        // LEFT (–X)
+        // LEFT (ï¿½X)
         uint3(1, 17, 23), uint3(17, 5, 23),
         uint3(5, 15, 23), uint3(15, 7, 23),
         uint3(7, 19, 23), uint3(19, 3, 23),
@@ -918,7 +915,7 @@ static const uint3 triangles[] =
         uint3(5, 10, 24), uint3(10, 4, 24),
         uint3(4, 16, 24), uint3(16, 0, 24),
 
-        // BOTTOM (–Y)
+        // BOTTOM (ï¿½Y)
         uint3(2, 9, 25), uint3(9, 3, 25),
         uint3(3, 19, 25), uint3(19, 7, 25),
         uint3(7, 11, 25), uint3(11, 6, 25),

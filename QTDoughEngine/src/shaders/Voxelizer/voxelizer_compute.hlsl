@@ -73,8 +73,7 @@ RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
-StructuredBuffer<Particle> particlesL1In : register(t12, space1); // readonly
-RWStructuredBuffer<Particle> particlesL1Out : register(u13, space1); // write
+StructuredBuffer<Quanta> quantaBuffer : register(t12, space1); // readonly
 
 RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
 
@@ -703,11 +702,11 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
         //uint oldValue;
         //InterlockedMax(voxelsL1Out[flatIndex].brushId, index + 1);
 
-        uint particleOffset;
-        InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
-        particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
-        particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
-        particlesL1Out[particleOffset + 1].particleIDs.x = index+1;
+        //uint particleOffset;
+        //InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
+        //particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
+        //particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
+        //particlesL1Out[particleOffset + 1].particleIDs.x = index+1;
 
 
     }
@@ -747,11 +746,11 @@ void CreateParticles(uint3 DTid : SV_DispatchThreadID)
     
     float3 localPos = mul(brush.invModel, float4(worldPos, 1.0f)).xyz;
         
-    uint particleOffset;
-    InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
-    particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
-    particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
-    particlesL1Out[particleOffset + 1].particleIDs.x = brushIndex;
+    //uint particleOffset;
+    //InterlockedAdd(GlobalIDCounter[1], 1, particleOffset);
+    //particlesL1Out[particleOffset + 1].position = float4(localPos, 1);
+    //particlesL1Out[particleOffset + 1].initPosition = float4(localPos, 0);
+    //particlesL1Out[particleOffset + 1].particleIDs.x = brushIndex;
 }
 
 float4 GetVoxelValue(float sampleLevel, int index)
@@ -915,7 +914,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
         minDist = min(sdfVal, minDist);
         Write3DDist(0, fullDTid, minDist);
-        //return;
+        return;
     }
 
 
@@ -962,10 +961,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
-    //if (distortionFieldSum > 0.0001f)
+    if (distortionFieldSum > 0.0001f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    //else
-    //    Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    else
+        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
     voxelsL1Out[index].brushId = minId;
     /*

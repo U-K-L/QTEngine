@@ -4,6 +4,7 @@
 #include "../Renderer/UnigmaRenderingManager.h"
 #include "../Camera/UnigmaCamera.h"
 #include "ComputePass.h"
+#include "../Physics/MaterialSimulationPass.h"
 
 class VoxelizerPass : public ComputePass
 {
