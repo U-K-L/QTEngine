@@ -196,7 +196,7 @@ void QTDoughApplication::ComputePhysics()
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(_physicsCommandBuffer, &beginInfo);
 
-    // TODO: Bind physics compute pipeline and dispatch here.
+    materialSimulationPass->Simulate(_physicsCommandBuffer);
 
     vkEndCommandBuffer(_physicsCommandBuffer);
 
@@ -789,7 +789,7 @@ void QTDoughApplication::AddPasses()
 
     //Add the compute pass to the stack.
     computePassStack.push_back(voxelizerPass);
-    //computePassStack.push_back(sdfPass);
+    computePassStack.push_back(sdfPass);
 
     //Ray tracer passes.
     RayTracerPass* rayTracerPass = new RayTracerPass();
@@ -865,6 +865,8 @@ void QTDoughApplication::InitVulkan()
     CreateGlobalDescriptorSet();
     CreateComputeDescriptorSets();
 
+    //Initialize material simulation compute workload (after global descriptors are ready).
+    materialSimulationPass->InitComputeWorkload();
 
     //Create command buffers.
     CreateCommandBuffers();

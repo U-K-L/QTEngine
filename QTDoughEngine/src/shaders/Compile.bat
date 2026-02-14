@@ -4,6 +4,10 @@ C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv tests/particleTe
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv RaymarchSDF/raymarchsdf_compute.hlsl -Fo raymarchsdf.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv Voxelizer/voxelizer_compute.hlsl -Fo voxelizer.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv TileSDF/tilesdf_compute.hlsl -Fo tilesdf.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/materialsim_compute.hlsl -Fo materialsim.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_histogram_compute.hlsl -Fo matsim_histogram.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_prefixsum_compute.hlsl -Fo matsim_prefixsum.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_scatter_compute.hlsl -Fo matsim_scatter.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Background/background_frag.hlsl -Fo backgroundFrag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Background/background_vert.hlsl -Fo backgroundVert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Albedo/albedo_frag.hlsl -Fo albedoFrag.spv

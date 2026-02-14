@@ -344,7 +344,10 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     VoxelizerPass::PushConsts pc{};
     pc.lod = 8;
     pc.triangleCount = 0;
-    pc.voxelResolution = voxelizer->WORLD_SDF_RESOLUTION;
+    pc.voxelResolution.x = voxelizer->WORLD_SDF_RESOLUTION.x;
+    pc.voxelResolution.y = voxelizer->WORLD_SDF_RESOLUTION.y;
+    pc.voxelResolution.z = voxelizer->WORLD_SDF_RESOLUTION.z;
+    pc.voxelResolution.w = 0;
 
     vkCmdPushConstants(
         commandBuffer,
