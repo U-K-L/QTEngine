@@ -36,10 +36,19 @@ class MaterialSimulation
 
 		void InitMaterialSim();
 		void InitQuanta();
-		void InitComputeWorkload(); //eg descriptors, layouts, etc.
-		void Simulate(); //Dispatch that happens in main application compute physics.
+		void InitComputeWorkload(); //eg descriptors, layouts, etc. Calls all below in order.
+		void CreateComputeDescriptorSetLayout();
+		void CreateDescriptorPool();
+		void CreateComputeDescriptorSets();
+		void CreateComputePipeline();
+		void CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline);
+		void CreateSortPipelines();
+		void DispatchTileSort(VkCommandBuffer commandBuffer);
+		void Simulate(VkCommandBuffer commandBuffer); //Dispatch that happens in main application compute physics.
+		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
+		void CreateStorageBuffers();
 		void SerializeQuantaBlob(const std::string& path);
 		void SerializeQuantaText(const std::string& path);
 		void DeserializeQuantaBlob(const std::string& path);
@@ -48,6 +57,43 @@ class MaterialSimulation
 		std::vector<VkBuffer> QuantaStorageBuffers;
 		std::vector<VkDeviceMemory> QuantaStorageMemory;
 
+		std::vector<uint32_t> QuantaIds; // used for sorting. 2 of them, one for in/out, the other for READ.
+		std::vector<VkBuffer> QuantaIdsBuffer;
+		std::vector<VkDeviceMemory> QuantaIdsMemory;
+
+		//Tile approach / binning.
+
+		std::vector<uint32_t> TileCounts; // how many quantas are in each tile. Used for indirect dispatch.
+		std::vector<VkBuffer> TileCountsBuffer;
+		std::vector<VkDeviceMemory> TileCountsMemory;
+
+		std::vector<uint32_t> TileOffsets; 
+		std::vector<VkBuffer> TileOffsetsBuffer;
+		std::vector<VkDeviceMemory> TileOffsetsMemory;
+
+		std::vector<uint32_t> TileCursor;
+		std::vector<VkBuffer> TileCursorBuffer;
+		std::vector<VkDeviceMemory> TileCursorMemory;
+
+		glm::ivec3 TileSize;
+		
+
+		struct PushConsts {
+			float particleSize;
+			int tileGridX;
+			int tileGridY;
+			int tileGridZ;
+		};
+
 	private:
 		uint64_t quantaMemorySize;
+		VkDescriptorSetLayout descriptorSetLayout;
+		VkDescriptorPool descriptorPool;
+		std::vector<VkDescriptorSet> descriptorSets;
+		VkPipeline pipeline;
+		VkPipeline histogramPipeline;
+		VkPipeline prefixSumPipeline;
+		VkPipeline scatterPipeline;
+		VkPipelineLayout pipelineLayout;
+		uint32_t currentFrame = 0;
 };

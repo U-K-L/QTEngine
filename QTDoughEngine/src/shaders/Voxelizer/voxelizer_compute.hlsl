@@ -32,8 +32,9 @@ struct PushConsts
 {
     float lod;
     uint triangleCount;
-    int3 voxelResolution;
-    float3 aabbCenter;
+    int4 voxelResolution;
+    float4 aabbCenter;
+    float supportMultiplier;
 };
 
 [[vk::push_constant]]
@@ -79,6 +80,10 @@ RWStructuredBuffer<uint> GlobalIDCounter : register(u16, space1);
 
 RWStructuredBuffer<Vertex> meshingVertices : register(u17, space1);
 
+// Quanta tile sort buffers (read-only).
+StructuredBuffer<uint> quantaIds    : register(t19, space1);
+StructuredBuffer<uint> tileCounts   : register(t20, space1);
+StructuredBuffer<uint> tileOffsets  : register(t21, space1);
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
@@ -868,7 +873,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float minDist = DEFUALT_EMPTY_SPACE;
     int minId = 0;
     
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize();
     
@@ -894,8 +899,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float3 voxelMax = center + voxelSize * 0.5f;
     
     //Get this tile for brushes.
-    float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
-    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution);
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution.xyz) * voxelSize;
+    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution.xyz);
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
     tileCoord = clamp(tileCoord, int3(0, 0, 0), numTilesPerAxis-1);
     uint tileIndex = Flatten3D(tileCoord, numTilesPerAxis);
@@ -904,14 +909,15 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float blendFactor = 0;
     float smoothness = 10;
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = (pc.voxelResolution / GetVoxelResolutionL1().xyz);
+    float3 worldSDFDivisor = (pc.voxelResolution.xyz / GetVoxelResolutionL1().xyz);
     int3 DTL1 = fullDTid / worldSDFDivisor;
 
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+    
     if(brushCount == 0)
     {
-        float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
         uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
-        float sdfVal = CalculateSDFfromDensity(voxelsL1Out[index].distance);
+        float sdfVal = voxelsL1Out[index].isoPhi;
         minDist = min(sdfVal, minDist);
         Write3DDist(0, fullDTid, minDist);
         return;
@@ -945,7 +951,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //Sum the distoration field.
     int kernelSize = 3;
     float distortionFieldSum = 0;
-    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+
     
     for(int l = -kernelSize; l <= kernelSize; l++)
         for(int j = -kernelSize; j <= kernelSize; j++)
@@ -984,7 +990,7 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     int minId = 0;
     
     //Calculate the position of this voxel.
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(2.0f, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(2.0f, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize();
    
@@ -998,8 +1004,8 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     float3 center = ((float3) fullDTid + 0.5f) * voxelSize - halfScene;
     
     //Get the current tile and tileIndex for brush.
-    float3 tileWorldSize = GetTileSize(pc.voxelResolution/2) * voxelSize;
-    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution/2);
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution.xyz/2) * voxelSize;
+    int3 numTilesPerAxis = voxelGridRes / GetTileSize(pc.voxelResolution.xyz/2);
     
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
     tileCoord = clamp(tileCoord, int3(0, 0, 0), numTilesPerAxis - 1);
@@ -1007,7 +1013,7 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     
     //Get the brush count and set the indices of this thread.
     uint brushCount = TileBrushCounts[tileIndex];
-    float3 worldSDFDivisor = ((pc.voxelResolution / 2) / GetVoxelResolutionL1().xyz);
+    float3 worldSDFDivisor = ((pc.voxelResolution.xyz / 2) / GetVoxelResolutionL1().xyz);
     int3 DTL1 = DTid / worldSDFDivisor;
     
 
@@ -1404,7 +1410,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 
 
     
-    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution);
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution.xyz);
     float voxelSize = voxelSceneBounds.y / voxelSceneBounds.x;
     float halfScene = voxelSceneBounds.y * 0.5f;
     
@@ -1415,7 +1421,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
         return;
     }
     
-    int3 worldSDFCoords = int3(worldUVW * (pc.voxelResolution - 1));
+    int3 worldSDFCoords = int3(worldUVW * (pc.voxelResolution.xyz - 1));
     
     float2 sdfValue = Read3D(0, worldSDFCoords);
     
@@ -1430,7 +1436,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 
 float SampleSDF(float3 worldPos, int mipLevel)
 {
-    float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution);
+    float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz);
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize.xyz * 0.5f;
 
@@ -1565,12 +1571,12 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
     int mipLevel = 0;
-    float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
+    float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
     float3 halfSceneAABB = (GetDCAABBSize()) * 0.5f;
     float3 minAABB = -halfSceneAABB;
     float3 maxAABB =  halfSceneAABB;
-    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
-    float3 uvw = ((float3) DTid + 0.5f) / GetVoxelResolutionL1(pc.voxelResolution).xyz;
+    float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
+    float3 uvw = ((float3) DTid + 0.5f) / GetVoxelResolutionL1(pc.voxelResolution.xyz).xyz;
     float3 minLocal = lerp(minAABB, maxAABB, uvw) + aabbCenterWS;
     
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
@@ -1650,10 +1656,10 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     //Get basic values of this scene.
     Brush brush = Brushes[0];
     
-    float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
+    float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
 
-    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
     float3 sceneSize = GetSceneSize();
     float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
@@ -1813,10 +1819,10 @@ float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
 
 float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
 {
-    float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
+    float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
 
-    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
     float3 sceneSize = GetSceneSize();
     float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
@@ -1986,11 +1992,11 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
     
     int mipLevel = 0;
-    float3 aabbCenterWS = pc.aabbCenter; //float3(2, 2, 0);
+    float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize * 0.5f;
-    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution).xyz;
+    float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
 
     
     float4 voxelL1Res = GetVoxelResolutionL1();
@@ -2002,7 +2008,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
     int3 baseTexel = aabbMinTexelMip + DTid;
     
-    float3 worldSDFDivisor = (pc.voxelResolution / voxelL1Res.xyz);
+    float3 worldSDFDivisor = (pc.voxelResolution.xyz / voxelL1Res.xyz);
     int3 DTidL1 = DTid / worldSDFDivisor;
     
     int3 l1Texel = floor(((aabbMinWS + halfScene) / sceneSize) * voxelL1Res.xyz) + DTidL1;
@@ -2104,7 +2110,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 bool WorldPosToL1Index(float3 worldPos, out int3 coordL1, out uint idxL1)
 {
     // World SDF bounds (same physical box for all mips)
-    float4 worldInfo = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution); // x = WORLD_SDF_RES, y = worldSize
+    float4 worldInfo = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution.xyz); // x = WORLD_SDF_RES, y = worldSize
     float3 halfScene = GetSceneSize() * 0.5f;
 
     // Normalize to [0,1]
@@ -2327,8 +2333,8 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     if (any(DTid >= voxelRes))
         return;
     
-    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution / 2));
-    uint index = Flatten3D(idVoxel, voxelRes);
+    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
+    uint index = Flatten3D(DTid, voxelRes);
     
     float c = ComputePhi(DTid);
     
@@ -2348,7 +2354,7 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     if (any(DTid >= voxelRes))
         return;
     
-    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution / 2));
+    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
     uint index = Flatten3D(idVoxel, voxelRes);
     
     float c = ComputePhi(DTid);
@@ -2363,8 +2369,237 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     Write3DDist(1, DTid, 0);
 }
 
+// --- Tiled gather-based particle SDF ---
+#define BATCH_SIZE 512
+groupshared float4 gs_positions[BATCH_SIZE];
+
+void ParticlesSDF_Tiled(uint3 DTid, uint localIdx)
+{
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
+
+    float3 sceneSize = GetSceneSize();
+    float3 voxelSize = sceneSize / voxelRes;
+    float3 halfScene = sceneSize * 0.5f;
+    float3 worldPos  = (float3(DTid) + 0.5f) * voxelSize - halfScene;
+
+    float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
+    float sigma = h * 1.75f;
+    float amplitude = 1.0f;
+    float radiusParticleSpacing = 6 * 0.35f;
+    float supportWS = sigma * 2.25f * pc.supportMultiplier;
+    float supportWS2 = supportWS * supportWS;
+
+    // Workgroup center -> quanta tile coord.
+    float3 groupCenter = (float3(DTid - DTid % 8) + 4.0f) * voxelSize - halfScene;
+    int3 tileGrid  = int3(sceneSize / QUANTA_TILE_SIZE);
+    int3 centerTile = int3(floor((groupCenter + halfScene) / QUANTA_TILE_SIZE));
+
+    float accumDensity  = 0;
+    float accumDistance  = 0;
+
+    // Iterate 27 neighbor tiles.
+    for (int dz = -1; dz <= 1; dz++)
+    for (int dy = -1; dy <= 1; dy++)
+    for (int dx = -1; dx <= 1; dx++)
+    {
+        int3 nb = centerTile + int3(dx, dy, dz);
+        if (any(nb < 0) || any(nb >= tileGrid))
+            continue;
+
+        uint tIdx   = Flatten3D(nb, tileGrid);
+        uint tStart = tileOffsets[tIdx];
+        uint tCount = tileCounts[tIdx];
+
+        // Stream in batches of 512.
+        for (uint b = 0; b < tCount; b += BATCH_SIZE)
+        {
+            uint batchCount = min(BATCH_SIZE, tCount - b);
+
+            // Cooperative load.
+            if (localIdx < batchCount)
+            {
+                uint qIdx = quantaIds[tStart + b + localIdx];
+                gs_positions[localIdx] = quantaBuffer[qIdx].position;
+            }
+            GroupMemoryBarrierWithGroupSync();
+
+            // Accumulate SDF contributions.
+            for (uint k = 0; k < batchCount; k++)
+            {
+                float4 qpos = gs_positions[k];
+                float3 position = qpos.xyz;
+
+                float3 diffWS = worldPos - position;
+                float squaredDist = dot(diffWS, diffWS);
+
+                if (squaredDist > supportWS2)
+                    continue;
+
+                float gaussianValue = amplitude * exp(-squaredDist / (2.0f * sigma * sigma));
+                uint guassContribution = (uint) round(gaussianValue * DENSITY_SCALE);
+
+                float sd = length(worldPos - position) - radiusParticleSpacing * h;
+
+                float kInflate = 0.315f;
+                sd -= kInflate * sigma;
+
+                float sdN = sd / sigma;
+                sdN = sign(sdN) * (1.0f - exp(-abs(sdN)));
+                sd = sdN * sigma;
+
+                int distanceContribution = (int) round(sd * (float) guassContribution);
+
+                accumDensity  += guassContribution;
+                accumDistance  += distanceContribution;
+            }
+            GroupMemoryBarrierWithGroupSync();
+        }
+    }
+
+    // Direct write — no atomics needed (gather approach, 1 thread per voxel).
+    uint flatIdx = Flatten3D(DTid, int3(voxelRes));
+    voxelsL1Out[flatIdx].density  = (uint)accumDensity;
+    voxelsL1Out[flatIdx].distance = (int)accumDistance;
+}
+
+#define BX 8
+#define BY 8
+#define BZ 8
+#define BN (BX*BY*BZ)
+
+groupshared uint gsDen[512];
+groupshared int gsDist[512];
+
+void P2GFast(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint3 LT : SV_GroupThreadID, uint GI : SV_GroupIndex)
+{
+    
+    gsDen[GI] = 0;
+    gsDist[GI] = 0;
+    
+    //Setup world position.
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
+    float3 sceneSize = GetSceneSize();
+    float3 voxelSize = sceneSize / voxelRes;
+    float3 halfScene = sceneSize * 0.5f;
+    
+    uint3 brickOriginVoxel = Gid * uint3(BX, BY, BZ);
+    int3 brickMin = int3(brickOriginVoxel);
+    int3 brickMax = brickMin + int3(BX, BY, BZ) - 1;
+    
+    int3 voxel = int3(brickOriginVoxel) + int3(LT);
+    uint voxelIndex = Flatten3D(voxel, voxelRes);
+    
+    //Get the tile index for this group.
+    // Workgroup center -> quanta tile coord.
+    float3 brickCenterVoxel = (float3) brickOriginVoxel + 0.5f * float3(BX, BY, BZ);
+    float3 groupCenterWorld = (brickCenterVoxel + 0.5) * voxelSize - halfScene;
+    
+    uint3 centerTile = floor((groupCenterWorld + halfScene) / QUANTA_TILE_SIZE);
+    uint3 tileGrid = (uint3) ceil(sceneSize / QUANTA_TILE_SIZE);
+    
+    float materialMod = 1.0f;
+    float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
+    float distanceMod = 1.0f;
+    float sigma = h * 1.75; //brush.smoothness; // Controls the spread of the Gaussian
+    float amplitude = materialMod; // Can be a particle attribute
+    float radiusParticleSpacing = 6 * 0.35f * materialMod;
+    float supportWS = sigma * 2.25f * pc.supportMultiplier * distanceMod; //triangle count == resolution.
+    float invsigma = 1.0f / (2.0f * sigma * sigma);
+    
+    GroupMemoryBarrierWithGroupSync();
+    // Iterate 27 neighbor tiles.
+    for (int dz = -1; dz <= 1; dz++)
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int3 nb = centerTile + int3(dx, dy, dz);
+                if (any(nb < 0) || any(nb >= tileGrid))
+                    continue;
+
+                uint tIdx = Flatten3D(nb, tileGrid);
+                uint tStart = tileOffsets[tIdx];
+                uint tCount = tileCounts[tIdx];
+                
+                //For the particles that exist in this tile.
+                for (uint b = 0; b < tCount; b += BATCH_SIZE)
+                {
+                    //Get the index of this thread within the group.
+                    uint indexInGroup = b + GI;
+                    
+                    //If the index is within count do work.
+                    if(indexInGroup < tCount)
+                    {
+                        //SPLAT.....
+                        //Get the particle:
+                        uint qIdx = quantaIds[tStart + indexInGroup];
+                        Quanta quanta = quantaBuffer[qIdx];
+                        float3 position = quanta.position.xyz;
+                        
+                        float3 minPos = position - supportWS;
+                        float3 maxPos = position + supportWS;
+
+                        int3 minVoxel = floor((minPos + halfScene) / voxelSize);
+                        int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
+                        
+                        // clamp to brick
+                        int3 brickMin = (int3) brickOriginVoxel;
+                        int3 brickMax = brickMin + int3(BX, BY, BZ) - 1;
+
+                        int3 v0 = max(minVoxel, brickMin);
+                        int3 v1 = min(maxVoxel, brickMax);
+                        
+                        if (any(v0 > v1))
+                            continue;
+
+
+                        float3 initialPosition = quanta.position.xyz; //mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
+    
+                        float disp = length(position - initialPosition);
+    
+                        float invsigma = 1.0f / (2.0f * sigma * sigma);
+    
+                        for (int z = v0.z; z <= v1.z; ++z)
+                            for (int y = v0.y; y <= v1.y; ++y)
+                                for (int x = v0.x; x <= v1.x; ++x)
+                                {
+                                    int3 localVoxelIndex = int3(x, y, z);
+                                    
+                                    if (any(localVoxelIndex < brickMin) || any(localVoxelIndex > brickMax))
+                                        continue;
+
+                                    int3 local = localVoxelIndex - brickMin;
+                                    uint flatIndex = Flatten3D(local, int3(BX, BY, BZ));
+                                    
+                                    float3 worldPos = (float3(localVoxelIndex) + 0.5f) * voxelSize - halfScene;
+                                    
+                                    float3 diffWS = worldPos - position;
+                                    float squaredDist = dot(diffWS, diffWS);
+                
+                                    float expProxy = -squaredDist * invsigma;
+
+                                    float gaussianValue = amplitude * exp2(expProxy * 1.44269504089f);
+                                    uint guassContribution = (uint) round(gaussianValue * DENSITY_SCALE);
+                                    float sd = length(worldPos - position) - radiusParticleSpacing * h;
+                                        
+                                    int distanceContribution = (int) round(sd * (float) guassContribution);
+                                    InterlockedAdd(gsDen[flatIndex], guassContribution);
+                                    InterlockedAdd(gsDist[flatIndex], distanceContribution);
+                                }
+
+                    }
+                }
+            }
+    
+    GroupMemoryBarrierWithGroupSync();
+
+
+    voxelsL1Out[voxelIndex].density = gsDen[GI];
+    voxelsL1Out[voxelIndex].distance = gsDist[GI];
+    
+}
+
 [numthreads(8, 8, 8)]
-void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
+void main(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint gIndex : SV_GroupIndex, uint3 lThreadID : SV_GroupThreadID)
 {
     
     
@@ -2415,7 +2650,15 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
         return;
 
     }
-    
+
+    if (sampleLevelL == 13.0f)
+    {
+        //uint localIdx = lThreadID.x + lThreadID.y * 8 + lThreadID.z * 64;
+        //ParticlesSDF_Tiled(DTid, localIdx);
+        P2GFast(DTid, Gid, lThreadID, gIndex);
+        return;
+    }
+
     if (sampleLevelL == 14.0f)
     {
         DeformBrush(DTid, gIndex, lThreadID);
@@ -2540,8 +2783,8 @@ void main(uint3 DTid : SV_DispatchThreadID, uint gIndex : SV_GroupIndex, uint3 l
     float minDist = 64.0f;
     
     
-    float tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
-    int numTilesPerAxis = WORLD_SDF_RESOLUTION / GetTileSize(pc.voxelResolution);
+    float tileWorldSize = GetTileSize(pc.voxelResolution.xyz) * voxelSize;
+    int numTilesPerAxis = WORLD_SDF_RESOLUTION / GetTileSize(pc.voxelResolution.xyz);
 
     int3 tileCoord = floor((center + halfScene) / tileWorldSize);
 

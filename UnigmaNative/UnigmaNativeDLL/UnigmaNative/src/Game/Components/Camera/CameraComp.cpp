@@ -19,7 +19,7 @@ void CameraComp::GetInputs()
     UnigmaInputStruct* Controller0 = &UnigmaGameManager::instance->Controller0;
     if (Controller0->mouseMiddle == 1)
     {
-        AddBrushCallbackPointer(1, 0, 0, 0, 1, 1, 1, 1,0.023f, 0.1f, 0, 1, 1);
+        //AddBrushCallbackPointer(1, 0, 0, 0, 1, 1, 1, 1,0.023f, 0.1f, 0, 1, 1);
         rotationHeld = true;
     }
 	else if (Controller0->mouseMiddle == 2)

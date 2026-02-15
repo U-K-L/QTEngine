@@ -85,8 +85,9 @@ public:
     struct PushConsts {
         float lod;
         uint32_t triangleCount;
-        glm::ivec3 voxelResolution;
-        glm::vec3 aabbCenter;
+        glm::ivec4 voxelResolution;
+        glm::vec4 aabbCenter;
+        float supportMultiplier;
     };
 
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
@@ -204,6 +205,7 @@ public:
     void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false);
     void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
+    void DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void CreateImages() override;
     void Create3DTextures();
     void CreateBrushes();
@@ -253,6 +255,8 @@ public:
 
     int CAGE_RESOLUTION = 26; //Resolution of the cage for deformation.
     int CONTROL_PARTICLE_COUNT = 4096 * CAGE_RESOLUTION; //The total amount of particles is the amount of deformable objects multipled by the cage resolution.
+
+    float supportMultiplier = 1.0f;
 
     struct ControlParticle {
         glm::vec4 position;

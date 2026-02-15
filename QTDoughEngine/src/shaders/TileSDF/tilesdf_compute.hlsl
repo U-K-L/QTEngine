@@ -23,7 +23,9 @@ struct PushConsts
 {
     float lod;
     uint triangleCount;
-    int3 voxelResolution;
+    int4 voxelResolution;
+    float4 aabbCenter;
+    float supportMultiplier;
 };
 
 [[vk::push_constant]]
@@ -158,7 +160,7 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
 
 float SampleSDF(float3 worldPos, int mipLevel)
 {
-    float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution);
+    float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz);
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize.xyz * 0.5f;
 
@@ -288,6 +290,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
     //Move to world space if connected to a brush.
     Quanta quanta = quantaBuffer[DTid.x];
+    float materialMod = 1.0f;
+    //emulate material for air.
+    if(quanta.information.x == 0)
+        materialMod = 0.001f;
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
     //    brushIndex = particle.particleIDs.x-1;
@@ -316,18 +322,22 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
 
-    
+    float distanceMod = 1.0f;
     float sigma = h * 1.75;//brush.smoothness; // Controls the spread of the Gaussian
-    float amplitude = 1.0f; // Can be a particle attribute
-    float radiusParticleSpacing = 6 * 0.35f;
+    float amplitude = materialMod; // Can be a particle attribute
+    float radiusParticleSpacing = 6 * 0.35f * materialMod;
     
-    float supportWS = sigma * 2.25f;
-    
+
     float3 position = quanta.position.xyz;
     
+    float3 aabbscenesize = GetDCAABBSize();
+    float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
+    bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
+
+    if(!inAABB)
+        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
-
-
+    float supportWS = sigma * 2.25f * pc.supportMultiplier * distanceMod * 0.25f; //triangle count == resolution.
     
     float speed = 0.001f;
     float timeX = time * speed;
@@ -383,7 +393,11 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     //float3 n = GetNormal(position);
 
     float3 initialPosition = quanta.position.xyz; //mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
-    /*
+    
+    float disp = length(position - initialPosition);
+    
+    float invsigma = 1.0f / (2.0f * sigma * sigma);
+    
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
         for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
@@ -391,35 +405,36 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 int3 voxelIndex = int3(x, y, z);
                 
                 int3 res = int3(voxelRes);
-                if (x < 0 || y < 0 || z < 0 || x >= res.x || y >= res.y || z >= res.z)
-                    continue;
-                  
+
                 // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
                 float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
                 
                 float3 diffWS = worldPos - position;
                 float squaredDist = dot(diffWS, diffWS);
+                
+                float expProxy = -squaredDist * invsigma;
 
-                float gaussianValue = amplitude * exp(-squaredDist / (2.0f * sigma * sigma));
+                float gaussianValue = amplitude * exp2(expProxy * 1.44269504089f);
 
                 uint guassContribution = (uint) round(gaussianValue * DENSITY_SCALE);
                 
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
-                float disp = length(position - initialPosition);
-                if (disp > 0.005f)
-                    voxelsL1Out[flatIndex].jacobian = 0.1f;
+
+                //if (disp > 0.005f)
+                //    voxelsL1Out[flatIndex].jacobian = 0.1f;
 
                 
                 float sd = length(worldPos - position) - radiusParticleSpacing * h;
-
+                /*
                 float kInflate = 0.315f;
                 sd -= kInflate * sigma;
 
                 float sdN = sd / sigma;
                 sdN = sign(sdN) * (1.0f - exp(-abs(sdN)));
                 sd = sdN * sigma;
-
+                */
+                
                 int distanceContribution = (int) round(sd * (float) guassContribution);
 
 
@@ -428,7 +443,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
 
             }
-    */
+    
     /*
     if(particle.particleIDs.x == 0)
     {
@@ -533,9 +548,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //brush.aabbmin = minBounds;
     
     float3 worldHalfExtent = GetSceneSize() * 0.5f;
-    float3 voxelSize = GetSceneSize() / pc.voxelResolution;
-    float3 tileWorldSize = GetTileSize(pc.voxelResolution) * voxelSize;
-    int3 numOfTilesDim = (pc.voxelResolution / GetTileSize(pc.voxelResolution));
+    float3 voxelSize = GetSceneSize() / pc.voxelResolution.xyz;
+    float3 tileWorldSize = GetTileSize(pc.voxelResolution.xyz) * voxelSize;
+    int3 numOfTilesDim = (pc.voxelResolution.xyz / GetTileSize(pc.voxelResolution.xyz));
     
     int3 minTile = floor((brushMin + worldHalfExtent) / tileWorldSize);
     int3 maxTile = floor((brushMax + worldHalfExtent) / tileWorldSize);

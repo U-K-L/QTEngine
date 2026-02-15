@@ -344,9 +344,9 @@ void VoxelizerPass::CreateDescriptorPool()
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = kTotalSets * 1;
 
-    // twelve storage buffers per set (bindings 1-11)
+    // storage buffers per set (bindings 1-21)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = kTotalSets * 16;
+    poolSizes[1].descriptorCount = kTotalSets * 21;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = 2;
@@ -745,7 +745,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 19> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 22> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -964,6 +964,45 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[18].descriptorCount = 1;
         descriptorWrites[18].pBufferInfo = &indirectDrawBufferInfo;
 
+        //Quanta tile sort buffers (READ index 2).
+        VkDescriptorBufferInfo quantaIdsBufferInfo{};
+        quantaIdsBufferInfo.buffer = MaterialSimulation::instance->QuantaIdsBuffer[2];
+        quantaIdsBufferInfo.offset = 0;
+        quantaIdsBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[19].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[19].dstSet = computeDescriptorSets[i];
+        descriptorWrites[19].dstBinding = 19;
+        descriptorWrites[19].dstArrayElement = 0;
+        descriptorWrites[19].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[19].descriptorCount = 1;
+        descriptorWrites[19].pBufferInfo = &quantaIdsBufferInfo;
+
+        VkDescriptorBufferInfo tileCountsBufferInfo{};
+        tileCountsBufferInfo.buffer = MaterialSimulation::instance->TileCountsBuffer[2];
+        tileCountsBufferInfo.offset = 0;
+        tileCountsBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[20].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[20].dstSet = computeDescriptorSets[i];
+        descriptorWrites[20].dstBinding = 20;
+        descriptorWrites[20].dstArrayElement = 0;
+        descriptorWrites[20].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[20].descriptorCount = 1;
+        descriptorWrites[20].pBufferInfo = &tileCountsBufferInfo;
+
+        VkDescriptorBufferInfo tileOffsetsBufferInfo{};
+        tileOffsetsBufferInfo.buffer = MaterialSimulation::instance->TileOffsetsBuffer[2];
+        tileOffsetsBufferInfo.offset = 0;
+        tileOffsetsBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[21].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[21].dstSet = computeDescriptorSets[i];
+        descriptorWrites[21].dstBinding = 21;
+        descriptorWrites[21].dstArrayElement = 0;
+        descriptorWrites[21].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[21].descriptorCount = 1;
+        descriptorWrites[21].pBufferInfo = &tileOffsetsBufferInfo;
 
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
@@ -1134,8 +1173,27 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     indirectDrawBinding.descriptorCount = 1;
     indirectDrawBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // Quanta tile sort bindings (read-only in voxelizer).
+    VkDescriptorSetLayoutBinding quantaIdsBinding{};
+    quantaIdsBinding.binding = 19;
+    quantaIdsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    quantaIdsBinding.descriptorCount = 1;
+    quantaIdsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding tileCountsBinding{};
+    tileCountsBinding.binding = 20;
+    tileCountsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    tileCountsBinding.descriptorCount = 1;
+    tileCountsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding tileOffsetsBinding{};
+    tileOffsetsBinding.binding = 21;
+    tileOffsetsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    tileOffsetsBinding.descriptorCount = 1;
+    tileOffsetsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 19> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding };
+    std::array<VkDescriptorSetLayoutBinding, 22> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -2010,7 +2068,25 @@ void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    // Wait for physics to finish writing Out, then copy Out -> READ on this queue.
+    vkWaitForFences(app->_logicalDevice, 1, &app->_physicsFence, VK_TRUE, UINT64_MAX);
+    MaterialSimulation::instance->CopyOutToRead(commandBuffer);
+
     UpdateBrushesGPU(commandBuffer);
+
+    //Quick inputs change support multiplier when pressed.
+    if (GetKeyState('9') & 0x8000)
+    {
+        std::cout << "Support increasing... supprt at: " << supportMultiplier << std::endl;
+        supportMultiplier += 0.025f;
+    }
+
+    if (GetKeyState('0') & 0x8000)
+    {
+        std::cout << "Support decreasing... supprt at:" << supportMultiplier << std::endl;
+        supportMultiplier -= 0.025f;
+    }
+
     /*
     float  f = 100.0f;
     uint32_t pattern;
@@ -2161,7 +2237,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
         DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
         //DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
-        DispatchTile(commandBuffer, currentFrame, 2); //Particle generation.
+        //DispatchParticlesTiled(commandBuffer, currentFrame); //Tiled gather particle SDF.
+        DispatchTile(commandBuffer, currentFrame, 2);
 	}
 
 
@@ -2623,7 +2700,9 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     PushConsts pc{};
     pc.lod = 8;
     pc.triangleCount = lodLevel;
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2668,7 +2747,9 @@ void VoxelizerPass::DispatchParticleCreation(VkCommandBuffer commandBuffer, uint
     PushConsts pc{};
     pc.lod = 9;
     pc.triangleCount = lodLevel;
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2714,7 +2795,9 @@ void VoxelizerPass::DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint
     PushConsts pc{};
     pc.lod = 14;
     pc.triangleCount = brushID;
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2760,7 +2843,9 @@ void VoxelizerPass::DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint3
     PushConsts pc{};
     pc.lod = lod;
     pc.triangleCount = brushID;
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2803,7 +2888,9 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2858,6 +2945,42 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
+void VoxelizerPass::DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32_t currentFrame)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    PushConsts pc{};
+    pc.lod = 13.0f;
+    pc.triangleCount = 0;
+    pc.voxelResolution = glm::ivec4(WORLD_SDF_RESOLUTION, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
+
+    vkCmdPushConstants(commandBuffer,
+        voxelizeComputePipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0, sizeof(PushConsts), &pc);
+
+    BindSetsNormal(commandBuffer, currentFrame);
+
+    // L1 res: 512x512x128, groups of 8^3 -> 64x64x16
+    vkCmdDispatch(commandBuffer, 64, 64, 16);
+
+    VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+    VkDependencyInfo depInfo{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    depInfo.memoryBarrierCount = 1;
+    depInfo.pMemoryBarriers = &mem;
+
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+}
+
 //Dispatches Voxelization kernels.
 void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag)
 {
@@ -2878,8 +3001,9 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     PushConsts pc{};
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
-    pc.aabbCenter = glm::vec3(0, 0, 0);
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
 
     // Each LOD uses a different resolution
@@ -3089,7 +3213,9 @@ void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t c
     PushConsts pc{};
     pc.lod = static_cast<float>(60.0f);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
-    pc.voxelResolution = WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.supportMultiplier = supportMultiplier;
 
     // Each LOD uses a different resolution
     glm::ivec3 res = WORLD_SDF_RESOLUTION; //Expand
