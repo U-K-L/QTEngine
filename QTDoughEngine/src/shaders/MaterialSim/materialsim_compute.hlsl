@@ -28,7 +28,7 @@ RWStructuredBuffer<uint> tileOffsets : register(u5, space1);
 RWStructuredBuffer<uint> tileCursor : register(u6, space1);
 
 #define GROUP_SIZE 512 // 8 * 8 * 8
-#define BROWNIAN_STRENGTH 1.5f
+#define BROWNIAN_STRENGTH 25.5f
 
 [numthreads(8, 8, 8)]
 void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
@@ -55,7 +55,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     );
 
     q.position.xyz += kick * BROWNIAN_STRENGTH * deltaTime;
-
+    q.information.x = 1;
     // Melt: only x >= 0 half, strength falls off with distance from origin.
     if (q.position.x >= 0)
     {
@@ -63,6 +63,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
         float3 meltDir = float3(0, 0, -1); // Drip downward.
         q.position.xyz += meltDir * meltStrength * 5400.0f * deltaTime;
+        q.information.x = 0;
     }
 
     quantaOut[globalIndex] = q;

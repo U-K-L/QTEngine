@@ -292,8 +292,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     Quanta quanta = quantaBuffer[DTid.x];
     float materialMod = 1.0f;
     //emulate material for air.
-    //if(quanta.information.x == 0)
-    //    materialMod = 0.01f;
+    if(quanta.information.x == 0)
+        materialMod = 0.001f;
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
     //    brushIndex = particle.particleIDs.x-1;
@@ -323,7 +323,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
 
     float distanceMod = 1.0f;
-    float sigma = h * 0.75;//brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = h * 1.75;//brush.smoothness; // Controls the spread of the Gaussian
     float amplitude = materialMod; // Can be a particle attribute
     float radiusParticleSpacing = 6 * 0.35f * materialMod;
     
@@ -334,10 +334,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
     bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
 
-    //if(!inAABB)
-    //    sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
+    if(!inAABB)
+        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
-    float supportWS = sigma * 2.25f * pc.supportMultiplier * distanceMod; //triangle count == resolution.
+    float supportWS = sigma * 2.25f * pc.supportMultiplier * distanceMod * 0.25f; //triangle count == resolution.
     
     float speed = 0.001f;
     float timeX = time * speed;
@@ -405,9 +405,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 int3 voxelIndex = int3(x, y, z);
                 
                 int3 res = int3(voxelRes);
-                if (x < 0 || y < 0 || z < 0 || x >= res.x || y >= res.y || z >= res.z)
-                    continue;
-                  
+
                 // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
                 float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
                 
@@ -418,8 +416,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
                 float gaussianValue = amplitude * exp2(expProxy * 1.44269504089f);
 
-                //float gaussianValue = amplitude * exp(-squaredDist * invsigma);
-
                 uint guassContribution = (uint) round(gaussianValue * DENSITY_SCALE);
                 
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
@@ -429,7 +425,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 //    voxelsL1Out[flatIndex].jacobian = 0.1f;
 
                 
-                float sd = length(worldPos - position) - 1.0f * h;
+                float sd = length(worldPos - position) - radiusParticleSpacing * h;
                 /*
                 float kInflate = 0.315f;
                 sd -= kInflate * sigma;

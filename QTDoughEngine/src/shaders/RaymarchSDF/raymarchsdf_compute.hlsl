@@ -883,7 +883,7 @@ float4 FieldFullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface,
         
         
         
-        accumaltor += (abs(DEFUALT_EMPTY_SPACE - sampleId.x) + omega) / 4096;
+        accumaltor += (abs(DEFUALT_EMPTY_SPACE - sampleId.x)) / 4096;
         
         pos += direction * stepSize;
 
