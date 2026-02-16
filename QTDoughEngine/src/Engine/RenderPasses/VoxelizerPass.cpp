@@ -1302,6 +1302,8 @@ void VoxelizerPass::CreateBrushes()
         brush.density = particleDens;
         brush.particleRadius = 2.0f * (particleDens - 1);
         
+        brush.isCollapsing = true;
+
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
         //brush.model = obj->_transform.GetModelMatrixBrush();
@@ -2087,6 +2089,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         supportMultiplier -= 0.025f;
     }
 
+    if (GetKeyState('8') & 0x8000)
+    {
+        std::cout << "Starting readback" << std::endl;
+        MaterialSimulation::instance->ReadBackQuantaFull();
+    }
+
     /*
     float  f = 100.0f;
     uint32_t pattern;
@@ -2197,6 +2205,28 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             textureIndexMap[index] = i; //Mark this texture as processed.
 		}
         particleCount += voxelCount / 8; //Estimate particles.
+
+        // Barrier: brush SDF texture writes must complete before fill reads them.
+        VkMemoryBarrier2 sdfBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        sdfBarrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        sdfBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+        sdfBarrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        sdfBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+        VkDependencyInfo sdfDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        sdfDep.memoryBarrierCount = 1;
+        sdfDep.pMemoryBarriers    = &sdfBarrier;
+        vkCmdPipelineBarrier2(commandBuffer, &sdfDep);
+
+        // Assign quanta to each newly-created brush via tile acceleration structure.
+        for (uint32_t i = 0; i < brushes.size(); i++)
+        {
+            /*
+            if (brushes[i].type >= 0)
+            {
+                MaterialSimulation::instance->DispatchBrushFill(commandBuffer, i);
+            }
+            */
+        }
 
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
@@ -2327,9 +2357,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
-        for (int i = 0; i < brushes.size(); i++)
-            if(brushes[i].type == 0) //mesh.
-                DispatchVertexMask(commandBuffer, currentFrame, i);
+        //for (int i = 0; i < brushes.size(); i++)
+        //    if(brushes[i].type == 0) //mesh.
+        //        DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
@@ -3342,6 +3372,7 @@ int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, 
     brush.particleRadius = 2.0f * (density - 1);
     brush.materialId = index;
     brush.isDeformed = 0;
+    //brush.isCollapsing = 0;
 
     brush.model = glm::translate(glm::mat4(1.0f), position)
                 * glm::scale(glm::mat4(1.0f), scale);

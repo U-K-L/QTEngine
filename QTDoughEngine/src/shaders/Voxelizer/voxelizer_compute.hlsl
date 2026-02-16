@@ -690,6 +690,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     //if (any( (DTid.xyz >= (brush.resolution - (brush.resolution / 16))) ))
     //    return;
     
+    /*
     if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
     {
         float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
@@ -715,7 +716,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
 
     }
-
+    */
 
     for (int i = 0; i < CAGE_VERTS; i++)
     {
@@ -967,12 +968,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
-    if (distortionFieldSum > 0.0001f)
+    //if (distortionFieldSum > 0.0001f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    else
-        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    //else
+    //    Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
-    voxelsL1Out[index].brushId = minId;
+    //voxelsL1Out[index].brushId = minId;
     /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;

@@ -54,6 +54,16 @@ class UnigmaExporter(bpy.types.Operator):
         return obj
     
     def exportJson(self):
+        # Load component definitions for type coercion during export.
+        blend_dir = bpy.path.abspath("//")
+        comp_json_path = os.path.normpath(
+            os.path.join(blend_dir, "..", "..", "Components", "Components.json")
+        )
+        comp_defs = {}
+        if os.path.isfile(comp_json_path):
+            with open(comp_json_path) as f:
+                comp_defs = json.load(f)
+
         scene = bpy.context.scene
         scene_name = scene.name
         print(f"Scene Name: {scene_name}")
@@ -123,15 +133,33 @@ class UnigmaExporter(bpy.types.Operator):
             
             compOut = {}
             for comp in obj.components:
+                comp_name = comp.name
+                comp_def = comp_defs.get(comp_name, {})
                 settings = {}
                 for k in comp.keys():
                     v = comp[k]
-                    # convert mathutils.Vector → list
-                    if isinstance(v, Vector):
-                        settings[k] = list(v)
-                    else:
-                        settings[k] = v
-                compOut[comp.name] = settings
+                    field_def = comp_def.get(k)
+                    if field_def is not None:
+                        typ = field_def
+                        if isinstance(typ, dict):
+                            typ = typ.get("type")
+                        if isinstance(typ, list):
+                            v = str(v)
+                        elif typ == "float":
+                            v = float(v)
+                        elif typ == "int":
+                            v = int(v)
+                        elif typ == "bool":
+                            v = bool(v)
+                        elif typ == "vector3":
+                            if isinstance(v, Vector):
+                                v = list(v)
+                            elif hasattr(v, "to_list"):
+                                v = v.to_list()
+                    elif isinstance(v, Vector):
+                        v = list(v)
+                    settings[k] = v
+                compOut[comp_name] = settings
 
             serializableComponents = self.make_serializable(compOut)
             # Add info to the scene data structure
