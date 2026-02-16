@@ -1,4 +1,5 @@
 #include "MaterialSimulationPass.h"
+#include "../RenderPasses/VoxelizerPass.h"
 
 MaterialSimulation* MaterialSimulation::instance = nullptr;
 
@@ -22,6 +23,9 @@ void MaterialSimulation::InitMaterialSim()
 
 void MaterialSimulation::InitComputeWorkload()
 {
+	// Wire brush buffer from VoxelizerPass (created during CreateShaderStorageBuffers).
+	brushesBuffer = VoxelizerPass::instance->brushesStorageBuffers;
+
 	CreateComputeDescriptorSetLayout();
 	CreateDescriptorPool();
 	CreateComputeDescriptorSets();
@@ -38,8 +42,9 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 	// Binding 4: TileCounts
 	// Binding 5: TileOffsets
 	// Binding 6: TileCursor
+	// Binding 7: Brushes (read)
 
-	std::array<VkDescriptorSetLayoutBinding, 7> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 8> bindings{};
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -68,7 +73,7 @@ void MaterialSimulation::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 7 * frameCount; // 7 bindings per set.
+	poolSize.descriptorCount = 8 * frameCount; // 8 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -143,10 +148,17 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		tileCursorInfo.offset = 0;
 		tileCursorInfo.range = VK_WHOLE_SIZE;
 
-		std::array<VkWriteDescriptorSet, 7> writes{};
+		// Binding 7: Brushes buffer (from VoxelizerPass).
+		VkDescriptorBufferInfo brushesInfo{};
+		brushesInfo.buffer = brushesBuffer;
+		brushesInfo.offset = 0;
+		brushesInfo.range = VK_WHOLE_SIZE;
+
+		std::array<VkWriteDescriptorSet, 8> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
-			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo
+			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
+			&brushesInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -212,6 +224,9 @@ void MaterialSimulation::CreateComputePipeline()
 	vkDestroyShaderModule(app->_logicalDevice, shaderModule, nullptr);
 
 	CreateSortPipelines();
+	CreateComputePipelineFromSPV("matsim_collapse", collapsePipeline);
+	CreateComputePipelineFromSPV("matsim_collapse_fill", collapseFillPipeline);
+	CreateComputePipelineFromSPV("matsim_brush_assign", brushAssignPipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -345,8 +360,215 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
+	// Barrier between main sim and collapse pass.
+	VkMemoryBarrier2 simBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	simBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	simBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	simBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	simBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo simDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	simDep.memoryBarrierCount = 1;
+	simDep.pMemoryBarriers = &simBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &simDep);
+
+	if(dispatchesCount < 2)
+	{
+		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
+			DispatchBrushFill(commandBuffer, i); // -1 means fill for all brushes that need it.
+	}
+
+	if (dispatchesCount < 60 * 6)
+	{
+		// Wave Function Collapse — dispatches only for brushes flagged isCollapsing.
+		//DispatchWaveFunctionCollapse(commandBuffer);
+
+		// Collapse Fill — per-voxel claim of quanta into brush density grid.
+		if (dispatchesCount > 60 * 5 && dispatchesCount < 60 * 6)
+		{
+			//DispatchCollapseFill(commandBuffer);
+			//dispatchesCount = 0; // reset count after fill to avoid overflow and keep sim/collapse in sync.
+		}
+	}
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
 	currentFrame = 1 - currentFrame;
+	dispatchesCount += 1;
+}
+
+void MaterialSimulation::DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+	if (!voxelizer || voxelizer->brushes.empty())
+		return;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, collapsePipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+
+	for (int i = 0; i < static_cast<int>(voxelizer->brushes.size()); i++)
+	{
+		if (voxelizer->brushes[i].isCollapsing == 0)
+			continue;
+
+		PushConsts pc{};
+		pc.particleSize = 1.0f;
+		pc.tileGridX = Field.FieldSize.x / TileSize.x;
+		pc.tileGridY = Field.FieldSize.y / TileSize.y;
+		pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+		pc.brushIndex = i;
+
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+		vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+		// Barrier so this brush's writes are visible to next brush dispatch.
+		VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+		mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+		mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+		dep.memoryBarrierCount = 1;
+		dep.pMemoryBarriers = &mem;
+		vkCmdPipelineBarrier2(commandBuffer, &dep);
+	}
+}
+
+void MaterialSimulation::DispatchCollapseFill(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+	if (!voxelizer || voxelizer->brushes.empty())
+		return;
+
+	// Check if any brush needs fill.
+	bool anyCollapsing = false;
+	for (auto& b : voxelizer->brushes)
+	{
+		if (b.isCollapsing != 0)
+		{
+			anyCollapsing = true;
+			break;
+		}
+	}
+	if (!anyCollapsing)
+		return;
+
+	uint32_t tileGridX = Field.FieldSize.x / TileSize.x;
+	uint32_t tileGridY = Field.FieldSize.y / TileSize.y;
+	uint32_t tileGridZ = Field.FieldSize.z / TileSize.z;
+	uint32_t totalTiles = tileGridX * tileGridY * tileGridZ;
+
+	// Reset tileCursor to tileOffsets so atomic claiming starts from beginning.
+	VkBufferCopy tileCopy{};
+	tileCopy.size = sizeof(uint32_t) * totalTiles;
+	vkCmdCopyBuffer(commandBuffer, TileOffsetsBuffer[currentFrame], TileCursorBuffer[currentFrame], 1, &tileCopy);
+
+	// Barrier: transfer -> compute.
+	VkMemoryBarrier2 copyBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	copyBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	copyBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	copyBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	copyBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo copyDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	copyDep.memoryBarrierCount = 1;
+	copyDep.pMemoryBarriers = &copyBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &copyDep);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, collapseFillPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	for (int i = 0; i < static_cast<int>(voxelizer->brushes.size()); i++)
+	{
+		if (voxelizer->brushes[i].isCollapsing == 0)
+			continue;
+
+		PushConsts pc{};
+		pc.particleSize = 1.0f;
+		pc.tileGridX = tileGridX;
+		pc.tileGridY = tileGridY;
+		pc.tileGridZ = tileGridZ;
+		pc.brushIndex = i;
+
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+		uint32_t res = voxelizer->brushes[i].resolution;
+		uint32_t groups = (res + 7) / 8;
+		vkCmdDispatch(commandBuffer, groups, groups, groups);
+
+		// Barrier between brushes.
+		VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+		mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+		mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+		dep.memoryBarrierCount = 1;
+		dep.pMemoryBarriers = &mem;
+		vkCmdPipelineBarrier2(commandBuffer, &dep);
+	}
+}
+
+void MaterialSimulation::DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+	if (!voxelizer || brushIndex < 0 || brushIndex >= static_cast<int>(voxelizer->brushes.size()))
+		return;
+
+	// Zero tileCursor[0] — used as global atomic counter by the shader.
+	vkCmdFillBuffer(commandBuffer, TileCursorBuffer[currentFrame], 0, sizeof(uint32_t), 0);
+
+	VkMemoryBarrier2 fillBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	fillBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	fillBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	fillBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	fillBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo fillDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	fillDep.memoryBarrierCount = 1;
+	fillDep.pMemoryBarriers = &fillBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &fillDep);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, brushAssignPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = 0;
+	pc.tileGridY = 0;
+	pc.tileGridZ = 0;
+	pc.brushIndex = brushIndex;
+
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t res = voxelizer->brushes[brushIndex].resolution;
+	uint32_t groups = (res + 7) / 8;
+	vkCmdDispatch(commandBuffer, groups, groups, groups);
 }
 
 void MaterialSimulation::CopyOutToRead(VkCommandBuffer commandBuffer)
@@ -553,6 +775,8 @@ void MaterialSimulation::CreateStorageBuffers()
 
 void MaterialSimulation::SerializeQuantaBlob(const std::string& path)
 {
+	std::cout << "Starting serialization into blob" << std::endl;
+
 	std::filesystem::path dir = std::filesystem::path(path).parent_path();
 	if (!dir.empty())
 		std::filesystem::create_directories(dir);
@@ -575,6 +799,8 @@ void MaterialSimulation::SerializeQuantaBlob(const std::string& path)
 
 void MaterialSimulation::SerializeQuantaText(const std::string& path)
 {
+	std::cout << "Starting serialization into text" << std::endl;
+
 	std::filesystem::path dir = std::filesystem::path(path).parent_path();
 	if (!dir.empty())
 		std::filesystem::create_directories(dir);
@@ -631,4 +857,54 @@ void MaterialSimulation::DeserializeQuantaBlob(const std::string& path)
 	file.close();
 	std::cout << "Quanta blob deserialized from: " << path
 		<< " (field " << Field.FieldSize.x << "x" << Field.FieldSize.y << "x" << Field.FieldSize.z << ")" << std::endl;
+}
+
+void MaterialSimulation::ReadBackQuantaFull()
+{
+	if (readbackInProgress.exchange(true))
+	{
+		std::cout << "Readback already in progress, skipping." << std::endl;
+		return;
+	}
+
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	//Get the memory off the GPU and copy to quanta array.
+	//First need a temporary staging buffer.
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingMemory;
+	app->CreateBuffer(quantaMemorySize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingMemory);
+
+	//Copy GPU to staging.
+	VkCommandBuffer cmd = app->BeginSingleTimeCommands();
+
+	VkBufferCopy region{};
+	region.size = quantaMemorySize;
+
+	vkCmdCopyBuffer(
+		cmd,
+		QuantaStorageBuffers[2],
+		stagingBuffer,
+		1,
+		&region
+	);
+
+	app->EndSingleTimeCommandsAsync(currentFrame, cmd, [this, app, stagingBuffer, stagingMemory]() {
+		//Copy from staging to CPU.
+		void* mapped = nullptr;
+		vkMapMemory(app->_logicalDevice, stagingMemory, 0, quantaMemorySize, 0, &mapped);
+		memcpy(Field.Quantas, mapped, quantaMemorySize);
+		vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+		//Clean up staging resources.
+		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
+		//SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
+
+		std::cout << "Done readback..." << std::endl;
+		readbackInProgress = false;
+	});
 }

@@ -1040,7 +1040,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - visibility) * 0.25f).xyz, 1));
 
-    float4 fullMarchField = float4(surface.x, surfaceFull.w / 32.0f, 0, 1);
+    float4 fullMarchField = float4(0, surfaceFull.w / 32.0f, 0, 1);
     gBindlessStorage[normalImageHandle][pixel] = float4(surface.xyz, depthMapped); //Temp changing this to some identity.
     gBindlessStorage[outputImageHandle][pixel] = float4(finalColor.xyz, visibility.x); //float4(hit.yzw, 1.0); // * col; // + col*0.25;
     gBindlessStorage[positionImageHandle][pixel].xyz = positionId.xyz;

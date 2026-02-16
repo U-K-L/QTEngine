@@ -1,8 +1,9 @@
 #pragma once
+#include <atomic>
 #include "../../Application/QTDoughApplication.h"
 #include "../Renderer/UnigmaMaterial.h"
 
-#define QUANTA_COUNT 1048576 //Only changes per official build. 
+#define QUANTA_COUNT 2097152 //Only changes per official build. 
 
 //The particle that emerges from the field.
 //Compact, w values may store arbitrary different results.
@@ -45,6 +46,9 @@ class MaterialSimulation
 		void CreateSortPipelines();
 		void DispatchTileSort(VkCommandBuffer commandBuffer);
 		void Simulate(VkCommandBuffer commandBuffer); //Dispatch that happens in main application compute physics.
+		void DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer); //Per-brush collapse after sim.
+		void DispatchCollapseFill(VkCommandBuffer commandBuffer); //Per-voxel fill: claim quanta into brush density grid.
+		void DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex); //Direct per-brush quanta assignment on creation.
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -52,6 +56,8 @@ class MaterialSimulation
 		void SerializeQuantaBlob(const std::string& path);
 		void SerializeQuantaText(const std::string& path);
 		void DeserializeQuantaBlob(const std::string& path);
+		void ReadBackQuantaFull();
+		std::atomic<bool> readbackInProgress{false};
 		UnigmaField Field; //Underlying field of everything.
 
 		std::vector<VkBuffer> QuantaStorageBuffers;
@@ -83,6 +89,10 @@ class MaterialSimulation
 			int tileGridX;
 			int tileGridY;
 			int tileGridZ;
+			int brushIndex;
+			float pad0;
+			float pad1;
+			float pad2;
 		};
 
 	private:
@@ -96,4 +106,12 @@ class MaterialSimulation
 		VkPipeline scatterPipeline;
 		VkPipelineLayout pipelineLayout;
 		uint32_t currentFrame = 0;
+
+		// Wave Function Collapse — brush access for quanta gather/snap.
+		VkBuffer brushesBuffer = VK_NULL_HANDLE;
+		VkPipeline collapsePipeline = VK_NULL_HANDLE;
+		VkPipeline collapseFillPipeline = VK_NULL_HANDLE;
+		VkPipeline brushAssignPipeline = VK_NULL_HANDLE;
+
+		uint32_t dispatchesCount = 0;
 };

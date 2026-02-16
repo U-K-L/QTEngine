@@ -2476,7 +2476,7 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
     }
 
 
-    DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
+    
 
     if (recorder && recorder->IsRecording()) {
         recorder->CmdCopySwapImageToStaging(commandBuffer,
@@ -2485,6 +2485,8 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
             swapChainExtent.width,
             swapChainExtent.height);
     }
+    else
+        DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");

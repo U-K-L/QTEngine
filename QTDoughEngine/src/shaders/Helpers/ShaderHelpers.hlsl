@@ -7,7 +7,7 @@
 
 #define WORLD_SDF_RESOLUTION 1024.0f
 #define WORLD_SDF_BOUNDS 64.0f
-#define QUANTA_COUNT 1048576
+#define QUANTA_COUNT 2097152
 
 #define VOXEL_RESOLUTIONL1 512.0f
 #define SCENE_BOUNDSL1 16.0f
@@ -110,6 +110,8 @@ struct Brush
     int materialId;
     int density;
     float particleRadius;
+    int isCollapsing;
+    float collapsePad0;
 };
 
 struct Vertex
@@ -840,6 +842,15 @@ float opSmoothIntersection(float d1, float d2, float k)
 {
     float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
     return lerp(d2, d1, h) + k * h * (1.0 - h);
+}
+
+uint ComputeTileIndex(float3 pos, int3 tileGrid)
+{
+    float3 halfField = float3(tileGrid.x, tileGrid.y, tileGrid.z) * 4.0f;
+    float3 local = pos + halfField;
+    int3 tileCoord = int3(floor(local / 8.0f));
+    tileCoord = clamp(tileCoord, int3(0, 0, 0), int3(tileGrid.x - 1, tileGrid.y - 1, tileGrid.z - 1));
+    return (uint) Flatten3D(tileCoord, int3(tileGrid.x, tileGrid.y, tileGrid.z));
 }
 
 

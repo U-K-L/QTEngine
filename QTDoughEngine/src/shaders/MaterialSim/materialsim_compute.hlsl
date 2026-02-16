@@ -40,8 +40,9 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     Quanta q = quantaIn[globalIndex];
+    
 
-    if (q.position.w < 1)
+    if (q.position.w < 1 || q.information.x > 0)
     {
         quantaOut[globalIndex] = q;
         return;
@@ -54,16 +55,15 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         randNegative1to1(q.position.xyz, time + 7.3f)
     );
 
-    q.position.xyz += kick * BROWNIAN_STRENGTH * deltaTime;
-    q.information.x = 1;
+    //q.position.xyz += kick * BROWNIAN_STRENGTH * deltaTime;
+
     // Melt: only x >= 0 half, strength falls off with distance from origin.
     if (q.position.x >= 0)
     {
         float dist = length(q.position.xyz);
         float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
         float3 meltDir = float3(0, 0, -1); // Drip downward.
-        q.position.xyz += meltDir * meltStrength * 5400.0f * deltaTime;
-        q.information.x = 0;
+        //q.position.xyz += meltDir * meltStrength * 5400.0f * deltaTime;
     }
 
     quantaOut[globalIndex] = q;

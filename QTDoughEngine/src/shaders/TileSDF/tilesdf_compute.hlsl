@@ -291,9 +291,14 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     //Move to world space if connected to a brush.
     Quanta quanta = quantaBuffer[DTid.x];
     float materialMod = 1.0f;
+    float supportMod = pc.supportMultiplier;
     //emulate material for air.
     if(quanta.information.x == 0)
+    {
         materialMod = 0.001f;
+        supportMod = 2;
+    }
+
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
     //    brushIndex = particle.particleIDs.x-1;
@@ -337,7 +342,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     if(!inAABB)
         sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
-    float supportWS = sigma * 2.25f * pc.supportMultiplier * distanceMod * 0.25f; //triangle count == resolution.
+    float supportWS = sigma * 2.25f * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
     float speed = 0.001f;
     float timeX = time * speed;
@@ -438,9 +443,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 int distanceContribution = (int) round(sd * (float) guassContribution);
 
 
-                
+                uint dummy;
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
+                InterlockedExchange(voxelsL1Out[flatIndex].brushId, (uint)quanta.information.x, dummy);
 
             }
     
