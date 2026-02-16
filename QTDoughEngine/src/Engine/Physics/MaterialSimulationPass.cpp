@@ -18,7 +18,21 @@ void MaterialSimulation::InitMaterialSim()
 	Field.FieldSize = glm::ivec3(64, 64, 16);
 	TileSize = glm::ivec3(8, 8, 8);
 	InitQuanta();
+	InitMaterialGrid();
 	CreateStorageBuffers();
+}
+
+void MaterialSimulation::InitMaterialGrid()
+{
+	uint64_t totalGridPoints = materialGridSize.x * materialGridSize.y * materialGridSize.z;
+	std::cout << "Total grid points is: " << totalGridPoints << std::endl;
+
+	materialMemorySize = sizeof(MaterialGridPoint) * totalGridPoints;
+
+	std::cout << "Total Grid Memory Size is: " << materialMemorySize << std::endl;
+
+	//Allocate the memory for the grid.
+	Field.MaterialField = (MaterialGridPoint*)malloc(materialMemorySize);
 }
 
 void MaterialSimulation::InitComputeWorkload()
@@ -43,8 +57,11 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 	// Binding 5: TileOffsets
 	// Binding 6: TileCursor
 	// Binding 7: Brushes (read)
+	// Binding 8: MaterialGrid (read/write)
+	// Binding 9: Deformation In (read)
+	// Binding 10: Deformation Out (write)
 
-	std::array<VkDescriptorSetLayoutBinding, 8> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 11> bindings{};
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -73,7 +90,7 @@ void MaterialSimulation::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 8 * frameCount; // 8 bindings per set.
+	poolSize.descriptorCount = 11 * frameCount; // 11 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -154,11 +171,30 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		brushesInfo.offset = 0;
 		brushesInfo.range = VK_WHOLE_SIZE;
 
-		std::array<VkWriteDescriptorSet, 8> writes{};
+		// Binding 8: MaterialGrid.
+		VkDescriptorBufferInfo materialGridInfo{};
+		materialGridInfo.buffer = materialGridStorageBuffers[i];
+		materialGridInfo.offset = 0;
+		materialGridInfo.range = materialMemorySize;
+
+		// Binding 9: Deformation In (read) — ping-pong matches quanta.
+		VkDescriptorBufferInfo deformInInfo{};
+		deformInInfo.buffer = deformationStorageBuffers[inIdx];
+		deformInInfo.offset = 0;
+		deformInInfo.range = deformationMemorySize;
+
+		// Binding 10: Deformation Out (write).
+		VkDescriptorBufferInfo deformOutInfo{};
+		deformOutInfo.buffer = deformationStorageBuffers[outIdx];
+		deformOutInfo.offset = 0;
+		deformOutInfo.range = deformationMemorySize;
+
+		std::array<VkWriteDescriptorSet, 11> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
 			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
-			&brushesInfo
+			&brushesInfo, &materialGridInfo,
+			&deformInInfo, &deformOutInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -637,7 +673,9 @@ void MaterialSimulation::InitQuanta()
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 	quantaMemorySize = sizeof(Quanta) * QUANTA_COUNT;
+	deformationMemorySize = sizeof(QuantaDeformation) * QUANTA_COUNT;
 	std::cout << "Required size for Quanta is: " << quantaMemorySize << std::endl;
+	std::cout << "Required size for Deformation is: " << deformationMemorySize << std::endl;
 	Field.Quantas = (Quanta*)malloc(quantaMemorySize);
 	InitQuantaPositions();
 
@@ -766,6 +804,28 @@ void MaterialSimulation::CreateStorageBuffers()
 	{
 		app->CreateBuffer(tileCountsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, TileCursorBuffer[i], TileCursorMemory[i]);
+	}
+
+	// MaterialGrid — one MaterialGridPoint per grid cell, triple buffered.
+	materialGridStorageBuffers.resize(frameCount);
+	materialGridStorageBuffersMemory.resize(frameCount);
+	for (uint32_t i = 0; i < frameCount; i++)
+	{
+		app->CreateBuffer(materialMemorySize,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			materialGridStorageBuffers[i], materialGridStorageBuffersMemory[i]);
+	}
+
+	// Deformation (DeffGrad, AffVel) — double buffered ping-pong.
+	deformationStorageBuffers.resize(2);
+	deformationStorageMemory.resize(2);
+	for (uint32_t i = 0; i < 2; i++)
+	{
+		app->CreateBuffer(deformationMemorySize,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			deformationStorageBuffers[i], deformationStorageMemory[i]);
 	}
 
 	std::cout << "MaterialSimulation storage buffers created. Tiles: "

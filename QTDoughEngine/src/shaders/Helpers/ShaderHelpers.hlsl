@@ -72,13 +72,33 @@ struct VoxelL1
     uint dc;
 };
 
+struct Mat3x3_16
+{
+    float4 r0;
+    float4 r1;
+    float4 r2;
+};
 
 struct Quanta
 {
-    float4 position;
-    float4 resonance;
-    int4 information;
-    float4 mana;
+    float4 position; //The position this quanta is currently in.
+    float4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating.
+    int4 information; //Hashed ledger, maps to a lookup, a larger ledger.
+    float4 mana; //Potential energy.
+};
+
+struct QuantaDeformation
+{
+    Mat3x3_16 DeffGrad;
+    Mat3x3_16 AffVel;
+};
+
+struct MaterialGridPoint
+{
+    float4 fieldValues;
+    float4 massMomentum;
+    float4 velocity;
+    float4 normal;
 };
 
 struct ControlParticle

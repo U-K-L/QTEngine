@@ -27,6 +27,9 @@ RWStructuredBuffer<uint> tileCounts : register(u4, space1);
 RWStructuredBuffer<uint> tileOffsets : register(u5, space1);
 RWStructuredBuffer<uint> tileCursor : register(u6, space1);
 
+StructuredBuffer<QuantaDeformation> deformIn : register(t9, space1);
+RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
+
 #define GROUP_SIZE 512 // 8 * 8 * 8
 #define BROWNIAN_STRENGTH 25.5f
 
