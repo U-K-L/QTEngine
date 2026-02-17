@@ -950,7 +950,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     }
 
     //Sum the distoration field.
-    int kernelSize = 3;
+    int kernelSize = 0;
     float distortionFieldSum = 0;
 
     
@@ -2270,12 +2270,10 @@ float GetPhi(uint3 index)
     return phi;
 }
 
-float ComputePhi(uint3 index)
+float ComputePhi(uint index)
 {
-    float3 voxelRes = GetVoxelResolutionL1().xyz;
-    uint flatIndex = Flatten3D(index, voxelRes);
-    
-    float phi = CalculateSDFGaussDistance(voxelsL1Out[flatIndex].distance, voxelsL1Out[flatIndex].density);
+
+    float phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
 
     return phi;
 }
@@ -2322,22 +2320,21 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
     if (any(DTid >= voxelRes))
         return;
 
-    float c = ComputePhi(DTid);
-    
     uint flatIndex = Flatten3D(DTid, voxelRes);
+    float c = ComputePhi(flatIndex);
+    
+
     voxelsL1Out[flatIndex].isoPhi = c;
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {
     float3 voxelRes = GetVoxelResolutionL1().xyz;
-    if (any(DTid >= voxelRes))
-        return;
     
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
-    uint index = Flatten3D(DTid, voxelRes);
+    uint index = Flatten3D(idVoxel, voxelRes);
     
-    float c = ComputePhi(DTid);
+    float c = ComputePhi(index);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
@@ -2358,7 +2355,7 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
     uint index = Flatten3D(idVoxel, voxelRes);
     
-    float c = ComputePhi(DTid);
+    float c = ComputePhi(index);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;

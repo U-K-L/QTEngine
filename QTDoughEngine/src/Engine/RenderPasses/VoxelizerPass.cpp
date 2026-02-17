@@ -2095,6 +2095,23 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         MaterialSimulation::instance->ReadBackQuantaFull();
     }
 
+    if (GetKeyState(VK_LBUTTON) & 0x8000)
+    {
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+        glm::vec3 origin, direction;
+        MaterialSimulation::instance->ScreenToWorldRay((float)mx, (float)my, origin, direction);
+        Photon photon;
+        photon.position = glm::vec4(origin, 1.0f);
+        photon.direction = glm::vec4(direction, 1.0f);
+        photon.information = glm::ivec4(0);
+            
+            
+        MaterialSimulation::instance->RayCast(photon);
+        if(photon.information.x > 0)
+            std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
+    }
+
     /*
     float  f = 100.0f;
     uint32_t pattern;
@@ -3054,7 +3071,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if(lodLevel > 0 && lodLevel < 8)
 	{
-		res = res / (int)(pow(2, lodLevel));
+		res = res / (int)(pow(2, lodLevel - 1));
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;

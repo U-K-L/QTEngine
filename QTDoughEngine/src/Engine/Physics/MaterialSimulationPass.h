@@ -26,7 +26,7 @@ struct QuantaDeformation {
 };
 
 struct MaterialGridPoint {
-	glm::vec4 fieldValues;
+	glm::vec4 fieldValues; //x is SDF.
 	glm::vec4 massMomentum;
 	glm::vec4 velocity;
 	glm::vec4 normal;
@@ -86,6 +86,8 @@ class MaterialSimulation
 		void DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer); //Per-brush collapse after sim.
 		void DispatchCollapseFill(VkCommandBuffer commandBuffer); //Per-voxel fill: claim quanta into brush density grid.
 		void DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex); //Direct per-brush quanta assignment on creation.
+		void DispatchP2G(VkCommandBuffer commandBuffer); //Particle to Grid scatter.
+		void DispatchSDFDownsample(VkCommandBuffer commandBuffer); //Copy matching SDF mip into materialGrid.
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -94,7 +96,12 @@ class MaterialSimulation
 		void SerializeQuantaText(const std::string& path);
 		void DeserializeQuantaBlob(const std::string& path);
 		void ReadBackQuantaFull();
+		void ReadBackMaterialGridFull();
+		void SerializeMaterialGridText(const std::string& path);
+		void RayCast(Photon& photon);
+		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
 		std::atomic<bool> readbackInProgress{false};
+		std::atomic<bool> materialGridReadbackInProgress{false};
 		UnigmaField Field; //Underlying field of everything.
 
 		std::vector<VkBuffer> QuantaStorageBuffers;
@@ -157,6 +164,51 @@ class MaterialSimulation
 		VkPipeline collapsePipeline = VK_NULL_HANDLE;
 		VkPipeline collapseFillPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAssignPipeline = VK_NULL_HANDLE;
+		VkPipeline p2gPipeline = VK_NULL_HANDLE;
+		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
 
 		uint32_t dispatchesCount = 0;
 };
+
+
+
+// Converts a world position to a 3D grid coordinate. Returns clamped ivec3.
+inline glm::ivec3 WorldToGridCoord(glm::vec3 worldPos, glm::vec3 sceneBounds, glm::ivec3 gridSize)
+{
+	glm::vec3 halfScene = sceneBounds * 0.5f;
+	glm::vec3 normalized = (worldPos + halfScene) / sceneBounds;
+	glm::ivec3 coord = glm::ivec3(glm::floor(normalized * glm::vec3(gridSize)));
+	return glm::clamp(coord, glm::ivec3(0), gridSize - 1);
+}
+
+// Flattens a 3D grid coordinate to a linear buffer index (x + y*resX + z*resX*resY).
+inline int GridCoordToIndex(glm::ivec3 coord, glm::ivec3 gridSize)
+{
+	return coord.x + coord.y * gridSize.x + coord.z * gridSize.x * gridSize.y;
+}
+
+// Converts a world position directly to a linear buffer index. Returns -1 if out of bounds.
+inline int WorldToGridIndex(glm::vec3 worldPos, glm::vec3 sceneBounds, glm::ivec3 gridSize)
+{
+	glm::vec3 halfScene = sceneBounds * 0.5f;
+	if (glm::any(glm::lessThan(worldPos, -halfScene)) || glm::any(glm::greaterThanEqual(worldPos, halfScene)))
+		return -1;
+	glm::ivec3 coord = WorldToGridCoord(worldPos, sceneBounds, gridSize);
+	return GridCoordToIndex(coord, gridSize);
+}
+
+// Converts a flat buffer index to a world position (cell center).
+inline glm::vec3 GridIndexToWorld(int index, glm::vec3 sceneBounds, glm::ivec3 gridSize)
+{
+	int gx = index % gridSize.x;
+	int gy = (index / gridSize.x) % gridSize.y;
+	int gz = index / (gridSize.x * gridSize.y);
+	glm::vec3 cellSize = sceneBounds / glm::vec3(gridSize);
+	return -sceneBounds * 0.5f + (glm::vec3(gx, gy, gz) + 0.5f) * cellSize;
+}
+
+inline MaterialGridPoint SampleMaterialGrid(glm::vec3 worldPos, UnigmaField& field)
+{
+	int index = WorldToGridIndex(worldPos, field.FieldSize, glm::ivec3(256, 256, 64));
+	return field.MaterialField[index];
+}

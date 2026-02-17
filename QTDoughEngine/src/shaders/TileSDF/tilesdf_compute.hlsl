@@ -339,8 +339,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
     bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
 
-    if(!inAABB)
-        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
+    //if(!inAABB)
+    //    sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
     float supportWS = sigma * 2.25f * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     

@@ -11,6 +11,8 @@ C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/mats
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_collapse.hlsl -Fo matsim_collapse.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_collapse_fill.hlsl -Fo matsim_collapse_fill.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_brush_assign.hlsl -Fo matsim_brush_assign.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_p2g.hlsl -Fo matsim_p2g.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_sdf_downsample.hlsl -Fo matsim_sdf_downsample.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Background/background_frag.hlsl -Fo backgroundFrag.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Background/background_vert.hlsl -Fo backgroundVert.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Albedo/albedo_frag.hlsl -Fo albedoFrag.spv

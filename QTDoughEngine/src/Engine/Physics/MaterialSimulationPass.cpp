@@ -1,6 +1,8 @@
 #include "MaterialSimulationPass.h"
 #include "../RenderPasses/VoxelizerPass.h"
 
+extern UnigmaCameraStruct CameraMain;
+
 MaterialSimulation* MaterialSimulation::instance = nullptr;
 
 MaterialSimulation::MaterialSimulation()
@@ -31,8 +33,8 @@ void MaterialSimulation::InitMaterialGrid()
 
 	std::cout << "Total Grid Memory Size is: " << materialMemorySize << std::endl;
 
-	//Allocate the memory for the grid.
-	Field.MaterialField = (MaterialGridPoint*)malloc(materialMemorySize);
+	//Allocate the memory for the grid. Zero-init so CPU raycast doesn't hit garbage before first readback.
+	Field.MaterialField = (MaterialGridPoint*)calloc(totalGridPoints, sizeof(MaterialGridPoint));
 }
 
 void MaterialSimulation::InitComputeWorkload()
@@ -263,6 +265,8 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_collapse", collapsePipeline);
 	CreateComputePipelineFromSPV("matsim_collapse_fill", collapseFillPipeline);
 	CreateComputePipelineFromSPV("matsim_brush_assign", brushAssignPipeline);
+	CreateComputePipelineFromSPV("matsim_p2g", p2gPipeline);
+	CreateComputePipelineFromSPV("matsim_sdf_downsample", sdfDownsamplePipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -374,6 +378,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 
 	// Sort quantas into tiles before simulation.
 	DispatchTileSort(commandBuffer);
+
+	// Copy matching SDF mip into materialGrid before P2G.
+	DispatchSDFDownsample(commandBuffer);
 
 	// Main simulation dispatch.
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
@@ -605,6 +612,94 @@ void MaterialSimulation::DispatchBrushFill(VkCommandBuffer commandBuffer, int br
 	uint32_t res = voxelizer->brushes[brushIndex].resolution;
 	uint32_t groups = (res + 7) / 8;
 	vkCmdDispatch(commandBuffer, groups, groups, groups);
+}
+
+void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, p2gPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchSDFDownsample(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	glm::ivec3 baseRes = VoxelizerPass::instance->WORLD_SDF_RESOLUTION;
+
+	// Find which mip matches materialGridSize exactly (quality can change at runtime)
+	uint32_t texID = 0;
+	for (int i = 0; i < 5; i++)
+	{
+		int d = (int)pow(2, i);
+		glm::ivec3 mipRes = glm::max(baseRes / d, glm::ivec3(32));
+		if (mipRes == materialGridSize)
+		{
+			texID = app->textures3D["worldSDF_" + std::to_string(i)].ID;
+			break;
+		}
+	}
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sdfDownsamplePipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+		pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.brushIndex = texID;
+	vkCmdPushConstants(commandBuffer, pipelineLayout,
+		VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	// Dispatch: materialGridSize / numthreads(8,8,8) = (32, 32, 8)
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
 void MaterialSimulation::CopyOutToRead(VkCommandBuffer commandBuffer)
@@ -889,6 +984,41 @@ void MaterialSimulation::SerializeQuantaText(const std::string& path)
 	std::cout << "Quanta text serialized to: " << path << std::endl;
 }
 
+void MaterialSimulation::SerializeMaterialGridText(const std::string& path)
+{
+	std::cout << "Starting materialGrid text serialization" << std::endl;
+
+	std::filesystem::path dir = std::filesystem::path(path).parent_path();
+	if (!dir.empty())
+		std::filesystem::create_directories(dir);
+	std::ofstream file(path);
+	if (!file.is_open())
+	{
+		std::cerr << "Failed to open text file for writing: " << path << std::endl;
+		return;
+	}
+
+	file << "MaterialGridSize: " << materialGridSize.x << " " << materialGridSize.y << " " << materialGridSize.z << "\n";
+	uint64_t total = (uint64_t)materialGridSize.x * materialGridSize.y * materialGridSize.z;
+	file << "TotalPoints: " << total << "\n";
+
+	for (uint64_t i = 0; i < total; i++)
+	{
+		const MaterialGridPoint& gp = Field.MaterialField[i];
+		glm::vec3 wp = GridIndexToWorld((int)i, glm::vec3(Field.FieldSize), materialGridSize);
+
+		file << "[" << i << "] "
+			<< "world(" << wp.x << " " << wp.y << " " << wp.z << ") "
+			<< "field(" << gp.fieldValues.x << " " << gp.fieldValues.y << " " << gp.fieldValues.z << " " << gp.fieldValues.w << ") "
+			<< "mass(" << gp.massMomentum.x << " " << gp.massMomentum.y << " " << gp.massMomentum.z << " " << gp.massMomentum.w << ") "
+			<< "vel(" << gp.velocity.x << " " << gp.velocity.y << " " << gp.velocity.z << " " << gp.velocity.w << ") "
+			<< "norm(" << gp.normal.x << " " << gp.normal.y << " " << gp.normal.z << " " << gp.normal.w << ")\n";
+	}
+
+	file.close();
+	std::cout << "MaterialGrid text serialized to: " << path << std::endl;
+}
+
 void MaterialSimulation::DeserializeQuantaBlob(const std::string& path)
 {
 	std::ifstream file(path, std::ios::binary);
@@ -962,9 +1092,122 @@ void MaterialSimulation::ReadBackQuantaFull()
 		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
 
-		//SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
+
 
 		std::cout << "Done readback..." << std::endl;
+		SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
 		readbackInProgress = false;
 	});
+}
+
+void MaterialSimulation::ReadBackMaterialGridFull()
+{
+	if (materialGridReadbackInProgress.exchange(true))
+	{
+		std::cout << "MaterialGrid readback already in progress, skipping." << std::endl;
+		return;
+	}
+
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingMemory;
+	app->CreateBuffer(materialMemorySize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingMemory);
+
+	VkCommandBuffer cmd = app->BeginSingleTimeCommands();
+
+	VkBufferCopy region{};
+	region.size = materialMemorySize;
+
+	vkCmdCopyBuffer(
+		cmd,
+		materialGridStorageBuffers[currentFrame],
+		stagingBuffer,
+		1,
+		&region
+	);
+
+	app->EndSingleTimeCommandsAsync(currentFrame, cmd, [this, app, stagingBuffer, stagingMemory]() {
+		void* mapped = nullptr;
+		vkMapMemory(app->_logicalDevice, stagingMemory, 0, materialMemorySize, 0, &mapped);
+		memcpy(Field.MaterialField, mapped, materialMemorySize);
+		vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
+		std::cout << "Done materialGrid readback." << std::endl;
+		//SerializeMaterialGridText(AssetsPath + "Fields/materialGrid.txt");
+		materialGridReadbackInProgress = false;
+	});
+}
+
+void MaterialSimulation::RayCast(Photon &photon)
+{
+	int iterations = 1024;
+	float t = 0.0f;
+	glm::vec3 origin = glm::vec3(photon.position);
+
+	for(size_t i = 0; i < iterations; i++)
+	{
+		glm::vec3 pos = origin + glm::vec3(photon.direction) * t;
+		int index = WorldToGridIndex(pos, Field.FieldSize, materialGridSize);
+
+		if(index < 0)
+		{
+			photon.information.x = 0;
+			return;
+		}
+
+		MaterialGridPoint gp = SampleMaterialGrid(pos, Field);
+
+		if(gp.fieldValues.x < 0.0f)
+		{
+			photon.position = glm::vec4(pos, 1.0f);
+			photon.information.x = 1;
+			return;
+		}
+
+		t += std::max(gp.fieldValues.x, 0.05f);
+	}
+	photon.information.x = 0;
+}
+
+void MaterialSimulation::ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	// Pixel to NDC [-1, +1]. Flip Y for Vulkan.
+	float ndcX = (2.0f * pixelX / app->SCREEN_WIDTH) - 1.0f;
+	float ndcY = 1.0f - (2.0f * pixelY / app->SCREEN_HEIGHT);
+
+	// Rebuild the blended projection with consistent RH depth for CPU unprojection.
+	// The rendering uses a custom LH ortho matrix, but glm::ortho with
+	// GLM_FORCE_DEPTH_ZERO_TO_ONE gives RH ZO — matching glm::perspective.
+	float orthoHeight = CameraMain.orthoWidth / CameraMain.aspectRatio;
+	glm::mat4 ortho = glm::ortho(
+		-CameraMain.orthoWidth / 2.0f, CameraMain.orthoWidth / 2.0f,
+		-orthoHeight / 2.0f, orthoHeight / 2.0f,
+		CameraMain.nearClip, CameraMain.farClip);
+	glm::mat4 perspective = glm::perspective(
+		glm::radians(CameraMain.fov), CameraMain.aspectRatio,
+		CameraMain.nearClip, CameraMain.farClip);
+	float t = std::fmin(0.995f, CameraMain.isOrthogonal);
+	glm::mat4 proj = (1.0f - t) * perspective + t * ortho;
+	glm::mat4 view = CameraMain.getViewMatrix();
+	glm::mat4 invVP = glm::inverse(proj * view);
+
+	// Unproject near and far points. GLM_FORCE_DEPTH_ZERO_TO_ONE: depth [0, 1].
+	glm::vec4 nearClip = invVP * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
+	glm::vec4 farClip  = invVP * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
+	glm::vec3 nearWorld = glm::vec3(nearClip) / nearClip.w;
+	glm::vec3 farWorld  = glm::vec3(farClip)  / farClip.w;
+
+	outOrigin    = nearWorld;
+	outDirection = glm::normalize(farWorld - nearWorld);
+
+	std::cout << "Ray origin: " << outOrigin.x << " " << outOrigin.y << " " << outOrigin.z
+		<< " dir: " << outDirection.x << " " << outDirection.y << " " << outDirection.z << std::endl;
 }
