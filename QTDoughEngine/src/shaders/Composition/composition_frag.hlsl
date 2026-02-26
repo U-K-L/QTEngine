@@ -48,6 +48,7 @@ struct Images
     uint CombineSDFRasterPass;
     uint FullSDFField;
     uint RayAlbedoPass;
+    uint MaterialGridImage;
 };
 
 Images InitImages()
@@ -66,7 +67,8 @@ Images InitImages()
     image.CombineSDFRasterPass = intArray[9];
     image.FullSDFField = intArray[10];
     image.RayAlbedoPass = intArray[11];
-    
+    image.MaterialGridImage = intArray[12];
+
     return image;
 }
 
@@ -163,6 +165,10 @@ float4 main(VSOutput i) : SV_Target
         return albedoImage;
     if(pc.input == 5)
         return rayAlbedoPass; //sdfImage.w;
+
+    float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
+    if(pc.input == 6)
+        return materialGridImage;
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);

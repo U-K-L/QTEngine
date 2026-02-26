@@ -727,8 +727,13 @@ void MaterialSimulation::CopyOutToRead(VkCommandBuffer commandBuffer)
 	vkCmdCopyBuffer(commandBuffer, TileCountsBuffer[tileIdx], TileCountsBuffer[2], 1, &tileRegion);
 	vkCmdCopyBuffer(commandBuffer, TileOffsetsBuffer[tileIdx], TileOffsetsBuffer[2], 1, &tileRegion);
 
+	// Copy materialGrid Out -> READ.
+	VkBufferCopy matGridRegion{};
+	matGridRegion.size = materialMemorySize;
+	vkCmdCopyBuffer(commandBuffer, materialGridStorageBuffers[1 - outIdx], materialGridStorageBuffers[2], 1, &matGridRegion);
+
 	// Barrier: wait for all copies to finish before shaders read READ.
-	VkBufferMemoryBarrier barriers[4]{};
+	VkBufferMemoryBarrier barriers[5]{};
 
 	barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -758,10 +763,17 @@ void MaterialSimulation::CopyOutToRead(VkCommandBuffer commandBuffer)
 	barriers[3].offset = 0;
 	barriers[3].size = tileRegion.size;
 
+	barriers[4].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barriers[4].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barriers[4].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barriers[4].buffer = materialGridStorageBuffers[2];
+	barriers[4].offset = 0;
+	barriers[4].size = materialMemorySize;
+
 	vkCmdPipelineBarrier(commandBuffer,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		0, 0, nullptr, 4, barriers, 0, nullptr);
+		0, 0, nullptr, 5, barriers, 0, nullptr);
 }
 
 void MaterialSimulation::InitQuanta()
@@ -1179,34 +1191,32 @@ void MaterialSimulation::ScreenToWorldRay(float pixelX, float pixelY, glm::vec3&
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 
-	// Pixel to NDC [-1, +1]. Flip Y for Vulkan.
-	float ndcX = (2.0f * pixelX / app->SCREEN_WIDTH) - 1.0f;
-	float ndcY = 1.0f - (2.0f * pixelY / app->SCREEN_HEIGHT);
+	// Match GPU raymarcher UV convention: pixel to Vulkan NDC, then flip Y.
+	float ndcX = (2.0f * (pixelX + 0.5f) / app->SCREEN_WIDTH) - 1.0f;
+	float ndcY = -((2.0f * (pixelY + 0.5f) / app->SCREEN_HEIGHT) - 1.0f);
 
-	// Rebuild the blended projection with consistent RH depth for CPU unprojection.
-	// The rendering uses a custom LH ortho matrix, but glm::ortho with
-	// GLM_FORCE_DEPTH_ZERO_TO_ONE gives RH ZO — matching glm::perspective.
-	float orthoHeight = CameraMain.orthoWidth / CameraMain.aspectRatio;
-	glm::mat4 ortho = glm::ortho(
-		-CameraMain.orthoWidth / 2.0f, CameraMain.orthoWidth / 2.0f,
-		-orthoHeight / 2.0f, orthoHeight / 2.0f,
-		CameraMain.nearClip, CameraMain.farClip);
-	glm::mat4 perspective = glm::perspective(
-		glm::radians(CameraMain.fov), CameraMain.aspectRatio,
-		CameraMain.nearClip, CameraMain.farClip);
-	float t = std::fmin(0.995f, CameraMain.isOrthogonal);
-	glm::mat4 proj = (1.0f - t) * perspective + t * ortho;
+	// Same projection the GPU raymarcher receives (getProjectionMatrix, no Y flip).
+	glm::mat4 proj = CameraMain.getProjectionMatrix();
 	glm::mat4 view = CameraMain.getViewMatrix();
-	glm::mat4 invVP = glm::inverse(proj * view);
+	glm::mat4 invProj = glm::inverse(proj);
+	glm::mat4 invView = glm::inverse(view);
 
-	// Unproject near and far points. GLM_FORCE_DEPTH_ZERO_TO_ONE: depth [0, 1].
-	glm::vec4 nearClip = invVP * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
-	glm::vec4 farClip  = invVP * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
-	glm::vec3 nearWorld = glm::vec3(nearClip) / nearClip.w;
-	glm::vec3 farWorld  = glm::vec3(farClip)  / farClip.w;
+	// Unproject to view space (no perspective divide, matching GPU shader).
+	glm::vec4 viewPos4 = invProj * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
+	glm::vec3 vp = glm::vec3(viewPos4);
 
-	outOrigin    = nearWorld;
-	outDirection = glm::normalize(farWorld - nearWorld);
+	// Perspective ray.
+	glm::vec3 perspDir = glm::normalize(glm::mat3(invView) * glm::normalize(vp));
+	glm::vec3 perspOrigin = glm::vec3(invView[3]);
+
+	// Ortho ray.
+	glm::vec3 orthoOrigin = glm::vec3(invView * glm::vec4(vp, 1.0f));
+	glm::vec3 orthoDir = glm::normalize(glm::mat3(invView) * glm::vec3(0.0f, 0.0f, -1.0f));
+
+	// Blend perspective/ortho rays, matching GPU interpolation.
+	float t = CameraMain.isOrthogonal;
+	outOrigin = glm::mix(perspOrigin, orthoOrigin, t);
+	outDirection = glm::normalize(glm::mix(perspDir, orthoDir, t));
 
 	std::cout << "Ray origin: " << outOrigin.x << " " << outOrigin.y << " " << outOrigin.z
 		<< " dir: " << outDirection.x << " " << outDirection.y << " " << outDirection.z << std::endl;

@@ -8,7 +8,7 @@ SDFPass::~SDFPass() {
 
 SDFPass::SDFPass() {
     PassName = "SDFPass";
-    PassNames.push_back("SDFPass");
+    //PassNames.push_back("SDFPass");
 
 
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -24,14 +24,16 @@ void SDFPass::CreateMaterials() {
     material.textureNames[1] = "SDFNormalPass";
     material.textureNames[2] = "SDFPositionPass";
     material.textureNames[3] = "FullSDFField";
+    material.textureNames[4] = "MaterialGridPass";
 
-    images.resize(3);
-    imagesMemory.resize(3);
-    imagesViews.resize(3);
+    images.resize(5);
+    imagesMemory.resize(5);
+    imagesViews.resize(5);
     PassNames.push_back("SDFAlbedoPass");
     PassNames.push_back("SDFNormalPass");
     PassNames.push_back("SDFPositionPass");
     PassNames.push_back("FullSDFField");
+    PassNames.push_back("MaterialGridPass");
 
 }
 
@@ -50,28 +52,9 @@ void SDFPass::CreateComputePipeline()
     computeShaderStageInfo.module = computeShaderModule;
     computeShaderStageInfo.pName = "main";
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &computeDescriptorSetLayout;
-
-    std::array<VkDescriptorSetLayout, 2> layouts = {
-        app->globalDescriptorSetLayout,     // global information (camera, images, etc.)
-        computeDescriptorSetLayout          // set 1 (particles, etc.)
-    };
-
-    VkPipelineLayoutCreateInfo pli{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-    pli.setLayoutCount = static_cast<uint32_t>(layouts.size());
-    pli.pSetLayouts = layouts.data();
-
-
-    if (vkCreatePipelineLayout(app->_logicalDevice, &pli, nullptr, &computePipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create compute pipeline layout!");
-    }
-
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = computePipelineLayout;
+    pipelineInfo.layout = voxelizer->voxelizeComputePipelineLayout;
     pipelineInfo.stage = computeShaderStageInfo;
 
     if (vkCreateComputePipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
@@ -293,8 +276,15 @@ void SDFPass::CreateComputeDescriptorSetLayout()
     globalIDCounterBinding.descriptorCount = 1;
     globalIDCounterBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // MaterialGrid (from MaterialSimulationPass)
+    VkDescriptorSetLayoutBinding materialGridBinding{};
+    materialGridBinding.binding = 22;
+    materialGridBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    materialGridBinding.descriptorCount = 1;
+    materialGridBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 17> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding };
+    std::array<VkDescriptorSetLayoutBinding, 18> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, materialGridBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -360,7 +350,7 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
 
     VkDescriptorSet sets[] = {
         app->globalDescriptorSets[currentFrame],
-        voxelizer->currentSdfSet
+        voxelizer->computeDescriptorSets[currentFrame]
     };
 
     vkCmdBindDescriptorSets(commandBuffer,

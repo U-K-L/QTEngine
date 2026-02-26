@@ -17,7 +17,6 @@ VoxelizerPass::VoxelizerPass() {
     TILE_COUNTL1 = VOXEL_RESOLUTIONL1 / TILE_SIZE;
     WORLD_SDF_RESOLUTION = SetVoxelGridSize();
     PassName = "VoxelizerPass";
-    PassNames.push_back("VoxelizerPass");
 }
 
 
@@ -28,14 +27,18 @@ void VoxelizerPass::CreateMaterials() {
 
     material.textureNames[0] = "SDFAlbedoPass";
     material.textureNames[1] = "SDFNormalPass";
-    material.textureNames[2] = "SDFDepthPass";
+    material.textureNames[2] = "SDFPositionPass";
+    material.textureNames[3] = "FullSDFField";
+    material.textureNames[4] = "MaterialGridPass";
 
-    images.resize(3);
-    imagesMemory.resize(3);
-    imagesViews.resize(3);
+    images.resize(5);
+    imagesMemory.resize(5);
+    imagesViews.resize(5);
     PassNames.push_back("SDFAlbedoPass");
     PassNames.push_back("SDFNormalPass");
-    PassNames.push_back("SDFDepthPass");
+    PassNames.push_back("SDFPositionPass");
+    PassNames.push_back("FullSDFField");
+    PassNames.push_back("MaterialGridPass");
 }
 
 std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
@@ -346,7 +349,7 @@ void VoxelizerPass::CreateDescriptorPool()
 
     // storage buffers per set (bindings 1-21)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = kTotalSets * 21;
+    poolSizes[1].descriptorCount = kTotalSets * 22;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = 2;
@@ -745,7 +748,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 22> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 23> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -1004,6 +1007,20 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[21].descriptorCount = 1;
         descriptorWrites[21].pBufferInfo = &tileOffsetsBufferInfo;
 
+        //MaterialGrid (READ buffer)
+        VkDescriptorBufferInfo materialGridBufferInfo{};
+        materialGridBufferInfo.buffer = MaterialSimulation::instance->materialGridStorageBuffers[2];
+        materialGridBufferInfo.offset = 0;
+        materialGridBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[22].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[22].dstSet = computeDescriptorSets[i];
+        descriptorWrites[22].dstBinding = 22;
+        descriptorWrites[22].dstArrayElement = 0;
+        descriptorWrites[22].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[22].descriptorCount = 1;
+        descriptorWrites[22].pBufferInfo = &materialGridBufferInfo;
+
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
@@ -1192,8 +1209,14 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     tileOffsetsBinding.descriptorCount = 1;
     tileOffsetsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    VkDescriptorSetLayoutBinding materialGridBinding{};
+    materialGridBinding.binding = 22;
+    materialGridBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    materialGridBinding.descriptorCount = 1;
+    materialGridBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 22> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding };
+    std::array<VkDescriptorSetLayoutBinding, 23> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1896,9 +1919,10 @@ void VoxelizerPass::CreateSweepDescriptorSets()
             VkDescriptorBufferInfo brushInfo{ brushesStorageBuffers,        0, VK_WHOLE_SIZE };
             VkDescriptorBufferInfo idxInfo{ brushIndicesStorageBuffers,   0, VK_WHOLE_SIZE };
             VkDescriptorBufferInfo cntInfo{ tileBrushCountStorageBuffers, 0, VK_WHOLE_SIZE };
+            VkDescriptorBufferInfo matGridInfo{ MaterialSimulation::instance->materialGridStorageBuffers[2], 0, VK_WHOLE_SIZE };
 
-            VkWriteDescriptorSet ws[12]{};
-            for (int i = 0; i < 12; ++i)
+            VkWriteDescriptorSet ws[13]{};
+            for (int i = 0; i < 13; ++i)
             {
                 ws[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
                 ws[i].dstSet = sweepSets[setIdx];
@@ -1926,6 +1950,9 @@ void VoxelizerPass::CreateSweepDescriptorSets()
             ws[9].dstBinding = 9;  ws[9].pBufferInfo = &brushInfo;
             ws[10].dstBinding = 10; ws[10].pBufferInfo = &idxInfo;
             ws[11].dstBinding = 11; ws[11].pBufferInfo = &cntInfo;
+
+            /* binding 22 : materialGrid (READ buffer) */
+            ws[12].dstBinding = 22; ws[12].pBufferInfo = &matGridInfo;
 
             vkUpdateDescriptorSets(app->_logicalDevice,
                 static_cast<uint32_t>(std::size(ws)), ws,
@@ -2092,7 +2119,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     if (GetKeyState('8') & 0x8000)
     {
         std::cout << "Starting readback" << std::endl;
-        MaterialSimulation::instance->ReadBackQuantaFull();
+        MaterialSimulation::instance->ReadBackMaterialGridFull();
     }
 
     if (GetKeyState(VK_LBUTTON) & 0x8000)

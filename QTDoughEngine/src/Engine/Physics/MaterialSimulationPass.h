@@ -136,6 +136,8 @@ class MaterialSimulation
 		glm::ivec3 materialGridSize = glm::ivec3(256, 256, 64);
 		uint64_t materialMemorySize;
 
+		uint32_t currentFrame = 0;
+
 		struct PushConsts {
 			float particleSize;
 			int tileGridX;
@@ -157,7 +159,7 @@ class MaterialSimulation
 		VkPipeline prefixSumPipeline;
 		VkPipeline scatterPipeline;
 		VkPipelineLayout pipelineLayout;
-		uint32_t currentFrame = 0;
+
 
 		// Wave Function Collapse — brush access for quanta gather/snap.
 		VkBuffer brushesBuffer = VK_NULL_HANDLE;

@@ -46,7 +46,7 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     }
     else if (GetKeyState('7') & 0x8000)
     {
-        std::cout << "Raster Render View" << std::endl;
+        std::cout << "MaterialGrid Render View" << std::endl;
         pc.input = 6;
     }
 
@@ -83,6 +83,7 @@ void CompositionPass::CreateMaterials() {
     material.textureNames[9] = "CombineSDFRasterPass";
     material.textureNames[10] = "FullSDFField";
     material.textureNames[11] = "RayAlbedoPass";
+    material.textureNames[12] = "MaterialGridPass";
 
     //material.textures.push_back(UnigmaTexture("animeGirl"));
     //material.textures[0].TEXTURE_PATH = "Assets/Textures/animeGirl.png";
