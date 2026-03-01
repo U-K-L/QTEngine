@@ -38,6 +38,7 @@ struct UnigmaField
 	glm::ivec3 FieldSize; //invariant holding the size of the field. This can be non-cubic, ie 64x64x16...
 	Quanta* Quantas; //The quantas emerging from this field.
 	MaterialGridPoint* MaterialField; //A proxy field for physics.
+	float* MaterialGridSDFData; // mapped pointer for quick CPU read/write access to SDF data.
 };
 
 //Carries information, is the "hit" that interacts with the materialField.
@@ -97,11 +98,13 @@ class MaterialSimulation
 		void DeserializeQuantaBlob(const std::string& path);
 		void ReadBackQuantaFull();
 		void ReadBackMaterialGridFull();
+		void ReadBackMaterialGridSDF();
 		void SerializeMaterialGridText(const std::string& path);
-		void RayCast(Photon& photon);
+		int RayCast(Photon& photon);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
 		std::atomic<bool> readbackInProgress{false};
 		std::atomic<bool> materialGridReadbackInProgress{false};
+		std::atomic<bool> materialGridSDFReadbackInProgress{false};
 		UnigmaField Field; //Underlying field of everything.
 
 		std::vector<VkBuffer> QuantaStorageBuffers;
@@ -134,6 +137,11 @@ class MaterialSimulation
 		std::vector<VkBuffer> materialGridStorageBuffers;
 		std::vector<VkDeviceMemory> materialGridStorageBuffersMemory;
 		glm::ivec3 materialGridSize = glm::ivec3(256, 256, 64);
+
+		std::vector<VkBuffer> materialGridSDFBuffers;
+		std::vector<VkDeviceMemory> materialGridSDFBuffersMemory;
+
+
 		uint64_t materialMemorySize;
 
 		uint32_t currentFrame = 0;
@@ -213,4 +221,10 @@ inline MaterialGridPoint SampleMaterialGrid(glm::vec3 worldPos, UnigmaField& fie
 {
 	int index = WorldToGridIndex(worldPos, field.FieldSize, glm::ivec3(256, 256, 64));
 	return field.MaterialField[index];
+}
+
+inline float SampleMaterialGridSDF(glm::vec3 worldPos, UnigmaField& field)
+{
+	int index = WorldToGridIndex(worldPos, field.FieldSize, glm::ivec3(256, 256, 64));
+	return field.MaterialGridSDFData[index];
 }

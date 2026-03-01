@@ -142,7 +142,7 @@ int main(int argc, char* args[]) {
 			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
 
-			if (renderElapsed.count() >= 16)
+			if (renderElapsed.count() >= 0)
 			{
                 GetInput();
 				//Render the scene.

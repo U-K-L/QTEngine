@@ -2119,7 +2119,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     if (GetKeyState('8') & 0x8000)
     {
         std::cout << "Starting readback" << std::endl;
-        MaterialSimulation::instance->ReadBackMaterialGridFull();
+        MaterialSimulation::instance->ReadBackMaterialGridSDF();
     }
 
     if (GetKeyState(VK_LBUTTON) & 0x8000)
@@ -2134,8 +2134,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         photon.information = glm::ivec4(0);
             
             
-        MaterialSimulation::instance->RayCast(photon);
-        if(photon.information.x > 0)
+        int wasHit = MaterialSimulation::instance->RayCast(photon);
+        if(wasHit > 0)
             std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
     }
 

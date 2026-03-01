@@ -983,7 +983,7 @@ float4 MaterialGridMarch(float3 ro, float3 rd)
         {
             float3 n = CentralDifferenceNormalMaterialGrid(pos);
             //float lighting = saturate(dot(n, normalize(float3(0.25, 0.0, 1.0))));
-            return float4(1.0, 1.0, 1.0, 1.0);
+            return float4(m, 1.0);
         }
 
         t += minStep; //max(sdf, minStep);

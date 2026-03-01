@@ -1,5 +1,6 @@
 #include "MaterialSimulationPass.h"
 #include "../RenderPasses/VoxelizerPass.h"
+#include <chrono>
 
 extern UnigmaCameraStruct CameraMain;
 
@@ -35,6 +36,7 @@ void MaterialSimulation::InitMaterialGrid()
 
 	//Allocate the memory for the grid. Zero-init so CPU raycast doesn't hit garbage before first readback.
 	Field.MaterialField = (MaterialGridPoint*)calloc(totalGridPoints, sizeof(MaterialGridPoint));
+	Field.MaterialGridSDFData = (float*)calloc(totalGridPoints, sizeof(float));
 }
 
 void MaterialSimulation::InitComputeWorkload()
@@ -62,8 +64,9 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 	// Binding 8: MaterialGrid (read/write)
 	// Binding 9: Deformation In (read)
 	// Binding 10: Deformation Out (write)
+	// Binding 11: MaterialGridSDF (write, contiguous floats)
 
-	std::array<VkDescriptorSetLayoutBinding, 11> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 12> bindings{};
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -92,7 +95,7 @@ void MaterialSimulation::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 11 * frameCount; // 11 bindings per set.
+	poolSize.descriptorCount = 12 * frameCount; // 12 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -191,12 +194,19 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		deformOutInfo.offset = 0;
 		deformOutInfo.range = deformationMemorySize;
 
-		std::array<VkWriteDescriptorSet, 11> writes{};
+		// Binding 11: MaterialGridSDF (contiguous floats, single buffer).
+		VkDescriptorBufferInfo materialGridSDFInfo{};
+		materialGridSDFInfo.buffer = materialGridSDFBuffers[0];
+		materialGridSDFInfo.offset = 0;
+		materialGridSDFInfo.range = sizeof(float) * (uint64_t)materialGridSize.x * materialGridSize.y * materialGridSize.z;
+
+		std::array<VkWriteDescriptorSet, 12> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
 			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
 			&brushesInfo, &materialGridInfo,
-			&deformInInfo, &deformOutInfo
+			&deformInInfo, &deformOutInfo,
+			&materialGridSDFInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -436,6 +446,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
 	currentFrame = 1 - currentFrame;
 	dispatchesCount += 1;
+
+	//Load grid.
+	ReadBackMaterialGridSDF();
 }
 
 void MaterialSimulation::DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer)
@@ -924,6 +937,18 @@ void MaterialSimulation::CreateStorageBuffers()
 			materialGridStorageBuffers[i], materialGridStorageBuffersMemory[i]);
 	}
 
+	//Just the SDF values. Only really READ buffers, doesn't need IN and OUT
+	uint64_t sdfBufferSize = sizeof(float) * (uint64_t)materialGridSize.x * materialGridSize.y * materialGridSize.z;
+	materialGridSDFBuffers.resize(1);
+	materialGridSDFBuffersMemory.resize(1);
+	for (uint32_t i = 0; i < 1; i++)
+	{
+		app->CreateBuffer(sdfBufferSize,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			materialGridSDFBuffers[i], materialGridSDFBuffersMemory[i]);
+	}
+
 	// Deformation (DeffGrad, AffVel) — double buffered ping-pong.
 	deformationStorageBuffers.resize(2);
 	deformationStorageMemory.resize(2);
@@ -1156,7 +1181,49 @@ void MaterialSimulation::ReadBackMaterialGridFull()
 	});
 }
 
-void MaterialSimulation::RayCast(Photon &photon)
+void MaterialSimulation::ReadBackMaterialGridSDF()
+{
+	if (materialGridSDFReadbackInProgress.exchange(true))
+	{
+		std::cout << "MaterialGridSDF readback already in progress, skipping." << std::endl;
+		return;
+	}
+
+	auto readbackStart = std::chrono::high_resolution_clock::now();
+
+	QTDoughApplication* app = QTDoughApplication::instance;
+	uint64_t sdfBufferSize = sizeof(float) * (uint64_t)materialGridSize.x * materialGridSize.y * materialGridSize.z;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingMemory;
+	app->CreateBuffer(sdfBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingMemory);
+
+	VkCommandBuffer cmd = app->BeginSingleTimeCommands();
+
+	VkBufferCopy region{};
+	region.size = sdfBufferSize;
+
+	vkCmdCopyBuffer(cmd, materialGridSDFBuffers[0], stagingBuffer, 1, &region);
+
+	app->EndSingleTimeCommandsAsync(currentFrame, cmd, [this, app, stagingBuffer, stagingMemory, sdfBufferSize, readbackStart]() {
+		void* mapped = nullptr;
+		vkMapMemory(app->_logicalDevice, stagingMemory, 0, sdfBufferSize, 0, &mapped);
+		memcpy(Field.MaterialGridSDFData, mapped, sdfBufferSize);
+		vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
+		auto readbackEnd = std::chrono::high_resolution_clock::now();
+		double readbackMs = std::chrono::duration<double, std::milli>(readbackEnd - readbackStart).count();
+		std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
+		materialGridSDFReadbackInProgress = false;
+	});
+}
+
+int MaterialSimulation::RayCast(Photon &photon)
 {
 	int iterations = 1024;
 	float t = 0.0f;
@@ -1170,21 +1237,21 @@ void MaterialSimulation::RayCast(Photon &photon)
 		if(index < 0)
 		{
 			photon.information.x = 0;
-			return;
+			return 0;
 		}
 
-		MaterialGridPoint gp = SampleMaterialGrid(pos, Field);
+		float sdf = SampleMaterialGridSDF(pos, Field);
 
-		if(gp.fieldValues.x < 0.0f)
+		if(sdf < 0.0f)
 		{
-			photon.position = glm::vec4(pos, 1.0f);
 			photon.information.x = 1;
-			return;
+			photon.force.w = sdf;
+			return 1;
 		}
 
-		t += std::max(gp.fieldValues.x, 0.05f);
+		t += std::max(sdf, 0.05f);
 	}
-	photon.information.x = 0;
+	return 0;
 }
 
 void MaterialSimulation::ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection)

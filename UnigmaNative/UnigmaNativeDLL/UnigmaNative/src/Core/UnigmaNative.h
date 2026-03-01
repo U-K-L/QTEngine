@@ -81,4 +81,14 @@ extern "C" {
 	*/
 }
 
+//Shared structs:
+struct Photon
+{
+	glm::vec4 position;
+	glm::vec4 direction;
+	glm::vec4 normal;
+	glm::vec4 force;
+	glm::ivec4 information;
+};
+
 #endif  // C_UNIGMA_NATIVE_H
