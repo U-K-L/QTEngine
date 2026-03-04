@@ -542,10 +542,24 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
     */
 
-    // Get actual AABB from vertices
+    // Get actual AABB from vertices or primitive type
     float3 minBounds, maxBounds;
-    float3 extent = getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
-    
+    if (brush.type == PrimSphere)
+    {
+        float3 position = brush.model[3].xyz;
+        float3 scale;
+        scale.x = length(brush.model[0].xyz);
+        scale.y = length(brush.model[1].xyz);
+        scale.z = length(brush.model[2].xyz);
+        float radius = max(scale.x, max(scale.y, scale.z));
+        minBounds = position - radius;
+        maxBounds = position + radius;
+    }
+    else
+    {
+        getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
+    }
+
     float3 brushMin = minBounds;
     float3 brushMax = maxBounds;
     

@@ -607,9 +607,29 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brush brush = Brushes[index];
 
     float3 minBounds, maxBounds;
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
-    float3 center = (minBounds + maxBounds) * 0.5f;
-    float maxExtent = max(extent.x, max(extent.y, extent.z));
+    float3 center;
+    float maxExtent;
+
+    if (brush.type == PrimSphere)
+    {
+        float3 position = brush.model[3].xyz;
+        float3 scale;
+        scale.x = length(brush.model[0].xyz);
+        scale.y = length(brush.model[1].xyz);
+        scale.z = length(brush.model[2].xyz);
+        float radius = max(scale.x, max(scale.y, scale.z));
+        float padding = brush.blend * 2.0f * radius;
+        minBounds = position - radius - padding;
+        maxBounds = position + radius + padding;
+        center = position;
+        maxExtent = radius * 2.0f;
+    }
+    else
+    {
+        float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
+        center = (minBounds + maxBounds) * 0.5f;
+        maxExtent = max(extent.x, max(extent.y, extent.z));
+    }
 
     Brushes[index].aabbmax.w = maxExtent;
     Brushes[index].center.xyz = center;
@@ -968,10 +988,10 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
-    //if (distortionFieldSum > 0.0001f)
+    if (distortionFieldSum > 0.0001f)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    //else
-    //    Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    else
+        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
     //voxelsL1Out[index].brushId = minId;
     /*
