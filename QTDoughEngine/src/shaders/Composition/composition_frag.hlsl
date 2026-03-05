@@ -208,10 +208,10 @@ float4 main(VSOutput i) : SV_Target
     weightSides /= total;
     weightTop /= total;
 
-    float4 finalColor = albedoImage; //front * weightFront + sides * weightSides + top * weightTop;
+    float4 finalColor = rayAlbedoPass; //front * weightFront + sides * weightSides + top * weightTop;
     
     //Light is stored in w.
-    float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
+    float4 colorWithLight = finalColor; //saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
     
     color = lerp(backgroundImage, colorWithLight, combinedNormals.w);
     

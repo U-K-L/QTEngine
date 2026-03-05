@@ -789,7 +789,7 @@ void QTDoughApplication::AddPasses()
 
     //Add the compute pass to the stack.
     computePassStack.push_back(voxelizerPass);
-    computePassStack.push_back(sdfPass);
+    //computePassStack.push_back(sdfPass);
 
     //Ray tracer passes.
     RayTracerPass* rayTracerPass = new RayTracerPass();

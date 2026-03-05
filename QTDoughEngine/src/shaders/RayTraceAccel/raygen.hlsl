@@ -10,6 +10,27 @@ RaytracingAccelerationStructure tlas : register(t2, space1);
 RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 StructuredBuffer<uint> intArray : register(t1, space1);
 
+struct UnigmaMaterial
+{
+    float4 baseColor;
+    float4 topColor;
+    float4 sideColor;
+};
+
+struct Images
+{
+    uint AlbedoImage;
+    uint NormalImage;
+};
+
+Images InitImages()
+{
+    Images image;
+    image.AlbedoImage = intArray[0];
+    image.NormalImage = intArray[1];
+    return image;
+}
+
 cbuffer UniformBufferObject : register(b0, space1)
 {
     float4x4 model;
@@ -220,6 +241,11 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
 [shader("raygeneration")]
 void main()
 {
+    UnigmaMaterial material;
+    material.baseColor = float4(0.90, 0.9, 0.78, 1.0);
+    material.topColor = float4(1.0, 0.92, 0.928, 1.0);
+    material.sideColor = float4(0.9, 0.63, 0.61, 1.0);
+    
     uint2 pixel = DispatchRaysIndex().xy;
 
     float2 dim = texelSize.xy;
@@ -277,10 +303,47 @@ void main()
         hit = FullMarch(ro, rd, camPos, surface, visibility, specular, positionId);
     
     col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
-    
-    
+
+
     p.color.xyz = surface.xyz;
 
-    uint outHandle = NonUniformResourceIndex(intArray[0]);
-    gBindlessStorage[outHandle][pixel] = float4(p.color.xyz, 1);
+    Images image = InitImages();
+    uint albedoHandle = NonUniformResourceIndex(image.AlbedoImage);
+    uint normalHandle = NonUniformResourceIndex(image.NormalImage);
+
+    float linearDepth = surface.w;
+    float maxRenderDistance = 64.0f;
+    float normalizedDepth = linearDepth / maxRenderDistance;
+    float depthMapped = col.w * normalizedDepth;
+    
+        //Albedo.
+    
+    float thresholdX = 0.2;
+    float thresholdY = 0.6;
+    float thresholdZ = 0.8;
+
+    //Pick based on normals.
+    float3 normal = surface.xyz;
+    float4 front = material.baseColor * 1.0725f;
+    float4 sides = material.sideColor * 1.0725f;
+    float4 top = material.topColor * 1.0725f;
+    
+    float3 forward = float3(0, 1, 0);
+    float3 up = float3(0, 0, 1);
+    float3 right = float3(1, 0, 0);
+    
+    float weightFront = abs(normal.y);
+    float weightSides = abs(normal.x);
+    float weightTop = abs(normal.z);
+    
+    float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
+    weightFront /= total;
+    weightSides /= total;
+    weightTop /= total;
+
+    float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
+
+    gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, visibility.x);
+    gBindlessStorage[normalHandle][pixel] = float4(p.color.xyz, depthMapped);
+
 }

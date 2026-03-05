@@ -1244,6 +1244,7 @@ int MaterialSimulation::RayCast(Photon &photon)
 
 		if(sdf < 0.0f)
 		{
+			photon.position = glm::vec4(pos, 1.0f);
 			photon.information.x = 1;
 			photon.force.w = sdf;
 			return 1;

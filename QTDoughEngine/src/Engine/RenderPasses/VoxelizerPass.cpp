@@ -2135,8 +2135,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             
             
         int wasHit = MaterialSimulation::instance->RayCast(photon);
-        if(wasHit > 0)
+        if (wasHit > 0)
+        {
+            AddBrush(0, photon.position, glm::vec3(1, 1, 1), 128);
             std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
+        }
     }
 
     /*
@@ -2220,10 +2223,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     //Dispatch only for unique volume textures as they might be shared between brushes.
     //Volume textures by index already processed.
-    std::unordered_map<uint32_t, uint32_t> textureIndexMap;
+    
     uint64_t voxelCount = 0;
     uint64_t particleCount = 0;
-    if (dispatchCount < 4)
+    if (BrushesCreated > 0)
     {
         auto start = std::chrono::high_resolution_clock::now();
         DispatchLOD(commandBuffer, currentFrame, 0); //Clear.
@@ -2234,7 +2237,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 		{
             uint32_t index = brushes[i].textureID;
 
-            if(textureIndexMap.find(index) != textureIndexMap.end()) {
+            if(processedTextureIndexMap.find(index) != processedTextureIndexMap.end()) {
 				//Already processed this texture.
 				continue;
 			}
@@ -2246,7 +2249,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
                 voxelCount += (uint64_t)(brushes[i].resolution * brushes[i].resolution * brushes[i].resolution);
                 
             }
-            textureIndexMap[index] = i; //Mark this texture as processed.
+            processedTextureIndexMap.insert(i); //Mark this texture as processed.
 		}
         particleCount += voxelCount / 8; //Estimate particles.
 
@@ -2277,11 +2280,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         // Print the duration
         std::cout << "Brush creation took: " << duration.count() << " milliseconds" << std::endl;
-        std::cout << "Brushes Processed: " << textureIndexMap.size() << std::endl;
+        std::cout << "Brushes Processed: " << processedTextureIndexMap.size() << std::endl;
         std::cout << "Total Voxels Created: " << voxelCount << std::endl;
         std::cout << "Estimated Particles Created: " << particleCount << std::endl;
 
         //DispatchParticleCreation(commandBuffer, currentFrame, 0); //Create particles.
+        BrushesCreated--;
     }
     //Deform brush
     if (dispatchCount > 3)
@@ -3405,7 +3409,7 @@ int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, 
     brush.vertexOffset = 0;
     brush.textureID = imageIndex;
     brush.textureID2 = imageIndex + 1;
-    brush.resolution = 128;
+    brush.resolution = 64;
     brush.id = index + 1;
     brush.opcode = opcode;
     brush.blend = blend;
@@ -3455,7 +3459,8 @@ int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, 
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
 
     // Reset dispatch counter so the creation pass runs again for all brushes.
-    dispatchCount = 0;
+    //dispatchCount = 0;
+    BrushesCreated = 2;
 
     std::cout << "AddBrush: added brush " << index << " type=" << type
               << " at (" << position.x << "," << position.y << "," << position.z << ")" << std::endl;

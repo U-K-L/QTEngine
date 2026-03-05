@@ -289,6 +289,8 @@ public:
     VkSampler wu_sampler;
 
     bool VolumeTexturesCreated = false;
+    int BrushesCreated = 2;
+    std::set<uint32_t> processedTextureIndexMap;
     int mipsCount = 5;
     uint32_t readBackVertexCount = 0;
 
