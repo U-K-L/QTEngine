@@ -2137,7 +2137,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         int wasHit = MaterialSimulation::instance->RayCast(photon);
         if (wasHit > 0)
         {
-            AddBrush(0, photon.position, glm::vec3(1, 1, 1), 128);
+            glm::vec3 position = photon.position;
+            AddBrush(0, position, glm::vec3(1, 1, 1), 128);
             std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
         }
     }
@@ -2306,6 +2307,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 	}
     //UpdateBrushesTextureIds(commandBuffer);
 
+    // Incremental brush creation for dynamically added brushes.
+    DispatchBrushCreationIncremental(commandBuffer, currentFrame);
 
     if(dispatchCount > 1)
 	{
@@ -2808,6 +2811,69 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
 
 
     vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void VoxelizerPass::DispatchBrushCreationIncremental(VkCommandBuffer commandBuffer, uint32_t currentFrame)
+{
+    if (incrementalBrushJobs.empty())
+        return;
+
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, voxelizeComputePipeline);
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        voxelizeComputePipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    for (auto& job : incrementalBrushJobs)
+    {
+        Brush& brush = brushes[job.brushIndex];
+        uint32_t groupXY = (brush.resolution + 7) / 8;
+
+        int sliceZ = std::min(job.groupsPerFrame, job.totalZGroups - job.currentZGroup);
+
+        PushConsts pc{};
+        pc.lod = 8;
+        pc.triangleCount = job.brushIndex;
+        pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
+        pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+        pc.supportMultiplier = supportMultiplier;
+
+        vkCmdPushConstants(
+            commandBuffer,
+            voxelizeComputePipelineLayout,
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0, sizeof(PushConsts), &pc);
+
+        vkCmdDispatchBase(commandBuffer, 0, 0, job.currentZGroup, groupXY, groupXY, sliceZ);
+
+        job.currentZGroup += sliceZ;
+    }
+
+    // Barrier after all incremental writes.
+    VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    barrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.memoryBarrierCount = 1;
+    dep.pMemoryBarriers    = &barrier;
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
+
+    // Remove completed jobs.
+    incrementalBrushJobs.erase(
+        std::remove_if(incrementalBrushJobs.begin(), incrementalBrushJobs.end(),
+            [](const IncrementalBrushJob& j) { return j.currentZGroup >= j.totalZGroups; }),
+        incrementalBrushJobs.end());
 }
 
 void VoxelizerPass::DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel)
@@ -3420,10 +3486,15 @@ int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, 
     brush.particleRadius = 2.0f * (density - 1);
     brush.materialId = index;
     brush.isDeformed = 0;
-    //brush.isCollapsing = 0;
+    brush.isCollapsing = 1;
 
-    brush.model = glm::translate(glm::mat4(1.0f), position)
-                * glm::scale(glm::mat4(1.0f), scale);
+    UnigmaTransform t = UnigmaTransform();
+    t.rotation = glm::vec3(0, 0, 0);
+    t.scale = scale;
+    t.position = position;
+    t.UpdateTransform();
+
+    brush.model = t.GetModelMatrix();
     brush.invModel = glm::inverse(brush.model);
 
     brushes.push_back(brush);
@@ -3458,9 +3529,16 @@ int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, 
     vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
     vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
 
-    // Reset dispatch counter so the creation pass runs again for all brushes.
-    //dispatchCount = 0;
-    BrushesCreated = 2;
+    // Rebuild bindless descriptor set so new brush textures are bound before any dispatch.
+    app->UpdateGlobalDescriptorSet();
+
+    // Mark as already processed so the startup creation block skips this brush.
+    processedTextureIndexMap.insert(index);
+
+    // Queue incremental creation over ~10 frames.
+    int totalZ = (brush.resolution + 7) / 8;
+    int groupsPerFrame = std::max(1, (totalZ + 9) / 10);
+    incrementalBrushJobs.push_back({ index, 0, totalZ, groupsPerFrame });
 
     std::cout << "AddBrush: added brush " << index << " type=" << type
               << " at (" << position.x << "," << position.y << "," << position.z << ")" << std::endl;
@@ -3489,7 +3567,7 @@ void VoxelizerPass::CreateBrushTextures(int brushIndex)
         app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
             brushSdfFormat,
             VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             brushTexture.u_image, brushTexture.u_imageMemory);
 
@@ -3502,27 +3580,46 @@ void VoxelizerPass::CreateBrushTextures(int brushIndex)
 
         VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = brushTexture.u_image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        // Transition to TRANSFER_DST so we can clear.
+        VkImageMemoryBarrier toDst{};
+        toDst.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        toDst.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        toDst.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toDst.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toDst.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toDst.image = brushTexture.u_image;
+        toDst.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        toDst.srcAccessMask = 0;
+        toDst.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(
-            commandBuffer,
+        vkCmdPipelineBarrier(commandBuffer,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &toDst);
+
+        // Clear to DEFUALT_EMPTY_SPACE (2.0f) so unwritten voxels read as empty.
+        VkClearColorValue clearVal{};
+        clearVal.float32[0] = 2.0f;
+        VkImageSubresourceRange range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        vkCmdClearColorImage(commandBuffer, brushTexture.u_image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearVal, 1, &range);
+
+        // Transition to SHADER_READ_ONLY_OPTIMAL.
+        VkImageMemoryBarrier toRead{};
+        toRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        toRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        toRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toRead.image = brushTexture.u_image;
+        toRead.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        toRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        toRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            0, 0, nullptr, 0, nullptr,
-            1, &barrier);
+            0, 0, nullptr, 0, nullptr, 1, &toRead);
 
         app->EndSingleTimeCommands(commandBuffer);
 

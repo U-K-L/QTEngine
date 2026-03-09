@@ -233,6 +233,7 @@ public:
                   float blend = 0.0225f, float smoothness = 0.1f, uint32_t opcode = 0,
                   int density = 3, float stiffness = 1.0f);
     void CreateBrushTextures(int brushIndex);
+    void DispatchBrushCreationIncremental(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
@@ -292,6 +293,14 @@ public:
     int BrushesCreated = 2;
     std::set<uint32_t> processedTextureIndexMap;
     int mipsCount = 5;
+
+    struct IncrementalBrushJob {
+        int brushIndex;
+        int currentZGroup;
+        int totalZGroups;
+        int groupsPerFrame;
+    };
+    std::vector<IncrementalBrushJob> incrementalBrushJobs;
     uint32_t readBackVertexCount = 0;
 
     VkBuffer indirectDrawBuffer;

@@ -428,7 +428,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	if(dispatchesCount < 2)
 	{
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
+		{
 			DispatchBrushFill(commandBuffer, i); // -1 means fill for all brushes that need it.
+		}
 	}
 
 	if (dispatchesCount < 60 * 6)
@@ -443,6 +445,8 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 			//dispatchesCount = 0; // reset count after fill to avoid overflow and keep sim/collapse in sync.
 		}
 	}
+	DispatchWaveFunctionCollapse(commandBuffer);
+
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
 	currentFrame = 1 - currentFrame;
 	dispatchesCount += 1;
@@ -625,6 +629,8 @@ void MaterialSimulation::DispatchBrushFill(VkCommandBuffer commandBuffer, int br
 	uint32_t res = voxelizer->brushes[brushIndex].resolution;
 	uint32_t groups = (res + 7) / 8;
 	vkCmdDispatch(commandBuffer, groups, groups, groups);
+
+	voxelizer->brushes[brushIndex].isCollapsing = 0; // Clear collapsing flag so next dispatch doesn't redo this fill.
 }
 
 void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
@@ -1141,7 +1147,7 @@ void MaterialSimulation::ReadBackMaterialGridFull()
 {
 	if (materialGridReadbackInProgress.exchange(true))
 	{
-		std::cout << "MaterialGrid readback already in progress, skipping." << std::endl;
+		//std::cout << "MaterialGrid readback already in progress, skipping." << std::endl;
 		return;
 	}
 
@@ -1175,7 +1181,7 @@ void MaterialSimulation::ReadBackMaterialGridFull()
 		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
 
-		std::cout << "Done materialGrid readback." << std::endl;
+		//std::cout << "Done materialGrid readback." << std::endl;
 		//SerializeMaterialGridText(AssetsPath + "Fields/materialGrid.txt");
 		materialGridReadbackInProgress = false;
 	});
@@ -1185,7 +1191,7 @@ void MaterialSimulation::ReadBackMaterialGridSDF()
 {
 	if (materialGridSDFReadbackInProgress.exchange(true))
 	{
-		std::cout << "MaterialGridSDF readback already in progress, skipping." << std::endl;
+		//std::cout << "MaterialGridSDF readback already in progress, skipping." << std::endl;
 		return;
 	}
 
@@ -1218,7 +1224,7 @@ void MaterialSimulation::ReadBackMaterialGridSDF()
 
 		auto readbackEnd = std::chrono::high_resolution_clock::now();
 		double readbackMs = std::chrono::duration<double, std::milli>(readbackEnd - readbackStart).count();
-		std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
+		//std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
 		materialGridSDFReadbackInProgress = false;
 	});
 }
@@ -1286,6 +1292,6 @@ void MaterialSimulation::ScreenToWorldRay(float pixelX, float pixelY, glm::vec3&
 	outOrigin = glm::mix(perspOrigin, orthoOrigin, t);
 	outDirection = glm::normalize(glm::mix(perspDir, orthoDir, t));
 
-	std::cout << "Ray origin: " << outOrigin.x << " " << outOrigin.y << " " << outOrigin.z
-		<< " dir: " << outDirection.x << " " << outDirection.y << " " << outDirection.z << std::endl;
+	//std::cout << "Ray origin: " << outOrigin.x << " " << outOrigin.y << " " << outOrigin.z
+	//	<< " dir: " << outDirection.x << " " << outDirection.y << " " << outDirection.z << std::endl;
 }

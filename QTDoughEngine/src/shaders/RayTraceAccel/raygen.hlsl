@@ -168,7 +168,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
         
         bool canTerminate =
-        (closesSDF.x < minDistReturn) && !inAABB;
+        (closesSDF.x < minDistReturn);// && !inAABB;
         
         if (closesSDF.x > 1)
             return hitSample;

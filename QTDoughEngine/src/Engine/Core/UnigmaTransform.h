@@ -54,6 +54,11 @@ struct UnigmaTransform
 		return translationMatrix * rotationMatrix * scaleMatrix;
 	}
 
+	glm::mat4 GetInvModelMatrix() const {
+		return glm::inverse(GetModelMatrix());
+	
+	}
+
 	glm::mat4 GetModelMatrixBrush() const {
 		// Build standard TRS matrix from position, rotation, and scale
 		glm::quat rotX = glm::angleAxis(rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));

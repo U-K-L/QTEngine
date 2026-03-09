@@ -612,16 +612,13 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     if (brush.type == PrimSphere)
     {
-        float3 position = brush.model[3].xyz;
-        float3 scale;
-        scale.x = length(brush.model[0].xyz);
-        scale.y = length(brush.model[1].xyz);
-        scale.z = length(brush.model[2].xyz);
-        float radius = max(scale.x, max(scale.y, scale.z));
-        float padding = brush.blend * 2.0f * radius;
-        minBounds = position - radius - padding;
-        maxBounds = position + radius + padding;
-        center = position;
+        // Local space: unit sphere at origin. Read3DTransformed uses invModel
+        // to go from world to local before sampling, so bounds must be local.
+        float radius = 1.0f;
+        float padding = brush.blend * 2.0f;
+        minBounds = float3(-radius - padding, -radius - padding, -radius - padding);
+        maxBounds = float3( radius + padding,  radius + padding,  radius + padding);
+        center = float3(0, 0, 0);
         maxExtent = radius * 2.0f;
     }
     else
@@ -672,16 +669,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
     else if (brush.type == PrimSphere) //Sphere
     {
-        float3 position = brush.model[3].xyz; //Fourth Column
-        float3 scale;
-        scale.x = length(brush.model[0].xyz);
-        scale.y = length(brush.model[1].xyz);
-        scale.z = length(brush.model[2].xyz);
-        
-        float radius = max(scale.y, max(scale.x, scale.z));
-        minDist = sdSphere(localPos, center, radius);
-        
-
+        // Local space: unit sphere at origin (matches bounds above).
+        minDist = sdSphere(localPos, center, 1.0f);
     }
 
     float sdf = minDist;

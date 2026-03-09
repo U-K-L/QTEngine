@@ -546,14 +546,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 minBounds, maxBounds;
     if (brush.type == PrimSphere)
     {
-        float3 position = brush.model[3].xyz;
-        float3 scale;
-        scale.x = length(brush.model[0].xyz);
-        scale.y = length(brush.model[1].xyz);
-        scale.z = length(brush.model[2].xyz);
+        float3 position = float3(brush.model[0][3], brush.model[1][3], brush.model[2][3]);
+        float3 scale = 1;
         float radius = max(scale.x, max(scale.y, scale.z));
-        minBounds = position - radius;
-        maxBounds = position + radius;
+        float blendPad = brush.blend * 2.0f * radius;
+        minBounds = position - radius - blendPad;
+        maxBounds = position + radius + blendPad;
     }
     else
     {
