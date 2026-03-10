@@ -1748,6 +1748,8 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
         {
             brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
             brushes[i].isDirty = 1;
+            std::cout << "Brush " << i << " dirty, pos=("
+                      << brushes[i].model[3][0] << "," << brushes[i].model[3][1] << "," << brushes[i].model[3][2] << ")" << std::endl;
         }
     }
 
@@ -2138,8 +2140,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         if (wasHit > 0)
         {
             glm::vec3 position = photon.position;
-            AddBrush(0, position, glm::vec3(1, 1, 1), 128);
-            std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
+            //AddBrush(0, position, glm::vec3(1, 1, 1), 128);
+            //std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
         }
     }
 

@@ -1,4 +1,5 @@
 #include "QTDoughApplication.h"
+#include "ImGuizmo.cpp"
 
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
 #include "../Engine/Camera/UnigmaCamera.h"
@@ -53,9 +54,12 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 {
 
     CameraMain = *UNGetCamera(0);
-    unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
-    unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
-    unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
+    if (!unigmaRenderingObjects[gObj->RenderID].gizmoControlled)
+    {
+        unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
+        unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
+        unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
+    }
 
     //Update the shader game objects.
     gameObjectShaderDataArray[gObj->RenderID].BaseAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["BaseAlbedo"];
@@ -115,6 +119,43 @@ void QTDoughApplication::RunMainGameLoop()
         1000.0f / FPS, FPS);
 
     ImGui::End(); // End the ImGui window
+
+    // --- ImGuizmo: manipulate all rendering objects ---
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetRect(0, 0, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+
+    glm::mat4 view = CameraMain.getViewMatrix();
+    glm::mat4 proj = CameraMain.getProjectionMatrix();
+
+    if (VoxelizerPass::instance)
+    {
+        for (size_t gi = 0; gi < VoxelizerPass::instance->renderingObjects.size(); gi++)
+        {
+            ImGuizmo::SetID(static_cast<int>(gi));
+            UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[gi];
+            UnigmaTransform& t = obj->_transform;
+            glm::mat4 model = t.GetModelMatrix();
+
+            ImGuizmo::Manipulate(
+                glm::value_ptr(view),
+                glm::value_ptr(proj),
+                ImGuizmo::SCALE,
+                ImGuizmo::WORLD,
+                glm::value_ptr(model)
+            );
+
+            if (ImGuizmo::IsUsing())
+            {
+                obj->gizmoControlled = true;
+                float trans[3], rot[3], scl[3];
+                ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), trans, rot, scl);
+                t.position = glm::vec3(trans[0], trans[1], trans[2]);
+                t.rotation = glm::vec3(glm::radians(rot[0]), glm::radians(rot[1]), glm::radians(rot[2]));
+                t.scale = glm::vec3(scl[0], scl[1], scl[2]);
+                t.UpdateTransform();
+            }
+        }
+    }
 
     //make imgui calculate internal draw structures
     ImGui::Render();
@@ -177,8 +218,8 @@ void QTDoughApplication::RunMainGameLoop()
     DrawFrame();
     if (GatherBlenderInfo() == 0)
     {
-        CameraToBlender();
-        GetMeshDataAllObjects();
+        //CameraToBlender();
+        //GetMeshDataAllObjects();
     }
 
     //RecreateResources();
@@ -789,7 +830,7 @@ void QTDoughApplication::AddPasses()
 
     //Add the compute pass to the stack.
     computePassStack.push_back(voxelizerPass);
-    computePassStack.push_back(sdfPass);
+    //computePassStack.push_back(sdfPass);
 
     //Ray tracer passes.
     RayTracerPass* rayTracerPass = new RayTracerPass();

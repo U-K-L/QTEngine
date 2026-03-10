@@ -35,11 +35,13 @@
 #include <chrono>
 #include <map>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
 #include <functional>
 #include "VideoRecorder.h"
+#include "ImGuizmo.h"
 
 
 

@@ -453,6 +453,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 
 	//Load grid.
 	ReadBackMaterialGridSDF();
+	ReadBackMaterialGridFull(); //Make this on demand.
 }
 
 void MaterialSimulation::DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer)
@@ -1224,7 +1225,7 @@ void MaterialSimulation::ReadBackMaterialGridSDF()
 
 		auto readbackEnd = std::chrono::high_resolution_clock::now();
 		double readbackMs = std::chrono::duration<double, std::milli>(readbackEnd - readbackStart).count();
-		//std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
+		std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
 		materialGridSDFReadbackInProgress = false;
 	});
 }

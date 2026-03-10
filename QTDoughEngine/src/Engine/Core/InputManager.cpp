@@ -1,5 +1,6 @@
 #include "InputManager.h"
 #include <iostream>
+#include "backends/imgui_impl_sdl2.h"
 
 bool INPUTPROGRAMEND = false;
 bool inputFramebufferResized = false;
@@ -26,7 +27,7 @@ void SetButtonInputs(UnigmaInputStruct* input)
 				inputFramebufferResized = true;
 			}
 		}
-		//ImGui_ImplSDL2_ProcessEvent(&e);
+		ImGui_ImplSDL2_ProcessEvent(&inputEvent);
 		cameraProjectionButtons(inputEvent, input);
 		cameraInputButtons(inputEvent, input);
 		SetMovement(inputEvent, input);
