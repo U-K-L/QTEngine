@@ -63,7 +63,11 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
 	}
 
 
-    RenderPassObject::Render(commandBuffer, imageIndex, currentFrame, &app->swapChainImageViews[imageIndex]);
+    // Editor: render to offscreen viewport image. Play: render to swapchain.
+    VkImageView* target = app->editorState.IsEditor()
+        ? &app->editorState.viewportImageView
+        : &app->swapChainImageViews[imageIndex];
+    RenderPassObject::Render(commandBuffer, imageIndex, currentFrame, target);
 }
 
 void CompositionPass::CreateMaterials() {

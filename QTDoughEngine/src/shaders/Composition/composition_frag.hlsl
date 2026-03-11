@@ -241,6 +241,6 @@ float4 main(VSOutput i) : SV_Target
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return finalImage;
+    return float4(finalImage.xyz, 1.0);
 
 }
