@@ -131,6 +131,44 @@ void QTDoughApplication::RunMainGameLoop()
             FPS = io.Framerate;
         }
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / FPS, FPS);
+        ImGui::Separator();
+
+        // --- Brush list ---
+        if (VoxelizerPass::instance && ImGui::CollapsingHeader("Brushes", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            auto& brushes = VoxelizerPass::instance->brushes;
+            auto& objects = VoxelizerPass::instance->renderingObjects;
+            for (size_t i = 0; i < brushes.size(); i++)
+            {
+                ImGui::PushID((int)i);
+                auto& b = brushes[i];
+
+                // Get name from game object if available
+                const char* label = "Brush";
+                if (i < objects.size())
+                {
+                    UnigmaGameObject* gObj = objects[i]->GetGameObject();
+                    if (gObj && gObj->name[0] != '\0')
+                        label = gObj->name;
+                }
+
+                if (ImGui::TreeNode(label))
+                {
+                    ImGui::Text("ID: %u", b.id);
+                    ImGui::Text("Type: %u  Opcode: %u", b.type, b.opcode);
+                    ImGui::Text("Verts: %u  Res: %u", b.vertexCount, b.resolution);
+                    ImGui::Text("Blend: %.2f  Stiffness: %.2f", b.blend, b.stiffness);
+                    ImGui::Text("Smoothness: %.2f", b.smoothness);
+                    ImGui::Text("Material: %d  Density: %d", b.materialId, b.density);
+                    ImGui::Text("Dirty: %u", b.isDirty);
+                    glm::vec3 pos = glm::vec3(b.model[3]);
+                    ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+        }
+
         ImGui::End();
 
         // --- Viewport panel (game render) to the RIGHT of settings ---
@@ -138,7 +176,43 @@ void QTDoughApplication::RunMainGameLoop()
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::SetNextWindowPos(ImVec2(sidePanelWidth, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(viewportWidth, (float)SCREEN_HEIGHT), ImGuiCond_Always);
-        ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+        ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar);
+
+        // --- View mode tabs (Blender-style) ---
+        {
+            const struct { const char* name; ViewModes mode; } viewTabs[] = {
+                { "Render",   ViewModes::Render },
+                { "Quanta",   ViewModes::Quanta },
+                { "Normals",  ViewModes::Normals },
+                { "Albedo",   ViewModes::Albedo },
+                { "Material", ViewModes::Material },
+                { "Gaussian", ViewModes::Gaussian },
+            };
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
+            for (int i = 0; i < 6; i++)
+            {
+                if (i > 0) ImGui::SameLine();
+                bool selected = (editorState.viewMode == viewTabs[i].mode);
+                if (selected)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
+                }
+                else
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+                }
+                if (ImGui::Button(viewTabs[i].name))
+                {
+                    editorState.viewMode = viewTabs[i].mode;
+                }
+                ImGui::PopStyleColor(2);
+            }
+            ImGui::PopStyleVar(2);
+        }
+
         ImVec2 vpContentPos = ImGui::GetCursorScreenPos();
         ImVec2 viewportSize = ImGui::GetContentRegionAvail();
         if (editorState.viewportDescriptorSet != VK_NULL_HANDLE)
@@ -943,7 +1017,7 @@ void QTDoughApplication::AddPasses()
 
     //Add the compute pass to the stack.
     computePassStack.push_back(voxelizerPass);
-    //computePassStack.push_back(sdfPass);
+    computePassStack.push_back(sdfPass);
 
     //Ray tracer passes.
     RayTracerPass* rayTracerPass = new RayTracerPass();
@@ -2774,6 +2848,13 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
 {
     for (int i = 0; i < computePassStack.size(); i++)
     {
+        //Check for sdfpass.
+        if (computePassStack[i]->PassName == "SDFPass")
+        {
+            if (editorState.viewMode == ViewModes::Quanta || editorState.viewMode == ViewModes::Material)
+                computePassStack[i]->Dispatch(commandBuffer, imageIndex);
+            continue;
+        }
         computePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
 

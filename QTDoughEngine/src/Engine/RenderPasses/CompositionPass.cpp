@@ -14,41 +14,16 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
-    if (GetKeyState('1') & 0x8000)
-    {
-        std::cout << "Final Render View" << std::endl;
-        pc.input = 0;
-    }
-    else if (GetKeyState('2') & 0x8000)
-    {
-        std::cout << "Normals SDF Render View" << std::endl;
-        pc.input = 1;
-    }
-    else if (GetKeyState('3') & 0x8000)
-    {
-        std::cout << "SDF Normals Render View" << std::endl;
-        pc.input = 2;
-    }
-    else if (GetKeyState('4') & 0x8000)
-    {
-        std::cout << "Full SDF Render View" << std::endl;
-        pc.input = 3;
-    }
-    else if (GetKeyState('5') & 0x8000)
-    {
-        std::cout << "Dual Contour Render View" << std::endl;
-        pc.input = 4;
-    }
-    else if (GetKeyState('6') & 0x8000)
-    {
-        std::cout << "Depth Render View" << std::endl;
-        pc.input = 5;
-    }
-    else if (GetKeyState('7') & 0x8000)
-    {
-        std::cout << "MaterialGrid Render View" << std::endl;
-        pc.input = 6;
-    }
+    // View mode from editor UI tabs (or fallback to keyboard shortcuts)
+    pc.input = (int)app->editorState.viewMode;
+
+    if (GetKeyState('1') & 0x8000)      { pc.input = (int)ViewModes::Render; app->editorState.viewMode = ViewModes::Render; }
+    else if (GetKeyState('2') & 0x8000) { pc.input = (int)ViewModes::Quanta; app->editorState.viewMode = ViewModes::Quanta; }
+    else if (GetKeyState('3') & 0x8000) { pc.input = (int)ViewModes::Normals; app->editorState.viewMode = ViewModes::Normals; }
+    else if (GetKeyState('4') & 0x8000) { pc.input = 3; app->editorState.viewMode = ViewModes::Normals; }
+    else if (GetKeyState('5') & 0x8000) { pc.input = (int)ViewModes::Albedo; app->editorState.viewMode = ViewModes::Albedo; }
+    else if (GetKeyState('6') & 0x8000) { pc.input = 5; app->editorState.viewMode = ViewModes::Albedo; }
+    else if (GetKeyState('7') & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
 
     if (GetKeyState('R') & 0x8000 && capturing == false)
     {

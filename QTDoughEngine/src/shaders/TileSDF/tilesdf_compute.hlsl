@@ -59,6 +59,8 @@ StructuredBuffer<Quanta> quantaBuffer : register(t12, space1); // readonly
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
+RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space1);
+
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord)
 {

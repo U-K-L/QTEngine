@@ -158,9 +158,7 @@ float4 main(VSOutput i) : SV_Target
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
-        return sdfNormalImage;
-    if (pc.input == 3)
-        return max(sdfNormalImage, normalImage);
+        return float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     if (pc.input == 4)
         return albedoImage;
     if(pc.input == 5)
@@ -168,7 +166,7 @@ float4 main(VSOutput i) : SV_Target
 
     float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
     if(pc.input == 6)
-        return materialGridImage;
+        return float4(materialGridImage.xyz, 1.0f);
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);

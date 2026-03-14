@@ -35,6 +35,7 @@ struct PushConsts
     int4 voxelResolution;
     float4 aabbCenter;
     float supportMultiplier;
+    int viewMode;
 };
 
 [[vk::push_constant]]
@@ -84,6 +85,8 @@ RWStructuredBuffer<Vertex> meshingVertices : register(u17, space1);
 StructuredBuffer<uint> quantaIds    : register(t19, space1);
 StructuredBuffer<uint> tileCounts   : register(t20, space1);
 StructuredBuffer<uint> tileOffsets  : register(t21, space1);
+
+RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space1);
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
@@ -977,7 +980,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
-    if (distortionFieldSum > 0.0001f)
+    
+    if (distortionFieldSum > 0.0001f || pc.viewMode == 7)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.

@@ -106,14 +106,22 @@ struct ControlParticle
     float4 position;
 };
 
+struct MaterialBrushPoint
+{
+    float4 deformationField;
+};
+
+
 struct Brush
 {
     uint type;
     uint vertexCount;
     uint vertexOffset;
+    uint resolution;
     uint textureID;
     uint textureID2;
-    uint resolution;
+    uint materialID;
+    uint materialID2;
     float4x4 model;
     float4x4 invModel;
     float4 aabbmin;

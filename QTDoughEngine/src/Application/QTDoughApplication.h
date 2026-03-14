@@ -164,11 +164,21 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+enum class ViewModes
+{
+	Render = 0,
+	Quanta = 1,
+	Normals = 2,
+	Albedo = 4,
+	Material = 6,
+	Gaussian = 7
+};
 enum class EngineMode { Editor, Play };
 
 struct EditorState {
     EngineMode mode = EngineMode::Editor;
     bool IsEditor() const { return mode == EngineMode::Editor; }
+    ViewModes viewMode; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
 
     // Offscreen viewport resources (editor renders game here, then displays via ImGui::Image)
     VkImage viewportImage = VK_NULL_HANDLE;

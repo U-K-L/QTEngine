@@ -347,9 +347,9 @@ void VoxelizerPass::CreateDescriptorPool()
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = kTotalSets * 1;
 
-    // storage buffers per set (bindings 1-21)
+    // storage buffers per set (bindings 1-23)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = kTotalSets * 22;
+    poolSizes[1].descriptorCount = kTotalSets * 23;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = 2;
@@ -476,7 +476,7 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     vkFreeMemory(app->_logicalDevice, stagingBufferMemory3, nullptr);
 
     //Create brushes buffers. Pre-allocate extra capacity for dynamic brush addition.
-    maxBrushCapacity = static_cast<uint32_t>(brushes.size()) + 32;
+    //maxBrushCapacity = static_cast<uint32_t>(brushes.size()) + 32;
 
     app->CreateBuffer(
         sizeof(Brush) * maxBrushCapacity,
@@ -641,6 +641,42 @@ void VoxelizerPass::CreateShaderStorageBuffers()
         app->CopyBuffer(cpStagingBuffer, controlParticlesStorageBuffers[i], controlParticleBufferSize);
     }
 
+    //Create MaterialBrushPoints buffer (coarse material grid per brush, 64^3 per brush).
+    uint32_t materialBrushGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+    uint32_t totalMaterialBrushPoints = maxBrushCapacity * materialBrushGridSize;
+    VkDeviceSize materialBrushBufferSize = sizeof(MaterialBrushPoint) * totalMaterialBrushPoints;
+
+    std::cout << "MaterialBrushPoints: " << materialBrushGridSize << " points per brush, "
+              << totalMaterialBrushPoints << " total points, "
+              << (materialBrushBufferSize / (1024 * 1024)) << " MB" << std::endl;
+
+    materialBrushPoints.resize(maxBrushCapacity);
+    for (uint32_t i = 0; i < maxBrushCapacity; ++i) {
+        materialBrushPoints[i].resize(materialBrushGridSize, MaterialBrushPoint{ glm::vec4(0.0f) });
+    }
+
+    // Flatten for staging upload.
+    std::vector<MaterialBrushPoint> flatMaterialBrushPoints(totalMaterialBrushPoints, MaterialBrushPoint{ glm::vec4(0.0f) });
+
+    VkBuffer mbpStagingBuffer;
+    VkDeviceMemory mbpStagingBufferMemory;
+    app->CreateBuffer(materialBrushBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, mbpStagingBuffer, mbpStagingBufferMemory);
+
+    void* mbpData;
+    vkMapMemory(app->_logicalDevice, mbpStagingBufferMemory, 0, materialBrushBufferSize, 0, &mbpData);
+    std::memcpy(mbpData, flatMaterialBrushPoints.data(), materialBrushBufferSize);
+    vkUnmapMemory(app->_logicalDevice, mbpStagingBufferMemory);
+
+    app->CreateBuffer(materialBrushBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        materialBrushPointsStorageBuffers, materialBrushPointsStorageMemory);
+
+    app->CopyBuffer(mbpStagingBuffer, materialBrushPointsStorageBuffers, materialBrushBufferSize);
+
+    vkDestroyBuffer(app->_logicalDevice, mbpStagingBuffer, nullptr);
+    vkFreeMemory(app->_logicalDevice, mbpStagingBufferMemory, nullptr);
+
     //Create Vertex buffers appended.
     uint32_t vertexBufferSize = sizeof(Vertex) * VertexMaxCount;
     meshingVertexSoup.resize(VertexMaxCount);
@@ -717,6 +753,12 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     tileBrushCountBufferInfo.range = VK_WHOLE_SIZE;
 
 
+    //MaterialBrushPoints
+    VkDescriptorBufferInfo materialBrushPointsBufferInfo{};
+    materialBrushPointsBufferInfo.buffer = materialBrushPointsStorageBuffers;
+    materialBrushPointsBufferInfo.offset = 0;
+    materialBrushPointsBufferInfo.range = VK_WHOLE_SIZE;
+
     //Global ID Counter
     VkDescriptorBufferInfo globalIDCounterBufferInfo{};
     globalIDCounterBufferInfo.buffer = globalIDCounterStorageBuffers;
@@ -748,7 +790,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 23> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 24> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -1021,6 +1063,15 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[22].descriptorCount = 1;
         descriptorWrites[22].pBufferInfo = &materialGridBufferInfo;
 
+        //MaterialBrushPoints
+        descriptorWrites[23].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[23].dstSet = computeDescriptorSets[i];
+        descriptorWrites[23].dstBinding = 23;
+        descriptorWrites[23].dstArrayElement = 0;
+        descriptorWrites[23].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[23].descriptorCount = 1;
+        descriptorWrites[23].pBufferInfo = &materialBrushPointsBufferInfo;
+
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
@@ -1215,8 +1266,15 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     materialGridBinding.descriptorCount = 1;
     materialGridBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // MaterialBrushPoints (coarse per-brush material grid)
+    VkDescriptorSetLayoutBinding materialBrushPointsBinding{};
+    materialBrushPointsBinding.binding = 23;
+    materialBrushPointsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    materialBrushPointsBinding.descriptorCount = 1;
+    materialBrushPointsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 23> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding };
+    std::array<VkDescriptorSetLayoutBinding, 24> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding, materialBrushPointsBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1370,7 +1428,7 @@ void VoxelizerPass::CreateBrushes()
 
     }
 
-    AddBrush(0, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), 128);
+    //AddBrush(0, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), 128);
 }
 
 void VoxelizerPass::Create3DTextures()
@@ -1639,12 +1697,16 @@ void VoxelizerPass::CreateImages() {
         imageMemory
     );
 
+    std::cout << "Textures created" << std::endl;
     if (VolumeTexturesCreated == false)
     {
         CreateBrushes();
+        std::cout << "Textures created2" << std::endl;
         Create3DTextures();
+        std::cout << "Textures creat2ed2" << std::endl;
         VolumeTexturesCreated = true;
     }
+
 
     VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
@@ -1734,6 +1796,7 @@ void VoxelizerPass::CreateImages() {
 
         app->textures.insert({ PassNames[i], texture });
     }
+
 }
 
 void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
@@ -2786,6 +2849,7 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2848,6 +2912,7 @@ void VoxelizerPass::DispatchBrushCreationIncremental(VkCommandBuffer commandBuff
         pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
         pc.aabbCenter = glm::vec4(0, 0, 0, 0);
         pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
         vkCmdPushConstants(
             commandBuffer,
@@ -2896,6 +2961,7 @@ void VoxelizerPass::DispatchParticleCreation(VkCommandBuffer commandBuffer, uint
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2944,6 +3010,7 @@ void VoxelizerPass::DispatchBrushDeformation(VkCommandBuffer commandBuffer, uint
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -2992,6 +3059,7 @@ void VoxelizerPass::DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint3
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -3037,6 +3105,7 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     vkCmdPushConstants(
         commandBuffer,
@@ -3103,6 +3172,7 @@ void VoxelizerPass::DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32
     pc.voxelResolution = glm::ivec4(WORLD_SDF_RESOLUTION, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     vkCmdPushConstants(commandBuffer,
         voxelizeComputePipelineLayout,
@@ -3150,6 +3220,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
 
     // Each LOD uses a different resolution
@@ -3362,6 +3433,7 @@ void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t c
     pc.voxelResolution = glm::vec4(WORLD_SDF_RESOLUTION.x, WORLD_SDF_RESOLUTION.y, WORLD_SDF_RESOLUTION.z, 0);
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
+    pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
     // Each LOD uses a different resolution
     glm::ivec3 res = WORLD_SDF_RESOLUTION; //Expand
