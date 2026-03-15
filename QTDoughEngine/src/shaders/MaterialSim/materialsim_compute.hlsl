@@ -43,12 +43,13 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     Quanta q = quantaIn[globalIndex];
+    q.mana.w = 0;
     
 
     if (q.position.w < 1 || q.information.x > 0)
     {
-        quantaOut[globalIndex] = q;
-        return;
+        //quantaOut[globalIndex] = q;
+        //return;
     }
 
     // Brownian motion — random kick each frame.
@@ -66,7 +67,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         float dist = length(q.position.xyz);
         float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
         float3 meltDir = float3(0, 0, -1); // Drip downward.
-        //q.position.xyz += meltDir * meltStrength * 5400.0f * deltaTime;
+        q.position.xyz += meltDir * meltStrength * 52.4f * deltaTime;
+        q.mana.w = 1.0f;
     }
 
     quantaOut[globalIndex] = q;

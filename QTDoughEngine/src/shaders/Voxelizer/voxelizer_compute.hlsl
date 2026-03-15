@@ -694,7 +694,15 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
     Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
     Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
-    
+
+    // Write coarse material brush grid.
+    int3 mbpCoord = int3(floor(uvw * MATERIAL_BRUSH_GRID_RES));
+    mbpCoord = clamp(mbpCoord, 0, MATERIAL_BRUSH_GRID_RES - 1);
+    int gridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+    int mbpIdx = (int)index * gridSize + Flatten3D(mbpCoord, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
+    materialBrushPoints[mbpIdx].deformationField = float4(0, 0, 0, sdf);
+    materialBrushPoints[mbpIdx].information = int4(0, 0, 0, 0);
+
     //Add particle if SDF is close enough.
 
     //Blocks size
@@ -935,8 +943,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Write3DDist(0, fullDTid, minDist);
         return;
     }
+    
 
-
+    float deformationField = 0;
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -944,13 +953,18 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Brush brush = Brushes[index];
 
         float d = Read3DTransformed(brush, center).x;
+        float3 mbLocalPos;
+        int mbpIdx = WorldToMaterialBrushIndex(center, brush, index, mbLocalPos);
 
         switch (brush.opcode)
         {
             case 0:
                 blendFactor += brush.blend;
                 if(minDist > d)
+                {
                     minId = index;
+                    deformationField = (float) materialBrushPoints[mbpIdx].information.x;
+                }
                 minDist = smin(minDist, d, blendFactor + 0.0001f);
                 smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
                 break;
@@ -958,6 +972,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
                 minDist = max(-d + 1, minDist);
                 break;
         }
+        
 
     }
 
@@ -981,7 +996,26 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
     
-    if (distortionFieldSum > 0.0001f || pc.viewMode == 7)
+    if (pc.viewMode == 8)
+    {
+        // Visualize material brush grid.
+        float mbpMinDist = DEFUALT_EMPTY_SPACE;
+        for (uint mi = 0; mi < brushCount; mi++)
+        {
+            uint mOffset = tileIndex * TILE_MAX_BRUSHES + mi;
+            uint bIdx = BrushesIndices[mOffset];
+            Brush mbBrush = Brushes[bIdx];
+            float3 mbLocalPos;
+            int mbpIdx = WorldToMaterialBrushIndex(center, mbBrush, bIdx, mbLocalPos);
+            if (mbpIdx >= 0)
+            {
+                float mbpSdf = materialBrushPoints[mbpIdx].deformationField.w;
+                mbpMinDist = min(mbpMinDist, mbpSdf);
+            }
+        }
+        Write3DDist(0, fullDTid, mbpMinDist);
+    }
+    else if (deformationField > 0.0001f || pc.viewMode == 7)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     else
         Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
@@ -2236,9 +2270,10 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 pW1 = mul(brush.model, float4(pL1, 1)).xyz;
     float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
 
-    //Check neighboring field to also remove from default mesh.
-    int radius = 3;
-    bool deformed = ReadDeformingFieldKernel(pW0, radius);
+    //Check material grid to determine if this triangle is deformed.
+    float3 mbLocalPos;
+    int mbpIdx = WorldToMaterialBrushIndex(pW0, brush, brushID, mbLocalPos);
+    bool deformed = (mbpIdx >= 0 && materialBrushPoints[mbpIdx].information.x > 0);
 
     if (deformed)
         return;

@@ -89,6 +89,7 @@ public:
     struct MaterialBrushPoint
     {
         glm::vec4 deformationField;
+        glm::ivec4 information;
     };
 
     struct Tile
@@ -275,7 +276,7 @@ public:
     std::vector<VkDeviceMemory> particlesStorageMemory;
 
     int CAGE_RESOLUTION = 26; //Resolution of the cage for deformation.
-    int MATERIAL_BRUSH_GRID_RES = 64; //Resolution of the coarse material grid per brush (64^3).
+    int MATERIAL_BRUSH_GRID_RES = 32; //Resolution of the coarse material grid per brush (32^3).
     int CONTROL_PARTICLE_COUNT = 4096 * CAGE_RESOLUTION; //The total amount of particles is the amount of deformable objects multipled by the cage resolution.
 
     float supportMultiplier = 1.0f;

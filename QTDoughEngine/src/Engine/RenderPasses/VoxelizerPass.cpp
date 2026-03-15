@@ -652,11 +652,11 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     materialBrushPoints.resize(maxBrushCapacity);
     for (uint32_t i = 0; i < maxBrushCapacity; ++i) {
-        materialBrushPoints[i].resize(materialBrushGridSize, MaterialBrushPoint{ glm::vec4(0.0f) });
+        materialBrushPoints[i].resize(materialBrushGridSize, MaterialBrushPoint{ glm::vec4(0.0f), glm::ivec4(0) });
     }
 
     // Flatten for staging upload.
-    std::vector<MaterialBrushPoint> flatMaterialBrushPoints(totalMaterialBrushPoints, MaterialBrushPoint{ glm::vec4(0.0f) });
+    std::vector<MaterialBrushPoint> flatMaterialBrushPoints(totalMaterialBrushPoints, MaterialBrushPoint{ glm::vec4(0.0f), glm::ivec4(0) });
 
     VkBuffer mbpStagingBuffer;
     VkDeviceMemory mbpStagingBufferMemory;
@@ -2473,9 +2473,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
-        //for (int i = 0; i < brushes.size(); i++)
-        //    if(brushes[i].type == 0) //mesh.
-        //        DispatchVertexMask(commandBuffer, currentFrame, i);
+        for (int i = 0; i < brushes.size(); i++)
+            if(brushes[i].type == 0) //mesh.
+                DispatchVertexMask(commandBuffer, currentFrame, i);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);

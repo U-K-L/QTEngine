@@ -24,6 +24,7 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     else if (GetKeyState('5') & 0x8000) { pc.input = (int)ViewModes::Albedo; app->editorState.viewMode = ViewModes::Albedo; }
     else if (GetKeyState('6') & 0x8000) { pc.input = 5; app->editorState.viewMode = ViewModes::Albedo; }
     else if (GetKeyState('7') & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
+    else if (GetKeyState('8') & 0x8000) { pc.input = (int)ViewModes::MaterialBrush; app->editorState.viewMode = ViewModes::MaterialBrush; }
 
     if (GetKeyState('R') & 0x8000 && capturing == false)
     {

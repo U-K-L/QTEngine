@@ -187,10 +187,11 @@ void QTDoughApplication::RunMainGameLoop()
                 { "Albedo",   ViewModes::Albedo },
                 { "Material", ViewModes::Material },
                 { "Gaussian", ViewModes::Gaussian },
+                { "MBrush",   ViewModes::MaterialBrush },
             };
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 7; i++)
             {
                 if (i > 0) ImGui::SameLine();
                 bool selected = (editorState.viewMode == viewTabs[i].mode);
@@ -2851,7 +2852,7 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
         //Check for sdfpass.
         if (computePassStack[i]->PassName == "SDFPass")
         {
-            if (editorState.viewMode == ViewModes::Quanta || editorState.viewMode == ViewModes::Material)
+            if (editorState.viewMode == ViewModes::Quanta || editorState.viewMode == ViewModes::Material || editorState.viewMode == ViewModes::MaterialBrush)
                 computePassStack[i]->Dispatch(commandBuffer, imageIndex);
             continue;
         }
