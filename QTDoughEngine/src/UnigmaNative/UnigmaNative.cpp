@@ -6,6 +6,7 @@
 #include "../Engine/Renderer/UnigmaRenderingObject.h"
 #include "stb_image.h"
 #include "../Engine/RenderPasses/VoxelizerPass.h"
+#include "../Engine/Physics/MaterialSimulationPass.h"
 
 AssetLoader assetLoader;
 
@@ -24,6 +25,7 @@ FnRegisterCallback UNRegisterCallback;
 FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
 FnRegisterAddBrushCallback UNRegisterAddBrushCallback;
+FnRegisterRayCastSDFCallback UNRegisterRayCastSDFCallback;
 
 FnGetGameObject UNGetGameObject;
 FnGetComponentAttribute UNGetComponentAttribute;
@@ -54,12 +56,14 @@ void LoadUnigmaNativeFunctions()
     UNRegisterLoadSceneCallback = (FnRegisterLoadSceneCallback)GetProcAddress(unigmaNative, "RegisterLoadSceneCallback");
     UNRegisterLoadInputCallback = (FnRegisterLoadInputCallback)GetProcAddress(unigmaNative, "RegisterLoadInputCallback");
     UNRegisterAddBrushCallback = (FnRegisterAddBrushCallback)GetProcAddress(unigmaNative, "RegisterAddBrushCallback");
+    UNRegisterRayCastSDFCallback = (FnRegisterRayCastSDFCallback)GetProcAddress(unigmaNative, "RegisterRayCastSDFCallback");
 
     //Register the callback function
     UNRegisterCallback(ApplicationFunction);
     UNRegisterLoadSceneCallback(LoadScene);
     UNRegisterLoadInputCallback(LoadInput);
     UNRegisterAddBrushCallback(AddBrushFromNative);
+    UNRegisterRayCastSDFCallback(RayCastSDFFromNative);
 }
 
 
@@ -70,6 +74,13 @@ void ApplicationFunction(const char* message) {
 UnigmaInputStruct LoadInput(int flag)
 {
     return GetInput(flag);
+}
+
+int RayCastSDFFromNative(Photon* photon)
+{
+    if (!MaterialSimulation::instance) return 0;
+    MaterialSimulation::instance->RayCast(*photon);
+    return photon->information.x;
 }
 
 int AddBrushFromNative(uint32_t type, float px, float py, float pz,

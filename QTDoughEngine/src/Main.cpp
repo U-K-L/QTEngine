@@ -16,7 +16,7 @@ UnigmaThread* QTDoughEngine;
 QTDoughApplication qtDoughApp;
 SDL_Window* QTSDLWindow;
 SDL_Surface* _screenSurface = NULL;
-int SCREEN_WIDTH = 1024;
+int SCREEN_WIDTH = 1280;
 int SCREEN_HEIGHT = 1024;
 
 void RunQTDough()
@@ -142,7 +142,7 @@ int main(int argc, char* args[]) {
 			auto renderUpdateEnd = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> renderElapsed = renderUpdateEnd - renderUpdateStart;
 
-			if (renderElapsed.count() >= 16)
+			if (renderElapsed.count() >= 0)
 			{
                 GetInput();
 				//Render the scene.

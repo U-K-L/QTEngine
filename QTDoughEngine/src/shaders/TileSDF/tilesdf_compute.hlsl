@@ -59,6 +59,8 @@ StructuredBuffer<Quanta> quantaBuffer : register(t12, space1); // readonly
 StructuredBuffer<ControlParticle> controlParticlesL1In : register(t14, space1); // readonly
 RWStructuredBuffer<ControlParticle> controlParticlesL1Out : register(u15, space1); // write
 
+RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space1);
+
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord)
 {
@@ -339,10 +341,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
     bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
 
-    if(!inAABB)
-        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
+    //if(!inAABB)
+    //    sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
-    float supportWS = sigma * 2.25f * supportMod * distanceMod * 0.25f; //triangle count == resolution.
+    float supportWS = sigma * 1.25f * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
     float speed = 0.001f;
     float timeX = time * speed;
@@ -426,8 +428,29 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
 
-                //if (disp > 0.005f)
-                //    voxelsL1Out[flatIndex].jacobian = 0.1f;
+                uint brushIdx = (uint) quanta.information.x-1;
+                Brush brush = Brushes[brushIdx];
+                float3 mbLocalPos;
+                int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
+                if (mbpIdx >= 0)
+                {
+                    float3 uvwMb = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
+                    int3 centerCoord = int3(floor(uvwMb * MATERIAL_BRUSH_GRID_RES));
+                    int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+                    int kernelSize = 1;
+                    
+                    for (int mz = -kernelSize; mz <= kernelSize; ++mz)
+                        for (int my = -kernelSize; my <= kernelSize; ++my)
+                            for (int mx = -kernelSize; mx <= kernelSize; ++mx)
+                            {
+                                int3 nc = centerCoord + int3(mx, my, mz);
+                                if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
+                                    continue;
+                                int nIdx = (int) brushIdx * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
+                                InterlockedMax(materialBrushPoints[nIdx].information.x, (int)quanta.mana.w);
+                            }
+                }
+
 
                 
                 float sd = length(worldPos - position) - radiusParticleSpacing * h;
@@ -542,10 +565,22 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
     */
 
-    // Get actual AABB from vertices
+    // Get actual AABB from vertices or primitive type
     float3 minBounds, maxBounds;
-    float3 extent = getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
-    
+    if (brush.type == PrimSphere)
+    {
+        float3 position = float3(brush.model[0][3], brush.model[1][3], brush.model[2][3]);
+        float3 scale = 1;
+        float radius = max(scale.x, max(scale.y, scale.z));
+        float blendPad = brush.blend * 2.0f * radius;
+        minBounds = position - radius - blendPad;
+        maxBounds = position + radius + blendPad;
+    }
+    else
+    {
+        getAABBWorld(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
+    }
+
     float3 brushMin = minBounds;
     float3 brushMax = maxBounds;
     

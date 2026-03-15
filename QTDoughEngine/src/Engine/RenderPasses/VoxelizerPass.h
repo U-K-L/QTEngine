@@ -56,26 +56,40 @@ public:
         uint32_t type; 
         uint32_t vertexCount;
         uint32_t vertexOffset;
+        uint32_t resolution;
+
         uint32_t textureID;
         uint32_t textureID2;
-        uint32_t resolution;
+        uint32_t materialID;
+        uint32_t materialID2;
+
+
         glm::mat4 model;
         glm::mat4 invModel;
         glm::vec4 aabbmin;
         glm::vec4 aabbmax;
         glm::vec4 center;
+
         uint32_t isDirty; //determines if needs an update. 0 = no update needed, 1 = update needed, 2 = not active.
         float stiffness;
         float blend;
         uint32_t opcode;
+
         uint32_t id;
         float smoothness;
         int isDeformed;
         int materialId;
+
         int density;
         float particleRadius;
         int isCollapsing;
-        float collapsePad0;
+        uint32_t particleCount;
+    };
+
+    struct MaterialBrushPoint
+    {
+        glm::vec4 deformationField;
+        glm::ivec4 information;
     };
 
     struct Tile
@@ -90,6 +104,7 @@ public:
         glm::ivec4 voxelResolution;
         glm::vec4 aabbCenter;
         float supportMultiplier;
+        int viewMode;
     };
 
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
@@ -128,7 +143,7 @@ public:
     //This is the list of brushes. Brushes are basically gameObjects with a model matrix.
     //Some fields only updated once per generation which can take multiple frames. However, the vector itself updates every frame.
     std::vector<Brush> brushes;
-    uint32_t maxBrushCapacity = 0; // Pre-allocated GPU buffer capacity for dynamic brush addition.
+    uint32_t maxBrushCapacity = 256; // Pre-allocated GPU buffer capacity for dynamic brush addition.
     VkBuffer brushesStorageBuffers;
     VkDeviceMemory brushesStorageMemory;
 
@@ -136,6 +151,10 @@ public:
     std::vector<uint32_t> BrushesIndices;
     VkBuffer brushIndicesStorageBuffers;
     VkDeviceMemory brushIndicesStorageMemory;
+
+    std::vector<std::vector<MaterialBrushPoint>> materialBrushPoints; //64x64x64.
+    VkBuffer materialBrushPointsStorageBuffers;
+    VkDeviceMemory materialBrushPointsStorageMemory;
 
     //Tile brush counts.
     std::vector<uint32_t> TilesBrushCounts;
@@ -233,6 +252,7 @@ public:
                   float blend = 0.0225f, float smoothness = 0.1f, uint32_t opcode = 0,
                   int density = 3, float stiffness = 1.0f);
     void CreateBrushTextures(int brushIndex);
+    void DispatchBrushCreationIncremental(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     glm::ivec3 SetVoxelGridSize();
     std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
@@ -256,6 +276,7 @@ public:
     std::vector<VkDeviceMemory> particlesStorageMemory;
 
     int CAGE_RESOLUTION = 26; //Resolution of the cage for deformation.
+    int MATERIAL_BRUSH_GRID_RES = 32; //Resolution of the coarse material grid per brush (32^3).
     int CONTROL_PARTICLE_COUNT = 4096 * CAGE_RESOLUTION; //The total amount of particles is the amount of deformable objects multipled by the cage resolution.
 
     float supportMultiplier = 1.0f;
@@ -289,7 +310,17 @@ public:
     VkSampler wu_sampler;
 
     bool VolumeTexturesCreated = false;
+    int BrushesCreated = 2;
+    std::set<uint32_t> processedTextureIndexMap;
     int mipsCount = 5;
+
+    struct IncrementalBrushJob {
+        int brushIndex;
+        int currentZGroup;
+        int totalZGroups;
+        int groupsPerFrame;
+    };
+    std::vector<IncrementalBrushJob> incrementalBrushJobs;
     uint32_t readBackVertexCount = 0;
 
     VkBuffer indirectDrawBuffer;

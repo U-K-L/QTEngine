@@ -30,6 +30,8 @@
 
 #define MAX_BRUSHES 8192
 
+#define MATERIAL_BRUSH_GRID_RES 32
+
 #define DENSITY_SCALE 1048576.0f
 
 #define NO_LABEL 16777215  // safe max exact int
@@ -106,14 +108,23 @@ struct ControlParticle
     float4 position;
 };
 
+struct MaterialBrushPoint
+{
+    float4 deformationField;
+    int4 information;
+};
+
+
 struct Brush
 {
     uint type;
     uint vertexCount;
     uint vertexOffset;
+    uint resolution;
     uint textureID;
     uint textureID2;
-    uint resolution;
+    uint materialID;
+    uint materialID2;
     float4x4 model;
     float4x4 invModel;
     float4 aabbmin;
@@ -358,6 +369,26 @@ int Flatten3D(int3 c, int3 res)
     return c.x + c.y * res.x + c.z * res.x * res.y;
 }
 
+
+// Converts world position to the flat index into the materialBrushPoints buffer.
+// outLocalPos receives the brush-local position in [-1, 1].
+// Returns -1 if outside the brush volume.
+int WorldToMaterialBrushIndex(float3 worldPos, Brush brush, uint brushIndex, out float3 outLocalPos)
+{
+    float3 localPos = mul(brush.invModel, float4(worldPos, 1.0)).xyz;
+    outLocalPos = localPos;
+
+    // Map [aabbmin, aabbmax] -> [0, 1] (same as Read3DTransformed)
+    float3 uvw = (localPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
+    int3 coord = int3(floor(uvw * MATERIAL_BRUSH_GRID_RES));
+
+    if (any(coord < 0) || any(coord >= MATERIAL_BRUSH_GRID_RES))
+        return -1;
+
+    int gridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+    int localIndex = Flatten3D(coord, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
+    return (int)brushIndex * gridSize + localIndex;
+}
 
 int Flatten3DR(int3 voxelCoord, int voxelResolution)
 {

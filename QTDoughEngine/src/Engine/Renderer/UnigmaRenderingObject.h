@@ -32,6 +32,7 @@ class UnigmaRenderingObject {
 		};
 
 		bool isRendering = false;
+		bool gizmoControlled = false;
 		UnigmaTransform _transform;
 		UnigmaMesh _mesh;
 		UnigmaRenderingStruct _renderer;

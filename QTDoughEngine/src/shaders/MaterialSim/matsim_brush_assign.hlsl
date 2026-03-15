@@ -52,7 +52,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
             continue; // Already claimed, try next.
 
         quantaOut[slot].position.xyz = worldPos;
-        quantaOut[slot].information.x = (int) brush.id + 1;
+        quantaOut[slot].information.x = (int) brush.id;
         return;
     }
 }

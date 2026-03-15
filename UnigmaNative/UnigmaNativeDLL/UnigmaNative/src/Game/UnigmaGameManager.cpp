@@ -10,6 +10,7 @@ UnigmaGameManager* UnigmaGameManager::instance = nullptr; // Define the static m
 extern LoadSceneCallbackType LoadSceneCallbackPointer = nullptr;
 extern LoadInputCallbackType LoadInputCallbackPointer = nullptr;
 extern AddBrushCallbackType AddBrushCallbackPointer = nullptr;
+extern RayCastSDFCallbackType RayCastSDFCallbackPointer = nullptr;
 
 
 
@@ -34,7 +35,7 @@ void UnigmaGameManager::Create()
 
 	std::cout << "UnigmaGameManager created" << std::endl;
 
-	std::string defaultSceneString = "Oakstreet";
+	std::string defaultSceneString = "CubeExample";
 
 	SceneManager->CreateScene(defaultSceneString);
 	SceneManager->LoadScene(defaultSceneString);
@@ -252,6 +253,12 @@ UNIGMANATIVE_API void RegisterLoadInputCallback(LoadInputCallbackType callback)
 UNIGMANATIVE_API void RegisterAddBrushCallback(AddBrushCallbackType callback)
 {
 	AddBrushCallbackPointer = callback;
+}
+
+//Register raycast SDF callback
+UNIGMANATIVE_API void RegisterRayCastSDFCallback(RayCastSDFCallbackType callback)
+{
+	RayCastSDFCallbackPointer = callback;
 }
 
 // Function to get the size of the RenderingObjects vector

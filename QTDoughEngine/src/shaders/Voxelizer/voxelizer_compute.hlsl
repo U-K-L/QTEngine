@@ -35,6 +35,7 @@ struct PushConsts
     int4 voxelResolution;
     float4 aabbCenter;
     float supportMultiplier;
+    int viewMode;
 };
 
 [[vk::push_constant]]
@@ -84,6 +85,8 @@ RWStructuredBuffer<Vertex> meshingVertices : register(u17, space1);
 StructuredBuffer<uint> quantaIds    : register(t19, space1);
 StructuredBuffer<uint> tileCounts   : register(t20, space1);
 StructuredBuffer<uint> tileOffsets  : register(t21, space1);
+
+RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space1);
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
@@ -607,9 +610,26 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brush brush = Brushes[index];
 
     float3 minBounds, maxBounds;
-    float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
-    float3 center = (minBounds + maxBounds) * 0.5f;
-    float maxExtent = max(extent.x, max(extent.y, extent.z));
+    float3 center;
+    float maxExtent;
+
+    if (brush.type == PrimSphere)
+    {
+        // Local space: unit sphere at origin. Read3DTransformed uses invModel
+        // to go from world to local before sampling, so bounds must be local.
+        float radius = 1.0f;
+        float padding = brush.blend * 2.0f;
+        minBounds = float3(-radius - padding, -radius - padding, -radius - padding);
+        maxBounds = float3( radius + padding,  radius + padding,  radius + padding);
+        center = float3(0, 0, 0);
+        maxExtent = radius * 2.0f;
+    }
+    else
+    {
+        float3 extent = getAABB(brush.vertexOffset, brush.vertexCount, minBounds, maxBounds, brush);
+        center = (minBounds + maxBounds) * 0.5f;
+        maxExtent = max(extent.x, max(extent.y, extent.z));
+    }
 
     Brushes[index].aabbmax.w = maxExtent;
     Brushes[index].center.xyz = center;
@@ -652,16 +672,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     }
     else if (brush.type == PrimSphere) //Sphere
     {
-        float3 position = brush.model[3].xyz; //Fourth Column
-        float3 scale;
-        scale.x = length(brush.model[0].xyz);
-        scale.y = length(brush.model[1].xyz);
-        scale.z = length(brush.model[2].xyz);
-        
-        float radius = max(scale.y, max(scale.x, scale.z));
-        minDist = sdSphere(localPos, center, radius);
-        
-
+        // Local space: unit sphere at origin (matches bounds above).
+        minDist = sdSphere(localPos, center, 1.0f);
     }
 
     float sdf = minDist;
@@ -682,7 +694,15 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     float valueToWrite = clamp(sdf, 0.03125f, DEFUALT_EMPTY_SPACE);
     Write3D(brush.textureID, int3(DTid), float2(sdf, NO_LABELF()));
     Write3D(brush.textureID2, int3(DTid), float2(sdf, NO_LABELF()));
-    
+
+    // Write coarse material brush grid.
+    int3 mbpCoord = int3(floor(uvw * MATERIAL_BRUSH_GRID_RES));
+    mbpCoord = clamp(mbpCoord, 0, MATERIAL_BRUSH_GRID_RES - 1);
+    int gridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+    int mbpIdx = (int)index * gridSize + Flatten3D(mbpCoord, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
+    materialBrushPoints[mbpIdx].deformationField = float4(0, 0, 0, sdf);
+    materialBrushPoints[mbpIdx].information = int4(0, 0, 0, 0);
+
     //Add particle if SDF is close enough.
 
     //Blocks size
@@ -923,8 +943,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Write3DDist(0, fullDTid, minDist);
         return;
     }
+    
 
-
+    float deformationField = 0;
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -932,13 +953,18 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Brush brush = Brushes[index];
 
         float d = Read3DTransformed(brush, center).x;
+        float3 mbLocalPos;
+        int mbpIdx = WorldToMaterialBrushIndex(center, brush, index, mbLocalPos);
 
         switch (brush.opcode)
         {
             case 0:
                 blendFactor += brush.blend;
                 if(minDist > d)
+                {
                     minId = index;
+                    deformationField = (float) materialBrushPoints[mbpIdx].information.x;
+                }
                 minDist = smin(minDist, d, blendFactor + 0.0001f);
                 smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
                 break;
@@ -946,11 +972,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
                 minDist = max(-d + 1, minDist);
                 break;
         }
+        
 
     }
 
     //Sum the distoration field.
-    int kernelSize = 3;
+    int kernelSize = 0;
     float distortionFieldSum = 0;
 
     
@@ -968,10 +995,30 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
-    //if (distortionFieldSum > 0.0001f)
+    
+    if (pc.viewMode == 8)
+    {
+        // Visualize material brush grid.
+        float mbpMinDist = DEFUALT_EMPTY_SPACE;
+        for (uint mi = 0; mi < brushCount; mi++)
+        {
+            uint mOffset = tileIndex * TILE_MAX_BRUSHES + mi;
+            uint bIdx = BrushesIndices[mOffset];
+            Brush mbBrush = Brushes[bIdx];
+            float3 mbLocalPos;
+            int mbpIdx = WorldToMaterialBrushIndex(center, mbBrush, bIdx, mbLocalPos);
+            if (mbpIdx >= 0)
+            {
+                float mbpSdf = materialBrushPoints[mbpIdx].deformationField.w;
+                mbpMinDist = min(mbpMinDist, mbpSdf);
+            }
+        }
+        Write3DDist(0, fullDTid, mbpMinDist);
+    }
+    else if (deformationField > 0.0001f || pc.viewMode == 7)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    //else
-    //    Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+    else
+        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
     //voxelsL1Out[index].brushId = minId;
     /*
@@ -2223,9 +2270,10 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 pW1 = mul(brush.model, float4(pL1, 1)).xyz;
     float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
 
-    //Check neighboring field to also remove from default mesh.
-    int radius = 3;
-    bool deformed = ReadDeformingFieldKernel(pW0, radius);
+    //Check material grid to determine if this triangle is deformed.
+    float3 mbLocalPos;
+    int mbpIdx = WorldToMaterialBrushIndex(pW0, brush, brushID, mbLocalPos);
+    bool deformed = (mbpIdx >= 0 && materialBrushPoints[mbpIdx].information.x > 0);
 
     if (deformed)
         return;
@@ -2270,12 +2318,10 @@ float GetPhi(uint3 index)
     return phi;
 }
 
-float ComputePhi(uint3 index)
+float ComputePhi(uint index)
 {
-    float3 voxelRes = GetVoxelResolutionL1().xyz;
-    uint flatIndex = Flatten3D(index, voxelRes);
-    
-    float phi = CalculateSDFGaussDistance(voxelsL1Out[flatIndex].distance, voxelsL1Out[flatIndex].density);
+
+    float phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
 
     return phi;
 }
@@ -2322,22 +2368,21 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
     if (any(DTid >= voxelRes))
         return;
 
-    float c = ComputePhi(DTid);
-    
     uint flatIndex = Flatten3D(DTid, voxelRes);
+    float c = ComputePhi(flatIndex);
+    
+
     voxelsL1Out[flatIndex].isoPhi = c;
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {
     float3 voxelRes = GetVoxelResolutionL1().xyz;
-    if (any(DTid >= voxelRes))
-        return;
     
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
-    uint index = Flatten3D(DTid, voxelRes);
+    uint index = Flatten3D(idVoxel, voxelRes);
     
-    float c = ComputePhi(DTid);
+    float c = ComputePhi(index);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
@@ -2358,7 +2403,7 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
     uint index = Flatten3D(idVoxel, voxelRes);
     
-    float c = ComputePhi(DTid);
+    float c = ComputePhi(index);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;

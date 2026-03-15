@@ -23,6 +23,7 @@ struct Images
     uint NormalImage;
     uint PositionImage;
     uint FullSDFField;
+    uint MaterialGridImage;
 };
 
 Images InitImages()
@@ -33,7 +34,8 @@ Images InitImages()
     image.NormalImage = intArray[1];
     image.PositionImage = intArray[2];
     image.FullSDFField = intArray[3];
-    
+    image.MaterialGridImage = intArray[4];
+
     return image;
 }
 
@@ -58,6 +60,7 @@ RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<Brush> Brushes : register(t9, space1);
+StructuredBuffer<MaterialGridPoint> materialGrid : register(t22, space1);
 // For reading
 Texture3D<float> gBindless3D[] : register(t4, space0);
 
@@ -935,6 +938,60 @@ float3 turboColor(float t)
 }
 
 
+float SampleMaterialGridSDF(float3 pos)
+{
+    float3 sceneSize = GetSceneSize();
+    float3 halfScene = sceneSize * 0.5;
+    int3 gridRes = int3(256, 256, 64);
+
+    if (any(pos < -halfScene) || any(pos >= halfScene))
+        return DEFUALT_EMPTY_SPACE;
+
+    float3 gridPos = ((pos + halfScene) / sceneSize) * float3(gridRes);
+    int3 coord = clamp(int3(floor(gridPos)), int3(0,0,0), gridRes - 1);
+    uint idx = Flatten3D(coord, gridRes); //coord.x + coord.y * gridRes.x + coord.z * gridRes.x * gridRes.y;
+    return materialGrid[idx].fieldValues.x;
+}
+
+float3 CentralDifferenceNormalMaterialGrid(float3 p)
+{
+    float eps = 0.25;
+
+    float dx = SampleMaterialGridSDF(p + float3(eps, 0, 0)) - SampleMaterialGridSDF(p - float3(eps, 0, 0));
+    float dy = SampleMaterialGridSDF(p + float3(0, eps, 0)) - SampleMaterialGridSDF(p - float3(0, eps, 0));
+    float dz = SampleMaterialGridSDF(p + float3(0, 0, eps)) - SampleMaterialGridSDF(p - float3(0, 0, eps));
+
+    float3 n = float3(dx, dy, dz);
+    return (length(n) > 1e-5f) ? normalize(n) : float3(0, 0, 0);
+}
+
+float4 MaterialGridMarch(float3 ro, float3 rd)
+{
+    float3 sceneSize = GetSceneSize();
+    float3 cellSize = sceneSize / float3(256, 256, 64);
+    float minStep = min(cellSize.x, min(cellSize.y, cellSize.z)) * 0.1;
+
+    float t = 0.0;
+    int maxSteps = 10000;
+
+    for (int i = 0; i < maxSteps; i++)
+    {
+        float3 pos = ro + rd * t;
+        float sdf = SampleMaterialGridSDF(pos);
+
+        if (sdf < 0.01f)
+        {
+            float3 n = CentralDifferenceNormalMaterialGrid(pos);
+            //float lighting = saturate(dot(n, normalize(float3(0.25, 0.0, 1.0))));
+            return float4(m, 1.0);
+        }
+
+        t += minStep; //max(sdf, minStep);
+    }
+
+    return float4(0, 0, 0, 0);
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
@@ -952,9 +1009,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
     uint normalImageHandle = NonUniformResourceIndex(image.NormalImage);
     uint positionImageHandle = NonUniformResourceIndex(image.PositionImage);
     uint fullFieldSDFHandle = NonUniformResourceIndex(image.FullSDFField);
+    uint materialGridHandle = NonUniformResourceIndex(image.MaterialGridImage);
     gBindlessStorage[outputImageHandle][pixel] = 0; //CLEAR IMAGE.
     gBindlessStorage[normalImageHandle][pixel] = 0; //CLEAR IMAGE.
     gBindlessStorage[positionImageHandle][pixel] = 0; //CLEAR IMAGE.
+    gBindlessStorage[materialGridHandle][pixel] = 0; //CLEAR IMAGE.
 
     //Construct a ray shooting from the camera projection plane.
     uint3 id = DTid;
@@ -1068,5 +1127,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
         gBindlessStorage[positionImageHandle][pixel].w = labelF + 1.0f + brushID;
 
     }
+
+    // MaterialGrid raymarch
+    float4 matGridResult = MaterialGridMarch(interpRayOrigin, interpRayDir);
+    gBindlessStorage[materialGridHandle][pixel] = matGridResult;
 
 }

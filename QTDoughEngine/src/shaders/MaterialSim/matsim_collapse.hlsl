@@ -36,9 +36,9 @@ StructuredBuffer<Brush> Brushes : register(t7, space1);
 // How far outside the AABB (world-space) quanta begin to be attracted.
 #define GATHER_RANGE    4.0f
 // Force magnitude for attraction toward AABB.
-#define GATHER_STRENGTH 100.0f
+#define GATHER_STRENGTH 10.0f
 // Force magnitude pushing free quanta out of AABB.
-#define PUSH_STRENGTH   1500.0f
+#define PUSH_STRENGTH   14.0f
 
 // Trilinear SDF sample — mirrors Read3DTrilinearManual in voxelizer.
 float2 SampleBrushSDF(uint texId, float3 uvw, int res)
@@ -103,8 +103,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     // Already collapsed to this brush — hold position, skip all forces.
     if (q.information.x == (int)brush.id)
     {
-        //quantaOut[globalIndex] = q;
-        //return;
+        quantaOut[globalIndex] = q;
+        return;
     }
 
     // Already collapsed to a different brush — don't touch.
@@ -151,7 +151,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
             float3 snappedWorld = mul(brush.model, float4(snappedLocal, 1.0f)).xyz;
 
             q.position.xyz = snappedWorld;
-            //q.information.x = (int) brush.id;
+            q.information.x = (int) brush.id;
         }
         else
         {

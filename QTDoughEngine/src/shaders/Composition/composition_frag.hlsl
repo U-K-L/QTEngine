@@ -48,6 +48,7 @@ struct Images
     uint CombineSDFRasterPass;
     uint FullSDFField;
     uint RayAlbedoPass;
+    uint MaterialGridImage;
 };
 
 Images InitImages()
@@ -66,7 +67,8 @@ Images InitImages()
     image.CombineSDFRasterPass = intArray[9];
     image.FullSDFField = intArray[10];
     image.RayAlbedoPass = intArray[11];
-    
+    image.MaterialGridImage = intArray[12];
+
     return image;
 }
 
@@ -156,13 +158,15 @@ float4 main(VSOutput i) : SV_Target
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
-        return sdfNormalImage;
-    if (pc.input == 3)
-        return max(sdfNormalImage, normalImage);
+        return float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     if (pc.input == 4)
         return albedoImage;
     if(pc.input == 5)
         return rayAlbedoPass; //sdfImage.w;
+
+    float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
+    if(pc.input == 6)
+        return float4(materialGridImage.xyz, 1.0f);
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);
@@ -202,10 +206,10 @@ float4 main(VSOutput i) : SV_Target
     weightSides /= total;
     weightTop /= total;
 
-    float4 finalColor = albedoImage; //front * weightFront + sides * weightSides + top * weightTop;
+    float4 finalColor = rayAlbedoPass; //front * weightFront + sides * weightSides + top * weightTop;
     
     //Light is stored in w.
-    float4 colorWithLight = saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
+    float4 colorWithLight = finalColor; //saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
     
     color = lerp(backgroundImage, colorWithLight, combinedNormals.w);
     
@@ -235,6 +239,6 @@ float4 main(VSOutput i) : SV_Target
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return finalImage;
+    return float4(finalImage.xyz, 1.0);
 
 }

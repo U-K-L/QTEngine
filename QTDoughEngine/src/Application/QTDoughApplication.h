@@ -35,11 +35,13 @@
 #include <chrono>
 #include <map>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
 #include <functional>
 #include "VideoRecorder.h"
+#include "ImGuizmo.h"
 
 
 
@@ -162,6 +164,31 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+enum class ViewModes
+{
+	Render = 0,
+	Quanta = 1,
+	Normals = 2,
+	Albedo = 4,
+	Material = 6,
+	Gaussian = 7,
+	MaterialBrush = 8
+};
+enum class EngineMode { Editor, Play };
+
+struct EditorState {
+    EngineMode mode = EngineMode::Editor;
+    bool IsEditor() const { return mode == EngineMode::Editor; }
+    ViewModes viewMode; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
+
+    // Offscreen viewport resources (editor renders game here, then displays via ImGui::Image)
+    VkImage viewportImage = VK_NULL_HANDLE;
+    VkDeviceMemory viewportImageMemory = VK_NULL_HANDLE;
+    VkImageView viewportImageView = VK_NULL_HANDLE;
+    VkSampler viewportSampler = VK_NULL_HANDLE;
+    VkDescriptorSet viewportDescriptorSet = VK_NULL_HANDLE; // For ImGui_ImplVulkan_AddTexture
+};
+
 //QTDough Class.
 class QTDoughApplication {
 public:
@@ -184,6 +211,11 @@ public:
     void ClearObjectData();
     void CreateGlobalUniformBuffers();
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+    //Editor.
+    EditorState editorState;
+    void CreateEditorViewportImage();
+    void CleanupEditorViewportImage();
+
     //Fields.
     bool PROGRAMEND = false;
     std::chrono::high_resolution_clock::time_point timeSinceApplication;

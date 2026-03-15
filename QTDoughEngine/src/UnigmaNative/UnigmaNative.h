@@ -37,6 +37,10 @@ typedef int (*AddBrushCallbackType)(uint32_t type, float px, float py, float pz,
     float blend, float smoothness, uint32_t opcode, int density, float stiffness);
 typedef void (*FnRegisterAddBrushCallback)(AddBrushCallbackType);
 
+struct Photon;
+typedef int (*RayCastSDFCallbackType)(Photon* photon);
+typedef void (*FnRegisterRayCastSDFCallback)(RayCastSDFCallbackType);
+
 
 
 
@@ -56,6 +60,7 @@ extern FnRegisterCallback UNRegisterCallback;
 extern FnRegisterLoadSceneCallback UNRegisterLoadSceneCallback;
 extern FnRegisterLoadInputCallback UNRegisterLoadInputCallback;
 extern FnRegisterAddBrushCallback UNRegisterAddBrushCallback;
+extern FnRegisterRayCastSDFCallback UNRegisterRayCastSDFCallback;
 
 
 void ApplicationFunction(const char* message);
@@ -64,6 +69,7 @@ UnigmaInputStruct LoadInput(int flag);
 int AddBrushFromNative(uint32_t type, float px, float py, float pz,
     float sx, float sy, float sz, int resolution,
     float blend, float smoothness, uint32_t opcode, int density, float stiffness);
+int RayCastSDFFromNative(Photon* photon);
 
 extern HMODULE unigmaNative;
 

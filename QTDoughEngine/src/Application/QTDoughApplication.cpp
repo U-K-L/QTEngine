@@ -1,4 +1,5 @@
 #include "QTDoughApplication.h"
+#include "ImGuizmo.cpp"
 
 #include "../Engine/Renderer/UnigmaRenderingManager.h"
 #include "../Engine/Camera/UnigmaCamera.h"
@@ -53,9 +54,12 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 {
 
     CameraMain = *UNGetCamera(0);
-    unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
-    unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
-    unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
+    if (!unigmaRenderingObjects[gObj->RenderID].gizmoControlled)
+    {
+        unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
+        unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
+        unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
+    }
 
     //Update the shader game objects.
     gameObjectShaderDataArray[gObj->RenderID].BaseAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["BaseAlbedo"];
@@ -97,27 +101,169 @@ void QTDoughApplication::RunMainGameLoop()
 {
     //Get current time.
     currentTime = std::chrono::high_resolution_clock::now();
-    // imgui new frame
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
 
-    ImGui::Begin("Performance"); // Create a window titled "Performance"
-
-    // Display FPS
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSecondPassed).count() > 999)
+    if (editorState.IsEditor())
     {
-        ImGuiIO& io = ImGui::GetIO();
-        FPS = io.Framerate;
+        // imgui new frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+        ImGuizmo::BeginFrame();
+
+        // --- Side panel (Settings) on the LEFT ---
+        float sidePanelWidth = 250.0f;
+        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(sidePanelWidth, (float)SCREEN_HEIGHT), ImGuiCond_Always);
+        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+
+        // Mode toggle
+        bool isEditor = editorState.IsEditor();
+        if (ImGui::Button(isEditor ? "Switch to Play" : "Switch to Editor", ImVec2(-1, 30)))
+        {
+            editorState.mode = isEditor ? EngineMode::Play : EngineMode::Editor;
+        }
+        ImGui::Separator();
+
+        // Performance stats
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSecondPassed).count() > 999)
+        {
+            ImGuiIO& io = ImGui::GetIO();
+            FPS = io.Framerate;
+        }
+        ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / FPS, FPS);
+        ImGui::Separator();
+
+        // --- Brush list ---
+        if (VoxelizerPass::instance && ImGui::CollapsingHeader("Brushes", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            auto& brushes = VoxelizerPass::instance->brushes;
+            auto& objects = VoxelizerPass::instance->renderingObjects;
+            for (size_t i = 0; i < brushes.size(); i++)
+            {
+                ImGui::PushID((int)i);
+                auto& b = brushes[i];
+
+                // Get name from game object if available
+                const char* label = "Brush";
+                if (i < objects.size())
+                {
+                    UnigmaGameObject* gObj = objects[i]->GetGameObject();
+                    if (gObj && gObj->name[0] != '\0')
+                        label = gObj->name;
+                }
+
+                if (ImGui::TreeNode(label))
+                {
+                    ImGui::Text("ID: %u", b.id);
+                    ImGui::Text("Type: %u  Opcode: %u", b.type, b.opcode);
+                    ImGui::Text("Verts: %u  Res: %u", b.vertexCount, b.resolution);
+                    ImGui::Text("Blend: %.2f  Stiffness: %.2f", b.blend, b.stiffness);
+                    ImGui::Text("Smoothness: %.2f", b.smoothness);
+                    ImGui::Text("Material: %d  Density: %d", b.materialId, b.density);
+                    ImGui::Text("Dirty: %u", b.isDirty);
+                    glm::vec3 pos = glm::vec3(b.model[3]);
+                    ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+        }
+
+        ImGui::End();
+
+        // --- Viewport panel (game render) to the RIGHT of settings ---
+        float viewportWidth = (float)SCREEN_WIDTH - sidePanelWidth;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::SetNextWindowPos(ImVec2(sidePanelWidth, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(viewportWidth, (float)SCREEN_HEIGHT), ImGuiCond_Always);
+        ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar);
+
+        // --- View mode tabs (Blender-style) ---
+        {
+            const struct { const char* name; ViewModes mode; } viewTabs[] = {
+                { "Render",   ViewModes::Render },
+                { "Quanta",   ViewModes::Quanta },
+                { "Normals",  ViewModes::Normals },
+                { "Albedo",   ViewModes::Albedo },
+                { "Material", ViewModes::Material },
+                { "Gaussian", ViewModes::Gaussian },
+                { "MBrush",   ViewModes::MaterialBrush },
+            };
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
+            for (int i = 0; i < 7; i++)
+            {
+                if (i > 0) ImGui::SameLine();
+                bool selected = (editorState.viewMode == viewTabs[i].mode);
+                if (selected)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
+                }
+                else
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+                }
+                if (ImGui::Button(viewTabs[i].name))
+                {
+                    editorState.viewMode = viewTabs[i].mode;
+                }
+                ImGui::PopStyleColor(2);
+            }
+            ImGui::PopStyleVar(2);
+        }
+
+        ImVec2 vpContentPos = ImGui::GetCursorScreenPos();
+        ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+        if (editorState.viewportDescriptorSet != VK_NULL_HANDLE)
+        {
+            ImGui::Image((ImTextureID)editorState.viewportDescriptorSet, viewportSize);
+        }
+
+        // --- ImGuizmo: manipulate all rendering objects (inside Viewport window) ---
+        ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
+        ImGuizmo::SetRect(vpContentPos.x, vpContentPos.y, viewportSize.x, viewportSize.y);
+
+        glm::mat4 view = CameraMain.getViewMatrix();
+        glm::mat4 proj = CameraMain.getProjectionMatrix();
+
+        if (VoxelizerPass::instance)
+        {
+            for (size_t gi = 0; gi < VoxelizerPass::instance->renderingObjects.size(); gi++)
+            {
+                ImGuizmo::SetID(static_cast<int>(gi));
+                UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[gi];
+                UnigmaTransform& t = obj->_transform;
+                glm::mat4 model = t.GetModelMatrix();
+
+                ImGuizmo::Manipulate(
+                    glm::value_ptr(view),
+                    glm::value_ptr(proj),
+                    ImGuizmo::SCALE,
+                    ImGuizmo::WORLD,
+                    glm::value_ptr(model)
+                );
+
+                if (ImGuizmo::IsUsing())
+                {
+                    obj->gizmoControlled = true;
+                    float trans[3], rot[3], scl[3];
+                    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), trans, rot, scl);
+                    t.position = glm::vec3(trans[0], trans[1], trans[2]);
+                    t.rotation = glm::vec3(glm::radians(rot[0]), glm::radians(rot[1]), glm::radians(rot[2]));
+                    t.scale = glm::vec3(scl[0], scl[1], scl[2]);
+                    t.UpdateTransform();
+                }
+            }
+        }
+
+        ImGui::End();
+        ImGui::PopStyleVar();
+
+        //make imgui calculate internal draw structures
+        ImGui::Render();
     }
-
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-        1000.0f / FPS, FPS);
-
-    ImGui::End(); // End the ImGui window
-
-    //make imgui calculate internal draw structures
-    ImGui::Render();
 
     //If a request is sent pause rendering.
     if (QTDoughEngineThread->requestSignal == true)
@@ -177,8 +323,8 @@ void QTDoughApplication::RunMainGameLoop()
     DrawFrame();
     if (GatherBlenderInfo() == 0)
     {
-        CameraToBlender();
-        GetMeshDataAllObjects();
+        //CameraToBlender();
+        //GetMeshDataAllObjects();
     }
 
     //RecreateResources();
@@ -642,6 +788,89 @@ void QTDoughApplication::InitImGui()
         */
 }
 
+void QTDoughApplication::CreateEditorViewportImage()
+{
+    // Create offscreen image matching swapchain format/size
+    CreateImage(
+        swapChainExtent.width,
+        swapChainExtent.height,
+        _swapChainImageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        editorState.viewportImage,
+        editorState.viewportImageMemory
+    );
+
+    editorState.viewportImageView = CreateImageView(
+        editorState.viewportImage, _swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    // Transition to SHADER_READ_ONLY so ImGui can sample it from the start
+    VkCommandBuffer cmd = BeginSingleTimeCommands();
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = editorState.viewportImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrier);
+    EndSingleTimeCommands(cmd);
+
+    // Create sampler
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    VK_CHECK(vkCreateSampler(_logicalDevice, &samplerInfo, nullptr, &editorState.viewportSampler));
+
+    // Register with ImGui so we can use it in ImGui::Image()
+    editorState.viewportDescriptorSet = ImGui_ImplVulkan_AddTexture(
+        editorState.viewportSampler,
+        editorState.viewportImageView,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+}
+
+void QTDoughApplication::CleanupEditorViewportImage()
+{
+    vkDeviceWaitIdle(_logicalDevice);
+
+    if (editorState.viewportDescriptorSet != VK_NULL_HANDLE) {
+        ImGui_ImplVulkan_RemoveTexture(editorState.viewportDescriptorSet);
+        editorState.viewportDescriptorSet = VK_NULL_HANDLE;
+    }
+    if (editorState.viewportSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(_logicalDevice, editorState.viewportSampler, nullptr);
+        editorState.viewportSampler = VK_NULL_HANDLE;
+    }
+    if (editorState.viewportImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(_logicalDevice, editorState.viewportImageView, nullptr);
+        editorState.viewportImageView = VK_NULL_HANDLE;
+    }
+    if (editorState.viewportImage != VK_NULL_HANDLE) {
+        vkDestroyImage(_logicalDevice, editorState.viewportImage, nullptr);
+        editorState.viewportImage = VK_NULL_HANDLE;
+    }
+    if (editorState.viewportImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(_logicalDevice, editorState.viewportImageMemory, nullptr);
+        editorState.viewportImageMemory = VK_NULL_HANDLE;
+    }
+}
+
 uint32_t QTDoughApplication::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(_physicalDevice, &memProperties);
@@ -875,6 +1104,7 @@ void QTDoughApplication::InitVulkan()
 
     //Imgui.
     InitImGui();
+    CreateEditorViewportImage();
 
     //Sync the buffers.
     CreateSyncObjects();
@@ -2444,6 +2674,25 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
+    // Editor mode: transition viewport image to COLOR_ATTACHMENT before render passes write to it
+    if (editorState.IsEditor())
+    {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = editorState.viewportImage;
+        barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
+
     // Render all your passes
     RenderPasses(commandBuffer, imageIndex);
 
@@ -2466,7 +2715,7 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
 
         vkCmdPipelineBarrier(
             commandBuffer,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             0,
             0, nullptr,
@@ -2475,18 +2724,47 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         );
     }
 
+    if (editorState.IsEditor())
+    {
+        // Transition viewport image back to SHADER_READ_ONLY so ImGui can sample it
+        {
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = editorState.viewportImage;
+            barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            vkCmdPipelineBarrier(commandBuffer,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr, 1, &barrier);
+        }
 
-    
-
-    if (recorder && recorder->IsRecording()) {
-        recorder->CmdCopySwapImageToStaging(commandBuffer,
-            swapChainImages[imageIndex],
-            currentFrame,
-            swapChainExtent.width,
-            swapChainExtent.height);
+        // Draw ImGui (with viewport texture inside) to swapchain, clearing it first
+        {
+            VkClearValue clearColor = { {{0.12f, 0.12f, 0.12f, 1.0f}} };
+            VkRenderingAttachmentInfo colorAttachment = AttachmentInfo(swapChainImageViews[imageIndex], &clearColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            VkRenderingInfo renderInfo = RenderingInfo(swapChainExtent, &colorAttachment, nullptr);
+            vkCmdBeginRendering(commandBuffer, &renderInfo);
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+            vkCmdEndRendering(commandBuffer);
+        }
     }
     else
-        DrawImgui(commandBuffer, swapChainImageViews[imageIndex]);
+    {
+        // Play mode: record video or just present (no ImGui)
+        if (recorder && recorder->IsRecording()) {
+            recorder->CmdCopySwapImageToStaging(commandBuffer,
+                swapChainImages[imageIndex],
+                currentFrame,
+                swapChainExtent.width,
+                swapChainExtent.height);
+        }
+    }
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -2571,6 +2849,13 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
 {
     for (int i = 0; i < computePassStack.size(); i++)
     {
+        //Check for sdfpass.
+        if (computePassStack[i]->PassName == "SDFPass")
+        {
+            if (editorState.viewMode == ViewModes::Quanta || editorState.viewMode == ViewModes::Material || editorState.viewMode == ViewModes::MaterialBrush)
+                computePassStack[i]->Dispatch(commandBuffer, imageIndex);
+            continue;
+        }
         computePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
 
@@ -3630,6 +3915,7 @@ void QTDoughApplication::DebugCompute(uint32_t currentFrame) {
 
 void QTDoughApplication::Cleanup()
 {
+    CleanupEditorViewportImage();
     CleanupSwapChain();
 
     for (int i = 0; i < NUM_OBJECTS; i++)

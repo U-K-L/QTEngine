@@ -22,11 +22,13 @@ typedef UnigmaInputStruct (*LoadInputCallbackType)(int flag);
 typedef int (*AddBrushCallbackType)(uint32_t type, float px, float py, float pz,
     float sx, float sy, float sz, int resolution,
     float blend, float smoothness, uint32_t opcode, int density, float stiffness);
+typedef int (*RayCastSDFCallbackType)(Photon* photon);
 
 //pointer to the callback function
 extern LoadSceneCallbackType LoadSceneCallbackPointer;
 extern LoadInputCallbackType LoadInputCallbackPointer;
 extern AddBrushCallbackType AddBrushCallbackPointer;
+extern RayCastSDFCallbackType RayCastSDFCallbackPointer;
 
 class UnigmaGameManager
 {
@@ -116,4 +118,7 @@ extern "C" {
 
     //Register add brush callback
     extern UNIGMANATIVE_API void RegisterAddBrushCallback(AddBrushCallbackType callback);
+
+    //Register raycast SDF callback
+    extern UNIGMANATIVE_API void RegisterRayCastSDFCallback(RayCastSDFCallbackType callback);
 }
