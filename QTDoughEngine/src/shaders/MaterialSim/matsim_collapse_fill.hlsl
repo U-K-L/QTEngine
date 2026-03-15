@@ -65,7 +65,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         // Only claim free quanta.
         if (q.information.x == 0)
         {
-            q.position.xyz = worldPos;
+            q.position.xyz = localPos; //worldPos;
             q.information.x = (int) brush.id; //New definitive claim.
             quantaOut[qIdx] = q;
             return;

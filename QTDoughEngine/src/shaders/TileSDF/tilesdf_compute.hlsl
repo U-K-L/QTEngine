@@ -300,6 +300,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
         materialMod = 0.001f;
         supportMod = 2;
     }
+    
+    
+    uint brushIdx = (uint) quanta.information.x - 1;
+    Brush brush = Brushes[brushIdx];
 
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
@@ -336,6 +340,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
 
     float3 position = quanta.position.xyz;
+    position = mul(brush.model, float4(position, 1.0f)).xyz;
     
     float3 aabbscenesize = GetDCAABBSize();
     float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
@@ -428,8 +433,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
 
-                uint brushIdx = (uint) quanta.information.x-1;
-                Brush brush = Brushes[brushIdx];
                 float3 mbLocalPos;
                 int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
                 if (mbpIdx >= 0)

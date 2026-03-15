@@ -29,6 +29,7 @@ RWStructuredBuffer<uint> tileCursor : register(u6, space1);
 
 StructuredBuffer<QuantaDeformation> deformIn : register(t9, space1);
 RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
+StructuredBuffer<Brush> Brushes : register(t7, space1);
 
 #define GROUP_SIZE 512 // 8 * 8 * 8
 #define BROWNIAN_STRENGTH 25.5f
@@ -43,6 +44,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     Quanta q = quantaIn[globalIndex];
+    int brushId = q.information.x - 1;
     q.mana.w = 0;
     
 
@@ -62,14 +64,18 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     //q.position.xyz += kick * BROWNIAN_STRENGTH * deltaTime;
 
     // Melt: only x >= 0 half, strength falls off with distance from origin.
-    if (q.position.x >= 0)
+    float3 worldPos = q.position.xyz;
+    if (brushId >= 0)
+        worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
+    if (worldPos.x >= 0)
     {
         float dist = length(q.position.xyz);
         float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
         float3 meltDir = float3(0, 0, -1); // Drip downward.
-        q.position.xyz += meltDir * meltStrength * 52.4f * deltaTime;
+        //worldPos += meltDir * meltStrength * 52.4f * deltaTime;
         q.mana.w = 1.0f;
     }
 
+    q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
     quantaOut[globalIndex] = q;
 }
