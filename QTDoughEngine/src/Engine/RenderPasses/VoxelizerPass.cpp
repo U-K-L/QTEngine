@@ -2199,12 +2199,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         photon.information = glm::ivec4(0);
             
             
-        int wasHit = MaterialSimulation::instance->RayCast(photon);
+        int wasHit = MaterialSimulation::instance->RayCast(photon, true);
         if (wasHit > 0)
         {
-            glm::vec3 position = photon.position;
-            //AddBrush(0, position, glm::vec3(1, 1, 1), 128);
-            //std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
+            int brushId = static_cast<int>(photon.information.y);
+            QTDoughApplication::instance->editorState.selectedBrushIndex = brushId;
         }
     }
 

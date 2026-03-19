@@ -100,7 +100,7 @@ class MaterialSimulation
 		void ReadBackMaterialGridFull();
 		void ReadBackMaterialGridSDF();
 		void SerializeMaterialGridText(const std::string& path);
-		int RayCast(Photon& photon);
+		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
 		std::atomic<bool> readbackInProgress{false};
 		std::atomic<bool> materialGridReadbackInProgress{false};
@@ -171,6 +171,7 @@ class MaterialSimulation
 
 		// Wave Function Collapse — brush access for quanta gather/snap.
 		VkBuffer brushesBuffer = VK_NULL_HANDLE;
+		VkBuffer voxelL1Buffer = VK_NULL_HANDLE;
 		VkPipeline collapsePipeline = VK_NULL_HANDLE;
 		VkPipeline collapseFillPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAssignPipeline = VK_NULL_HANDLE;

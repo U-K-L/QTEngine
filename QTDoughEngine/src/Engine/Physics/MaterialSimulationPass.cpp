@@ -43,6 +43,7 @@ void MaterialSimulation::InitComputeWorkload()
 {
 	// Wire brush buffer from VoxelizerPass (created during CreateShaderStorageBuffers).
 	brushesBuffer = VoxelizerPass::instance->brushesStorageBuffers;
+	voxelL1Buffer = VoxelizerPass::instance->voxelL1StorageBuffers[0];
 
 	CreateComputeDescriptorSetLayout();
 	CreateDescriptorPool();
@@ -65,8 +66,9 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 	// Binding 9: Deformation In (read)
 	// Binding 10: Deformation Out (write)
 	// Binding 11: MaterialGridSDF (write, contiguous floats)
+	// Binding 12: VoxelL1 (read)
 
-	std::array<VkDescriptorSetLayoutBinding, 12> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 13> bindings{};
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -95,7 +97,7 @@ void MaterialSimulation::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 12 * frameCount; // 12 bindings per set.
+	poolSize.descriptorCount = 13 * frameCount; // 13 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -200,13 +202,20 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		materialGridSDFInfo.offset = 0;
 		materialGridSDFInfo.range = sizeof(float) * (uint64_t)materialGridSize.x * materialGridSize.y * materialGridSize.z;
 
-		std::array<VkWriteDescriptorSet, 12> writes{};
+		// Binding 12: VoxelL1 buffer.
+		VkDescriptorBufferInfo voxelL1Info{};
+		voxelL1Info.buffer = voxelL1Buffer;
+		voxelL1Info.offset = 0;
+		voxelL1Info.range = VK_WHOLE_SIZE;
+
+		std::array<VkWriteDescriptorSet, 13> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
 			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
 			&brushesInfo, &materialGridInfo,
 			&deformInInfo, &deformOutInfo,
-			&materialGridSDFInfo
+			&materialGridSDFInfo,
+			&voxelL1Info
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -1225,12 +1234,12 @@ void MaterialSimulation::ReadBackMaterialGridSDF()
 
 		auto readbackEnd = std::chrono::high_resolution_clock::now();
 		double readbackMs = std::chrono::duration<double, std::milli>(readbackEnd - readbackStart).count();
-		std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
+		//std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
 		materialGridSDFReadbackInProgress = false;
 	});
 }
 
-int MaterialSimulation::RayCast(Photon &photon)
+int MaterialSimulation::RayCast(Photon &photon, int informationDepth)
 {
 	int iterations = 1024;
 	float t = 0.0f;
@@ -1251,10 +1260,23 @@ int MaterialSimulation::RayCast(Photon &photon)
 
 		if(sdf < 0.0f)
 		{
-			photon.position = glm::vec4(pos, 1.0f);
-			photon.information.x = 1;
-			photon.force.w = sdf;
-			return 1;
+			if (informationDepth == 0)
+			{
+				photon.position = glm::vec4(pos, 1.0f);
+				photon.information.x = 1;
+				photon.force.w = sdf;
+				return 1;
+			}
+			else if (informationDepth > 0)
+			{
+				MaterialGridPoint gp = SampleMaterialGrid(pos, Field);
+				photon.position = glm::vec4(pos, 1.0f);
+				photon.information = gp.fieldValues;
+				photon.force = glm::vec4(gp.velocity);
+				photon.normal = glm::vec4(gp.normal);
+				return 1;
+			}
+
 		}
 
 		t += std::max(sdf, 0.05f);

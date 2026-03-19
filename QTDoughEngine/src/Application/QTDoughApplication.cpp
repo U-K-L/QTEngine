@@ -228,33 +228,37 @@ void QTDoughApplication::RunMainGameLoop()
         glm::mat4 view = CameraMain.getViewMatrix();
         glm::mat4 proj = CameraMain.getProjectionMatrix();
 
-        if (VoxelizerPass::instance)
+        // Gizmo mode hotkeys: G=Translate, R=Rotate, S=Scale
+        if (GetKeyState('G') & 0x8000) editorState.gizmoOperation = ImGuizmo::TRANSLATE;
+        if (GetKeyState('R') & 0x8000) editorState.gizmoOperation = ImGuizmo::ROTATE;
+        if (GetKeyState('S') & 0x8000) editorState.gizmoOperation = ImGuizmo::SCALE;
+
+        if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
+            && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
         {
-            for (size_t gi = 0; gi < VoxelizerPass::instance->renderingObjects.size(); gi++)
+            size_t gi = editorState.selectedBrushIndex;
+            ImGuizmo::SetID(static_cast<int>(gi));
+            UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[gi];
+            UnigmaTransform& t = obj->_transform;
+            glm::mat4 model = t.GetModelMatrix();
+
+            ImGuizmo::Manipulate(
+                glm::value_ptr(view),
+                glm::value_ptr(proj),
+                editorState.gizmoOperation,
+                ImGuizmo::WORLD,
+                glm::value_ptr(model)
+            );
+
+            if (ImGuizmo::IsUsing())
             {
-                ImGuizmo::SetID(static_cast<int>(gi));
-                UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[gi];
-                UnigmaTransform& t = obj->_transform;
-                glm::mat4 model = t.GetModelMatrix();
-
-                ImGuizmo::Manipulate(
-                    glm::value_ptr(view),
-                    glm::value_ptr(proj),
-                    ImGuizmo::SCALE,
-                    ImGuizmo::WORLD,
-                    glm::value_ptr(model)
-                );
-
-                if (ImGuizmo::IsUsing())
-                {
-                    obj->gizmoControlled = true;
-                    float trans[3], rot[3], scl[3];
-                    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), trans, rot, scl);
-                    t.position = glm::vec3(trans[0], trans[1], trans[2]);
-                    t.rotation = glm::vec3(glm::radians(rot[0]), glm::radians(rot[1]), glm::radians(rot[2]));
-                    t.scale = glm::vec3(scl[0], scl[1], scl[2]);
-                    t.UpdateTransform();
-                }
+                obj->gizmoControlled = true;
+                float trans[3], rot[3], scl[3];
+                ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), trans, rot, scl);
+                t.position = glm::vec3(trans[0], trans[1], trans[2]);
+                t.rotation = glm::vec3(glm::radians(rot[0]), glm::radians(rot[1]), glm::radians(rot[2]));
+                t.scale = glm::vec3(scl[0], scl[1], scl[2]);
+                t.UpdateTransform();
             }
         }
 

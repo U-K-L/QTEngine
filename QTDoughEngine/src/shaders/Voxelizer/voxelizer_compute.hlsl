@@ -1020,7 +1020,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     else
         Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     
-    //voxelsL1Out[index].brushId = minId;
+    voxelsL1Out[index].brushId = minId;
     /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;

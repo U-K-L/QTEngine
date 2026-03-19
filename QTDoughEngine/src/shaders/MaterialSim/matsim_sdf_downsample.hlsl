@@ -17,6 +17,7 @@ struct PushConsts
 
 RWStructuredBuffer<MaterialGridPoint> materialGrid : register(u8, space1);
 RWStructuredBuffer<float> materialGridSDF : register(u11, space1);
+StructuredBuffer<VoxelL1> voxelsL1 : register(t12, space1);
 
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
@@ -25,5 +26,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float sdf = gBindless3D[pc.brushIndex].Load(int4(DTid, 0));
     uint idx = DTid.x + DTid.y * 256 + DTid.z * 256 * 256;
     materialGrid[idx].fieldValues.x = sdf;
+    uint3 voxCoord = DTid * 2;
+    uint voxIdx = voxCoord.x + voxCoord.y * 512 + voxCoord.z * 512 * 512;
+    materialGrid[idx].fieldValues.y = voxelsL1[voxIdx].brushId;
     materialGridSDF[idx] = sdf;
 }

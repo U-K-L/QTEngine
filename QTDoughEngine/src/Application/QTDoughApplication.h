@@ -180,6 +180,8 @@ struct EditorState {
     EngineMode mode = EngineMode::Editor;
     bool IsEditor() const { return mode == EngineMode::Editor; }
     ViewModes viewMode; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
+    int selectedBrushIndex = -1; // -1 = none selected
+    ImGuizmo::OPERATION gizmoOperation = ImGuizmo::TRANSLATE;
 
     // Offscreen viewport resources (editor renders game here, then displays via ImGui::Image)
     VkImage viewportImage = VK_NULL_HANDLE;

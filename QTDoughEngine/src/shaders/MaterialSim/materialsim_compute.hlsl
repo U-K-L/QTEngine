@@ -73,7 +73,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
         float3 meltDir = float3(0, 0, -1); // Drip downward.
         //worldPos += meltDir * meltStrength * 52.4f * deltaTime;
-        q.mana.w = 1.0f;
+        //q.mana.w = 1.0f;
     }
 
     q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
