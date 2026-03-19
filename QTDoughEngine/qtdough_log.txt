@@ -1,0 +1,2911 @@
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine>cd /d C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders\ 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv tests/particleTest_compute.hlsl -Fo particletestcompute.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv RaymarchSDF/raymarchsdf_compute.hlsl -Fo raymarchsdf.spv 
+RaymarchSDF/raymarchsdf_compute.hlsl:694:12: warning: implicit truncation of vector type [-Wconversion]
+    float2 voxelSceneBoundsL1 = GetVoxelResolutionWorldSDFArbitrary(sampleLevelL1, pc.voxelResolution);
+           ^
+
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv Voxelizer/voxelizer_compute.hlsl -Fo voxelizer.spv 
+Voxelizer/voxelizer_compute.hlsl:936:12: warning: implicit truncation of vector type [-Wconversion]
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+           ^
+Voxelizer/voxelizer_compute.hlsl:1071:16: warning: implicit truncation of vector type [-Wconversion]
+        float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+               ^
+Voxelizer/voxelizer_compute.hlsl:1120:12: warning: implicit truncation of vector type [-Wconversion]
+    float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
+           ^
+Voxelizer/voxelizer_compute.hlsl:1461:12: warning: implicit truncation of vector type [-Wconversion]
+    float2 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution.xyz);
+           ^
+
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv TileSDF/tilesdf_compute.hlsl -Fo tilesdf.spv 
+TileSDF/tilesdf_compute.hlsl:96:45: warning: implicit truncation of vector type [-Wconversion]
+    gBindless3DStorage[textureIndex][coord] = value;
+                                            ^
+
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/materialsim_compute.hlsl -Fo materialsim.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_histogram_compute.hlsl -Fo matsim_histogram.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_prefixsum_compute.hlsl -Fo matsim_prefixsum.spv 
+MaterialSim/matsim_prefixsum_compute.hlsl:37:31: warning: ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast [-Wambig-lit-shift]
+        if (tid < (TILE_COUNT >> (d + 1)))
+                              ^
+MaterialSim/matsim_prefixsum_compute.hlsl:57:31: warning: ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast [-Wambig-lit-shift]
+        if (tid < (TILE_COUNT >> (dd + 1)))
+                              ^
+
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_scatter_compute.hlsl -Fo matsim_scatter.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_collapse.hlsl -Fo matsim_collapse.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_collapse_fill.hlsl -Fo matsim_collapse_fill.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_brush_assign.hlsl -Fo matsim_brush_assign.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_p2g.hlsl -Fo matsim_p2g.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_sdf_downsample.hlsl -Fo matsim_sdf_downsample.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Background/background_frag.hlsl -Fo backgroundFrag.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Background/background_vert.hlsl -Fo backgroundVert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Albedo/albedo_frag.hlsl -Fo albedoFrag.spv 
+Albedo/albedo_frag.hlsl:79:12: warning: implicit truncation of vector type [-Wconversion]
+    float3 normal = input.normal;
+           ^
+
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Albedo/albedo_vert.hlsl -Fo albedoVert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Normal/normal_frag.hlsl -Fo normalFrag.spv 
+Normal/normal_frag.hlsl:24:68: warning: implicit truncation of vector type [-Wconversion]
+    float3 worldNormal = mul((float3x3) transpose(inverse(model)), input.normal);
+                                                                   ^
+
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Normal/normal_vert.hlsl -Fo normalVert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Position/position_frag.hlsl -Fo positionFrag.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Position/position_vert.hlsl -Fo positionVert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv CombineSDFRaster/combineSDFRaster_frag.hlsl -Fo combineSDFRasterFrag.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv CombineSDFRaster/combineSDFRaster_vert.hlsl -Fo combineSDFRasterVert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Outline/outline_frag.hlsl -Fo outlinefrag.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Outline/outline_vert.hlsl -Fo outlinevert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T ps_6_0 -E main -spirv Composition/composition_frag.hlsl -Fo compositionfrag.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T vs_6_0 -E main -spirv Composition/composition_vert.hlsl -Fo compositionvert.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>REM --- Benchmark (HLSL -> SPIR-V) --- 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv Benchmark/benchmark_alu_compute.hlsl -Fo benchmark_alu.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv Benchmark/benchmark_bw_compute.hlsl -Fo benchmark_bw.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>REM --- Ray Tracing (HLSL -> SPIR-V) --- 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe -spirv -fspv-target-env=vulkan1.2 -T lib_6_3 RayTraceAccel/raygen.hlsl    -Fo raygen.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe -spirv -fspv-target-env=vulkan1.2 -T lib_6_3 RayTraceAccel/miss.hlsl      -Fo miss.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe -spirv -fspv-target-env=vulkan1.2 -T lib_6_3 RayTraceAccel/anyhit.hlsl    -Fo anyhit.spv 
+
+C:\ProjectsSpeed\QTDEngine\QTDough\QTDoughEngine\src\shaders>C:/VulkanSDK/1.3.290.0/Bin/dxc.exe -spirv -fspv-target-env=vulkan1.2 -T lib_6_3 RayTraceAccel/closesthit.hlsl -Fo closesthit.spv 
+Shader compilation succeeded.
+Application received message: Hello from the DLL!
+Scene Loaded!
+Model Information and Material Size: 1
+Houston we're running the renderer!!!
+validation layer: windows_get_device_registry_files: GUID for 5 is not SoftwareComponent skipping
+validation layer: Searching for ICD drivers named .\igvk64.dll
+validation layer: Searching for ICD drivers named .\nvoglv64.dll
+validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+validation layer: windows_get_device_registry_files: GUID for 5 is not SoftwareComponent skipping
+validation layer: Searching for ICD drivers named .\igvk64.dll
+validation layer: Searching for ICD drivers named .\nvoglv64.dll
+validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+Created Window Surface
+Device count: 2
+Swap chain being queried
+Swap chain support details acquired successfully.
+========================: 
+=========TOTAL VRAM============: 
+Device VRAM: 7960 MB
+Device Name: NVIDIA GeForce RTX 4060 Laptop GPU
+Max Bound Descriptor Sets: 32
+Max Per Stage Sampled Images: 1048576
+Max Total Sampled Images: 1048576
+Max 3D Texture Size: 16384
+========================: 
+Max MSAA Samples: 8
+Suitable device found
+validation layer: loader_create_device_chain: Using deprecated and ignored 'ppEnabledLayerNames' member of 'VkDeviceCreateInfo' when creating a Vulkan device.
+Creating swap chain
+Swap chain being queried
+Swap chain support details acquired successfully.
+Created swap chain
+Creating Command Pool
+Created Command Pool
+========================
+Running GPU Benchmark...
+========================
+GPU Benchmark Results:
+  Compute throughput: 10388.4 GFLOPS
+  Memory bandwidth:   236.485 GB/s
+  Selected quality level: High (1)
+========================
+Required size for Quanta is: 134217728
+Required size for Deformation is: 201326592
+Quanta initialized: 203x203x51 (2101659 grid points, step=0.31498m)
+Total grid points is: 4194304
+Total Grid Memory Size is: 268435456
+MaterialSimulation storage buffers created. Tiles: 8x8x2 (128 total)
+High Quality Voxel Resolution. 
+Max Vertex Count set to: 2097152
+Passes count: 7
+Creating global descriptor set layout
+Created global descriptor set layout
+Creating graphics pipeline background for: BackgroundPass
+src/shaders/backgroundvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: BackgroundPass
+Graphics pipeline created
+Creating graphics pipeline background for: AlbedoPass
+src/shaders/albedovert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: AlbedoPass
+Graphics pipeline created
+Creating graphics pipeline background for: NormalPass
+src/shaders/normalvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: NormalPass
+Graphics pipeline created
+Creating graphics pipeline background for: PositionPass
+src/shaders/positionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: PositionPass
+Graphics pipeline created
+Creating graphics pipeline background for: CombineSDFRasterPass
+src/shaders/combineSDFRastervert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: CombineSDFRasterPass
+Graphics pipeline created
+Creating graphics pipeline background for: OutlinePass
+src/shaders/outlinevert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: OutlinePass
+Graphics pipeline created
+Creating graphics pipeline background for: DefaultPass
+src/shaders/compositionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Pipeline created OK for: DefaultPass
+Graphics pipeline created
+Creating compute pipeline
+Creating compute pipeline
+Compute pipeline created
+Memory of voxels in L1: 768 MB
+Memory of voxels in L2: 64 MB
+Memory of voxels in L3: 8 MB
+Size of voxel: 32 bytes
+Readback created: VoxelizerPass
+Creating compute pipeline
+Compute pipeline created
+Creating Ray Tracing Pipeline...
+Loading ray tracing shader files...
+Ray Tracing Pipeline created successfully.
+Texture Loaded Name: Assets/Textures/SkyboxBorder.png
+Texture Loaded Name Final Token: SkyboxBorder
+Texture Loaded Name: Assets/Textures/NoiseAndGrain.png
+Texture Loaded Name Final Token: NoiseAndGrain
+Memory of 3D Textures WORLD SDF: 512 MB
+Memory of 3D Textures in L1: 768 MB
+Memory of 3D Textures in L2: 64 MB
+Memory of 3D Textures in L3: 8 MB
+Textures created
+Textures created2
+Created 3D texture for world SDF level 0 with resolution: 1024
+Created 3D texture for world SDF level 1 with resolution: 512
+Created 3D texture for world SDF level 2 with resolution: 256
+Created 3D texture for world SDF level 3 with resolution: 128
+Created 3D texture for world SDF level 4 with resolution: 64
+Textures creat2ed2
+Creating Uniform Buffers
+Created Uniform Buffers
+Creating Shader Storage Buffers VoxelizerPass
+Vertex count: 8640
+Vertex size: 414720
+vertexBuffer memReq.size = 414720
+Voxel L1 Storage Buffers created
+VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
+Shader Storage Buffers created
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating Descriptor Pool
+Created Descriptor Pool
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating Global Descriptor Set
+Created Global Descriptor Set
+Creating Compute Descriptor Sets
+Created descriptor sets
+MaterialSimulation sort pipelines created.
+MaterialSimulation compute workload initialized.
+Created Command Buffer
+Allocated compute command buffers
+Started pool info imgui
+Started pool info imgui
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+Brush 0 dirty, pos=(3,0,0)
+Brush 1 dirty, pos=(0,0,1.54947)
+Brush 2 dirty, pos=(-1.76465,0,-0.0714185)
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=2)
+Brush resolution and ID: 0 , 128
+Brush resolution and ID: 1 , 256
+Brush resolution and ID: 2 , 256
+Brush creation took: 1 milliseconds
+Brushes Processed: 3
+Total Voxels Created: 35651584
+Estimated Particles Created: 4456448
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 107.806 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=1)
+Brush resolution and ID: 0 , 128
+Brush resolution and ID: 1 , 256
+Brush resolution and ID: 2 , 256
+Brush creation took: 1 milliseconds
+Brushes Processed: 3
+Total Voxels Created: 35651584
+Estimated Particles Created: 4456448
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 104.139 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass Done materialGridSDF readback. Took 0110.588:  ms.
+BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+Done materialGridSDF readback. Took [FRAME] Compute submitted, waiting for graphics fence
+103.902 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPUDone materialGridSDF readback. Took 
+106.78[VOX] 3: Image barriers ms.
+
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+Done materialGridSDF readback. Took 106.005 ms.
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 103.031 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 103.58 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 101.855 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+Done materialGridSDF readback. Took [VOX] 2: UpdateBrushesGPU1
+0[VOX] 3: Image barriers4.036
+ ms.
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 107.039 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass Done materialGridSDF readback. Took 2108.355:  ms.
+NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+Done materialGridSDF readback. Took 105.56[VOX] 2: UpdateBrushesGPU6
+ ms.
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass Done materialGridSDF readback. Took 0104.015:  ms.
+BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0Done materialGridSDF readback. Took : 101.571BackgroundPass ms.
+
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)Done materialGridSDF readback. Took 
+100.98[FRAME] Submitting compute queue1
+ ms.
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+Done materialGridSDF readback. Took 109.011 ms.
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+Done materialGridSDF readback. Took 11[FRAME] Compute submitted, waiting for graphics fence8.493 ms.
+
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPUDone materialGridSDF readback. Took 
+1[VOX] 3: Image barriers
+16.71[VOX] 4: Brush creation (BrushesCreated= ms.
+0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass
+[RENDER] All passes recorded
+[FRAME] Submitting graphics queue
+[FRAME] Graphics submitted, presenting
+[FRAME] Presenting
+[VOX] 1: CopyOutToRead
+[VOX] 2: UpdateBrushesGPU
+[VOX] 3: Image barriers
+[VOX] 4: Brush creation (BrushesCreated=0)
+[FRAME] Submitting compute queue
+[FRAME] Compute submitted, waiting for graphics fence
+[RENDER] Recording pass 0: BackgroundPass
+[RENDER] Recording pass 1: AlbedoPass
+[RENDER] Recording pass 2: NormalPass
+[RENDER] Recording pass 3: PositionPass
+[RENDER] Recording pass 4: CombineSDFRasterPass
+[RENDER] Recording pass 5: OutlinePass
+[RENDER] Recording pass 6: DefaultPass

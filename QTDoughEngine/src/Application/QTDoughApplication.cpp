@@ -240,7 +240,7 @@ void QTDoughApplication::RunMainGameLoop()
                 ImGuizmo::Manipulate(
                     glm::value_ptr(view),
                     glm::value_ptr(proj),
-                    ImGuizmo::SCALE,
+                    ImGuizmo::ROTATE,
                     ImGuizmo::WORLD,
                     glm::value_ptr(model)
                 );
@@ -390,11 +390,13 @@ void QTDoughApplication::DrawFrame()
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
 
+    std::cerr << "[FRAME] Submitting compute queue" << std::endl;
     if (vkQueueSubmit(_vkComputeQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit compute command buffer!");
     };
+    std::cerr << "[FRAME] Compute submitted, waiting for graphics fence" << std::endl;
 
-    //Waits for this fence to finish. 
+    //Waits for this fence to finish.
     vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     vkWaitForFences(
@@ -443,9 +445,11 @@ void QTDoughApplication::DrawFrame()
     };
     */
     //Sends the recorded command buffer to be rendered.
+    std::cerr << "[FRAME] Submitting graphics queue" << std::endl;
     if (vkQueueSubmit(_vkGraphicsQueue, 1, &submitInfo, _inFlightFences[currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
+    std::cerr << "[FRAME] Graphics submitted, presenting" << std::endl;
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -460,6 +464,7 @@ void QTDoughApplication::DrawFrame()
     presentInfo.pImageIndices = &imageIndex;
 
     //Actually draws to the screen.
+    std::cerr << "[FRAME] Presenting" << std::endl;
     result = vkQueuePresentKHR(_presentQueue, &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
@@ -914,7 +919,11 @@ void QTDoughApplication::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usag
         ? &allocFlags
         : nullptr;
 
-    if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+    VkResult memResult = vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &bufferMemory);
+    if (memResult != VK_SUCCESS) {
+        std::cout << "vkAllocateMemory FAILED: VkResult=" << memResult << " size=" << (memRequirements.size / 1024 / 1024) << " MB" << std::endl;
+        if (memResult == VK_ERROR_OUT_OF_DEVICE_MEMORY) std::cout << ">> OUT OF GPU MEMORY" << std::endl;
+        if (memResult == VK_ERROR_OUT_OF_HOST_MEMORY) std::cout << ">> OUT OF HOST MEMORY" << std::endl;
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
@@ -1886,7 +1895,10 @@ void QTDoughApplication::CreateImage(uint32_t width, uint32_t height, VkFormat f
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+    VkResult imgMemResult = vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &imageMemory);
+    if (imgMemResult != VK_SUCCESS) {
+        std::cout << "vkAllocateMemory (image) FAILED: VkResult=" << imgMemResult << " size=" << (memRequirements.size / 1024 / 1024) << " MB" << std::endl;
+        if (imgMemResult == VK_ERROR_OUT_OF_DEVICE_MEMORY) std::cout << ">> OUT OF GPU MEMORY" << std::endl;
         throw std::runtime_error("failed to allocate image memory!");
     }
 
@@ -1922,7 +1934,10 @@ void QTDoughApplication::CreateImages3D(uint32_t width, uint32_t height, uint32_
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+    VkResult img3dMemResult = vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &imageMemory);
+    if (img3dMemResult != VK_SUCCESS) {
+        std::cout << "vkAllocateMemory (3D image) FAILED: VkResult=" << img3dMemResult << " size=" << (memRequirements.size / 1024 / 1024) << " MB" << std::endl;
+        if (img3dMemResult == VK_ERROR_OUT_OF_DEVICE_MEMORY) std::cout << ">> OUT OF GPU MEMORY" << std::endl;
         throw std::runtime_error("failed to allocate 3D image memory!");
     }
 
@@ -2271,11 +2286,11 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
 
     // Sampled 2D textures
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    poolSizes[0].descriptorCount = MAX_BINDLESS_IMAGES;
+    poolSizes[0].descriptorCount = MAX_BINDLESS_IMAGES * MAX_FRAMES_IN_FLIGHT;
 
     // Samplers
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
-    poolSizes[1].descriptorCount = MAX_BINDLESS_IMAGES;
+    poolSizes[1].descriptorCount = MAX_BINDLESS_IMAGES * MAX_FRAMES_IN_FLIGHT;
 
     // Uniform buffers
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -2283,15 +2298,15 @@ void QTDoughApplication::CreateGlobalDescriptorPool()
 
     // Storage 2D images
     poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    poolSizes[3].descriptorCount = MAX_BINDLESS_IMAGES;
+    poolSizes[3].descriptorCount = MAX_BINDLESS_IMAGES * MAX_FRAMES_IN_FLIGHT;
 
     // Sampled 3D textures
     poolSizes[4].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    poolSizes[4].descriptorCount = MAX_BINDLESS_IMAGES;
+    poolSizes[4].descriptorCount = MAX_BINDLESS_IMAGES * MAX_FRAMES_IN_FLIGHT;
 
     // Storage 3D images
     poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    poolSizes[5].descriptorCount = MAX_BINDLESS_IMAGES;
+    poolSizes[5].descriptorCount = MAX_BINDLESS_IMAGES * MAX_FRAMES_IN_FLIGHT;
 
     // Game global objects buffer
     poolSizes[6].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -2356,7 +2371,12 @@ void QTDoughApplication::CreateGlobalDescriptorSet()
     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     allocInfo.pSetLayouts = layouts.data();  // 2 layouts for 2 descriptor sets
 
-    if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, globalDescriptorSets.data()) != VK_SUCCESS) {
+    VkResult allocResult = vkAllocateDescriptorSets(_logicalDevice, &allocInfo, globalDescriptorSets.data());
+    if (allocResult != VK_SUCCESS) {
+        std::cout << "vkAllocateDescriptorSets FAILED with VkResult: " << allocResult << std::endl;
+        if (allocResult == VK_ERROR_OUT_OF_DEVICE_MEMORY) std::cout << ">> OUT OF GPU MEMORY" << std::endl;
+        if (allocResult == VK_ERROR_OUT_OF_HOST_MEMORY) std::cout << ">> OUT OF HOST MEMORY" << std::endl;
+        if (allocResult == VK_ERROR_OUT_OF_POOL_MEMORY) std::cout << ">> OUT OF DESCRIPTOR POOL MEMORY" << std::endl;
         throw std::runtime_error("failed to allocate global descriptor set!");
     }
 
@@ -2807,6 +2827,7 @@ void QTDoughApplication::CameraToBlender()
 
 void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
+    // BISECT: RenderPasses re-enabled
     for (int i = 0; i < renderPassStack.size(); i++)
     {
         renderPassStack[i]->UpdateUniformBuffer(imageIndex, currentFrame);
@@ -2815,8 +2836,10 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
 
     for (int i = 0; i < renderPassStack.size(); i++)
     {
+        std::cerr << "[RENDER] Recording pass " << i << ": " << renderPassStack[i]->PassName << std::endl;
         renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame, nullptr, &CameraMain);
     }
+    std::cerr << "[RENDER] All passes recorded" << std::endl;
 
     //Compute
     for (int i = 0; i < computePassStack.size(); i++)
@@ -2859,10 +2882,11 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
         computePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
 
-    for (int i = 0; i < rayTracePassStack.size(); i++)
-    {
-        rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
-    }
+    // BISECT: ray tracing dispatch skipped
+    //for (int i = 0; i < rayTracePassStack.size(); i++)
+    //{
+    //    rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
+    //}
 }
 
 void QTDoughApplication::CreateCommandBuffers()

@@ -242,7 +242,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>ClangCL</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -278,7 +278,7 @@
     <OutDir>$(SolutionDir)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\stb-master;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Include;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)..\..\ExternalLibs\Vulkan\VulkanSDK\1.3.268.0\Lib;$(ProjectDir)..\..\ExternalLibs\SDL\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -349,8 +349,9 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;$(ProjectDir)\QTDough\src\Application;$(ProjectDir)..\..\ExternalLibs\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\tinyObj;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\stb-master;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui\backends;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\imgui;C:\VulkanSDK\1.3.290.0;C:\VulkanSDK\1.3.290.0\Include;$(ProjectDir)\QTDough\src\Application;$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\tinygltf;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\json;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\ImGuizmo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -358,7 +359,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.290.0\Lib;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\Unigma;C:\ProjectsSpeed\QTDEngine\QTDough\ExternalLibs\PhysX\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -309,12 +309,17 @@ void RenderPassObject::CreateGraphicsPipeline()
         descriptorSetLayout             // Set 1: Per-object descriptor set layout
     };
 
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(PushConsts);
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
     pipelineLayoutInfo.pSetLayouts = setLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
 
 
@@ -350,10 +355,13 @@ void RenderPassObject::CreateGraphicsPipeline()
 
     std::cout << "Dynamic pipeline created" << std::endl;
 
-    if (vkCreateGraphicsPipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+    VkResult pipelineResult = vkCreateGraphicsPipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline);
+    if (pipelineResult != VK_SUCCESS) {
+        std::cout << "vkCreateGraphicsPipelines FAILED for pass: " << PassName << " with VkResult: " << pipelineResult << std::endl;
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
+    std::cout << "Pipeline created OK for: " << PassName << std::endl;
 
     vkDestroyShaderModule(app->_logicalDevice, fragShaderModule, nullptr);
     vkDestroyShaderModule(app->_logicalDevice, vertShaderModule, nullptr);

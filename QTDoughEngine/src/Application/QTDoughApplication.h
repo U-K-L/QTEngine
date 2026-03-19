@@ -158,11 +158,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 
 
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
+// TODO: revert after AMD debugging
 const bool enableValidationLayers = true;
-#endif
 
 enum class ViewModes
 {
@@ -177,7 +174,7 @@ enum class ViewModes
 enum class EngineMode { Editor, Play };
 
 struct EditorState {
-    EngineMode mode = EngineMode::Editor;
+    EngineMode mode = EngineMode::Play;
     bool IsEditor() const { return mode == EngineMode::Editor; }
     ViewModes viewMode; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
 

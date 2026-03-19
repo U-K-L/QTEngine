@@ -1,4 +1,4 @@
-@echo off
+@echo on
 cd /d %~dp0
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv tests/particleTest_compute.hlsl -Fo particletestcompute.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv RaymarchSDF/raymarchsdf_compute.hlsl -Fo raymarchsdf.spv

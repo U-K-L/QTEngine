@@ -1843,9 +1843,14 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 
     // Memory barrier after all updates
     VkBufferMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = brushesStorageBuffers;
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
 
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -2145,9 +2150,14 @@ void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
 
     // Memory barrier after all updates
     VkBufferMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = brushesStorageBuffers;
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
 
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -2162,10 +2172,12 @@ void VoxelizerPass::UpdateBrushesTextureIds(VkCommandBuffer commandBuffer)
 void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    std::cerr << "[VOX] 1: CopyOutToRead" << std::endl;
     // Wait for physics to finish writing Out, then copy Out -> READ on this queue.
     vkWaitForFences(app->_logicalDevice, 1, &app->_physicsFence, VK_TRUE, UINT64_MAX);
     MaterialSimulation::instance->CopyOutToRead(commandBuffer);
 
+    std::cerr << "[VOX] 2: UpdateBrushesGPU" << std::endl;
     UpdateBrushesGPU(commandBuffer);
 
     //Quick inputs change support multiplier when pressed.
@@ -2234,6 +2246,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     dep2.pMemoryBarriers = &mem;
     vkCmdPipelineBarrier2(commandBuffer, &dep2);
     */
+    std::cerr << "[VOX] 3: Image barriers" << std::endl;
     //Image is transitioned to WRITE.
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -2290,6 +2303,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     //Dispatch only for unique volume textures as they might be shared between brushes.
     //Volume textures by index already processed.
     
+    std::cerr << "[VOX] 4: Brush creation (BrushesCreated=" << BrushesCreated << ")" << std::endl;
     uint64_t voxelCount = 0;
     uint64_t particleCount = 0;
     if (BrushesCreated > 0)
@@ -2372,9 +2386,12 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 	}
     //UpdateBrushesTextureIds(commandBuffer);
 
+    return; // BISECT: stop after brush creation
+    std::cerr << "[VOX] 5: Incremental brush creation" << std::endl;
     // Incremental brush creation for dynamically added brushes.
     DispatchBrushCreationIncremental(commandBuffer, currentFrame);
 
+    std::cerr << "[VOX] 6: Tile dispatches (dispatchCount=" << dispatchCount << ")" << std::endl;
     if(dispatchCount > 1)
 	{
 		//Dispatch the tile generation.
@@ -2388,6 +2405,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 	}
 
 
+    std::cerr << "[VOX] 7: LOD + mesh dispatches" << std::endl;
     if (dispatchCount > 2)
     {
         

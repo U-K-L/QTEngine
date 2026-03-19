@@ -24,14 +24,9 @@ HMODULE LoadDLL(const wchar_t* dllName)
 {
     // Convert DLLAssetPath to std::wstring and concatenate
     std::wstring wDLLAssetPath = ConvertCharToWString(DLLAssetPath);
-    std::wstring fullPath = wDLLAssetPath + dllName;
+    std::wstring relativePath = wDLLAssetPath + dllName;
 
-    // Get the absolute path
-    std::wstring absolutePath = GetAbsolutePath(fullPath);
-
-    // Print the absolute path
-    std::wcout << L"Resolved absolute path: " << absolutePath << std::endl;
-
+    std::wcout << L"Loading DLL from relative path: " << relativePath << std::endl;
 
     wchar_t originalDir[MAX_PATH];
     GetCurrentDirectory(MAX_PATH, originalDir);
@@ -39,9 +34,8 @@ HMODULE LoadDLL(const wchar_t* dllName)
     //Set default directory.
     SetCurrentDirectoryW(wDLLAssetPath.c_str());
 
-    // Load the DLL using the absolute path
-    LPCWSTR absolutePathLPCWSTR = absolutePath.c_str(); 
-    HMODULE hModule = LoadLibrary(absolutePathLPCWSTR);
+    // Load the DLL using the relative path
+    HMODULE hModule = LoadLibrary(relativePath.c_str());
     if (hModule == NULL) {
 
         DWORD errorCode = GetLastError();
@@ -57,13 +51,13 @@ HMODULE LoadDLL(const wchar_t* dllName)
             nullptr
         );
 
-        std::wcerr << L"Failed to load DLL: " << absolutePathLPCWSTR << std::endl;
+        std::wcerr << L"Failed to load DLL: " << relativePath << std::endl;
         std::wcerr << L"Error code: " << errorCode << L", Message: " << (errorMsg ? errorMsg : L"Unknown error") << std::endl;
 
         return hModule;
     }
 
-    std::wcout << L"Successfully loaded DLL using path: " << absolutePathLPCWSTR << std::endl;
+    std::wcout << L"Successfully loaded DLL: " << relativePath << std::endl;
 
     // Restore original working directory
     SetCurrentDirectory(originalDir);
