@@ -35,7 +35,7 @@ void MaterialSimulation::InitMaterialGrid()
 	std::cout << "Total Grid Memory Size is: " << materialMemorySize << std::endl;
 
 	//Allocate the memory for the grid. Zero-init so CPU raycast doesn't hit garbage before first readback.
-	Field.MaterialField = (MaterialGridPoint*)calloc(totalGridPoints, sizeof(MaterialGridPoint));
+	Field.InteractionField = (MaterialGridPoint*)calloc(totalGridPoints, sizeof(MaterialGridPoint));
 	Field.MaterialGridSDFData = (float*)calloc(totalGridPoints, sizeof(float));
 }
 
@@ -285,6 +285,7 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_collapse_fill", collapseFillPipeline);
 	CreateComputePipelineFromSPV("matsim_brush_assign", brushAssignPipeline);
 	CreateComputePipelineFromSPV("matsim_p2g", p2gPipeline);
+	CreateComputePipelineFromSPV("matsim_g2p", g2pPipeline);
 	CreateComputePipelineFromSPV("matsim_sdf_downsample", sdfDownsamplePipeline);
 }
 
@@ -433,6 +434,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	simDep.memoryBarrierCount = 1;
 	simDep.pMemoryBarriers = &simBarrier;
 	vkCmdPipelineBarrier2(commandBuffer, &simDep);
+
+	// G2P gather — transfer grid values back to particles.
+	DispatchG2P(commandBuffer);
 
 	if(dispatchesCount < 2)
 	{
@@ -648,6 +652,40 @@ void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 	QTDoughApplication* app = QTDoughApplication::instance;
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, p2gPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchG2P(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, g2pPipeline);
 
 	VkDescriptorSet sets[] = {
 		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
@@ -1057,7 +1095,7 @@ void MaterialSimulation::SerializeMaterialGridText(const std::string& path)
 
 	for (uint64_t i = 0; i < total; i++)
 	{
-		const MaterialGridPoint& gp = Field.MaterialField[i];
+		const MaterialGridPoint& gp = Field.InteractionField[i];
 		glm::vec3 wp = GridIndexToWorld((int)i, glm::vec3(Field.FieldSize), materialGridSize);
 
 		file << "[" << i << "] "
@@ -1185,7 +1223,7 @@ void MaterialSimulation::ReadBackMaterialGridFull()
 	app->EndSingleTimeCommandsAsync(currentFrame, cmd, [this, app, stagingBuffer, stagingMemory]() {
 		void* mapped = nullptr;
 		vkMapMemory(app->_logicalDevice, stagingMemory, 0, materialMemorySize, 0, &mapped);
-		memcpy(Field.MaterialField, mapped, materialMemorySize);
+		memcpy(Field.InteractionField, mapped, materialMemorySize);
 		vkUnmapMemory(app->_logicalDevice, stagingMemory);
 
 		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
@@ -1241,7 +1279,7 @@ void MaterialSimulation::ReadBackMaterialGridSDF()
 
 int MaterialSimulation::RayCast(Photon &photon, int informationDepth)
 {
-	int iterations = 1024;
+	int iterations = 4024;
 	float t = 0.0f;
 	glm::vec3 origin = glm::vec3(photon.position);
 
@@ -1279,7 +1317,7 @@ int MaterialSimulation::RayCast(Photon &photon, int informationDepth)
 
 		}
 
-		t += std::max(sdf, 0.05f);
+		t += std::max(sdf, 0.125f);
 	}
 	return 0;
 }
@@ -1288,9 +1326,20 @@ void MaterialSimulation::ScreenToWorldRay(float pixelX, float pixelY, glm::vec3&
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 
+	// Remap mouse coordinates to viewport in editor mode.
+	float vpX = pixelX, vpY = pixelY;
+	float vpW = (float)app->SCREEN_WIDTH, vpH = (float)app->SCREEN_HEIGHT;
+	if (app->editorState.IsEditor())
+	{
+		vpX = pixelX - app->editorState.viewportX;
+		vpY = pixelY - app->editorState.viewportY;
+		vpW = app->editorState.viewportW;
+		vpH = app->editorState.viewportH;
+	}
+
 	// Match GPU raymarcher UV convention: pixel to Vulkan NDC, then flip Y.
-	float ndcX = (2.0f * (pixelX + 0.5f) / app->SCREEN_WIDTH) - 1.0f;
-	float ndcY = -((2.0f * (pixelY + 0.5f) / app->SCREEN_HEIGHT) - 1.0f);
+	float ndcX = (2.0f * (vpX + 0.5f) / vpW) - 1.0f;
+	float ndcY = -((2.0f * (vpY + 0.5f) / vpH) - 1.0f);
 
 	// Same projection the GPU raymarcher receives (getProjectionMatrix, no Y flip).
 	glm::mat4 proj = CameraMain.getProjectionMatrix();

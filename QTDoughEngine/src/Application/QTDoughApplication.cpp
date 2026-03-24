@@ -181,10 +181,10 @@ void QTDoughApplication::RunMainGameLoop()
         // --- View mode tabs (Blender-style) ---
         {
             const struct { const char* name; ViewModes mode; } viewTabs[] = {
+                { "Albedo",   ViewModes::Albedo },
                 { "Render",   ViewModes::Render },
                 { "Quanta",   ViewModes::Quanta },
                 { "Normals",  ViewModes::Normals },
-                { "Albedo",   ViewModes::Albedo },
                 { "Material", ViewModes::Material },
                 { "Gaussian", ViewModes::Gaussian },
                 { "MBrush",   ViewModes::MaterialBrush },
@@ -216,6 +216,10 @@ void QTDoughApplication::RunMainGameLoop()
 
         ImVec2 vpContentPos = ImGui::GetCursorScreenPos();
         ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+        editorState.viewportX = vpContentPos.x;
+        editorState.viewportY = vpContentPos.y;
+        editorState.viewportW = viewportSize.x;
+        editorState.viewportH = viewportSize.y;
         if (editorState.viewportDescriptorSet != VK_NULL_HANDLE)
         {
             ImGui::Image((ImTextureID)editorState.viewportDescriptorSet, viewportSize);

@@ -185,6 +185,11 @@ float3 GetSceneSize()
     return float3(64, 64, 16);
 }
 
+int3 GetMaterialGridSize()
+{
+    return int3(256, 256, 64);
+}
+
 float4 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
 {
     float4 result = float4(voxelRes, WORLD_SDF_BOUNDS);

@@ -2187,7 +2187,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         MaterialSimulation::instance->ReadBackMaterialGridSDF();
     }
 
-    if (GetKeyState(VK_LBUTTON) & 0x8000)
+    static bool wasPressed = false;
+    bool isPressed = (GetKeyState(VK_LBUTTON) & 0x8000) != 0;
+    if (isPressed && !wasPressed)
     {
         int mx, my;
         SDL_GetMouseState(&mx, &my);
@@ -2197,8 +2199,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         photon.position = glm::vec4(origin, 1.0f);
         photon.direction = glm::vec4(direction, 1.0f);
         photon.information = glm::ivec4(0);
-            
-            
+
         int wasHit = MaterialSimulation::instance->RayCast(photon, true);
         if (wasHit > 0)
         {
@@ -2206,6 +2207,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             QTDoughApplication::instance->editorState.selectedBrushIndex = brushId;
         }
     }
+    wasPressed = isPressed;
 
     /*
     float  f = 100.0f;

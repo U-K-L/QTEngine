@@ -179,9 +179,10 @@ enum class EngineMode { Editor, Play };
 struct EditorState {
     EngineMode mode = EngineMode::Editor;
     bool IsEditor() const { return mode == EngineMode::Editor; }
-    ViewModes viewMode; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
+    ViewModes viewMode = ViewModes::Albedo; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
     int selectedBrushIndex = -1; // -1 = none selected
     ImGuizmo::OPERATION gizmoOperation = ImGuizmo::TRANSLATE;
+    float viewportX = 0, viewportY = 0, viewportW = 1, viewportH = 1; // ImGui viewport rect
 
     // Offscreen viewport resources (editor renders game here, then displays via ImGui::Image)
     VkImage viewportImage = VK_NULL_HANDLE;

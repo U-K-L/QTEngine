@@ -31,7 +31,7 @@ void UnigmaGameManager::Create()
 	SceneManager = new UnigmaSceneManager();
 	SceneManager->SetInstance(SceneManager);
 	RenderingManager = new UnigmaRenderingManager();
-	PhysicsInitialize();
+	//PhysicsInitialize(); // PhysX disabled
 
 	std::cout << "UnigmaGameManager created" << std::endl;
 
@@ -146,7 +146,7 @@ void UnigmaGameManager::EndGame()
 {
 	//Clean up all scenes.
 	SceneManager->CleanUpAllScenes();
-	PhysicsShutdown();
+	//PhysicsShutdown(); // PhysX disabled
 }
 
 UnigmaGameObjectClass* GetGameObjectClass(uint32_t ID)
