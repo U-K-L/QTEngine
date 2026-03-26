@@ -21,6 +21,7 @@ void MaterialSimulation::InitMaterialSim()
 	Field.FieldSize = glm::ivec3(64, 64, 16);
 	TileSize = glm::ivec3(8, 8, 8);
 	InitQuanta();
+	InitLeptons();
 	InitMaterialGrid();
 	CreateStorageBuffers();
 }
@@ -67,8 +68,15 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 	// Binding 10: Deformation Out (write)
 	// Binding 11: MaterialGridSDF (write, contiguous floats)
 	// Binding 12: VoxelL1 (read)
+	// Binding 13: Lepton In (read)
+	// Binding 14: Lepton Out (write)
+	// Binding 15: Lepton Read (read)
+	// Binding 16: LeptonIds
+	// Binding 17: LeptonTileCounts
+	// Binding 18: LeptonTileOffsets
+	// Binding 19: LeptonTileCursor
 
-	std::array<VkDescriptorSetLayoutBinding, 13> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 20> bindings{};
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -97,7 +105,7 @@ void MaterialSimulation::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 13 * frameCount; // 13 bindings per set.
+	poolSize.descriptorCount = 20 * frameCount; // 20 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -208,14 +216,58 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		voxelL1Info.offset = 0;
 		voxelL1Info.range = VK_WHOLE_SIZE;
 
-		std::array<VkWriteDescriptorSet, 13> writes{};
+		// Binding 13: Lepton In (read, ping-pong).
+		VkDescriptorBufferInfo leptonInInfo{};
+		leptonInInfo.buffer = LeptonStorageBuffers[inIdx];
+		leptonInInfo.offset = 0;
+		leptonInInfo.range = leptonMemorySize;
+
+		// Binding 14: Lepton Out (write, ping-pong).
+		VkDescriptorBufferInfo leptonOutInfo{};
+		leptonOutInfo.buffer = LeptonStorageBuffers[outIdx];
+		leptonOutInfo.offset = 0;
+		leptonOutInfo.range = leptonMemorySize;
+
+		// Binding 15: Lepton Read.
+		VkDescriptorBufferInfo leptonReadInfo{};
+		leptonReadInfo.buffer = LeptonStorageBuffers[2];
+		leptonReadInfo.offset = 0;
+		leptonReadInfo.range = leptonMemorySize;
+
+		// Binding 16: LeptonIds.
+		VkDescriptorBufferInfo leptonIdsInfo{};
+		leptonIdsInfo.buffer = LeptonIdsBuffer[i];
+		leptonIdsInfo.offset = 0;
+		leptonIdsInfo.range = sizeof(uint32_t) * leptonMaxSize;
+
+		// Binding 17: LeptonTileCounts.
+		VkDescriptorBufferInfo leptonTileCountsInfo{};
+		leptonTileCountsInfo.buffer = LeptonTileCountsBuffer[i];
+		leptonTileCountsInfo.offset = 0;
+		leptonTileCountsInfo.range = VK_WHOLE_SIZE;
+
+		// Binding 18: LeptonTileOffsets.
+		VkDescriptorBufferInfo leptonTileOffsetsInfo{};
+		leptonTileOffsetsInfo.buffer = LeptonTileOffsetsBuffer[i];
+		leptonTileOffsetsInfo.offset = 0;
+		leptonTileOffsetsInfo.range = VK_WHOLE_SIZE;
+
+		// Binding 19: LeptonTileCursor.
+		VkDescriptorBufferInfo leptonTileCursorInfo{};
+		leptonTileCursorInfo.buffer = LeptonTileCursorBuffer[i];
+		leptonTileCursorInfo.offset = 0;
+		leptonTileCursorInfo.range = VK_WHOLE_SIZE;
+
+		std::array<VkWriteDescriptorSet, 20> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
 			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
 			&brushesInfo, &materialGridInfo,
 			&deformInInfo, &deformOutInfo,
 			&materialGridSDFInfo,
-			&voxelL1Info
+			&voxelL1Info,
+			&leptonInInfo, &leptonOutInfo, &leptonReadInfo,
+			&leptonIdsInfo, &leptonTileCountsInfo, &leptonTileOffsetsInfo, &leptonTileCursorInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -287,6 +339,10 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_p2g", p2gPipeline);
 	CreateComputePipelineFromSPV("matsim_g2p", g2pPipeline);
 	CreateComputePipelineFromSPV("matsim_sdf_downsample", sdfDownsamplePipeline);
+	CreateComputePipelineFromSPV("lepton_histogram", leptonHistogramPipeline);
+	CreateComputePipelineFromSPV("lepton_prefixsum", leptonPrefixSumPipeline);
+	CreateComputePipelineFromSPV("lepton_scatter", leptonScatterPipeline);
+	CreateComputePipelineFromSPV("lepton_p2g", leptonP2GPipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -399,6 +455,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Sort quantas into tiles before simulation.
 	DispatchTileSort(commandBuffer);
 
+	// Sort leptons into tiles.
+	DispatchLeptonTileSort(commandBuffer);
+
 	// Copy matching SDF mip into materialGrid before P2G.
 	DispatchSDFDownsample(commandBuffer);
 
@@ -437,6 +496,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 
 	// G2P gather — transfer grid values back to particles.
 	DispatchG2P(commandBuffer);
+
+	// Lepton P2G — accumulate lepton mana into materialGrid.
+	DispatchLeptonP2G(commandBuffer);
 
 	if(dispatchesCount < 2)
 	{
@@ -715,6 +777,110 @@ void MaterialSimulation::DispatchG2P(VkCommandBuffer commandBuffer)
 	vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
+void MaterialSimulation::DispatchLeptonTileSort(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	uint32_t tileGridX = Field.FieldSize.x / TileSize.x;
+	uint32_t tileGridY = Field.FieldSize.y / TileSize.y;
+	uint32_t tileGridZ = Field.FieldSize.z / TileSize.z;
+	uint32_t totalTiles = tileGridX * tileGridY * tileGridZ;
+	VkDeviceSize tileBufferSize = sizeof(uint32_t) * totalTiles;
+
+	// Clear lepton tile counts and cursor.
+	vkCmdFillBuffer(commandBuffer, LeptonTileCountsBuffer[currentFrame], 0, tileBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, LeptonTileCursorBuffer[currentFrame], 0, tileBufferSize, 0);
+
+	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	clearBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	clearDep.memoryBarrierCount = 1;
+	clearDep.pMemoryBarriers = &clearBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = tileGridX;
+	pc.tileGridY = tileGridY;
+	pc.tileGridZ = tileGridZ;
+
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	VkMemoryBarrier2 passBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	passBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	passBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	passBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	passBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo passDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	passDep.memoryBarrierCount = 1;
+	passDep.pMemoryBarriers = &passBarrier;
+
+	// Pass 1: Histogram.
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, leptonHistogramPipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+	vkCmdDispatch(commandBuffer, leptonMaxSize / 256, 1, 1);
+	vkCmdPipelineBarrier2(commandBuffer, &passDep);
+
+	// Pass 2: Prefix Sum.
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, leptonPrefixSumPipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+	vkCmdDispatch(commandBuffer, 1, 1, 1);
+	vkCmdPipelineBarrier2(commandBuffer, &passDep);
+
+	// Pass 3: Scatter.
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, leptonScatterPipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+	vkCmdDispatch(commandBuffer, leptonMaxSize / 256, 1, 1);
+	vkCmdPipelineBarrier2(commandBuffer, &passDep);
+}
+
+void MaterialSimulation::DispatchLeptonP2G(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, leptonP2GPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	// Dispatch per grid cell: materialGridSize / numthreads(8,8,8).
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
 void MaterialSimulation::DispatchSDFDownsample(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
@@ -879,6 +1045,40 @@ void MaterialSimulation::InitQuanta()
 	}
 }
 
+void MaterialSimulation::InitLeptons()
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	leptonMemorySize = sizeof(Lepton) * leptonMaxSize;
+	std::cout << "Required size for Leptons is: " << leptonMemorySize << std::endl;
+
+	Leptons = (Lepton*)calloc(leptonMaxSize, sizeof(Lepton));
+
+	// Staging buffer.
+	VkBuffer leptonStagingBuffer;
+	VkDeviceMemory leptonStagingMemory;
+	app->CreateBuffer(leptonMemorySize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		leptonStagingBuffer, leptonStagingMemory);
+
+	void* leptonData;
+	vkMapMemory(app->_logicalDevice, leptonStagingMemory, 0, leptonMemorySize, 0, &leptonData);
+	memcpy(leptonData, Leptons, leptonMemorySize);
+	vkUnmapMemory(app->_logicalDevice, leptonStagingMemory);
+
+	// Triple buffered: In, Out, Read.
+	LeptonStorageBuffers.resize(3);
+	LeptonStorageMemory.resize(3);
+
+	for (int i = 0; i < 3; i++)
+	{
+		app->CreateBuffer(leptonMemorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, LeptonStorageBuffers[i], LeptonStorageMemory[i]);
+		app->CopyBuffer(leptonStagingBuffer, LeptonStorageBuffers[i], leptonMemorySize);
+	}
+
+	std::cout << "Leptons initialized: " << leptonMaxSize << " particles." << std::endl;
+}
+
 void MaterialSimulation::InitQuantaPositions()
 {
 	Quanta* Quantas = Field.Quantas;
@@ -1012,6 +1212,45 @@ void MaterialSimulation::CreateStorageBuffers()
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			deformationStorageBuffers[i], deformationStorageMemory[i]);
+	}
+
+	// --- Lepton tile sort buffers ---
+	uint64_t leptonIdsSize = sizeof(uint32_t) * leptonMaxSize;
+
+	LeptonIds.resize(leptonMaxSize, 0);
+	LeptonIdsBuffer.resize(frameCount);
+	LeptonIdsMemory.resize(frameCount);
+	for (uint32_t i = 0; i < frameCount; i++)
+	{
+		app->CreateBuffer(leptonIdsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, LeptonIdsBuffer[i], LeptonIdsMemory[i]);
+	}
+
+	LeptonTileCounts.resize(totalTiles, 0);
+	LeptonTileCountsBuffer.resize(frameCount);
+	LeptonTileCountsMemory.resize(frameCount);
+	for (uint32_t i = 0; i < frameCount; i++)
+	{
+		app->CreateBuffer(tileCountsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, LeptonTileCountsBuffer[i], LeptonTileCountsMemory[i]);
+	}
+
+	LeptonTileOffsets.resize(totalTiles, 0);
+	LeptonTileOffsetsBuffer.resize(frameCount);
+	LeptonTileOffsetsMemory.resize(frameCount);
+	for (uint32_t i = 0; i < frameCount; i++)
+	{
+		app->CreateBuffer(tileCountsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, LeptonTileOffsetsBuffer[i], LeptonTileOffsetsMemory[i]);
+	}
+
+	LeptonTileCursor.resize(totalTiles, 0);
+	LeptonTileCursorBuffer.resize(frameCount);
+	LeptonTileCursorMemory.resize(frameCount);
+	for (uint32_t i = 0; i < frameCount; i++)
+	{
+		app->CreateBuffer(tileCountsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, LeptonTileCursorBuffer[i], LeptonTileCursorMemory[i]);
 	}
 
 	std::cout << "MaterialSimulation storage buffers created. Tiles: "
@@ -1309,7 +1548,7 @@ int MaterialSimulation::RayCast(Photon &photon, int informationDepth)
 			{
 				MaterialGridPoint gp = SampleMaterialGrid(pos, Field);
 				photon.position = glm::vec4(pos, 1.0f);
-				photon.information = gp.fieldValues;
+				photon.information = gp.information;
 				photon.force = glm::vec4(gp.velocity);
 				photon.normal = glm::vec4(gp.normal);
 				return 1;
@@ -1320,6 +1559,31 @@ int MaterialSimulation::RayCast(Photon &photon, int informationDepth)
 		t += std::max(sdf, 0.125f);
 	}
 	return 0;
+}
+
+VkBuffer MaterialSimulation::GetQuantaBuffer(uint32_t i) const
+{
+	return QuantaStorageBuffers[i];
+}
+
+size_t MaterialSimulation::GetQuantaBufferCount() const
+{
+	return QuantaStorageBuffers.size();
+}
+
+VkBuffer MaterialSimulation::GetLeptonBuffer(uint32_t i) const
+{
+	return LeptonStorageBuffers[i];
+}
+
+size_t MaterialSimulation::GetLeptonBufferCount() const
+{
+	return LeptonStorageBuffers.size();
+}
+
+uint32_t MaterialSimulation::GetCurrentFrame() const
+{
+	return currentFrame;
 }
 
 void MaterialSimulation::ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection)

@@ -28,6 +28,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     materialGrid[idx].fieldValues.x = sdf;
     uint3 voxCoord = DTid * 2;
     uint voxIdx = voxCoord.x + voxCoord.y * 512 + voxCoord.z * 512 * 512;
-    materialGrid[idx].fieldValues.y = voxelsL1[voxIdx].brushId;
+    materialGrid[idx].information.x = voxelsL1[voxIdx].brushId;
     materialGridSDF[idx] = sdf;
 }

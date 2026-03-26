@@ -16,6 +16,7 @@
 #include "../Engine/RenderPasses/RayTracerPass.h"
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
+#include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
 #include "stb_image.h"
 #include <random>
@@ -30,6 +31,7 @@ std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
 MaterialSimulation* materialSimulationPass;
+EmitterSystem* emitterSystem;
 
 uint32_t currentFrame = 0;
 
@@ -350,6 +352,27 @@ void QTDoughApplication::ComputePhysics()
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(_physicsCommandBuffer, &beginInfo);
 
+    // Emit 100 leptons in a sphere when L is pressed.
+    {
+        const Uint8* keystate = SDL_GetKeyboardState(NULL);
+        static bool lWasPressed = false;
+        if (keystate[SDL_SCANCODE_L] && !lWasPressed)
+        {
+            Emitter ev{};
+            ev.information = glm::ivec4(0, 1, 0, 0);            // y=1 = LEPTON.
+            ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f); // center=origin, count=100.
+            ev.shape = glm::vec4(2.0f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
+            ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+            ev.velocity = glm::vec4(0.0f, 0.0f, 0.0f, 5.0f);   // w=lifespan.
+            ev.mana = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+            emitterSystem->AddEvent(ev);
+            std::cout << "Emitted event" << std::endl;
+        }
+        lWasPressed = keystate[SDL_SCANCODE_L];
+    }
+
+    emitterSystem->FlushEvents();
+    emitterSystem->Dispatch(_physicsCommandBuffer);
     materialSimulationPass->Simulate(_physicsCommandBuffer);
 
     vkEndCommandBuffer(_physicsCommandBuffer);
@@ -1060,6 +1083,11 @@ void QTDoughApplication::InitVulkan()
     materialSimulationPass->InitMaterialSim();
     materialSimulationPass->SetInstance(materialSimulationPass);
 
+    //Create Emitter System (phase 1: buffers only).
+    emitterSystem = new EmitterSystem();
+    emitterSystem->instance = emitterSystem;
+    emitterSystem->InitEmitter();
+
     AddPasses();
 
     //Create all the image views.
@@ -1104,6 +1132,9 @@ void QTDoughApplication::InitVulkan()
 
     //Initialize material simulation compute workload (after global descriptors are ready).
     materialSimulationPass->InitComputeWorkload();
+
+    //Initialize emitter compute workload (after materialSim and global descriptors are ready).
+    emitterSystem->InitComputeWorkload();
 
     //Create command buffers.
     CreateCommandBuffers();

@@ -8,6 +8,7 @@
 #define WORLD_SDF_RESOLUTION 1024.0f
 #define WORLD_SDF_BOUNDS 64.0f
 #define QUANTA_COUNT 2097152
+#define LEPTON_COUNT 65536
 
 #define VOXEL_RESOLUTIONL1 512.0f
 #define SCENE_BOUNDSL1 16.0f
@@ -97,10 +98,19 @@ struct QuantaDeformation
 
 struct MaterialGridPoint
 {
+    int4 information;
     float4 fieldValues;
     float4 massMomentum;
     float4 velocity;
     float4 normal;
+};
+
+struct Lepton
+{
+    float4 position;   // w = claimer ID.
+    float4 direction;  // w = radius of influence.
+    float4 mana;       // xyz = charge types, w = lifespan.
+    float4 velocity;   // speed through field.
 };
 
 struct ControlParticle

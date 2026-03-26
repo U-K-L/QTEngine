@@ -938,19 +938,22 @@ float3 turboColor(float t)
 }
 
 
-float SampleMaterialGridSDF(float3 pos)
+float4 SampleMaterialGridSDF(float3 pos)
 {
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize * 0.5;
     int3 gridRes = int3(256, 256, 64);
 
     if (any(pos < -halfScene) || any(pos >= halfScene))
-        return DEFUALT_EMPTY_SPACE;
+    {
+        return 0;
+    }
+
 
     float3 gridPos = ((pos + halfScene) / sceneSize) * float3(gridRes);
     int3 coord = clamp(int3(floor(gridPos)), int3(0,0,0), gridRes - 1);
     uint idx = Flatten3D(coord, gridRes); //coord.x + coord.y * gridRes.x + coord.z * gridRes.x * gridRes.y;
-    return materialGrid[idx].fieldValues.x;
+    return materialGrid[idx].fieldValues;
 }
 
 float3 CentralDifferenceNormalMaterialGrid(float3 p)
@@ -973,23 +976,27 @@ float4 MaterialGridMarch(float3 ro, float3 rd)
 
     float t = 0.0;
     int maxSteps = 10000;
+    float heatMap = 0.0f;
 
     for (int i = 0; i < maxSteps; i++)
     {
         float3 pos = ro + rd * t;
-        float sdf = SampleMaterialGridSDF(pos);
+        float4 sdf = SampleMaterialGridSDF(pos);
 
-        if (sdf < 0.01f)
+        heatMap += sdf.y * 0.1f;
+        
+        if (sdf.x < 0.01f)
         {
             float3 n = CentralDifferenceNormalMaterialGrid(pos);
-            //float lighting = saturate(dot(n, normalize(float3(0.25, 0.0, 1.0))));
-            return float4(m, 1.0);
+            float lighting = saturate(dot(n, normalize(float3(0.25, 0.0, 1.0))));
+            return float4(heatMap, sdf.zw, 1.0f);
+
         }
 
         t += minStep; //max(sdf, minStep);
     }
 
-    return float4(0, 0, 0, 0);
+    return float4(heatMap, 0, 0, 0);
 }
 
 [numthreads(8, 8, 1)]
@@ -1130,6 +1137,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     // MaterialGrid raymarch
     float4 matGridResult = MaterialGridMarch(interpRayOrigin, interpRayDir);
-    gBindlessStorage[materialGridHandle][pixel] = matGridResult;
+    float3 coolColor = float3(0, 0, 0.025f);
+    float3 hotColor = float3(5.0f, 1.0f, 1.0f);
+    float3 heatRamp = lerp(coolColor, hotColor, matGridResult.x);
+    gBindlessStorage[materialGridHandle][pixel] = float4(heatRamp, 1.0f);
 
 }

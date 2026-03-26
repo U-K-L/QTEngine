@@ -2203,7 +2203,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         int wasHit = MaterialSimulation::instance->RayCast(photon, true);
         if (wasHit > 0)
         {
-            int brushId = static_cast<int>(photon.information.y);
+            int brushId = static_cast<int>(photon.information.x);
             QTDoughApplication::instance->editorState.selectedBrushIndex = brushId;
         }
     }

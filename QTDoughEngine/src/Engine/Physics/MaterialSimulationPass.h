@@ -26,7 +26,8 @@ struct QuantaDeformation {
 };
 
 struct MaterialGridPoint {
-	glm::vec4 fieldValues; //x is SDF.
+	glm::ivec4 information;
+	glm::vec4 fieldValues; //x is SDF, yzw is mana.
 	glm::vec4 massMomentum;
 	glm::vec4 velocity;
 	glm::vec4 normal;
@@ -100,6 +101,9 @@ class MaterialSimulation
 		void DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex); //Direct per-brush quanta assignment on creation.
 		void DispatchP2G(VkCommandBuffer commandBuffer); //Particle to Grid scatter.
 		void DispatchG2P(VkCommandBuffer commandBuffer); //Grid to Particle gather.
+		void InitLeptons();
+		void DispatchLeptonTileSort(VkCommandBuffer commandBuffer);
+		void DispatchLeptonP2G(VkCommandBuffer commandBuffer);
 		void DispatchSDFDownsample(VkCommandBuffer commandBuffer); //Copy matching SDF mip into materialGrid.
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
@@ -114,6 +118,11 @@ class MaterialSimulation
 		void SerializeMaterialGridText(const std::string& path);
 		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
+		VkBuffer MaterialSimulation::GetQuantaBuffer(uint32_t i) const;
+		size_t MaterialSimulation::GetQuantaBufferCount() const;
+		VkBuffer MaterialSimulation::GetLeptonBuffer(uint32_t i) const;
+		size_t MaterialSimulation::GetLeptonBufferCount() const;
+		uint32_t MaterialSimulation::GetCurrentFrame() const;
 		std::atomic<bool> readbackInProgress{false};
 		std::atomic<bool> materialGridReadbackInProgress{false};
 		std::atomic<bool> materialGridSDFReadbackInProgress{false};
@@ -126,6 +135,23 @@ class MaterialSimulation
 		Lepton* Leptons;
 		std::vector<VkBuffer> LeptonStorageBuffers;
 		std::vector<VkDeviceMemory> LeptonStorageMemory;
+		uint64_t leptonMemorySize;
+
+		std::vector<uint32_t> LeptonIds;
+		std::vector<VkBuffer> LeptonIdsBuffer;
+		std::vector<VkDeviceMemory> LeptonIdsMemory;
+
+		std::vector<uint32_t> LeptonTileCounts;
+		std::vector<VkBuffer> LeptonTileCountsBuffer;
+		std::vector<VkDeviceMemory> LeptonTileCountsMemory;
+
+		std::vector<uint32_t> LeptonTileOffsets;
+		std::vector<VkBuffer> LeptonTileOffsetsBuffer;
+		std::vector<VkDeviceMemory> LeptonTileOffsetsMemory;
+
+		std::vector<uint32_t> LeptonTileCursor;
+		std::vector<VkBuffer> LeptonTileCursorBuffer;
+		std::vector<VkDeviceMemory> LeptonTileCursorMemory;
 
 		std::vector<VkBuffer> deformationStorageBuffers;      // double buffered ping-pong
 		std::vector<VkDeviceMemory> deformationStorageMemory;
@@ -195,6 +221,11 @@ class MaterialSimulation
 		VkPipeline p2gPipeline = VK_NULL_HANDLE;
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
+
+		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonScatterPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonP2GPipeline = VK_NULL_HANDLE;
 
 		uint32_t dispatchesCount = 0;
 };
