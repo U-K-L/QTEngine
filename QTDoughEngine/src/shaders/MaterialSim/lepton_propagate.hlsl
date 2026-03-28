@@ -37,7 +37,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     // TODO: March lepton through field (position += direction * deltaTime).
     // TODO: Decrease lifespan (mana.w -= deltaTime).
     // TODO: Reset to unclaimed if lifespan <= 0.
-    //lepton.position += lepton.direction * deltaTime * lepton.velocity.x;
+    lepton.position.xyz += (lepton.direction.xyz * deltaTime * lepton.velocity.x).xyz;
     lepton.mana *= exp(-3.0f * deltaTime);
     lepton.velocity.w *= exp(-2.0f * deltaTime);
     

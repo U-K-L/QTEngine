@@ -292,7 +292,7 @@ void main()
     float3 bmax = GetDCAABBSize() * 0.5f;
     float tHit;
     
-    bool rayHitAABB = RayAABB(ro, rd, bmin, bmax, tHit);
+    bool rayHitAABB = true; //RayAABB(ro, rd, bmin, bmax, tHit);
     
     if (rayHitAABB)
     {
@@ -346,7 +346,7 @@ void main()
 
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
 
-    gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, visibility.x);
+    gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
     gBindlessStorage[normalHandle][pixel] = float4(p.color.xyz, depthMapped);
 
 }

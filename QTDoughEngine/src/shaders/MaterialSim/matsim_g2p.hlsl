@@ -112,7 +112,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
             }
         }
     }
-
-    q.mana.w = manaSum / weightSum;
+    
+    q.mana.w += ((manaSum / weightSum) - q.mana.w) * deltaTime * 0.1f;
+    q.mana.w = clamp(q.mana.w, 0.0f, 10000.0f);
     quantaOut[qIdx] = q;
 }

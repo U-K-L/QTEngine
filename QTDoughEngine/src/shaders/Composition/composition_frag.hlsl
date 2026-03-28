@@ -166,7 +166,7 @@ float4 main(VSOutput i) : SV_Target
 
     float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
     if(pc.input == 6)
-        return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
+        rayAlbedoPass.xyz += materialGridImage.xyz; //color.xyz += materialGridImage.xyz; //return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);
@@ -211,7 +211,7 @@ float4 main(VSOutput i) : SV_Target
     //Light is stored in w.
     float4 colorWithLight = finalColor; //saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
     
-    color = lerp(backgroundImage, colorWithLight, combinedNormals.w);
+    color = lerp(0, colorWithLight, colorWithLight.w);
     
     
 
@@ -239,6 +239,6 @@ float4 main(VSOutput i) : SV_Target
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return float4(finalImage.xyz, 1.0);
+    return float4(finalImage.xyz + materialGridImage.xyz, 1.0);
 
 }

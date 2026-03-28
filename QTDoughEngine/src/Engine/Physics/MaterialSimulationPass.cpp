@@ -1121,8 +1121,13 @@ void MaterialSimulation::CopyOutToRead(VkCommandBuffer commandBuffer)
 	matGridRegion.size = materialMemorySize;
 	vkCmdCopyBuffer(commandBuffer, materialGridStorageBuffers[outIdx], materialGridStorageBuffers[2], 1, &matGridRegion);
 
+	// Copy lepton Out -> READ.
+	VkBufferCopy leptonRegion{};
+	leptonRegion.size = leptonMemorySize;
+	vkCmdCopyBuffer(commandBuffer, LeptonStorageBuffers[outIdx], LeptonStorageBuffers[2], 1, &leptonRegion);
+
 	// Barrier: wait for all copies to finish before shaders read READ.
-	VkBufferMemoryBarrier barriers[5]{};
+	VkBufferMemoryBarrier barriers[6]{};
 
 	barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1159,10 +1164,17 @@ void MaterialSimulation::CopyOutToRead(VkCommandBuffer commandBuffer)
 	barriers[4].offset = 0;
 	barriers[4].size = materialMemorySize;
 
+	barriers[5].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barriers[5].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barriers[5].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barriers[5].buffer = LeptonStorageBuffers[2];
+	barriers[5].offset = 0;
+	barriers[5].size = leptonMemorySize;
+
 	vkCmdPipelineBarrier(commandBuffer,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		0, 0, nullptr, 5, barriers, 0, nullptr);
+		0, 0, nullptr, 6, barriers, 0, nullptr);
 }
 
 void MaterialSimulation::InitQuanta()

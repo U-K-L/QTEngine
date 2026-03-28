@@ -368,6 +368,44 @@ void QTDoughApplication::ComputePhysics()
         lWasPressed = keystate[SDL_SCANCODE_L];
     }
 
+    // Laser beam: emit leptons along a line while left click + spacebar held.
+    if ((GetKeyState(VK_LBUTTON) & 0x8000) && (GetKeyState(VK_SPACE) & 0x8000))
+    {
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+        glm::vec3 origin, direction;
+        MaterialSimulation::instance->ScreenToWorldRay((float)mx, (float)my, origin, direction);
+        Photon photon;
+        photon.position = glm::vec4(origin, 1.0f);
+        photon.direction = glm::vec4(direction, 1.0f);
+        photon.information = glm::ivec4(0);
+
+        int wasHit = MaterialSimulation::instance->RayCast(photon, true);
+        if (wasHit > 0)
+        {
+            extern UnigmaCameraStruct CameraMain;
+            glm::vec3 camPos = CameraMain.position();
+            glm::vec3 camFwd = glm::normalize(CameraMain.forward());
+            glm::vec3 camRight = CameraMain.right;
+            glm::vec3 camUp = CameraMain.up;
+            glm::vec3 rayOrigin = glm::vec3(2, 2, 4);//origin + camRight * 1.5f - camUp * 0.3f + camFwd * 5.5f;
+
+            glm::vec3 directionToPoint = glm::normalize(glm::vec3(photon.position) - rayOrigin);
+
+            Emitter ev{};
+            ev.information = glm::ivec4(0, 1, 0, 0);
+            ev.position = glm::vec4(rayOrigin, 5);
+            ev.shape = glm::vec4(1.25f, 0.0f, 0.0f, 2.0f);
+            ev.direction = glm::vec4(directionToPoint, 1.25f);
+            ev.velocity = glm::vec4(10.0f, 0.0f, 0.0f, 5.0f);
+            ev.mana = glm::vec4(2000.25f, 0.0f, 0.0f, 0.0f);
+            EmitterSystem::instance->AddEvent(ev);
+        }
+
+
+    }
+
+
     emitterSystem->FlushEvents();
     emitterSystem->Dispatch(_physicsCommandBuffer);
     materialSimulationPass->Simulate(_physicsCommandBuffer);

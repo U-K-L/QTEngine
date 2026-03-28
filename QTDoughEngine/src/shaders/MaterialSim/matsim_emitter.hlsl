@@ -21,6 +21,7 @@ struct EmitterPushConsts
 
 #define SHAPE_POINT  0
 #define SHAPE_SPHERE 1
+#define SHAPE_LINE   2
 
 // Set 1 bindings — Emitter system.
 struct EmitterEvent
@@ -68,6 +69,13 @@ SpawnResult Spawn(EmitterEvent ev, uint threadIndex)
         float3 offset = float3(r * sin(phi) * cos(theta), r * sin(phi) * sin(theta), r * cos(phi));
         result.position += offset;
         result.direction = normalize(offset);
+    }
+    else if (shapeType == SHAPE_LINE)
+    {
+        float spreadLength = ev.shape.x;
+        float particleCount = ev.position.w;
+        float t = (float(threadIndex) / max(particleCount - 1.0f, 1.0f)) * spreadLength;
+        result.position += normalize(ev.direction.xyz) * t;
     }
 
     return result;
