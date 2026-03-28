@@ -242,7 +242,6 @@ void EmitterSystem::AddEvent(Emitter event)
 {
 	if (activeEventCount >= EMITTER_MAX_EVENTS)
 		return;
-	std::cout << emitterEvents[1].information.x << std::endl;
 	emitterEvents[activeEventCount] = event;
 	activeEventCount++;
 	std::cout << "Added event" << std::endl;

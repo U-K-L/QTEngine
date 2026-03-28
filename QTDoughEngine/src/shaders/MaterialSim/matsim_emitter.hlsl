@@ -39,9 +39,18 @@ RWStructuredBuffer<Quanta>      quantaIn      : register(u2, space1);
 StructuredBuffer<Lepton>        leptonRead    : register(t3, space1);
 RWStructuredBuffer<Lepton>      leptonIn      : register(u4, space1);
 
-float3 SpawnPosition(EmitterEvent ev, uint threadIndex)
+struct SpawnResult
 {
-    float3 center = ev.position.xyz;
+    float3 position;
+    float3 direction;
+};
+
+SpawnResult Spawn(EmitterEvent ev, uint threadIndex)
+{
+    SpawnResult result;
+    result.position = ev.position.xyz;
+    result.direction = ev.direction.xyz;
+
     int shapeType = (int) ev.shape.w;
 
     if (shapeType == SHAPE_SPHERE)
@@ -56,10 +65,12 @@ float3 SpawnPosition(EmitterEvent ev, uint threadIndex)
         float theta = rnd.x * 2.0f * PI;
         float phi = acos(2.0f * rnd.y - 1.0f);
         float r = radius * pow(rnd.z, 1.0f / 3.0f);
-        center += float3(r * sin(phi) * cos(theta), r * sin(phi) * sin(theta), r * cos(phi));
+        float3 offset = float3(r * sin(phi) * cos(theta), r * sin(phi) * sin(theta), r * cos(phi));
+        result.position += offset;
+        result.direction = normalize(offset);
     }
 
-    return center;
+    return result;
 }
 
 [numthreads(64, 1, 1)]
@@ -78,7 +89,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     int particleType = ev.information.y;
-    float3 spawnPos = SpawnPosition(ev, threadIndex);
+    SpawnResult spawn = Spawn(ev, threadIndex);
 
     if (particleType == PARTICLE_TYPE_LEPTON)
     {
@@ -88,8 +99,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
             if (leptonRead[i].position.w <= 0)
             {
                 Lepton claimed;
-                claimed.position = float4(spawnPos, float(ev.information.x));
-                claimed.direction = ev.direction;
+                claimed.position = float4(spawn.position, float(ev.information.x+1));
+                claimed.direction = float4(spawn.direction, ev.direction.w);
                 claimed.velocity = ev.velocity;
                 claimed.mana = float4(ev.mana.xyz, ev.velocity.w);
                 leptonIn[i] = claimed;

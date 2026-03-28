@@ -34,6 +34,7 @@
 #define MATERIAL_BRUSH_GRID_RES 32
 
 #define DENSITY_SCALE 1048576.0f
+#define FIXED_POINT_SCALE 1024
 
 #define NO_LABEL 16777215  // safe max exact int
 float NO_LABELF()
@@ -44,6 +45,23 @@ float NO_LABELF()
 static const uint PrimMesh = 0;
 static const uint PrimSphere = 1;
 
+
+#define DIFFUSION_RATE 20.25f
+
+// Quadratic B-spline weight for integer offset d (-1, 0, +1).
+float BSplineWeight(int d)
+{
+    // N2(0) = 0.75, N2(+-1) = 0.125
+    float ad = abs((float) d);
+    if (ad < 0.5f)
+        return 0.75f;
+    if (ad < 1.5f)
+    {
+        float t = 1.5f - ad;
+        return 0.5f * t * t;
+    }
+    return 0.0f;
+}
 
 // cheap length (dot*rsqrt)
 inline float lenFast(float3 v)
@@ -103,6 +121,14 @@ struct MaterialGridPoint
     float4 massMomentum;
     float4 velocity;
     float4 normal;
+};
+
+struct MaterialGridAccumulator
+{
+    int4 fieldValues;
+    int4 massMomentum;
+    int4 velocity;
+    int4 normal;
 };
 
 struct Lepton

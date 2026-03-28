@@ -297,7 +297,10 @@ void main()
     if (rayHitAABB)
     {
         TraceRay(tlas, 0, 0xFF, 0, 1, 0, ray, p);
-        surface.xyz = p.color.xyz;
+        if (p.color.w > 0)
+            surface.xyz = p.color.xyz;
+        else
+            hit = FullMarch(ro, rd, camPos, surface, visibility, specular, positionId);
     }
     else
         hit = FullMarch(ro, rd, camPos, surface, visibility, specular, positionId);

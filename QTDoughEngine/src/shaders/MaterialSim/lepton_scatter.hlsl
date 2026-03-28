@@ -33,7 +33,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
 
     Lepton l = leptonIn[globalIndex];
-    uint tileIdx = (l.position.w < 0) ? 0 : ComputeTileIndex(l.position.xyz);
+    uint tileIdx = ComputeTileIndex(l.position.xyz);
 
     uint slot;
     InterlockedAdd(leptonTileCursor[tileIdx], 1, slot);

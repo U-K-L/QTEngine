@@ -450,7 +450,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                                 if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
                                     continue;
                                 int nIdx = (int) brushIdx * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
-                                InterlockedMax(materialBrushPoints[nIdx].information.x, (int)quanta.mana.w);
+                                InterlockedMax(materialBrushPoints[nIdx].information.x, (int)quanta.mana.w*100);
                             }
                 }
 

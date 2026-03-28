@@ -45,7 +45,6 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     Quanta q = quantaIn[globalIndex];
     int brushId = q.information.x - 1;
-    q.mana.w = 0;
     
 
     if (q.position.w < 1 || q.information.x > 0)
@@ -53,6 +52,9 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         //quantaOut[globalIndex] = q;
         //return;
     }
+    
+    if(q.mana.w < 0) //Not excited.
+        return;
 
     // Brownian motion — random kick each frame.
     float3 kick = float3(
@@ -67,15 +69,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     float3 worldPos = q.position.xyz;
     if (brushId >= 0)
         worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
-    if (worldPos.x >= 0)
-    {
-        float dist = length(q.position.xyz);
-        float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
-        float3 meltDir = float3(0, 0, -1); // Drip downward.
-        //worldPos += meltDir * meltStrength * 52.4f * deltaTime;
-        //q.mana.w = 1.0f;
-    }
-
+    float3 gravity = float3(0, 0, -9.8f) * q.mana.w;
+    worldPos += gravity * deltaTime *0.01f;
     q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
     quantaOut[globalIndex] = q;
 }

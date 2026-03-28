@@ -2163,8 +2163,8 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     QTDoughApplication* app = QTDoughApplication::instance;
 
     // Wait for physics to finish writing Out, then copy Out -> READ on this queue.
-    vkWaitForFences(app->_logicalDevice, 1, &app->_physicsFence, VK_TRUE, UINT64_MAX);
-    MaterialSimulation::instance->CopyOutToRead(commandBuffer);
+    //vkWaitForFences(app->_logicalDevice, 1, &app->_physicsFence, VK_TRUE, UINT64_MAX);
+    //MaterialSimulation::instance->CopyOutToRead(commandBuffer);
 
     UpdateBrushesGPU(commandBuffer);
 

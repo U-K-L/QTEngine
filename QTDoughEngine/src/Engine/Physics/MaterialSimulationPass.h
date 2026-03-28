@@ -33,6 +33,12 @@ struct MaterialGridPoint {
 	glm::vec4 normal;
 };
 
+struct MaterialGridAccumulator {
+	glm::ivec4 fieldValues;
+	glm::ivec4 massMomentum;
+	glm::ivec4 velocity;
+	glm::ivec4 normal;
+};
 
 //Carries information, is the "hit" that interacts with the materialField.
 //A type of boson.
@@ -104,7 +110,10 @@ class MaterialSimulation
 		void InitLeptons();
 		void DispatchLeptonTileSort(VkCommandBuffer commandBuffer);
 		void DispatchLeptonP2G(VkCommandBuffer commandBuffer);
+		void DispatchAccumConvert(VkCommandBuffer commandBuffer); //Converts int accumulator to float materialGrid.
+		void DispatchLeptonPropagate(VkCommandBuffer commandBuffer);
 		void DispatchSDFDownsample(VkCommandBuffer commandBuffer); //Copy matching SDF mip into materialGrid.
+		void DispatchDiffusion(VkCommandBuffer commandBuffer); //Diffusion step: reads materialGrid In, writes materialGrid Out.
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -116,6 +125,7 @@ class MaterialSimulation
 		void ReadBackMaterialGridFull();
 		void ReadBackMaterialGridSDF();
 		void SerializeMaterialGridText(const std::string& path);
+		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
 		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
 		VkBuffer MaterialSimulation::GetQuantaBuffer(uint32_t i) const;
@@ -184,6 +194,9 @@ class MaterialSimulation
 		std::vector<VkBuffer> materialGridSDFBuffers;
 		std::vector<VkDeviceMemory> materialGridSDFBuffersMemory;
 
+		VkBuffer materialGridAccumBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory materialGridAccumMemory = VK_NULL_HANDLE;
+		uint64_t accumBufferSize;
 
 		uint64_t materialMemorySize;
 
@@ -221,11 +234,14 @@ class MaterialSimulation
 		VkPipeline p2gPipeline = VK_NULL_HANDLE;
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
+		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
 
 		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonScatterPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonP2GPipeline = VK_NULL_HANDLE;
+		VkPipeline accumConvertPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonPropagatePipeline = VK_NULL_HANDLE;
 
 		uint32_t dispatchesCount = 0;
 };

@@ -101,9 +101,6 @@ int QTDoughApplication::Run() {
 
 void QTDoughApplication::RunMainGameLoop()
 {
-    //Get current time.
-    currentTime = std::chrono::high_resolution_clock::now();
-
     if (editorState.IsEditor())
     {
         // imgui new frame
@@ -360,11 +357,11 @@ void QTDoughApplication::ComputePhysics()
         {
             Emitter ev{};
             ev.information = glm::ivec4(0, 1, 0, 0);            // y=1 = LEPTON.
-            ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f); // center=origin, count=100.
-            ev.shape = glm::vec4(2.0f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
-            ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-            ev.velocity = glm::vec4(0.0f, 0.0f, 0.0f, 5.0f);   // w=lifespan.
-            ev.mana = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+            ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 1000.0f); // center=origin, count=100.
+            ev.shape = glm::vec4(3.0f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
+            ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 1.25f);
+            ev.velocity = glm::vec4(2.0f, 0.0f, 0.0f, 5.0f);   // w=lifespan.
+            ev.mana = glm::vec4(2000.25f, 0.0f, 0.0f, 0.0f);
             emitterSystem->AddEvent(ev);
             std::cout << "Emitted event" << std::endl;
         }
@@ -2535,7 +2532,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
 
     auto timeNow = std::chrono::high_resolution_clock::now();
     auto duration = timeSinceApplication;
-    float timeInSeconds = std::chrono::duration<float, std::milli>(timeNow - duration).count();
+    float timeInSeconds = std::chrono::duration<float>(timeNow - duration).count();
 
 
     float deltaTime = std::chrono::duration<float>(timeNow - currentTime).count(); //current time a frame behind.

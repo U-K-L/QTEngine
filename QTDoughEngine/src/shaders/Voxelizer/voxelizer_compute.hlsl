@@ -2270,10 +2270,29 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 pW1 = mul(brush.model, float4(pL1, 1)).xyz;
     float3 pW2 = mul(brush.model, float4(pL2, 1)).xyz;
 
-    //Check material grid to determine if this triangle is deformed.
+    //Check material grid 3x3x3 neighborhood at barycentric center to determine if deformed.
+    float3 center = (pW0 + pW1 + pW2) / 3.0f;
     float3 mbLocalPos;
-    int mbpIdx = WorldToMaterialBrushIndex(pW0, brush, brushID, mbLocalPos);
-    bool deformed = (mbpIdx >= 0 && materialBrushPoints[mbpIdx].information.x > 0);
+    int mbpIdx = WorldToMaterialBrushIndex(center, brush, brushID, mbLocalPos);
+    bool deformed = false;
+    if (mbpIdx >= 0)
+    {
+        float3 uvw = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
+        int3 centerCoord = int3(floor(uvw * MATERIAL_BRUSH_GRID_RES));
+        int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+
+        for (int dz = -1; dz <= 1 && !deformed; dz++)
+            for (int dy = -1; dy <= 1 && !deformed; dy++)
+                for (int dx = -1; dx <= 1 && !deformed; dx++)
+                {
+                    int3 nc = centerCoord + int3(dx, dy, dz);
+                    if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
+                        continue;
+                    int nIdx = (int)brushID * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
+                    if (materialBrushPoints[nIdx].information.x > 0)
+                        deformed = true;
+                }
+    }
 
     if (deformed)
         return;

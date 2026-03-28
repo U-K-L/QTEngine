@@ -31,8 +31,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         return;
 
     Lepton l = leptonIn[globalIndex];
-    // Unclaimed leptons (claimer ID < 0) go to tile 0.
-    uint tileIdx = (l.position.w < 0) ? 0 : ComputeTileIndex(l.position.xyz);
+    uint tileIdx = ComputeTileIndex(l.position.xyz);
 
     uint dummy;
     InterlockedAdd(leptonTileCounts[tileIdx], 1, dummy);

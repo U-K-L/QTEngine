@@ -48,7 +48,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     // Use tile-sorted index for cache coherence.
     uint qIdx = quantaIds[globalIndex];
-    Quanta q = quantaIn[qIdx];
+    Quanta q = quantaOut[qIdx];
 
     // Skip inactive particles.
     if (q.position.w < 1.0f)
@@ -88,6 +88,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
 
     // --- 27-cell stencil loop ---
+    float weightSum = 0;
+    float manaSum = 0;
     [unroll]
     for (int i = 0; i < 3; i++)
     {
@@ -105,12 +107,12 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
                 float weight = wx[i] * wy[j] * wz[k];
                 int idx = Flatten3D(cellCoord, gridRes);
 
-                // TODO: Use weight and materialGrid[idx] as needed.
+                manaSum += weight * materialGrid[idx].fieldValues.y;
+                weightSum += weight;
             }
         }
     }
 
-    // TODO: Write results to quantaOut[qIdx], deformOut[qIdx], etc.
-
+    q.mana.w = manaSum / weightSum;
     quantaOut[qIdx] = q;
 }

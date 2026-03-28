@@ -20,69 +20,75 @@ struct PushConsts
     float pad2;
 } pc;
 
-// Lepton buffers.
-StructuredBuffer<Lepton>              leptonIn          : register(t13, space1);
-RWStructuredBuffer<uint>              leptonIds         : register(u16, space1);
-RWStructuredBuffer<uint>              leptonTileCounts  : register(u17, space1);
-RWStructuredBuffer<uint>              leptonTileOffsets : register(u18, space1);
+// Lepton buffer.
+StructuredBuffer<Lepton> leptonIn : register(t13, space1);
 
-// Material grid (accumulation target).
-RWStructuredBuffer<MaterialGridPoint> materialGrid      : register(u8, space1);
+// Accumulator (atomic int scatter target).
+RWStructuredBuffer<MaterialGridAccumulator> accumulator : register(u21, space1);
 
-// Dispatched per grid cell: (materialGridSize / 8) per axis.
-[numthreads(8, 8, 8)]
+// Dispatched per lepton: (leptonMaxSize / 256, 1, 1).
+[numthreads(256, 1, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    int3 gridRes = GetMaterialGridSize();
-
-    if (any(DTid >= (uint3)gridRes))
+    uint globalIndex = DTid.x;
+    if (globalIndex >= LEPTON_COUNT)
         return;
 
-    int3 cellCoord = int3(DTid);
-    int cellIdx = Flatten3D(cellCoord, gridRes);
+    Lepton l = leptonIn[globalIndex];
 
-    // World position of this grid cell center.
+    if (l.position.w <= 0 || l.mana.w <= 0)
+        return;
+
+    float3 pos = l.position.xyz;
+
+    int3 gridRes = GetMaterialGridSize();
     float3 sceneSize = GetSceneSize();
     float3 halfScene = sceneSize * 0.5f;
-    float3 cellSize  = sceneSize / float3(gridRes);
-    float3 cellCenter = (float3(cellCoord) + 0.5f) * cellSize - halfScene;
+    float3 cellSize = sceneSize / float3(gridRes);
 
-    // Which tile does this cell belong to?
-    int3 tileGrid = int3(pc.tileGridX, pc.tileGridY, pc.tileGridZ);
-    int3 cellTile = int3(floor((cellCenter + halfScene) / TILE_SIZE));
-    cellTile = clamp(cellTile, int3(0, 0, 0), tileGrid - 1);
-    materialGrid[cellIdx].fieldValues.y = 0.0f;
-    // Walk neighboring tiles to gather all nearby leptons.
-    [loop]
-    for (int ti = -1; ti <= 1; ti++)
+    // Grid-space position and base cell (cubic B-spline scaled to 7x7x7, support 3.0 cells).
+    float3 gs = (pos + halfScene) / cellSize;
+    int3 base = int3(floor(gs - 2.5f));
+    float3 fx = gs - float3(base);
+
+    // Cubic B-spline scaled: evaluate at d/1.5 so support stretches to ±3 cells.
+    float wx[7], wy[7], wz[7];
+    [unroll]
+    for (int n = 0; n < 7; n++)
     {
-        [loop]
-        for (int tj = -1; tj <= 1; tj++)
-        {
-            [loop]
-            for (int tk = -1; tk <= 1; tk++)
-            {
-                int3 neighborTile = cellTile + int3(ti, tj, tk);
+        float dx = abs(fx.x - (float)n) / 1.5f;
+        float dy = abs(fx.y - (float)n) / 1.5f;
+        float dz = abs(fx.z - (float)n) / 1.5f;
 
-                if (any(neighborTile < 0) || any(neighborTile >= tileGrid))
+        wx[n] = (dx < 1.0f) ? (2.0f/3.0f - dx*dx + 0.5f*dx*dx*dx) :
+                (dx < 2.0f) ? (1.0f/6.0f * (2.0f - dx)*(2.0f - dx)*(2.0f - dx)) : 0.0f;
+        wy[n] = (dy < 1.0f) ? (2.0f/3.0f - dy*dy + 0.5f*dy*dy*dy) :
+                (dy < 2.0f) ? (1.0f/6.0f * (2.0f - dy)*(2.0f - dy)*(2.0f - dy)) : 0.0f;
+        wz[n] = (dz < 1.0f) ? (2.0f/3.0f - dz*dz + 0.5f*dz*dz*dz) :
+                (dz < 2.0f) ? (1.0f/6.0f * (2.0f - dz)*(2.0f - dz)*(2.0f - dz)) : 0.0f;
+    }
+
+    // 7x7x7 cubic B-spline scatter.
+    [unroll]
+    for (int i = 0; i < 7; i++)
+    {
+        [unroll]
+        for (int j = 0; j < 7; j++)
+        {
+            [unroll]
+            for (int k = 0; k < 7; k++)
+            {
+                int3 cellCoord = base + int3(i, j, k);
+
+                if (any(cellCoord < 0) || any(cellCoord >= gridRes))
                     continue;
 
-                uint tileIdx = (uint)Flatten3D(neighborTile, tileGrid);
-                uint tileStart = leptonTileOffsets[tileIdx];
-                uint tileEnd   = tileStart + leptonTileCounts[tileIdx];
+                float weight = wx[i] * wy[j] * wz[k];
+                int contribution = (int)round(weight * l.mana.x * FIXED_POINT_SCALE);
+                int idx = Flatten3D(cellCoord, gridRes);
 
-                for (uint s = tileStart; s < tileEnd; s++)
-                {
-                    uint lIdx = leptonIds[s];
-                    Lepton l = leptonIn[lIdx];
-
-                    // Skip unclaimed or dead.
-                    if (l.position.w < 0 || l.mana.w <= 0)
-                        continue;
-
-                    // TODO: Compute weight from lepton position to cellCenter and accumulate into materialGrid[cellIdx].
-                    materialGrid[cellIdx].fieldValues.y = 1.1f;
-                }
+                int dummy;
+                InterlockedAdd(accumulator[idx].fieldValues.y, contribution, dummy);
             }
         }
     }
