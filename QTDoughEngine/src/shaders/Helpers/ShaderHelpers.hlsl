@@ -945,6 +945,17 @@ uint ComputeTileIndex(float3 pos, int3 tileGrid)
     return (uint) Flatten3D(tileCoord, int3(tileGrid.x, tileGrid.y, tileGrid.z));
 }
 
+float3 RandomUnitVector(float3 pos, float seed)
+{
+    float3 v = float3(
+        randNegative1to1(pos, seed),
+        randNegative1to1(pos, seed + 1.0f),
+        randNegative1to1(pos, seed + 2.0f)
+    );
+
+    return normalize(v);
+}
+
 
 
         //-----------------------------------
@@ -1026,3 +1037,4 @@ static const uint3 triangles[] =
         uint3(7, 11, 25), uint3(11, 6, 25),
         uint3(6, 18, 25), uint3(18, 2, 25)
 };
+

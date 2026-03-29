@@ -38,5 +38,5 @@ void main(uint3 DTid : SV_DispatchThreadID)
     int3 c = int3(DTid);
     int idx = Flatten3D(c, gridRes);
 
-    materialGrid[idx].fieldValues.y += ((float) accumulator[idx].fieldValues.y / FIXED_POINT_SCALE) * deltaTime *0.1f;
+    materialGrid[idx].fieldValues.y += ((float) accumulator[idx].fieldValues.y / FIXED_POINT_SCALE) * deltaTime *0.05f;
 }

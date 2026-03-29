@@ -39,6 +39,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (l.position.w <= 0 || l.mana.w <= 0)
         return;
 
+    float radius = l.direction.w;
+    if (radius <= 0)
+        return;
+
     float3 pos = l.position.xyz;
 
     int3 gridRes = GetMaterialGridSize();
@@ -46,50 +50,27 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 halfScene = sceneSize * 0.5f;
     float3 cellSize = sceneSize / float3(gridRes);
 
-    // Grid-space position and base cell (cubic B-spline scaled to 7x7x7, support 3.0 cells).
-    float3 gs = (pos + halfScene) / cellSize;
-    int3 base = int3(floor(gs - 2.5f));
-    float3 fx = gs - float3(base);
+    int3 minVoxel = int3(floor((pos - radius + halfScene) / cellSize));
+    int3 maxVoxel = int3(floor((pos + radius + halfScene) / cellSize));
+    minVoxel = clamp(minVoxel, int3(0, 0, 0), gridRes - 1);
+    maxVoxel = clamp(maxVoxel, int3(0, 0, 0), gridRes - 1);
 
-    // Cubic B-spline scaled: evaluate at d/1.5 so support stretches to ±3 cells.
-    float wx[7], wy[7], wz[7];
-    [unroll]
-    for (int n = 0; n < 7; n++)
-    {
-        float dx = abs(fx.x - (float)n) / 1.5f;
-        float dy = abs(fx.y - (float)n) / 1.5f;
-        float dz = abs(fx.z - (float)n) / 1.5f;
-
-        wx[n] = (dx < 1.0f) ? (2.0f/3.0f - dx*dx + 0.5f*dx*dx*dx) :
-                (dx < 2.0f) ? (1.0f/6.0f * (2.0f - dx)*(2.0f - dx)*(2.0f - dx)) : 0.0f;
-        wy[n] = (dy < 1.0f) ? (2.0f/3.0f - dy*dy + 0.5f*dy*dy*dy) :
-                (dy < 2.0f) ? (1.0f/6.0f * (2.0f - dy)*(2.0f - dy)*(2.0f - dy)) : 0.0f;
-        wz[n] = (dz < 1.0f) ? (2.0f/3.0f - dz*dz + 0.5f*dz*dz*dz) :
-                (dz < 2.0f) ? (1.0f/6.0f * (2.0f - dz)*(2.0f - dz)*(2.0f - dz)) : 0.0f;
-    }
-
-    // 7x7x7 cubic B-spline scatter.
-    [unroll]
-    for (int i = 0; i < 7; i++)
-    {
-        [unroll]
-        for (int j = 0; j < 7; j++)
-        {
-            [unroll]
-            for (int k = 0; k < 7; k++)
+    for (int z = minVoxel.z; z <= maxVoxel.z; z++)
+        for (int y = minVoxel.y; y <= maxVoxel.y; y++)
+            for (int x = minVoxel.x; x <= maxVoxel.x; x++)
             {
-                int3 cellCoord = base + int3(i, j, k);
+                int3 voxelCoord = int3(x, y, z);
+                float3 cellCenter = (float3(voxelCoord) + 0.5f) * cellSize - halfScene;
 
-                if (any(cellCoord < 0) || any(cellCoord >= gridRes))
+                float dist = length(cellCenter - pos);
+                if (dist > radius)
                     continue;
 
-                float weight = wx[i] * wy[j] * wz[k];
+                float weight = 1.0f - (dist / radius);
                 int contribution = (int)round(weight * l.mana.x * FIXED_POINT_SCALE);
-                int idx = Flatten3D(cellCoord, gridRes);
+                int idx = Flatten3D(voxelCoord, gridRes);
 
                 int dummy;
                 InterlockedAdd(accumulator[idx].fieldValues.y, contribution, dummy);
             }
-        }
-    }
 }

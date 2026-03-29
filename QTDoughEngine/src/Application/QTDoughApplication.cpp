@@ -132,6 +132,12 @@ void QTDoughApplication::RunMainGameLoop()
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / FPS, FPS);
         ImGui::Separator();
 
+        // Temperature display.
+        ImGui::Text("Temp: %.1f C", materialSimulationPass->currentTemperature);
+        int tempOffset = materialSimulationPass->temperatureHistoryHead % 120;
+        ImGui::PlotLines("##TempWave", materialSimulationPass->temperatureHistory, 120, tempOffset, nullptr, FLT_MAX, FLT_MAX, ImVec2(230, 60));
+        ImGui::Separator();
+
         // --- Brush list ---
         if (VoxelizerPass::instance && ImGui::CollapsingHeader("Brushes", ImGuiTreeNodeFlags_DefaultOpen))
         {
@@ -357,9 +363,9 @@ void QTDoughApplication::ComputePhysics()
         {
             Emitter ev{};
             ev.information = glm::ivec4(0, 1, 0, 0);            // y=1 = LEPTON.
-            ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 1000.0f); // center=origin, count=100.
-            ev.shape = glm::vec4(3.0f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
-            ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 1.25f);
+            ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f); // center=origin, count=100.
+            ev.shape = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
+            ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 0.725f);
             ev.velocity = glm::vec4(2.0f, 0.0f, 0.0f, 5.0f);   // w=lifespan.
             ev.mana = glm::vec4(2000.25f, 0.0f, 0.0f, 0.0f);
             emitterSystem->AddEvent(ev);
@@ -394,11 +400,11 @@ void QTDoughApplication::ComputePhysics()
 
             Emitter ev{};
             ev.information = glm::ivec4(0, 1, 0, 0);
-            ev.position = glm::vec4(rayOrigin, 5);
+            ev.position = glm::vec4(rayOrigin, 10);
             ev.shape = glm::vec4(1.25f, 0.0f, 0.0f, 2.0f);
-            ev.direction = glm::vec4(directionToPoint, 1.25f);
-            ev.velocity = glm::vec4(10.0f, 0.0f, 0.0f, 5.0f);
-            ev.mana = glm::vec4(2000.25f, 0.0f, 0.0f, 0.0f);
+            ev.direction = glm::vec4(directionToPoint, 0.35f);
+            ev.velocity = glm::vec4(10.0f, 1.0f, 0.0f, 5.0f);
+            ev.mana = glm::vec4(20000.25f, 0.0f, 0.0f, 0.0f);
             EmitterSystem::instance->AddEvent(ev);
         }
 
@@ -409,6 +415,7 @@ void QTDoughApplication::ComputePhysics()
     emitterSystem->FlushEvents();
     emitterSystem->Dispatch(_physicsCommandBuffer);
     materialSimulationPass->Simulate(_physicsCommandBuffer);
+    materialSimulationPass->SurveyTemperature();
 
     vkEndCommandBuffer(_physicsCommandBuffer);
 

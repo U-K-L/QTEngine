@@ -40,6 +40,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     MaterialGridPoint center = materialGridIn[cellIdx];
     
+    float sdf = clamp(center.fieldValues.x, 0.1, 10.0f);
+    
 
     
     float manaSum = 0;
@@ -73,7 +75,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float alpha = 1.0f - exp(-DIFFUSION_RATE * deltaTime);
     center.fieldValues.y = lerp(center.fieldValues.y, manaSum / weightSum, alpha);
     //Natural cooling, this is basically empty space, during G2P quanta retains heat.
-    center.fieldValues.y *= exp(-0.25f * deltaTime);
+    center.fieldValues.y *= exp(-0.45f * sdf * deltaTime);
     
     center.fieldValues.y = clamp(center.fieldValues.y, 0.0f, 1048576.0f);
 

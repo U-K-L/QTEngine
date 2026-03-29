@@ -1000,6 +1000,96 @@ float4 MaterialGridMarch(float3 ro, float3 rd, inout float4 materialPoint)
     return float4(heatMap, 0, 0, 0);
 }
 
+float3 HeatRamp(float t)
+{
+    t = saturate(t);
+
+    float3 c0 = float3(0.0, 0.0, 0.0); // black
+    float3 c1 = float3(0.35, 0.0, 0.0); // dark red
+    float3 c2 = float3(1.0, 0.0, 0.0); // red
+    float3 c3 = float3(1.0, 0.5, 0.0); // orange
+    float3 c4 = float3(1.0, 1.0, 0.0); // yellow
+    float3 c5 = float3(1.0, 1.0, 1.0); // white
+    float3 c6 = float3(0.7, 0.85, 1.0); // blue-white
+
+    if (t < 0.15)
+    {
+        float u = t / 0.15;
+        return lerp(c0, c1, u);
+    }
+    else if (t < 0.35)
+    {
+        float u = (t - 0.15) / 0.20;
+        return lerp(c1, c2, u);
+    }
+    else if (t < 0.55)
+    {
+        float u = (t - 0.35) / 0.20;
+        return lerp(c2, c3, u);
+    }
+    else if (t < 0.75)
+    {
+        float u = (t - 0.55) / 0.20;
+        return lerp(c3, c4, u);
+    }
+    else if (t < 0.90)
+    {
+        float u = (t - 0.75) / 0.15;
+        return lerp(c4, c5, u);
+    }
+    else
+    {
+        float u = (t - 0.90) / 0.10;
+        return lerp(c5, c6, u);
+    }
+}
+
+float3 StylizedHeat(float t)
+{
+    t *= 0.01f;
+    t = saturate(t);
+    
+    float3 heatResult = 0;
+    float3 highRed = float3(2.0f, 1.90f, 1.0f);
+    float3 midRed = float3(1.0f, 0.9185f, 0.155f);
+    float3 lowRed = float3(1.0f, 0.125f, 0.05f);
+    float3 borderline = float3(0.75f, 0.125f, 0.1f);
+    float3 shadow = float3(0, 0, 0.0025f);
+    
+    
+    float3 interpolant = lerp(midRed, highRed, smoothstep(0.95f, 0.99f, t));
+    interpolant = lerp(lowRed, interpolant, smoothstep(0.59f, 0.65f, t));
+    interpolant = lerp(borderline, interpolant, smoothstep(0.3f, 0.35f, t));
+    interpolant = lerp(shadow, interpolant, smoothstep(0.1f, 0.2f, t));
+    
+    heatResult = interpolant;
+    /*
+
+    float3 highHeat = smoothstep(0.8, 0.99, t) * high;
+    float3 midHeat = smoothstep(0.3, 0.8, t) * mid;
+    float3 lowHeat = smoothstep(0.15, 0.2, t) * low;
+    float3 smoke = smoothstep(0.05, 0.15, t) * shadow;
+    
+
+
+    if (t > 0.95f)
+        heatResult = (high + float3(0, 0.1, 0.1));
+    else if (smoothstep(0.8, 0.99, t) > 0)
+        heatResult = high * 18;
+    else if (smoothstep(0.45, 0.6, t) > 0)
+        heatResult = mid * 10;
+    else if (smoothstep(0.3, 0.4, t) > 0)
+        heatResult = low * 1.5 + shadow;
+    else if (smoothstep(0.05, 0.15, t) > 0)
+        heatResult = shadow;
+    
+    return float4(heatResult, 1.0f);
+    */
+    
+    return float4(heatResult, 1.0f);
+
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
@@ -1141,7 +1231,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 matGridResult = MaterialGridMarch(interpRayOrigin, interpRayDir, materialPoint);
     float3 coolColor = float3(0, 0, 0.0025f);
     float3 hotColor = float3(5.0f, 1.0f, 1.0f);
-    float3 heatRamp = lerp(coolColor, hotColor, matGridResult.x*0.1f);
+    float3 heatRamp = StylizedHeat(matGridResult.x); //lerp(coolColor, hotColor, matGridResult.x*0.1f);
     gBindlessStorage[materialGridHandle][pixel] = float4(heatRamp, 1.0f);
 
 }

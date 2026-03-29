@@ -1,6 +1,7 @@
 #include "MaterialSimulationPass.h"
 #include "../RenderPasses/VoxelizerPass.h"
 #include <chrono>
+#include <random>
 
 extern UnigmaCameraStruct CameraMain;
 
@@ -1640,6 +1641,64 @@ void MaterialSimulation::ReadBackQuantaFull()
 		SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
 		readbackInProgress = false;
 	});
+}
+
+void MaterialSimulation::SurveyTemperature()
+{
+	static std::mt19937 rng(42);
+	std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
+	VoxelizerPass* vox = VoxelizerPass::instance;
+	glm::vec3 aabbHalf = vox->dcAABBSize * 0.5f;
+	glm::vec3 aabbCenter = glm::vec3(0.0f);
+	glm::vec3 sceneSize = glm::vec3(Field.FieldSize);
+
+	float stepSize = glm::length(vox->dcAABBSize) / 128.0f;
+	float totalEnergy = 0.0f;
+	int probeCount = 3;
+
+	for (int p = 0; p < probeCount; p++)
+	{
+		glm::vec3 origin = aabbCenter + glm::vec3(
+			(dist01(rng) * 2.0f - 1.0f) * aabbHalf.x,
+			(dist01(rng) * 2.0f - 1.0f) * aabbHalf.y,
+			(dist01(rng) * 2.0f - 1.0f) * aabbHalf.z
+		);
+
+		float theta = dist01(rng) * 6.2831853f;
+		float phi = acosf(2.0f * dist01(rng) - 1.0f);
+		glm::vec3 dir = glm::vec3(sinf(phi) * cosf(theta), sinf(phi) * sinf(theta), cosf(phi));
+
+		float probeEnergy = 0.0f;
+		glm::vec3 pos = origin;
+
+		for (int i = 0; i < 128; i++)
+		{
+			if (glm::any(glm::lessThan(pos, aabbCenter - aabbHalf)) ||
+				glm::any(glm::greaterThan(pos, aabbCenter + aabbHalf)))
+				break;
+
+			int idx = WorldToGridIndex(pos, sceneSize, materialGridSize);
+			if (idx >= 0)
+				probeEnergy += Field.InteractionField[idx].fieldValues.y;
+
+			pos += dir * stepSize;
+		}
+
+		totalEnergy += probeEnergy;
+	}
+
+	float avgEnergy = totalEnergy / (float)probeCount;
+	float tempC = avgEnergy * TEMP_SCALE;
+
+	temperatureHistory[temperatureHistoryHead % 120] = tempC;
+	temperatureHistoryHead++;
+
+	int count = std::min(temperatureHistoryHead, 120);
+	float sum = 0.0f;
+	for (int i = 0; i < count; i++)
+		sum += temperatureHistory[(temperatureHistoryHead - 1 - i + 120) % 120];
+	currentTemperature = sum / (float)count;
 }
 
 void MaterialSimulation::ReadBackMaterialGridFull()

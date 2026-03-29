@@ -138,6 +138,13 @@ class MaterialSimulation
 		std::atomic<bool> materialGridSDFReadbackInProgress{false};
 		UnigmaField Field; //Underlying field of everything.
 
+		// Temperature survey.
+		float temperatureHistory[120] = {};
+		int temperatureHistoryHead = 0;
+		float currentTemperature = 0.0f;
+		float TEMP_SCALE = 1.0f;
+		void SurveyTemperature();
+
 		std::vector<VkBuffer> QuantaStorageBuffers;
 		std::vector<VkDeviceMemory> QuantaStorageMemory;
 
