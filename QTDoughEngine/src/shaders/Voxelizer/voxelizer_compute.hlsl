@@ -307,7 +307,6 @@ void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
     //voxelsL1Out[voxelIndex].id = NO_LABELF();
     Write3D(0, DTid, clearValue);
     Write3D(1, DTid/2, 0);
-    GlobalIDCounter[1] = 0;
 
 }
 
@@ -2415,7 +2414,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 {
     float3 voxelRes = GetVoxelResolutionL1().xyz;
     
-    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
+    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz ));
     uint index = Flatten3D(idVoxel, voxelRes);
     
     float c = ComputePhi(index);
@@ -2436,7 +2435,7 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     if (any(DTid >= voxelRes))
         return;
     
-    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz / 2));
+    int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz));
     uint index = Flatten3D(idVoxel, voxelRes);
     
     float c = ComputePhi(index);
@@ -2690,7 +2689,13 @@ void main(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint gIndex 
 
     if (sampleLevelL == 0.0f)
     {
-        ClearVoxelDataInit(DTid / 2);
+        GlobalIDCounter[1] = 0;
+        ClearVoxelDataInit(DTid);
+        return;
+    }
+
+    if (sampleLevelL == 25.0f)
+    {
         InitVoxelData(DTid);
         return;
     }

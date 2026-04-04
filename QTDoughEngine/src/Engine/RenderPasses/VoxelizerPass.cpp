@@ -1656,7 +1656,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Medium Quality Voxel Resolution. " << std::endl;
-            VertexMaxCount = VOXEL_COUNTL3;
+            VertexMaxCount = VOXEL_COUNTL2;
             std::cout << "Max Vertex Count set to: " << VertexMaxCount << std::endl;
 
         }
@@ -2504,6 +2504,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //Dual Contour.
         DispatchLOD(commandBuffer, currentFrame, 50);
 
+
         //Create Vertex Mask.
         //For each brush that needs to be updated.
         for (int i = 0; i < brushes.size(); i++)
@@ -3348,8 +3349,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Clear Voxels
     if (lodLevel == 24)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
-        groupCountX = (res.x + 7) / 8;
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4);                                                               groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
     }

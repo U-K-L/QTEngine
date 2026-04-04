@@ -155,16 +155,17 @@ float4 main(VSOutput i) : SV_Target
     
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
+    float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
+
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
         return float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     if (pc.input == 4)
-        return albedoImage;
+        return albedoImage + materialGridImage;
     if(pc.input == 5)
-        return rayAlbedoPass; //sdfImage.w;
+        return rayAlbedoPass + materialGridImage; //sdfImage.w;
 
-    float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
     if(pc.input == 6)
         rayAlbedoPass.xyz += materialGridImage.xyz; //color.xyz += materialGridImage.xyz; //return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     //return combineSDFRasterImage;

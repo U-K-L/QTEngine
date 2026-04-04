@@ -334,7 +334,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
 
     float distanceMod = 1.0f;
-    float sigma = h * 1.75;//brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = h * 2.75;//brush.smoothness; // Controls the spread of the Gaussian
     float amplitude = materialMod; // Can be a particle attribute
     float radiusParticleSpacing = 6 * 0.35f * materialMod;
     
@@ -349,7 +349,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     //if(!inAABB)
     //    sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
-    float supportWS = sigma * 1.25f * supportMod * distanceMod * 0.25f; //triangle count == resolution.
+    float supportWS = sigma * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
     float speed = 0.001f;
     float timeX = time * speed;
@@ -402,6 +402,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     int3 minVoxel = floor((minPos + halfScene) / voxelSize);
     int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
     
+    //minVoxel = max(minVoxel, -30);
+    //maxVoxel = min(maxVoxel, 30);
+    
     //float3 n = GetNormal(position);
 
     float3 initialPosition = quanta.position.xyz; //mul(brush.model, float4(particle.initPosition.xyz, 1.0f)).xyz;
@@ -432,27 +435,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
-                float3 mbLocalPos;
-                int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
-                if (mbpIdx >= 0)
-                {
-                    float3 uvwMb = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
-                    int3 centerCoord = int3(floor(uvwMb * MATERIAL_BRUSH_GRID_RES));
-                    int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
-                    int kernelSize = 1;
-                    
-                    for (int mz = -kernelSize; mz <= kernelSize; ++mz)
-                        for (int my = -kernelSize; my <= kernelSize; ++my)
-                            for (int mx = -kernelSize; mx <= kernelSize; ++mx)
-                            {
-                                int3 nc = centerCoord + int3(mx, my, mz);
-                                if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
-                                    continue;
-                                int nIdx = (int) brushIdx * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
-                                InterlockedMax(materialBrushPoints[nIdx].information.x, (int)quanta.mana.w*100);
-                            }
-                }
-
                 
                 float sd = length(worldPos - position) - radiusParticleSpacing * h;
                 /*
@@ -471,6 +453,30 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
                 InterlockedExchange(voxelsL1Out[flatIndex].brushId, (uint)quanta.information.x, dummy);
+
+                if(quanta.mana.w < 1.0f)
+                    continue;
+                
+                float3 mbLocalPos;
+                int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
+                if (mbpIdx >= 0)
+                {
+                    float3 uvwMb = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
+                    int3 centerCoord = int3(floor(uvwMb * MATERIAL_BRUSH_GRID_RES));
+                    int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
+                    int kernelSize = 1;
+                    
+                    for (int mz = -kernelSize; mz <= kernelSize; ++mz)
+                        for (int my = -kernelSize; my <= kernelSize; ++my)
+                            for (int mx = -kernelSize; mx <= kernelSize; ++mx)
+                            {
+                                int3 nc = centerCoord + int3(mx, my, mz);
+                                if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
+                                    continue;
+                                int nIdx = (int) brushIdx * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
+                                InterlockedMax(materialBrushPoints[nIdx].information.x, (int) quanta.mana.w * 100);
+                            }
+                }
 
             }
     

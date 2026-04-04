@@ -1520,11 +1520,11 @@ void QTDoughApplication::RunGPUBenchmark()
     std::cout << "  Memory bandwidth:   " << gbps << " GB/s" << std::endl;
 
     // --- Set quality level ---
-    if (gflops >= 8000.0 && gbps >= 300.0) {
+    if (gflops >= 12000.0 && gbps >= 400.0) {
         GameQualityLevel = 0; // Ultra
-    } else if (gflops >= 4000.0 && gbps >= 150.0) {
+    } else if (gflops >= 8000.0 && gbps >= 270.0) {
         GameQualityLevel = 1; // High
-    } else if (gflops >= 1000.0 && gbps >= 50.0) {
+    } else if (gflops >= 5000.0 && gbps >= 100.0) {
         GameQualityLevel = 2; // Medium
     } else {
         GameQualityLevel = 3; // Low

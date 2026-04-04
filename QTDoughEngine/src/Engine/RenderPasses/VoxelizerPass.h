@@ -133,6 +133,7 @@ public:
     uint32_t requiredIterations = 60;
 
     bool flagSDFBaker = false; //This is a flag to bake the SDF from triangles.
+    bool voxelDataInitialized = false;
 
 
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
