@@ -295,6 +295,8 @@ public:
     std::vector<Vertex> meshingVertexSoup;
     std::vector<glm::uvec3> meshingTriangleIndices;
     VkBuffer meshingVertexBuffer;
+    VkBuffer meshingPositionBuffer;
+    VkDeviceMemory meshingPositionBufferMemory;
     VkBuffer vertexBufferReadbackBuffer;
     VkDeviceMemory vertexBufferReadbackMemory;
     VkDeviceMemory meshingVertexBufferMemory;

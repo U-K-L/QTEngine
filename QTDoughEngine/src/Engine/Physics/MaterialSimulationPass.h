@@ -124,6 +124,8 @@ class MaterialSimulation
 		void ReadBackQuantaFull();
 		void ReadBackMaterialGridFull();
 		void ReadBackMaterialGridSDF();
+		void DispatchQuantaCount(VkCommandBuffer commandBuffer);
+		void ReadBackQuantaCount();
 		void SerializeMaterialGridText(const std::string& path);
 		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
 		int RayCast(Photon& photon, int informationDepth=0);
@@ -136,6 +138,11 @@ class MaterialSimulation
 		std::atomic<bool> readbackInProgress{false};
 		std::atomic<bool> materialGridReadbackInProgress{false};
 		std::atomic<bool> materialGridSDFReadbackInProgress{false};
+		std::atomic<bool> quantaCountReadbackInProgress{false};
+		bool quantaCountReady = false;
+		bool quantaCountDispatched = false;
+		std::vector<uint32_t> brushQuantaCounts;
+		static const uint32_t MAX_BRUSH_COUNT = 256;
 		UnigmaField Field; //Underlying field of everything.
 
 		// Temperature survey.
@@ -242,6 +249,9 @@ class MaterialSimulation
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
 		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
+		VkPipeline quantaCountPipeline = VK_NULL_HANDLE;
+		VkBuffer brushQuantaCountBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory brushQuantaCountMemory = VK_NULL_HANDLE;
 
 		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;

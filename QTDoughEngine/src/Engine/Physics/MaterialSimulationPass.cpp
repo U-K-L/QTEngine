@@ -78,8 +78,9 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 	// Binding 19: LeptonTileCursor
 	// Binding 20: MaterialGrid Out (write, diffusion ping-pong)
 	// Binding 21: MaterialGrid Accumulator (int, atomic P2G scatter)
+	// Binding 22: BrushQuantaCounts (atomic counter per brush)
 
-	std::array<VkDescriptorSetLayoutBinding, 22> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 23> bindings{};
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -108,7 +109,7 @@ void MaterialSimulation::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 22 * frameCount; // 22 bindings per set.
+	poolSize.descriptorCount = 23 * frameCount; // 23 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -273,7 +274,13 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		materialGridAccumInfo.offset = 0;
 		materialGridAccumInfo.range = accumBufferSize;
 
-		std::array<VkWriteDescriptorSet, 22> writes{};
+		// Binding 22: BrushQuantaCounts (single buffer, per-brush atomic counters).
+		VkDescriptorBufferInfo brushQuantaCountInfo{};
+		brushQuantaCountInfo.buffer = brushQuantaCountBuffer;
+		brushQuantaCountInfo.offset = 0;
+		brushQuantaCountInfo.range = sizeof(uint32_t) * MAX_BRUSH_COUNT;
+
+		std::array<VkWriteDescriptorSet, 23> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
 			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
@@ -284,7 +291,8 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 			&leptonInInfo, &leptonOutInfo, &leptonReadInfo,
 			&leptonIdsInfo, &leptonTileCountsInfo, &leptonTileOffsetsInfo, &leptonTileCursorInfo,
 			&materialGridOutInfo,
-			&materialGridAccumInfo
+			&materialGridAccumInfo,
+			&brushQuantaCountInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -363,6 +371,7 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("lepton_p2g", leptonP2GPipeline);
 	CreateComputePipelineFromSPV("matsim_accum_convert", accumConvertPipeline);
 	CreateComputePipelineFromSPV("lepton_propagate", leptonPropagatePipeline);
+	CreateComputePipelineFromSPV("matsim_quanta_count", quantaCountPipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -522,10 +531,28 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	//Out -> Read.
 	CopyOutToRead(commandBuffer);
 
+	// Editor-only: auto-count quanta per brush once all brushes are created and filled.
+	if (QTDoughApplication::instance->editorState.IsEditor() && !quantaCountReady
+		&& dispatchesCount > 60)
+	{
+		VoxelizerPass* vox = VoxelizerPass::instance;
+		if (vox && vox->incrementalBrushJobs.empty() && !vox->brushes.empty())
+		{
+			if (!quantaCountDispatched)
+			{
+				DispatchQuantaCount(commandBuffer);
+				quantaCountDispatched = true;
+			}
+			else if (!quantaCountReadbackInProgress.load())
+			{
+				ReadBackQuantaCount();
+			}
+		}
+	}
+
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
 	currentFrame = 1 - currentFrame;
 	dispatchesCount += 1;
-
 
 	//Load grid.
 	ReadBackMaterialGridSDF();
@@ -1416,6 +1443,13 @@ void MaterialSimulation::CreateStorageBuffers()
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		materialGridAccumBuffer, materialGridAccumMemory);
 
+	// BrushQuantaCounts — small buffer for per-brush quanta counting (editor only).
+	brushQuantaCounts.resize(MAX_BRUSH_COUNT, 0);
+	app->CreateBuffer(sizeof(uint32_t) * MAX_BRUSH_COUNT,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		brushQuantaCountBuffer, brushQuantaCountMemory);
+
 	// Deformation (DeffGrad, AffVel) — double buffered ping-pong.
 	deformationStorageBuffers.resize(2);
 	deformationStorageMemory.resize(2);
@@ -1640,6 +1674,96 @@ void MaterialSimulation::ReadBackQuantaFull()
 		std::cout << "Done readback..." << std::endl;
 		SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
 		readbackInProgress = false;
+	});
+}
+
+void MaterialSimulation::DispatchQuantaCount(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	uint64_t countBufferSize = sizeof(uint32_t) * MAX_BRUSH_COUNT;
+
+	// Zero the count buffer.
+	vkCmdFillBuffer(commandBuffer, brushQuantaCountBuffer, 0, countBufferSize, 0);
+
+	VkMemoryBarrier2 zeroBarrier{};
+	zeroBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	zeroBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	zeroBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	zeroBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	zeroBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+
+	VkDependencyInfo zeroDep{};
+	zeroDep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	zeroDep.memoryBarrierCount = 1;
+	zeroDep.pMemoryBarriers = &zeroBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &zeroDep);
+
+	// Bind pipeline and descriptors.
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, quantaCountPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = (QUANTA_COUNT + 63) / 64;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	// Barrier: compute -> transfer for readback.
+	VkMemoryBarrier2 countBarrier{};
+	countBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	countBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	countBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+	countBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	countBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+
+	VkDependencyInfo countDep{};
+	countDep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	countDep.memoryBarrierCount = 1;
+	countDep.pMemoryBarriers = &countBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &countDep);
+}
+
+void MaterialSimulation::ReadBackQuantaCount()
+{
+	if (quantaCountReadbackInProgress.exchange(true))
+		return;
+
+	QTDoughApplication* app = QTDoughApplication::instance;
+	uint64_t countBufferSize = sizeof(uint32_t) * MAX_BRUSH_COUNT;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingMemory;
+	app->CreateBuffer(countBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingMemory);
+
+	VkCommandBuffer cmd = app->BeginSingleTimeCommands();
+
+	VkBufferCopy region{};
+	region.size = countBufferSize;
+	vkCmdCopyBuffer(cmd, brushQuantaCountBuffer, stagingBuffer, 1, &region);
+
+	app->EndSingleTimeCommandsAsync(currentFrame, cmd, [this, app, stagingBuffer, stagingMemory, countBufferSize]() {
+		void* mapped = nullptr;
+		vkMapMemory(app->_logicalDevice, stagingMemory, 0, countBufferSize, 0, &mapped);
+		memcpy(brushQuantaCounts.data(), mapped, countBufferSize);
+		vkUnmapMemory(app->_logicalDevice, stagingMemory);
+
+		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
+
+		std::cout << "Quanta count readback done." << std::endl;
+		quantaCountReady = true;
+		quantaCountReadbackInProgress = false;
 	});
 }
 

@@ -432,7 +432,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 
                 uint flatIndex = Flatten3D(voxelIndex, voxelRes);
 
-
                 float3 mbLocalPos;
                 int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
                 if (mbpIdx >= 0)
@@ -453,7 +452,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                                 InterlockedMax(materialBrushPoints[nIdx].information.x, (int)quanta.mana.w*100);
                             }
                 }
-
 
                 
                 float sd = length(worldPos - position) - radiusParticleSpacing * h;

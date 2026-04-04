@@ -110,10 +110,11 @@ void QTDoughApplication::RunMainGameLoop()
         ImGuizmo::BeginFrame();
 
         // --- Side panel (Settings) on the LEFT ---
-        float sidePanelWidth = 250.0f;
-        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(sidePanelWidth, (float)SCREEN_HEIGHT), ImGuiCond_Always);
-        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(180.0f, (float)SCREEN_HEIGHT), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(120.0f, (float)SCREEN_HEIGHT), ImVec2(400.0f, (float)SCREEN_HEIGHT));
+        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoMove);
+        float sidePanelWidth = ImGui::GetWindowWidth();
 
         // Mode toggle
         bool isEditor = editorState.IsEditor();
@@ -135,7 +136,7 @@ void QTDoughApplication::RunMainGameLoop()
         // Temperature display.
         ImGui::Text("Temp: %.1f C", materialSimulationPass->currentTemperature);
         int tempOffset = materialSimulationPass->temperatureHistoryHead % 120;
-        ImGui::PlotLines("##TempWave", materialSimulationPass->temperatureHistory, 120, tempOffset, nullptr, FLT_MAX, FLT_MAX, ImVec2(230, 60));
+        ImGui::PlotLines("##TempWave", materialSimulationPass->temperatureHistory, 120, tempOffset, nullptr, FLT_MAX, FLT_MAX, ImVec2(ImGui::GetContentRegionAvail().x, 60));
         ImGui::Separator();
 
         // --- Brush list ---
@@ -145,10 +146,7 @@ void QTDoughApplication::RunMainGameLoop()
             auto& objects = VoxelizerPass::instance->renderingObjects;
             for (size_t i = 0; i < brushes.size(); i++)
             {
-                ImGui::PushID((int)i);
                 auto& b = brushes[i];
-
-                // Get name from game object if available
                 const char* label = "Brush";
                 if (i < objects.size())
                 {
@@ -157,21 +155,67 @@ void QTDoughApplication::RunMainGameLoop()
                         label = gObj->name;
                 }
 
-                if (ImGui::TreeNode(label))
+                bool selected = (editorState.selectedBrushIndex == (int)i);
+                if (ImGui::Selectable(label, selected))
                 {
-                    ImGui::Text("ID: %u", b.id);
-                    ImGui::Text("Type: %u  Opcode: %u", b.type, b.opcode);
-                    ImGui::Text("Verts: %u  Res: %u", b.vertexCount, b.resolution);
-                    ImGui::Text("Blend: %.2f  Stiffness: %.2f", b.blend, b.stiffness);
-                    ImGui::Text("Smoothness: %.2f", b.smoothness);
-                    ImGui::Text("Material: %d  Density: %d", b.materialId, b.density);
-                    ImGui::Text("Dirty: %u", b.isDirty);
-                    glm::vec3 pos = glm::vec3(b.model[3]);
-                    ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
-                    ImGui::TreePop();
+                    editorState.selectedBrushIndex = (int)i;
                 }
-                ImGui::PopID();
             }
+            if (materialSimulationPass->quantaCountReady)
+            {
+                ImGui::Separator();
+                uint32_t used = 0;
+                for (uint32_t c : materialSimulationPass->brushQuantaCounts)
+                    used += c;
+                uint32_t free = QUANTA_COUNT - used;
+                float pct = 100.0f * (float)used / (float)QUANTA_COUNT;
+                ImGui::Text("Total: %u / %u (%.1f%%)", used, QUANTA_COUNT, pct);
+                ImGui::Text("Free: %u", free);
+            }
+        }
+
+        // --- Inspector (inline, scrollable) ---
+        if (ImGui::CollapsingHeader("Inspector", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::BeginChild("InspectorScroll", ImVec2(0, 200), true);
+
+            if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
+                && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->brushes.size())
+            {
+                auto& b = VoxelizerPass::instance->brushes[editorState.selectedBrushIndex];
+                auto& objects = VoxelizerPass::instance->renderingObjects;
+
+                const char* name = "Brush";
+                if (editorState.selectedBrushIndex < (int)objects.size())
+                {
+                    UnigmaGameObject* gObj = objects[editorState.selectedBrushIndex]->GetGameObject();
+                    if (gObj && gObj->name[0] != '\0')
+                        name = gObj->name;
+                }
+
+                ImGui::Text("%s", name);
+                ImGui::Separator();
+                ImGui::Text("ID: %u", b.id);
+                ImGui::Text("Type: %u  Opcode: %u", b.type, b.opcode);
+                ImGui::Text("Verts: %u  Res: %u", b.vertexCount, b.resolution);
+                ImGui::Text("Blend: %.2f  Stiffness: %.2f", b.blend, b.stiffness);
+                ImGui::Text("Smoothness: %.2f", b.smoothness);
+                ImGui::Text("Material: %d  Density: %d", b.materialId, b.density);
+                ImGui::Text("Dirty: %u", b.isDirty);
+                glm::vec3 pos = glm::vec3(b.model[3]);
+                ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
+                if (materialSimulationPass->quantaCountReady && b.id < materialSimulationPass->brushQuantaCounts.size())
+                {
+                    uint32_t count = materialSimulationPass->brushQuantaCounts[b.id];
+                    ImGui::Text("Quanta: %u", count);
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("No brush selected");
+            }
+
+            ImGui::EndChild();
         }
 
         ImGui::End();

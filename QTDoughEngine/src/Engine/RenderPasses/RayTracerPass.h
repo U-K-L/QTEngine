@@ -83,6 +83,8 @@ public:
 
         VkDeviceAddress blasAddr = 0;
         VkDeviceAddress tlasAddr = 0;
+        uint32_t prevPrimitiveCount = 0;
+        VkDeviceSize blasAllocatedSize = 0;
     };
     std::vector<RtASPerFrame> rtAS;
 

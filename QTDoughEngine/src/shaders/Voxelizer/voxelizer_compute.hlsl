@@ -88,6 +88,8 @@ StructuredBuffer<uint> tileOffsets  : register(t21, space1);
 
 RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space1);
 
+RWStructuredBuffer<float> meshingPositions : register(u24, space1);
+
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
     minBounds = float3(1e30, 1e30, 1e30);
@@ -1952,10 +1954,19 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     meshingVertices[vertOffset + 0].position = float4(v0, 1);
     meshingVertices[vertOffset + 1].position = float4(v1, 1);
     meshingVertices[vertOffset + 2].position = float4(v2, 1);
-    
+
     meshingVertices[vertOffset + 3].position = float4(v0, 1);
     meshingVertices[vertOffset + 4].position = float4(v2, 1);
     meshingVertices[vertOffset + 5].position = float4(v3, 1);
+
+    // Compact positions for RTA.
+    uint po = vertOffset * 3;
+    meshingPositions[po + 0] = v0.x; meshingPositions[po + 1] = v0.y; meshingPositions[po + 2] = v0.z;
+    meshingPositions[po + 3] = v1.x; meshingPositions[po + 4] = v1.y; meshingPositions[po + 5] = v1.z;
+    meshingPositions[po + 6] = v2.x; meshingPositions[po + 7] = v2.y; meshingPositions[po + 8] = v2.z;
+    meshingPositions[po + 9] = v0.x; meshingPositions[po + 10] = v0.y; meshingPositions[po + 11] = v0.z;
+    meshingPositions[po + 12] = v2.x; meshingPositions[po + 13] = v2.y; meshingPositions[po + 14] = v2.z;
+    meshingPositions[po + 15] = v3.x; meshingPositions[po + 16] = v3.y; meshingPositions[po + 17] = v3.z;
     
     
     //Now generate normals. This depends on the operation codes of the brush.
@@ -2309,6 +2320,12 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
 
     meshingVertices[outBase + 2].position = float4(pW2, 1.0f);
     meshingVertices[outBase + 2].normal = float4(vertexBuffer[i2].normal.xyz, brush.materialId);
+
+    // Compact positions for RTA.
+    uint po2 = outBase * 3;
+    meshingPositions[po2 + 0] = pW0.x; meshingPositions[po2 + 1] = pW0.y; meshingPositions[po2 + 2] = pW0.z;
+    meshingPositions[po2 + 3] = pW1.x; meshingPositions[po2 + 4] = pW1.y; meshingPositions[po2 + 5] = pW1.z;
+    meshingPositions[po2 + 6] = pW2.x; meshingPositions[po2 + 7] = pW2.y; meshingPositions[po2 + 8] = pW2.z;
 }
 
 

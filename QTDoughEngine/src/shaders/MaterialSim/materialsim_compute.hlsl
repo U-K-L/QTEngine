@@ -47,10 +47,10 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     int brushId = q.information.x - 1;
     
 
-    if (q.position.w < 1 || q.information.x > 0)
+    if (q.position.w < 1)
     {
-        //quantaOut[globalIndex] = q;
-        //return;
+        quantaOut[globalIndex] = q;
+        return;
     }
     
     if(q.mana.w < 0) //Not excited.
@@ -65,7 +65,6 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     //q.position.xyz += kick * BROWNIAN_STRENGTH * deltaTime;
 
-    // Melt: only x >= 0 half, strength falls off with distance from origin.
     float3 worldPos = q.position.xyz;
     if (brushId >= 0)
         worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;

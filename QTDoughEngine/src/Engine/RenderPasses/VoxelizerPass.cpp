@@ -348,9 +348,9 @@ void VoxelizerPass::CreateDescriptorPool()
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = kTotalSets * 1;
 
-    // storage buffers per set (bindings 1-23)
+    // storage buffers per set (bindings 1-24)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = kTotalSets * 23;
+    poolSizes[1].descriptorCount = kTotalSets * 24;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = 2;
@@ -704,6 +704,15 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
 
+    // Compact position buffer for RTA (float3 per vertex, tightly packed).
+    uint32_t positionBufferSize = sizeof(float) * 3 * VertexMaxCount;
+    app->CreateBuffer(positionBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        meshingPositionBuffer, meshingPositionBufferMemory);
+
     //Indirect mesh draw.
     app->CreateBuffer(
         sizeof(VkDrawIndirectCommand),
@@ -791,7 +800,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 24> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 25> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -1073,6 +1082,20 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[23].descriptorCount = 1;
         descriptorWrites[23].pBufferInfo = &materialBrushPointsBufferInfo;
 
+        //Compact positions for RTA
+        VkDescriptorBufferInfo meshingPositionBufferInfo{};
+        meshingPositionBufferInfo.buffer = meshingPositionBuffer;
+        meshingPositionBufferInfo.offset = 0;
+        meshingPositionBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[24].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[24].dstSet = computeDescriptorSets[i];
+        descriptorWrites[24].dstBinding = 24;
+        descriptorWrites[24].dstArrayElement = 0;
+        descriptorWrites[24].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[24].descriptorCount = 1;
+        descriptorWrites[24].pBufferInfo = &meshingPositionBufferInfo;
+
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
@@ -1274,8 +1297,15 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     materialBrushPointsBinding.descriptorCount = 1;
     materialBrushPointsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // Compact position buffer for RTA
+    VkDescriptorSetLayoutBinding meshingPositionBinding{};
+    meshingPositionBinding.binding = 24;
+    meshingPositionBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    meshingPositionBinding.descriptorCount = 1;
+    meshingPositionBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 24> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding, materialBrushPointsBinding };
+    std::array<VkDescriptorSetLayoutBinding, 25> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding, materialBrushPointsBinding, meshingPositionBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
