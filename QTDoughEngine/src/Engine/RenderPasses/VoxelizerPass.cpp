@@ -1395,6 +1395,9 @@ void VoxelizerPass::CreateBrushes()
         brush.type = primType; //Mesh type
         brush.vertexCount = obj->_renderer.vertices.size();
 
+        //TODO: make this an import variable.
+        brush.mass = 2.5f;
+
         //std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
         brush.vertexOffset = vertexOffset;
         brush.textureID = imageIndex;
@@ -2504,13 +2507,13 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //Dual Contour.
         DispatchLOD(commandBuffer, currentFrame, 50);
 
-
+        /*
         //Create Vertex Mask.
         //For each brush that needs to be updated.
         for (int i = 0; i < brushes.size(); i++)
             if(brushes[i].type == 0) //mesh.
                 DispatchVertexMask(commandBuffer, currentFrame, i);
-
+*/
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
 

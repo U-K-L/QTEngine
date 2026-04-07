@@ -39,7 +39,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     // Compute UVW and local position — same as CreateBrush.
     float3 uvw = ((float3) DTid + 0.5f) / brush.resolution;
     float3 localPos = lerp(brush.aabbmin.xyz, brush.aabbmax.xyz, uvw);
-    float sdf = gBindless3D[brush.textureID2].Load(int4(DTid, 0));
+    float sdf = gBindless3D[brush.textureID].Load(int4(DTid, 0));
 
     if (sdf >= 0.0f)
         return;

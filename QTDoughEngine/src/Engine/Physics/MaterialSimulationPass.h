@@ -84,6 +84,7 @@ class MaterialSimulation
 		MaterialSimulation();
 		~MaterialSimulation();
 		static MaterialSimulation* instance;
+		int pendingCollapseBrushIndex = -1;
 
 		void SetInstance(MaterialSimulation* matSim)
 		{

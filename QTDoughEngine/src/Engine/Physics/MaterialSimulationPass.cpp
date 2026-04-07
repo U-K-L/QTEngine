@@ -526,6 +526,38 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	}
 	//DispatchWaveFunctionCollapse(commandBuffer);
 
+	// Order beat: collapse + brush assign for a single requested brush.
+	if (pendingCollapseBrushIndex >= 0)
+	{
+		VoxelizerPass* voxelizer = VoxelizerPass::instance;
+		if (voxelizer && pendingCollapseBrushIndex < static_cast<int>(voxelizer->brushes.size()))
+		{
+			voxelizer->brushes[pendingCollapseBrushIndex].isCollapsing = 1;
+			DispatchWaveFunctionCollapse(commandBuffer);
+			DispatchBrushFill(commandBuffer, pendingCollapseBrushIndex);
+
+			// Clear this brush's material brush grid so WriteToWorldSDF
+			// switches back from gaussian to the immutable SDF texture.
+			int gridRes = voxelizer->MATERIAL_BRUSH_GRID_RES;
+			int gridSize = gridRes * gridRes * gridRes;
+			VkDeviceSize pointSize = sizeof(VoxelizerPass::MaterialBrushPoint);
+			VkDeviceSize offset = pendingCollapseBrushIndex * gridSize * pointSize;
+			VkDeviceSize size = gridSize * pointSize;
+			vkCmdFillBuffer(commandBuffer, voxelizer->materialBrushPointsStorageBuffers, offset, size, 0);
+
+			VkMemoryBarrier2 mbpBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+			mbpBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+			mbpBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+			mbpBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+			mbpBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+			VkDependencyInfo mbpDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+			mbpDep.memoryBarrierCount = 1;
+			mbpDep.pMemoryBarriers = &mbpBarrier;
+			vkCmdPipelineBarrier2(commandBuffer, &mbpDep);
+		}
+		pendingCollapseBrushIndex = -1;
+	}
+
 	DispatchDiffusion(commandBuffer);
 
 	//Out -> Read.

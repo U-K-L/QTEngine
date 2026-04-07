@@ -997,29 +997,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
     
-    if (pc.viewMode == 8)
-    {
-        // Visualize material brush grid.
-        float mbpMinDist = DEFUALT_EMPTY_SPACE;
-        for (uint mi = 0; mi < brushCount; mi++)
-        {
-            uint mOffset = tileIndex * TILE_MAX_BRUSHES + mi;
-            uint bIdx = BrushesIndices[mOffset];
-            Brush mbBrush = Brushes[bIdx];
-            float3 mbLocalPos;
-            int mbpIdx = WorldToMaterialBrushIndex(center, mbBrush, bIdx, mbLocalPos);
-            if (mbpIdx >= 0)
-            {
-                float mbpSdf = materialBrushPoints[mbpIdx].deformationField.w;
-                mbpMinDist = min(mbpMinDist, mbpSdf);
-            }
-        }
-        Write3DDist(0, fullDTid, mbpMinDist);
-    }
-    else if (deformationField > 0.0001f || pc.viewMode == 7)
+
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
-    else
-        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
+
     
     voxelsL1Out[index].brushId = minId;
     /*
@@ -2427,6 +2407,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
 
     voxelsL1Out[index] = v;
     Write3DDist(1, DTid, 0);
+    Write3DDist(0, DTid, 0);
 }
 
 void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)

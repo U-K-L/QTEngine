@@ -286,6 +286,17 @@ void QTDoughApplication::RunMainGameLoop()
         if (GetKeyState('R') & 0x8000) editorState.gizmoOperation = ImGuizmo::ROTATE;
         if (GetKeyState('S') & 0x8000) editorState.gizmoOperation = ImGuizmo::SCALE;
 
+        // Order beat: F = collapse + brush assign selected brush.
+        {
+            static bool fWasPressed = false;
+            bool fIsPressed = (GetKeyState('F') & 0x8000) != 0;
+            if (fIsPressed && !fWasPressed && editorState.selectedBrushIndex >= 0)
+            {
+                MaterialSimulation::instance->pendingCollapseBrushIndex = editorState.selectedBrushIndex;
+            }
+            fWasPressed = fIsPressed;
+        }
+
         if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
             && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
         {

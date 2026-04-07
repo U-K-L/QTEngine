@@ -84,6 +84,12 @@ public:
         float particleRadius;
         int isCollapsing;
         uint32_t particleCount;
+
+        //Physics.
+        float mass;
+        float pad;
+        float pad2;
+        float pad3;
     };
 
     struct MaterialBrushPoint
@@ -107,7 +113,7 @@ public:
         int viewMode;
     };
 
-    glm::vec3 dcAABBSize = glm::vec3(16.0f, 16.0f, 4.0f);
+    glm::vec3 dcAABBSize = glm::vec3(32.0f, 32.0f, 18.0f);
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024,256);
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3

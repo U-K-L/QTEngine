@@ -179,6 +179,12 @@ struct Brush
     float particleRadius;
     int isCollapsing;
     float collapsePad0;
+    
+    //Physics.
+    float mass;
+    float pad;
+    float pad2;
+    float pad3;
 };
 
 struct Vertex
