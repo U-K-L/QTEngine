@@ -104,7 +104,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (sdf >= 0.0f)
         return;
 
-
+    int slot = DTid.x + DTid.y * DTid.x + DTid.x * DTid.y * DTid.z;
 
     // Atomic counter: grab sequential quanta slots until we find a free one.
     while (true)

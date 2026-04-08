@@ -935,7 +935,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = fullDTid / worldSDFDivisor;
 
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
-    
+
+
     if(brushCount == 0)
     {
         uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
@@ -964,7 +965,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
                 if(minDist > d)
                 {
                     minId = index;
-                    deformationField = (float) materialBrushPoints[mbpIdx].information.x;
+                    deformationField = (float) materialBrushPoints[mbpIdx].information.y;
                 }
                 minDist = smin(minDist, d, blendFactor + 0.0001f);
                 smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
@@ -993,14 +994,35 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
             }
     
+    DTL1 = clamp(DTL1, int3(0, 0, 0), int3(voxelSceneBoundsl1) - 1);
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi; 
     
-    
 
+    if (pc.viewMode == 8)
+    {
+        // Visualize material brush grid.
+        float mbpMinDist = DEFUALT_EMPTY_SPACE;
+        for (uint mi = 0; mi < brushCount; mi++)
+        {
+            uint mOffset = tileIndex * TILE_MAX_BRUSHES + mi;
+            uint bIdx = BrushesIndices[mOffset];
+            Brush mbBrush = Brushes[bIdx];
+            float3 mbLocalPos;
+            int mbpIdx = WorldToMaterialBrushIndex(center, mbBrush, bIdx, mbLocalPos);
+            if (mbpIdx >= 0)
+            {
+                float mbpSdf = materialBrushPoints[mbpIdx].deformationField.w;
+                mbpMinDist = min(mbpMinDist, mbpSdf);
+            }
+        }
+        Write3DDist(0, fullDTid, mbpMinDist);
+    }
+    else if (deformationField > 0.0001f || pc.viewMode == 7)
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
+    else
+        Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
 
-    
     voxelsL1Out[index].brushId = minId;
     /*
     float t = time*0.0001f;
@@ -2279,7 +2301,7 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
                     if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
                         continue;
                     int nIdx = (int)brushID * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
-                    if (materialBrushPoints[nIdx].information.x > 0)
+                    if (materialBrushPoints[nIdx].information.y > 0)
                         deformed = true;
                 }
     }

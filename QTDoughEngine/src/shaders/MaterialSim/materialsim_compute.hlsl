@@ -67,6 +67,6 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
     float3 gravity = float3(0, 0, -9.8f) * q.mana.w;
     worldPos += gravity * deltaTime *0.01f;
-    //q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
+    q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
     quantaOut[globalIndex] = q;
 }

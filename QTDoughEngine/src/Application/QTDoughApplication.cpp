@@ -1533,12 +1533,12 @@ void QTDoughApplication::RunGPUBenchmark()
     // --- Set quality level ---
     if (gflops >= 12000.0 && gbps >= 400.0) {
         GameQualityLevel = 0; // Ultra
-    } else if (gflops >= 8000.0 && gbps >= 270.0) {
+    } else if (gflops >= 8000.0 && gbps >= 300.0) {
         GameQualityLevel = 1; // High
-    } else if (gflops >= 5000.0 && gbps >= 100.0) {
-        GameQualityLevel = 2; // Medium
+    } else if (gflops >= 5000.0 && gbps >= 200.0) {
+        GameQualityLevel = 2; // Medium, Target.
     } else {
-        GameQualityLevel = 3; // Low
+        GameQualityLevel = 3; // Low, TODO: Show a popup in-game that GPU is below target.
     }
 
     const char* qualityNames[] = { "Ultra", "High", "Medium", "Low" };

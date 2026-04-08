@@ -346,8 +346,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
     bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
 
-    //if(!inAABB)
-    //    sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
+    if(!inAABB)
+        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
     float supportWS = sigma * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
@@ -464,7 +464,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     float3 uvwMb = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
                     int3 centerCoord = int3(floor(uvwMb * MATERIAL_BRUSH_GRID_RES));
                     int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
-                    int kernelSize = 1;
+                    int kernelSize = 2;
                     
                     for (int mz = -kernelSize; mz <= kernelSize; ++mz)
                         for (int my = -kernelSize; my <= kernelSize; ++my)
@@ -474,7 +474,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                                 if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
                                     continue;
                                 int nIdx = (int) brushIdx * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
-                                InterlockedMax(materialBrushPoints[nIdx].information.x, (int) quanta.mana.w * 100);
+                                InterlockedMax(materialBrushPoints[nIdx].information.y, (int) quanta.mana.w * 100);
                             }
                 }
 
