@@ -99,6 +99,33 @@ int QTDoughApplication::Run() {
 }
 
 
+// Queries device-local VRAM usage and budget (in bytes) via VK_EXT_memory_budget.
+// Sums all heaps with VK_MEMORY_HEAP_DEVICE_LOCAL_BIT.
+static void QueryVRAMUsage(VkPhysicalDevice physicalDevice, VkDeviceSize& outUsed, VkDeviceSize& outBudget)
+{
+    outUsed = 0;
+    outBudget = 0;
+
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT budgetProps{};
+    budgetProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+
+    VkPhysicalDeviceMemoryProperties2 memProps2{};
+    memProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+    memProps2.pNext = &budgetProps;
+
+    vkGetPhysicalDeviceMemoryProperties2(physicalDevice, &memProps2);
+
+    const VkPhysicalDeviceMemoryProperties& mp = memProps2.memoryProperties;
+    for (uint32_t i = 0; i < mp.memoryHeapCount; i++)
+    {
+        if (mp.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+        {
+            outUsed += budgetProps.heapUsage[i];
+            outBudget += budgetProps.heapBudget[i];
+        }
+    }
+}
+
 void QTDoughApplication::RunMainGameLoop()
 {
     if (editorState.IsEditor())
@@ -131,6 +158,18 @@ void QTDoughApplication::RunMainGameLoop()
             FPS = io.Framerate;
         }
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / FPS, FPS);
+
+        // VRAM usage (device-local heaps, via VK_EXT_memory_budget)
+        {
+            VkDeviceSize vramUsed = 0, vramBudget = 0;
+            QueryVRAMUsage(_physicalDevice, vramUsed, vramBudget);
+            const double toMB = 1.0 / (1024.0 * 1024.0);
+            double usedMB = (double)vramUsed * toMB;
+            double budgetMB = (double)vramBudget * toMB;
+            float frac = (vramBudget > 0) ? (float)((double)vramUsed / (double)vramBudget) : 0.0f;
+            ImGui::Text("VRAM: %.0f / %.0f MB", usedMB, budgetMB);
+            ImGui::ProgressBar(frac, ImVec2(-1, 0));
+        }
         ImGui::Separator();
 
         // Temperature display.

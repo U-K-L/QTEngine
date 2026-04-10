@@ -1374,9 +1374,10 @@ void VoxelizerPass::CreateBrushes()
         };
 
     int vertexOffset = 0;
+    int uniqueTextureCount = 0;
+    std::unordered_map<int, int> batchTextureMap; // batchID -> imageIndex
     for (int i = 0; i < renderingObjects.size(); i++)
     {
-        int imageIndex = (i * 2) + mipsCount; //MIPs must be avoided.
         UnigmaRenderingObject* obj = renderingObjects[i];
         UnigmaGameObject* gObj = obj->GetGameObject();
         
@@ -1390,6 +1391,23 @@ void VoxelizerPass::CreateBrushes()
         particleDens = GetParticleDensity(particleDens);
 
         auto primType = gObj->GetComponentAttr<int>("RenderComp", "Type");
+
+        auto batchID = gObj->GetComponentAttr<int>("RenderComp", "BatchID");
+
+        int imageIndex;
+        if (batchID > 0 && batchTextureMap.count(batchID)) {
+            imageIndex = batchTextureMap[batchID];
+            std::cout << "Brush " << i << " shares batch " << batchID
+                      << " texture pair [" << imageIndex << ", " << imageIndex + 1 << "]" << std::endl;
+        } else {
+            imageIndex = (uniqueTextureCount * 2) + mipsCount;
+            uniqueTextureCount++;
+            if (batchID > 0) {
+                batchTextureMap[batchID] = imageIndex;
+            }
+            std::cout << "Brush " << i << " batchID=" << batchID
+                      << " new texture pair [" << imageIndex << ", " << imageIndex + 1 << "]" << std::endl;
+        }
 
         Brush brush;
         brush.type = primType; //Mesh type
@@ -1543,64 +1561,68 @@ void VoxelizerPass::Create3DTextures()
         std::cout << "Created 3D texture for world SDF level " << i << " with resolution: " << resolution.x << std::endl;
     }
 
-    //Create per brush.
-
-    for (int i = 0; i < brushes.size()*2; i++)
+    //Create per brush. Skip brushes that share a texture via batchID.
+    std::set<uint32_t> createdTextureIDs;
+    int brushTexCounter = 0;
+    for (size_t i = 0; i < brushes.size(); i++)
     {
-        int index = i / 2;
-        Brush& brush = brushes[index];
+        Brush& brush = brushes[i];
 
-        /*
-        if(brush.type != 0) {
-			continue;
-		}
-        */
+        // Skip if this brush's textures were already created (batched duplicate).
+        if (createdTextureIDs.count(brush.textureID)) {
+            continue;
+        }
+        createdTextureIDs.insert(brush.textureID);
+        createdTextureIDs.insert(brush.textureID2);
 
-        Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
-		app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
-			brushSdfFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			brushTexture.u_image, brushTexture.u_imageMemory);
+        // Create both textures for this brush's ping-pong pair.
+        for (int t = 0; t < 2; t++)
+        {
+            Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
+            app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
+                brushSdfFormat,
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                brushTexture.u_image, brushTexture.u_imageMemory);
 
-		brushTexture.u_imageView = app->Create3DImageView(
-			brushTexture.u_image,
-			sdfFormat,
-			VK_IMAGE_ASPECT_COLOR_BIT
-		);
-        brushTexture.ID = app->textures3D.size();
+            brushTexture.u_imageView = app->Create3DImageView(
+                brushTexture.u_image,
+                sdfFormat,
+                VK_IMAGE_ASPECT_COLOR_BIT
+            );
+            brushTexture.ID = app->textures3D.size();
 
-		// Transition the 3D image layout to GENERAL for compute write
-		VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+            // Transition the 3D image layout for compute read.
+            VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-		VkImageMemoryBarrier barrier{};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = brushTexture.u_image;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = brushTexture.u_image;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barrier.subresourceRange.baseMipLevel = 0;
+            barrier.subresourceRange.levelCount = 1;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = 1;
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0, 0, nullptr, 0, nullptr,
-			1, &barrier);
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr,
+                1, &barrier);
 
-		app->EndSingleTimeCommands(commandBuffer);
+            app->EndSingleTimeCommands(commandBuffer);
 
-
-		app->textures3D.insert({ "brush_" + std::to_string(i), std::move(brushTexture) });
-        //std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
+            app->textures3D.insert({ "brush_" + std::to_string(brushTexCounter), std::move(brushTexture) });
+            brushTexCounter++;
+        }
     }
 }
 
@@ -2351,7 +2373,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
                 voxelCount += (uint64_t)(brushes[i].resolution * brushes[i].resolution * brushes[i].resolution);
                 
             }
-            processedTextureIndexMap.insert(i); //Mark this texture as processed.
+            processedTextureIndexMap.insert(index); //Mark this texture as processed.
 		}
         particleCount += voxelCount / 8; //Estimate particles.
 

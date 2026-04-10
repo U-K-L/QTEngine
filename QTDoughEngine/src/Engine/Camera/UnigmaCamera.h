@@ -124,7 +124,7 @@ struct UnigmaCameraStruct
 
 		result[0][0] = 2.0f / (right - left);
 		result[1][1] = 2.0f / (top - bottom);
-		result[2][2] = 1.0f / (farZ - nearZ); // Vulkan-style depth [0, 1]
+		result[2][2] = -1.0f / (farZ - nearZ); // Vulkan-style depth [0, 1], RH view space
 		result[3][0] = -(right + left) / (right - left);
 		result[3][1] = -(top + bottom) / (top - bottom);
 		result[3][2] = -nearZ / (farZ - nearZ);
@@ -135,7 +135,7 @@ struct UnigmaCameraStruct
 
 
 	glm::mat4 getProjectionMatrix() {
-		isOrthogonal = std::fmin(0.995f, isOrthogonal);
+		isOrthogonal = std::fmin(1.0f, isOrthogonal);
 		float orthoHeight = orthoWidth / aspectRatio;
 		glm::mat4 ortho = getVulkanOrthoMatrix(
 			-orthoWidth / 2.0f, orthoWidth / 2.0f,

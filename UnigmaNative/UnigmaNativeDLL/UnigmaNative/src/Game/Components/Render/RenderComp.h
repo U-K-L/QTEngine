@@ -18,6 +18,7 @@ public:
 	int opeartion = 0;
 	int resolution = 0;
 	int density = 0;
+	int batchID = 0;
 	float blend = 0.0225f;
 	float smoothness = 0.1f;
 

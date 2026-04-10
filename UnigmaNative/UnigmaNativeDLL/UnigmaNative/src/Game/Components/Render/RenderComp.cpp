@@ -77,4 +77,10 @@ void RenderComp::InitializeData(nlohmann::json& componentData)
         SetValue<int>("Density", "int", density);
     }
 
+    if (componentData.contains("BatchID"))
+    {
+        batchID = componentData["BatchID"];
+        SetValue<int>("BatchID", "int", batchID);
+    }
+
 }
