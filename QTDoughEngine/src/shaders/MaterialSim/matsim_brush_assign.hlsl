@@ -120,6 +120,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         quantaOut[slot].position.xyz = localPos;
         quantaOut[slot].information.x = (int) brush.id;
+        quantaOut[slot].information.w = 1;
         return;
     }
 }

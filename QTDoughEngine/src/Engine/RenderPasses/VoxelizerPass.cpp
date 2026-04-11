@@ -2362,18 +2362,20 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             uint32_t index = brushes[i].textureID;
 
             if(processedTextureIndexMap.find(index) != processedTextureIndexMap.end()) {
-				//Already processed this texture.
-				continue;
+				//Already processed this texture — but still dispatch for aabb computation.
 			}
+            else {
+                processedTextureIndexMap.insert(index);
+            }
+
             if (brushes[i].type >= 0) { //Mesh type
 
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
 
                 //Sum voxels.
                 voxelCount += (uint64_t)(brushes[i].resolution * brushes[i].resolution * brushes[i].resolution);
-                
+
             }
-            processedTextureIndexMap.insert(index); //Mark this texture as processed.
 		}
         particleCount += voxelCount / 8; //Estimate particles.
 
@@ -2529,7 +2531,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //Dual Contour.
         DispatchLOD(commandBuffer, currentFrame, 50);
 
-        
+
         //Create Vertex Mask.
         //For each brush that needs to be updated.
         for (int i = 0; i < brushes.size(); i++)

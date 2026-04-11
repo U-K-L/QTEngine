@@ -128,6 +128,10 @@ static void QueryVRAMUsage(VkPhysicalDevice physicalDevice, VkDeviceSize& outUse
 
 void QTDoughApplication::RunMainGameLoop()
 {
+    // Advance the clock before anything reads it.
+    previousTime = currentTime;
+    currentTime = std::chrono::high_resolution_clock::now();
+
     if (editorState.IsEditor())
     {
         // imgui new frame
@@ -425,7 +429,6 @@ void QTDoughApplication::RunMainGameLoop()
 
         timeMinutePassed = currentTime;
     }
-
 
     DrawFrame();
     if (GatherBlenderInfo() == 0)
@@ -1577,7 +1580,7 @@ void QTDoughApplication::RunGPUBenchmark()
     } else if (gflops >= 5000.0 && gbps >= 200.0) {
         GameQualityLevel = 2; // Medium, Target.
     } else {
-        GameQualityLevel = 3; // Low, TODO: Show a popup in-game that GPU is below target.
+        GameQualityLevel = 3; // Low, likely below 30 FPS, TODO: Show a popup in-game that GPU is below target.
     }
 
     const char* qualityNames[] = { "Ultra", "High", "Medium", "Low" };
@@ -2674,7 +2677,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     float timeInSeconds = std::chrono::duration<float>(timeNow - duration).count();
 
 
-    float deltaTime = std::chrono::duration<float>(timeNow - currentTime).count(); //current time a frame behind.
+    float deltaTime = std::chrono::duration<float>(currentTime - previousTime).count(); //time between frames.
 
     GlobalUniformBufferObject globalUBO{};
     globalUBO.deltaTime = deltaTime;
@@ -2694,7 +2697,7 @@ void QTDoughApplication::UpdateGlobalDescriptorSet()
     memcpy(data, &globalUBO, sizeof(GlobalUniformBufferObject));
     vkUnmapMemory(_logicalDevice, globalUniformBuffersMemory[currentFrame]);
 
-    currentTime = timeNow;
+    // currentTime is now advanced in RunMainGameLoop.
 
     void* dataObjs;
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -3567,9 +3570,9 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
     std::cout << "Max 3D Texture Size: " << max3DTextureSize << std::endl;
     std::cout << "========================: " << std::endl;
 
-    if(TotalGPURam < 6000)
+    if(TotalGPURam < 7000)
 	{
-		std::cout << "Warning: System RAM is less than 6GB, less than minimum requirements." << std::endl;
+		std::cout << "Warning: System RAM is less than 8GB, less than minimum requirements." << std::endl;
 	}
 
     if(!rayTracingFeatures.rayTracingPipeline || !accelFeatures.accelerationStructure)
@@ -3587,7 +3590,7 @@ bool QTDoughApplication::IsDeviceSuitable(VkPhysicalDevice device) {
         && swapChainAdequate
         && rayTracingFeatures.rayTracingPipeline
         && accelFeatures.accelerationStructure
-        && (TotalGPURam >= 6000); //At least 6GB VRAM
+        && (TotalGPURam >= 7000); //At least 7GB VRAM, really 8GB.
 }
 
 std::vector<const char*> QTDoughApplication::GetRequiredExtensions() {

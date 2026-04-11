@@ -225,7 +225,8 @@ public:
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
     std::chrono::high_resolution_clock::time_point timeMinutePassed;
-    std::chrono::high_resolution_clock::time_point currentTime;
+    std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point previousTime = std::chrono::high_resolution_clock::now();
     std::vector<VkBuffer> globalUniformBufferObject;
     std::vector<VkDeviceMemory> globalUniformBuffersMemory;
     std::vector<VkDescriptorSet> globalDescriptorSets;

@@ -22,7 +22,6 @@ StructuredBuffer<VoxelL1> voxelsL1 : register(t12, space1);
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-    // 1:1 load from the matching SDF mip (texture ID passed via pc.brushIndex)
     float sdf = gBindless3D[pc.brushIndex].Load(int4(DTid, 0));
     uint idx = DTid.x + DTid.y * 256 + DTid.z * 256 * 256;
     materialGrid[idx].fieldValues.x = sdf;
