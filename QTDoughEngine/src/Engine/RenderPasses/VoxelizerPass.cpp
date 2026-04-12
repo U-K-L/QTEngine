@@ -704,8 +704,8 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
 
-    // Compact position buffer for RTA (float3 per vertex, tightly packed).
-    uint32_t positionBufferSize = sizeof(float) * 3 * VertexMaxCount;
+    // Compact position buffer for RTA (float4 per vertex: xyz + brushID in w).
+    uint32_t positionBufferSize = sizeof(float) * 4 * VertexMaxCount;
     app->CreateBuffer(positionBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
@@ -2437,6 +2437,18 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     if(dispatchCount > 1)
 	{
+        // Zero the position buffer so un-emitted slots are degenerate triangles.
+        vkCmdFillBuffer(commandBuffer, meshingPositionBuffer, 0, sizeof(float) * 4 * VertexMaxCount, 0);
+        VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        clearBarrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        clearBarrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+        VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        clearDep.memoryBarrierCount = 1;
+        clearDep.pMemoryBarriers = &clearBarrier;
+        vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
 		//Dispatch the tile generation.
         DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
@@ -2530,7 +2542,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Dual Contour.
         DispatchLOD(commandBuffer, currentFrame, 50);
-
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.

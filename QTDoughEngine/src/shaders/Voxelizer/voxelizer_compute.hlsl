@@ -901,7 +901,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     int3 regionRes = voxelGridRes / 2;
     int3 regionOffset = (voxelGridRes - regionRes) / 2;
-    int3 fullDTid = int3(DTid) + regionOffset;
+    int3 fullDTid = DTid; //int3(DTid) + regionOffset;
     
     
     //Get the voxel position.
@@ -942,7 +942,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
         float sdfVal = voxelsL1Out[index].isoPhi;
         minDist = min(sdfVal, minDist);
-        Write3DDist(0, fullDTid, minDist);
+        Write3DDist(0, DTid, minDist);
         return;
     }
     
@@ -1951,23 +1951,24 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
     InterlockedAdd(GlobalIDCounter[0], 6, vertOffset);
 
-    //Set vertices positions.
-    meshingVertices[vertOffset + 0].position = float4(v0, 1);
-    meshingVertices[vertOffset + 1].position = float4(v1, 1);
-    meshingVertices[vertOffset + 2].position = float4(v2, 1);
+    //Set vertices positions. w = brush ID for hit-shader material lookup.
+    float brushID = (float)brush.id;
+    meshingVertices[vertOffset + 0].position = float4(v0, brushID);
+    meshingVertices[vertOffset + 1].position = float4(v1, brushID);
+    meshingVertices[vertOffset + 2].position = float4(v2, brushID);
 
-    meshingVertices[vertOffset + 3].position = float4(v0, 1);
-    meshingVertices[vertOffset + 4].position = float4(v2, 1);
-    meshingVertices[vertOffset + 5].position = float4(v3, 1);
+    meshingVertices[vertOffset + 3].position = float4(v0, brushID);
+    meshingVertices[vertOffset + 4].position = float4(v2, brushID);
+    meshingVertices[vertOffset + 5].position = float4(v3, brushID);
 
-    // Compact positions for RTA.
-    uint po = vertOffset * 3;
-    meshingPositions[po + 0] = v0.x; meshingPositions[po + 1] = v0.y; meshingPositions[po + 2] = v0.z;
-    meshingPositions[po + 3] = v1.x; meshingPositions[po + 4] = v1.y; meshingPositions[po + 5] = v1.z;
-    meshingPositions[po + 6] = v2.x; meshingPositions[po + 7] = v2.y; meshingPositions[po + 8] = v2.z;
-    meshingPositions[po + 9] = v0.x; meshingPositions[po + 10] = v0.y; meshingPositions[po + 11] = v0.z;
-    meshingPositions[po + 12] = v2.x; meshingPositions[po + 13] = v2.y; meshingPositions[po + 14] = v2.z;
-    meshingPositions[po + 15] = v3.x; meshingPositions[po + 16] = v3.y; meshingPositions[po + 17] = v3.z;
+    // Compact positions for RTA. vec4: xyz = position, w = brushID.
+    uint po = vertOffset * 4;
+    meshingPositions[po + 0] = v0.x; meshingPositions[po + 1] = v0.y; meshingPositions[po + 2] = v0.z; meshingPositions[po + 3] = brushID;
+    meshingPositions[po + 4] = v1.x; meshingPositions[po + 5] = v1.y; meshingPositions[po + 6] = v1.z; meshingPositions[po + 7] = brushID;
+    meshingPositions[po + 8] = v2.x; meshingPositions[po + 9] = v2.y; meshingPositions[po + 10] = v2.z; meshingPositions[po + 11] = brushID;
+    meshingPositions[po + 12] = v0.x; meshingPositions[po + 13] = v0.y; meshingPositions[po + 14] = v0.z; meshingPositions[po + 15] = brushID;
+    meshingPositions[po + 16] = v2.x; meshingPositions[po + 17] = v2.y; meshingPositions[po + 18] = v2.z; meshingPositions[po + 19] = brushID;
+    meshingPositions[po + 20] = v3.x; meshingPositions[po + 21] = v3.y; meshingPositions[po + 22] = v3.z; meshingPositions[po + 23] = brushID;
     
     
     //Now generate normals. This depends on the operation codes of the brush.
@@ -2312,21 +2313,22 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     uint outBase;
     InterlockedAdd(GlobalIDCounter[1], 3, outBase);
 
-    // Write
-    meshingVertices[outBase + 0].position = float4(pW0, 1.0f);
+    // Write. w = brush ID for hit-shader material lookup.
+    float bID = (float)brush.id;
+    meshingVertices[outBase + 0].position = float4(pW0, bID);
     meshingVertices[outBase + 0].normal = float4(vertexBuffer[i0].normal.xyz, brush.materialId);
 
-    meshingVertices[outBase + 1].position = float4(pW1, 1.0f);
+    meshingVertices[outBase + 1].position = float4(pW1, bID);
     meshingVertices[outBase + 1].normal = float4(vertexBuffer[i1].normal.xyz, brush.materialId);
 
-    meshingVertices[outBase + 2].position = float4(pW2, 1.0f);
+    meshingVertices[outBase + 2].position = float4(pW2, bID);
     meshingVertices[outBase + 2].normal = float4(vertexBuffer[i2].normal.xyz, brush.materialId);
 
-    // Compact positions for RTA.
-    uint po2 = outBase * 3;
-    meshingPositions[po2 + 0] = pW0.x; meshingPositions[po2 + 1] = pW0.y; meshingPositions[po2 + 2] = pW0.z;
-    meshingPositions[po2 + 3] = pW1.x; meshingPositions[po2 + 4] = pW1.y; meshingPositions[po2 + 5] = pW1.z;
-    meshingPositions[po2 + 6] = pW2.x; meshingPositions[po2 + 7] = pW2.y; meshingPositions[po2 + 8] = pW2.z;
+    // Compact positions for RTA. vec4: xyz + brushID in w.
+    uint po2 = outBase * 4;
+    meshingPositions[po2 + 0] = pW0.x; meshingPositions[po2 + 1] = pW0.y; meshingPositions[po2 + 2] = pW0.z; meshingPositions[po2 + 3] = bID;
+    meshingPositions[po2 + 4] = pW1.x; meshingPositions[po2 + 5] = pW1.y; meshingPositions[po2 + 6] = pW1.z; meshingPositions[po2 + 7] = bID;
+    meshingPositions[po2 + 8] = pW2.x; meshingPositions[po2 + 9] = pW2.y; meshingPositions[po2 + 10] = pW2.z; meshingPositions[po2 + 11] = bID;
 }
 
 

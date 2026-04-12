@@ -631,7 +631,7 @@ void RayTracerPass::BuildBLAS_FromTriangleSoup(
     VkAccelerationStructureGeometryTrianglesDataKHR tri{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR
     };
-    tri.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+    tri.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
     tri.vertexData.deviceAddress = vaddr;
     tri.vertexStride = vertexStride;
     tri.maxVertex = vertexCount - 1;
@@ -881,7 +881,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 
 
-    BuildBLAS_FromTriangleSoup(commandBuffer, currentFrame, voxelizer->meshingPositionBuffer, 0, voxelizer->readBackVertexCount, sizeof(float) * 3);
+    BuildBLAS_FromTriangleSoup(commandBuffer, currentFrame, voxelizer->meshingPositionBuffer, 0, voxelizer->readBackVertexCount, sizeof(float) * 4);
     BuildTLAS_SingleInstance(commandBuffer, currentFrame);
 
     VkAccelerationStructureKHR tlasForFrame = rtAS[currentFrame].tlas;

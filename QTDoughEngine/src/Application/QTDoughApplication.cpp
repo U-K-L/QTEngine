@@ -420,7 +420,7 @@ void QTDoughApplication::RunMainGameLoop()
 
     if (elapsedTime.count() >= 33)
     {
-        ComputePhysics();
+        //ComputePhysics();
     }
 
     elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeMinutePassed);
