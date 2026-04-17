@@ -377,33 +377,27 @@ void QTDoughApplication::RunMainGameLoop()
     }
 
     //If a request is sent pause rendering.
-    if (QTDoughEngineThread->requestSignal == true)
     {
-        ClearObjectData();
+        std::unique_lock<std::mutex> lock(QTDoughEngineThread->shared.mtx);
 
-        //std::cout << "3) Request signal received." << std::endl;
-        //Notify the main thread that the work is done. And we can take requests.
+        if (QTDoughEngineThread->shared.requestSignal)
+        {
+            ClearObjectData();
 
+            //Signal main that we've finished the current frame.
+            QTDoughEngineThread->shared.workFinished = true;
+            lock.unlock();
+            QTDoughEngineThread->shared.cvMain.notify_one();
 
-        //std::cout << "4) Waiting for main thread to continue..." << std::endl;
-        
-        //Wait for the main thread to send a signal to continue.
-        if(QTDoughEngineThread->continueSignal.load() == false)
-		{
-            std::unique_lock<std::mutex> lock(QTDoughEngineThread->workmtx);
+            //Wait for main to finish updating and signal us to continue.
+            lock.lock();
+            QTDoughEngineThread->shared.cvWorker.wait(lock, [this] {
+                return QTDoughEngineThread->shared.continueSignal;
+            });
 
-            QTDoughEngineThread->workFinished.store(true, std::memory_order_release);
-            QTDoughEngineThread->NotifyMain();
-
-            QTDoughEngineThread->workcv.wait(lock, [this] { return QTDoughEngineThread->continueSignal.load(); });
-         
-		}
-        QTDoughEngineThread->continueSignal.store(false);
-
-
-        //std::cout << "7) Notified as a worker, now continue rendering scene." << std::endl;
-        QTDoughEngineThread->requestSignal.store(false, std::memory_order_release);
-
+            QTDoughEngineThread->shared.continueSignal = false;
+            QTDoughEngineThread->shared.requestSignal = false;
+        }
     }
     //std::cout << "Updating frame..." << std::endl;
 
@@ -420,7 +414,7 @@ void QTDoughApplication::RunMainGameLoop()
 
     if (elapsedTime.count() >= 33)
     {
-        //ComputePhysics();
+        ComputePhysics();
     }
 
     elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeMinutePassed);

@@ -56,7 +56,7 @@ struct Photon
 struct Graviton
 {
 	glm::vec4 position;
-	glm::vec4 direction; //Direction it points to, xyz. w being magnitude or weight.
+	glm::vec4 direction; //xyz normalize = direction, unormalized = direction and speed, w = time direction (dt * w)
 };
 
 struct Lepton

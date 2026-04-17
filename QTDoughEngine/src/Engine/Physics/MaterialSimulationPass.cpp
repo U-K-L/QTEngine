@@ -484,6 +484,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Copy matching SDF mip into materialGrid before P2G.
 	DispatchSDFDownsample(commandBuffer);
 
+
 	// Sort quantas into tiles before simulation.
 	DispatchTileSort(commandBuffer);
 
@@ -587,8 +588,9 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	dispatchesCount += 1;
 
 	//Load grid.
-	ReadBackMaterialGridSDF();
-	ReadBackMaterialGridFull(); //Make this on demand.
+	//ReadBackMaterialGridSDF();
+	//ReadBackMaterialGridFull(); //Make this on demand.
+
 }
 
 void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer)

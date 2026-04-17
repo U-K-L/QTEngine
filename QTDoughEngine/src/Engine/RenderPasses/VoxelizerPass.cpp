@@ -1865,10 +1865,9 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 
         if (model != brushes[i].model)
         {
-            brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
+            brushes[i].model = model;
+            brushes[i].invModel = glm::inverse(model);
             brushes[i].isDirty = 1;
-            std::cout << "Brush " << i << " dirty, pos=("
-                      << brushes[i].model[3][0] << "," << brushes[i].model[3][1] << "," << brushes[i].model[3][2] << ")" << std::endl;
         }
     }
 
@@ -1885,6 +1884,15 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
             &brushes[i].model
         );
 
+        offset = sizeof(Brush) * i + offsetof(Brush, invModel);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(glm::mat4),
+            &brushes[i].invModel
+        );
 
         offset = sizeof(Brush) * i + offsetof(Brush, isDirty);
 
