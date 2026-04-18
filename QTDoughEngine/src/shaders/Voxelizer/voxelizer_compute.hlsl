@@ -935,13 +935,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     int3 DTL1 = fullDTid / worldSDFDivisor;
 
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
-
+    uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
+    float sdfVal = voxelsL1Out[index].isoPhi;
+    minDist = min(sdfVal, minDist);
 
     if(brushCount == 0)
     {
-        uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
-        float sdfVal = voxelsL1Out[index].isoPhi;
-        minDist = min(sdfVal, minDist);
         Write3DDist(0, DTid, minDist);
         return;
     }
@@ -958,15 +957,17 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         float3 mbLocalPos;
         int mbpIdx = WorldToMaterialBrushIndex(center, brush, index, mbLocalPos);
 
+        
         switch (brush.opcode)
         {
             case 0:
                 blendFactor += brush.blend;
-                if(minDist > d)
-                {
+
+                if (mbpIdx >= 0)
+                    deformationField = max(deformationField, (float) materialBrushPoints[mbpIdx].information.y);
+                if (minDist > d)
                     minId = index;
-                    deformationField = (float) materialBrushPoints[mbpIdx].information.y;
-                }
+            
                 minDist = smin(minDist, d, blendFactor + 0.0001f);
                 smoothness = smin(smoothness, brush.smoothness, blendFactor + 0.01f);
                 break;
@@ -995,9 +996,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
             }
     
     DTL1 = clamp(DTL1, int3(0, 0, 0), int3(voxelSceneBoundsl1) - 1);
-    uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
-    float sdfVal = voxelsL1Out[index].isoPhi; 
-    
+
 
     if (pc.viewMode == 8)
     {

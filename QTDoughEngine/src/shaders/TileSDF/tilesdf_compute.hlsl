@@ -292,6 +292,10 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 {
     //Move to world space if connected to a brush.
     Quanta quanta = quantaBuffer[DTid.x];
+    
+    if (quanta.mana.w < 0.01f) //Unexcited, fade away, store as triangle mesh.
+        return;
+    
     float materialMod = 1.0f;
     float supportMod = pc.supportMultiplier;
     //emulate material for air.
@@ -454,8 +458,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
                 InterlockedExchange(voxelsL1Out[flatIndex].brushId, (uint)quanta.information.x, dummy);
 
-                if(quanta.mana.w < 1.0f)
-                    continue;
                 
                 float3 mbLocalPos;
                 int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
