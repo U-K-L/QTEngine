@@ -455,10 +455,10 @@ void QTDoughApplication::ComputePhysics()
             Emitter ev{};
             ev.information = glm::ivec4(0, 1, 0, 0);            // y=1 = LEPTON.
             ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f); // center=origin, count=100.
-            ev.shape = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
+            ev.shape = glm::vec4(0.5f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
             ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 0.725f);
             ev.velocity = glm::vec4(2.0f, 0.0f, 0.0f, 5.0f);   // w=lifespan.
-            ev.mana = glm::vec4(2000.25f, 0.0f, 0.0f, 0.0f);
+            ev.mana = glm::vec4(200.25f, 0.0f, 0.0f, 0.0f);
             emitterSystem->AddEvent(ev);
             std::cout << "Emitted event" << std::endl;
         }

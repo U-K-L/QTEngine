@@ -115,5 +115,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     
     q.mana.w += ((manaSum / weightSum) - q.mana.w) * deltaTime * 0.1f;
     q.mana.w = clamp(q.mana.w, 0.0f, 10000.0f);
+    if(q.mana.w > 0.01f) // excited!
+        q.information.z += 1; //Ledger.
     quantaOut[qIdx] = q;
 }

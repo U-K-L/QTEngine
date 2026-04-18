@@ -997,7 +997,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
     DTL1 = clamp(DTL1, int3(0, 0, 0), int3(voxelSceneBoundsl1) - 1);
 
-
+    /*
     if (pc.viewMode == 8)
     {
         // Visualize material brush grid.
@@ -1018,10 +1018,12 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Write3DDist(0, fullDTid, mbpMinDist);
     }
     else if (deformationField > 0.0001f || pc.viewMode == 7)
-        Write3DDist(0, fullDTid, sdfVal); // Consider particles.
+        
     else
         Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
-
+    */
+    
+    Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     voxelsL1Out[index].brushId = minId;
     /*
     float t = time*0.0001f;

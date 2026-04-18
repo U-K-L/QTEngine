@@ -466,7 +466,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     float3 uvwMb = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
                     int3 centerCoord = int3(floor(uvwMb * MATERIAL_BRUSH_GRID_RES));
                     int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
-                    int kernelSize = 2;
+                    int kernelSize = 3;
                     
                     for (int mz = -kernelSize; mz <= kernelSize; ++mz)
                         for (int my = -kernelSize; my <= kernelSize; ++my)

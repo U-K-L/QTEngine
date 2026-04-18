@@ -26,13 +26,13 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     else if (GetKeyState('7') & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
     else if (GetKeyState('8') & 0x8000) { pc.input = (int)ViewModes::MaterialBrush; app->editorState.viewMode = ViewModes::MaterialBrush; }
 
-    if (GetKeyState('O') & 0x8000 && capturing == false)
+    if (GetKeyState('H') & 0x8000 && capturing == false)
     {
         //Empty string for default output path.
         app->StartRecording("", 30);
         capturing = true;
     }
-    else if (GetKeyState('P') & 0x8000 && capturing == true)
+    else if (GetKeyState('J') & 0x8000 && capturing == true)
 	{
 		app->StopRecording();
 		capturing = false;
