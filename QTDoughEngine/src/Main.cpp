@@ -13,6 +13,48 @@
 #include <mutex>
 #include <thread>
 
+// Streambuf that writes to both the console and a log file.
+class TeeBuf : public std::streambuf {
+public:
+    TeeBuf(std::streambuf* consoleBuf, std::streambuf* fileBuf)
+        : consoleBuf(consoleBuf), fileBuf(fileBuf) {}
+protected:
+    int overflow(int c) override {
+        if (c == EOF) return !EOF;
+        int r1 = consoleBuf->sputc(c);
+        int r2 = fileBuf->sputc(c);
+        return (r1 == EOF || r2 == EOF) ? EOF : c;
+    }
+    std::streamsize xsputn(const char* s, std::streamsize n) override {
+        std::streamsize r1 = consoleBuf->sputn(s, n);
+        std::streamsize r2 = fileBuf->sputn(s, n);
+        return (r1 < r2) ? r1 : r2;
+    }
+    int sync() override {
+        int r1 = consoleBuf->pubsync();
+        int r2 = fileBuf->pubsync();
+        return (r1 == 0 && r2 == 0) ? 0 : -1;
+    }
+private:
+    std::streambuf* consoleBuf;
+    std::streambuf* fileBuf;
+};
+
+static std::ofstream g_logFile;
+static TeeBuf* g_coutTee = nullptr;
+static TeeBuf* g_cerrTee = nullptr;
+
+static LONG WINAPI CrashHandler(EXCEPTION_POINTERS* ex) {
+    std::cerr << "[CRASH] Unhandled exception 0x" << std::hex << ex->ExceptionRecord->ExceptionCode
+        << " at address 0x" << ex->ExceptionRecord->ExceptionAddress << std::endl;
+    if (g_logFile.is_open()) {
+        g_logFile.flush();
+        g_logFile.close();
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+
 UnigmaThread* QTDoughEngine;
 QTDoughApplication qtDoughApp;
 SDL_Window* QTSDLWindow;
@@ -98,6 +140,15 @@ int CompileShader()
 
 int main(int argc, char* args[]) {
 
+    // Set up logging: tee stdout/stderr to qtdough_log.txt
+    g_logFile.open("qtdough_log.txt", std::ios::out | std::ios::trunc);
+    if (g_logFile.is_open()) {
+        g_coutTee = new TeeBuf(std::cout.rdbuf(), g_logFile.rdbuf());
+        g_cerrTee = new TeeBuf(std::cerr.rdbuf(), g_logFile.rdbuf());
+        std::cout.rdbuf(g_coutTee);
+        std::cerr.rdbuf(g_cerrTee);
+    }
+    SetUnhandledExceptionFilter(CrashHandler);
     CompileShader();
     QTDoughApplication::SetInstance(&qtDoughApp);
 

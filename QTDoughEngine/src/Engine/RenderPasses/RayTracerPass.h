@@ -26,6 +26,7 @@ public:
     void CreateTriangleSoup();
     void CreateSBT();
     void CreateImages();
+    void CleanupImages();
     void CreateUniformBuffers();
 
     float passWidth = 720;

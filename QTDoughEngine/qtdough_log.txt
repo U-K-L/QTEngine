@@ -1,0 +1,281 @@
+Scene Loaded!
+Model Information and Material Size: 20
+Houston we're running the renderer!!!
+validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
+validation layer: Searching for ICD drivers named .\igvk64.dll
+validation layer: Searching for ICD drivers named .\nvoglv64.dll
+validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
+validation layer: Searching for ICD drivers named .\igvk64.dll
+validation layer: Searching for ICD drivers named .\nvoglv64.dll
+validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
+Created Window Surface
+Device count: 3
+Swap chain being queried
+Swap chain support details acquired successfully.
+========================: 
+=========TOTAL VRAM============: 
+Device VRAM: 7960 MB
+Device Name: NVIDIA GeForce RTX 4060 Laptop GPU
+Max Bound Descriptor Sets: 32
+Max Per Stage Sampled Images: 1048576
+Max Total Sampled Images: 1048576
+Max 3D Texture Size: 16384
+========================: 
+Max MSAA Samples: 8
+Suitable device found
+validation layer: loader_create_device_chain: Using deprecated and ignored 'ppEnabledLayerNames' member of 'VkDeviceCreateInfo' when creating a Vulkan device.
+Creating swap chain
+Swap chain being queried
+Swap chain support details acquired successfully.
+Created swap chain
+Creating Command Pool
+Created Command Pool
+========================
+Running GPU Benchmark...
+========================
+GPU Benchmark Results:
+  Compute throughput: 10261.3 GFLOPS
+  Memory bandwidth:   236.272 GB/s
+  Selected quality level: Medium (2)
+========================
+Required size for Quanta is: 134217728
+Required size for Deformation is: 201326592
+Quanta initialized: 203x203x51 (2101659 grid points, step=0.31498m)
+Required size for Leptons is: 4194304
+Leptons lattice: 64x64x16 (65536 grid points, step=1)
+Leptons initialized: 65536 particles.
+Total grid points is: 4194304
+Total Grid Memory Size is: 335544320
+MaterialSimulation storage buffers created. Tiles: 8x8x2 (128 total)
+EmitterSystem buffers created.
+Medium Quality Voxel Resolution. 
+Max Vertex Count set to: 2097152
+Passes count: 7
+Creating global descriptor set layout
+Created global descriptor set layout
+Creating graphics pipeline background for: BackgroundPass
+src/shaders/backgroundvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating graphics pipeline background for: AlbedoPass
+src/shaders/albedovert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating graphics pipeline background for: NormalPass
+src/shaders/normalvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating graphics pipeline background for: PositionPass
+src/shaders/positionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating graphics pipeline background for: CombineSDFRasterPass
+src/shaders/combineSDFRastervert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating graphics pipeline background for: OutlinePass
+src/shaders/outlinevert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating graphics pipeline background for: DefaultPass
+src/shaders/compositionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Creating compute pipeline
+Creating compute pipeline
+Creating compute pipeline
+Compute pipeline created
+Memory of voxels in L1: 768 MB
+Memory of voxels in L2: 64 MB
+Memory of voxels in L3: 8 MB
+Size of voxel: 32 bytes
+Readback created: VoxelizerPass
+Creating compute pipeline
+Compute pipeline created
+Creating Ray Tracing Pipeline...
+Loading ray tracing shader files...
+Ray Tracing Pipeline created successfully.
+Texture Loaded Name: Assets/Textures/SkyboxBorder.png
+Texture Loaded Name Final Token: SkyboxBorder
+Texture Loaded Name: Assets/Textures/NoiseAndGrain.png
+Texture Loaded Name Final Token: NoiseAndGrain
+Memory of 3D Textures WORLD SDF: 64 MB
+Memory of 3D Textures in L1: 768 MB
+Memory of 3D Textures in L2: 64 MB
+Memory of 3D Textures in L3: 8 MB
+Textures created
+Brush 0 batchID=1 new texture pair [5, 6]
+Brush 1 shares batch 1 texture pair [5, 6]
+Brush 2 shares batch 1 texture pair [5, 6]
+Brush 3 shares batch 1 texture pair [5, 6]
+Brush 4 shares batch 1 texture pair [5, 6]
+Brush 5 shares batch 1 texture pair [5, 6]
+Brush 6 shares batch 1 texture pair [5, 6]
+Brush 7 shares batch 1 texture pair [5, 6]
+Brush 8 shares batch 1 texture pair [5, 6]
+Brush 9 shares batch 1 texture pair [5, 6]
+Brush 10 shares batch 1 texture pair [5, 6]
+Brush 11 shares batch 1 texture pair [5, 6]
+Brush 12 shares batch 1 texture pair [5, 6]
+Brush 13 shares batch 1 texture pair [5, 6]
+Brush 14 shares batch 1 texture pair [5, 6]
+Brush 15 shares batch 1 texture pair [5, 6]
+Brush 16 shares batch 1 texture pair [5, 6]
+Brush 17 shares batch 1 texture pair [5, 6]
+Brush 18 shares batch 1 texture pair [5, 6]
+Brush 19 shares batch 1 texture pair [5, 6]
+Brush 20 batchID=0 new texture pair [7, 8]
+Brush 21 batchID=0 new texture pair [9, 10]
+Brush 22 batchID=0 new texture pair [11, 12]
+Textures created2
+Created 3D texture for world SDF level 0 with resolution: 512
+Created 3D texture for world SDF level 1 with resolution: 256
+Created 3D texture for world SDF level 2 with resolution: 128
+Created 3D texture for world SDF level 3 with resolution: 64
+Created 3D texture for world SDF level 4 with resolution: 32
+Textures creat2ed2
+Creating Uniform Buffers
+Created Uniform Buffers
+Creating Shader Storage Buffers VoxelizerPass
+Vertex count: 23832
+Vertex size: 1143936
+vertexBuffer memReq.size = 1143936
+Voxel L1 Storage Buffers created
+VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
+Shader Storage Buffers created
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating descriptor pools
+Created descriptor pools
+Creating Descriptor Pool
+Created Descriptor Pool
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating descriptor sets
+Created descriptor sets
+Creating Global Descriptor Set
+Created Global Descriptor Set
+Creating Compute Descriptor Sets
+Created descriptor sets
+MaterialSimulation sort pipelines created.
+MaterialSimulation compute workload initialized.
+emitterEventBuffer: 000001F7D1F37400
+quanta[0]: 000001F7C42C77B0
+quanta[1]: 000001F7C42C7940
+quanta[2]: 000001F7C42C7490
+Created Descriptor layout emitter
+Created Descriptor layout pool
+Created Descriptor sets
+Created Descriptor writes
+Created pipeline layout
+EmitterSystem compute workload initialized.
+Created Command Buffer
+Allocated compute command buffers
+Started pool info imgui
+Started pool info imgui
+Brush resolution and ID: 0 , 128
+Brush resolution and ID: 1 , 128
+Brush resolution and ID: 2 , 128
+Brush resolution and ID: 3 , 128
+Brush resolution and ID: 4 , 128
+Brush resolution and ID: 5 , 128
+Brush resolution and ID: 6 , 128
+Brush resolution and ID: 7 , 128
+Brush resolution and ID: 8 , 128
+Brush resolution and ID: 9 , 128
+Brush resolution and ID: 10 , 128
+Brush resolution and ID: 11 , 128
+Brush resolution and ID: 12 , 128
+Brush resolution and ID: 13 , 128
+Brush resolution and ID: 14 , 128
+Brush resolution and ID: 15 , 128
+Brush resolution and ID: 16 , 128
+Brush resolution and ID: 17 , 128
+Brush resolution and ID: 18 , 128
+Brush resolution and ID: 19 , 128
+Brush resolution and ID: 20 , 256
+Brush resolution and ID: 21 , 256
+Brush resolution and ID: 22 , 256
+Brush creation took: 11 milliseconds
+Brushes Processed: 4
+Total Voxels Created: 92274688
+Estimated Particles Created: 11534336
+Brush resolution and ID: 0 , 128
+Brush resolution and ID: 1 , 128
+Brush resolution and ID: 2 , 128
+Brush resolution and ID: 3 , 128
+Brush resolution and ID: 4 , 128
+Brush resolution and ID: 5 , 128
+Brush resolution and ID: 6 , 128
+Brush resolution and ID: 7 , 128
+Brush resolution and ID: 8 , 128
+Brush resolution and ID: 9 , 128
+Brush resolution and ID: 10 , 128
+Brush resolution and ID: 11 , 128
+Brush resolution and ID: 12 , 128
+Brush resolution and ID: 13 , 128
+Brush resolution and ID: 14 , 128
+Brush resolution and ID: 15 , 128
+Brush resolution and ID: 16 , 128
+Brush resolution and ID: 17 , 128
+Brush resolution and ID: 18 , 128
+Brush resolution and ID: 19 , 128
+Brush resolution and ID: 20 , 256
+Brush resolution and ID: 21 , 256
+Brush resolution and ID: 22 , 256
+Brush creation took: 11 milliseconds
+Brushes Processed: 4
+Total Voxels Created: 92274688
+Estimated Particles Created: 11534336
+Added event
+Emitted event
+Emitter dispatch
+Emitter descriptor
+Emitter done
+Quanta count readback done.
+Added event
+Emitted event
+Emitter dispatch
+Emitter descriptor
+Emitter done

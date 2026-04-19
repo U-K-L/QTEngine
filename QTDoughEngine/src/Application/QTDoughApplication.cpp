@@ -4294,17 +4294,34 @@ void QTDoughApplication::RecreateSwapChain()
 
     vkDeviceWaitIdle(_logicalDevice);
 
+    // Destroy old depth resources before recreating.
+    if (depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(_logicalDevice, depthImageView, nullptr);
+        depthImageView = VK_NULL_HANDLE;
+    }
+    if (depthImage != VK_NULL_HANDLE) {
+        vkDestroyImage(_logicalDevice, depthImage, nullptr);
+        depthImage = VK_NULL_HANDLE;
+    }
+    if (depthImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(_logicalDevice, depthImageMemory, nullptr);
+        depthImageMemory = VK_NULL_HANDLE;
+    }
+
+    CleanupEditorViewportImage();
     CleanupSwapChain();
 
+    // Update screen dimensions.
+    SCREEN_WIDTH = width;
+    SCREEN_HEIGHT = height;
 
     // Recreate swapchain and dependent resources
     CreateSwapChain();
     CreateImageViews();
     CreateDepthResources();
 
+    CreateEditorViewportImage();
     RecreateResources();
-
-    CreateCommandBuffers();
 
     //Print size of new screen.
     std::cout << "New screen size: " << width << "x" << height << std::endl;
@@ -4343,6 +4360,14 @@ void QTDoughApplication::RecreateResources()
         renderPass->CleanupPipeline();
         renderPass->CreateMaterials();
         renderPass->CreateGraphicsPipeline();
+    }
+
+    for (auto& computePass : computePassStack) {
+        computePass->CleanupImages();
+    }
+
+    for (auto& rtPass : rayTracePassStack) {
+        rtPass->CleanupImages();
     }
 
     CreateImages();

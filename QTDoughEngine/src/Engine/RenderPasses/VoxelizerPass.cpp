@@ -1504,7 +1504,7 @@ void VoxelizerPass::Create3DTextures()
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
 
-    //Create the world SDF. Multiple levels. 
+    //Create the world SDF. Multiple levels.
     for (int i = 0; i < mipsCount; i++)
     {
         int divisor = i;
@@ -2562,6 +2562,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         //Dual Contour.
         DispatchLOD(commandBuffer, currentFrame, 50);
+
 
         //Create Vertex Mask.
         //For each brush that needs to be updated.
