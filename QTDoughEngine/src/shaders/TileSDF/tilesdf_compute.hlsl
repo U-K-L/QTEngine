@@ -293,8 +293,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     //Move to world space if connected to a brush.
     Quanta quanta = quantaBuffer[DTid.x];
     
-    if (quanta.mana.w < 0.01f) //Unexcited, fade away, store as triangle mesh.
-        return;
+
     
     float materialMod = 1.0f;
     float supportMod = pc.supportMultiplier;
@@ -308,7 +307,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     uint brushIdx = (uint) quanta.information.x - 1;
     Brush brush = Brushes[brushIdx];
-
+    
+    if (quanta.mana.w < 0.01f && brush.isDeformed == 0) //Unexcited, fade away, store as triangle mesh.
+        return;
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
     //    brushIndex = particle.particleIDs.x-1;
@@ -458,7 +459,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
                 InterlockedExchange(voxelsL1Out[flatIndex].brushId, (uint)quanta.information.x, dummy);
 
-                
+                if(quanta.mana.w < 0.05f && brush.isDirty == 0)
+                    continue;
+
                 float3 mbLocalPos;
                 int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
                 if (mbpIdx >= 0)
@@ -467,7 +470,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                     int3 centerCoord = int3(floor(uvwMb * MATERIAL_BRUSH_GRID_RES));
                     int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
                     int kernelSize = 3;
-                    
+
                     for (int mz = -kernelSize; mz <= kernelSize; ++mz)
                         for (int my = -kernelSize; my <= kernelSize; ++my)
                             for (int mx = -kernelSize; mx <= kernelSize; ++mx)
@@ -476,7 +479,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                                 if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
                                     continue;
                                 int nIdx = (int) brushIdx * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
-                                InterlockedMax(materialBrushPoints[nIdx].information.y, (int) quanta.mana.w * 100);
+                                InterlockedMin(materialBrushPoints[nIdx].information.y, (int) quanta.mana.w * 100); //If still present, keep refilling.
+                                InterlockedMax(materialBrushPoints[nIdx].information.z, 1); //Something changed.
+                                InterlockedMax(Brushes[brushIdx].isDeformed, 1);
                             }
                 }
 
@@ -497,6 +502,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     
     //particlesL1Out[DTid.x].position.xyz = mul(brush.invModel, float4(position, 1.0f)).xyz;
     //particlesL1Out[DTid.x].initPosition = particle.initPosition;
+   
 
 }
 

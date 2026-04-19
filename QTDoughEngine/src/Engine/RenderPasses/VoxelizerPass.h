@@ -135,6 +135,8 @@ public:
 
 
     uint32_t dispatchCount = 0;
+    uint32_t occupancyRollingIndex = 0;
+    uint32_t occupancyBrushesPerFrame = 2;
     uint32_t IDDispatchIteration = 0;
     uint32_t requiredIterations = 60;
 
@@ -203,6 +205,8 @@ public:
     VkPipelineLayout voxelizeComputePipelineLayout;
     VkPipeline tileGenerationComputePipeline;
     VkPipelineLayout tileGenerationComputePipelineLayout;
+    VkPipeline brushOccupancyPipeline;
+    VkPipelineLayout brushOccupancyPipelineLayout;
 
     VkBuffer  voxL1PingPong[2]{};
     VkBuffer  voxL2PingPong[2]{};
@@ -234,6 +238,7 @@ public:
     void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false);
     void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
+    void DispatchBrushOccupancy(VkCommandBuffer commandBuffer, uint32_t currentFrame, int brushIndex);
     void DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void CreateImages() override;
     void Create3DTextures();

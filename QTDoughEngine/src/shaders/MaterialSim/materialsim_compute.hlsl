@@ -50,8 +50,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     //Reset
     if (q.information.x > 0 && q.information.z > 0 && q.mana.w < 0.01f)
     {
-        q.information.x = 0;
-        q.mana.w = 0;
+        //q.information.x = 0;
+        //q.mana.w = 0;
         quantaOut[globalIndex] = q;
         return;
     }

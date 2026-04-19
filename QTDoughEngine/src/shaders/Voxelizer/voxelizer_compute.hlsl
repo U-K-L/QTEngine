@@ -634,7 +634,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     Brushes[index].aabbmax.w = maxExtent;
     Brushes[index].center.xyz = center;
-    Brushes[index].isDirty = 1;
+    Brushes[index].isDirty = 0;
+    Brushes[index].isDeformed = 0;
     Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
@@ -702,7 +703,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     int gridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
     int mbpIdx = (int)index * gridSize + Flatten3D(mbpCoord, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
     materialBrushPoints[mbpIdx].deformationField = float4(0, 0, 0, sdf);
-    materialBrushPoints[mbpIdx].information = int4(0, 0, 0, 0);
+    materialBrushPoints[mbpIdx].information = int4(0, 100, 0, 0);
 
     //Add particle if SDF is close enough.
 
@@ -2261,7 +2262,7 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     Brush brush = Brushes[brushID];
     
     //If the brush is deformed remove it from the default static mesh.
-    //if(brush.isDeformed == 1)
+    //if(brush.isDeformed > 0)
     //    return;
     
     const uint triIdx = DTid.x;
@@ -2289,21 +2290,22 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     float3 mbLocalPos;
     int mbpIdx = WorldToMaterialBrushIndex(center, brush, brushID, mbLocalPos);
     bool deformed = false;
+    int kernelSize = 1;
     if (mbpIdx >= 0)
     {
         float3 uvw = (mbLocalPos - brush.aabbmin.xyz) / (brush.aabbmax.xyz - brush.aabbmin.xyz);
         int3 centerCoord = int3(floor(uvw * MATERIAL_BRUSH_GRID_RES));
         int mbGridSize = MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES * MATERIAL_BRUSH_GRID_RES;
 
-        for (int dz = -1; dz <= 1 && !deformed; dz++)
-            for (int dy = -1; dy <= 1 && !deformed; dy++)
-                for (int dx = -1; dx <= 1 && !deformed; dx++)
+        for (int dz = -kernelSize; dz <= kernelSize && !deformed; dz++)
+            for (int dy = -kernelSize; dy <= kernelSize && !deformed; dy++)
+                for (int dx = -kernelSize; dx <= kernelSize && !deformed; dx++)
                 {
                     int3 nc = centerCoord + int3(dx, dy, dz);
                     if (any(nc < 0) || any(nc >= MATERIAL_BRUSH_GRID_RES))
                         continue;
                     int nIdx = (int)brushID * mbGridSize + Flatten3D(nc, int3(MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES, MATERIAL_BRUSH_GRID_RES));
-                    if (materialBrushPoints[nIdx].information.y > 0)
+                    if (materialBrushPoints[nIdx].information.y < 10)
                         deformed = true;
                 }
     }

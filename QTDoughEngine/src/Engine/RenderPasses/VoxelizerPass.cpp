@@ -308,6 +308,7 @@ void VoxelizerPass::CreateComputePipeline()
 
     CreateComputePipelineName("voxelizer", voxelizeComputePipeline, voxelizeComputePipelineLayout);
     CreateComputePipelineName("tilesdf", tileGenerationComputePipeline, tileGenerationComputePipelineLayout);
+    CreateComputePipelineName("brush_occupancy", brushOccupancyPipeline, brushOccupancyPipelineLayout);
     std::cout << "Compute pipeline created" << std::endl;
 
     std::cout << "Memory of voxels in L1: " << sizeof(VoxelL1) * VOXEL_COUNTL1 / 1024.0f / 1024.0f << " MB" << std::endl;
@@ -1867,7 +1868,7 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
         {
             brushes[i].model = model;
             brushes[i].invModel = glm::inverse(model);
-            brushes[i].isDirty = 1;
+            brushes[i].isDirty = 0;
         }
     }
 
@@ -2465,6 +2466,17 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
         //DispatchParticlesTiled(commandBuffer, currentFrame); //Tiled gather particle SDF.
         DispatchTile(commandBuffer, currentFrame, 2);
+
+        // Rolling occupancy check: N brushes per frame.
+        if (!brushes.empty())
+        {
+            for (uint32_t j = 0; j < occupancyBrushesPerFrame; j++)
+            {
+                int idx = (occupancyRollingIndex + j) % brushes.size();
+                DispatchBrushOccupancy(commandBuffer, currentFrame, idx);
+            }
+            occupancyRollingIndex = (occupancyRollingIndex + occupancyBrushesPerFrame) % brushes.size();
+        }
 	}
 
 
@@ -3237,6 +3249,58 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     dep.memoryBarrierCount = 1;
     dep.pMemoryBarriers = &mem;
 
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void VoxelizerPass::DispatchBrushOccupancy(VkCommandBuffer commandBuffer, uint32_t currentFrame, int brushIndex)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, brushOccupancyPipeline);
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        brushOccupancyPipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    int tileGridX = MaterialSimulation::instance->Field.FieldSize.x / MaterialSimulation::instance->TileSize.x;
+    int tileGridY = MaterialSimulation::instance->Field.FieldSize.y / MaterialSimulation::instance->TileSize.y;
+    int tileGridZ = MaterialSimulation::instance->Field.FieldSize.z / MaterialSimulation::instance->TileSize.z;
+
+    struct OccupancyPushConsts {
+        int brushIndex;
+        int tileGridX;
+        int tileGridY;
+        int tileGridZ;
+    } pc;
+    pc.brushIndex = brushIndex;
+    pc.tileGridX = tileGridX;
+    pc.tileGridY = tileGridY;
+    pc.tileGridZ = tileGridZ;
+
+    vkCmdPushConstants(commandBuffer,
+        brushOccupancyPipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0, sizeof(pc), &pc);
+
+    uint32_t groups = (MATERIAL_BRUSH_GRID_RES + 7) / 8;
+    vkCmdDispatch(commandBuffer, groups, groups, groups);
+
+    VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.memoryBarrierCount = 1;
+    dep.pMemoryBarriers = &mem;
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
