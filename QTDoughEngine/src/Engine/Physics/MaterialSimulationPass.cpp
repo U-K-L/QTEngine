@@ -588,7 +588,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	dispatchesCount += 1;
 
 	//Load grid.
-	//ReadBackMaterialGridSDF();
+	ReadBackMaterialGridSDF();
 	//ReadBackMaterialGridFull(); //Make this on demand.
 
 }

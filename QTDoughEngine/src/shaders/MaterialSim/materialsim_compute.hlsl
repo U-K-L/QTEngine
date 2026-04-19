@@ -75,7 +75,14 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     worldPos += gravity * deltaTime * 0.01f;
     
     if (brushId >= 0)
+    {
         q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
+
+        // If quanta left its brush AABB, unassign it.
+        float3 qUvw = (q.position.xyz - Brushes[brushId].aabbmin.xyz) / (Brushes[brushId].aabbmax.xyz - Brushes[brushId].aabbmin.xyz);
+        if (any(qUvw < 0.0f) || any(qUvw > 1.0f))
+            q.information.x = 0;
+    }
     else
         q.position.xyz = worldPos;
     quantaOut[globalIndex] = q;

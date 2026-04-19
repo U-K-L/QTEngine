@@ -459,7 +459,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
                 InterlockedExchange(voxelsL1Out[flatIndex].brushId, (uint)quanta.information.x, dummy);
 
-                if(quanta.mana.w < 0.05f && brush.isDirty == 0)
+                if (quanta.mana.w < 0.05f)
                     continue;
 
                 float3 mbLocalPos;

@@ -452,9 +452,11 @@ void QTDoughApplication::ComputePhysics()
         static bool lWasPressed = false;
         if (keystate[SDL_SCANCODE_L] && !lWasPressed)
         {
+            VoxelizerPass* voxelizer = VoxelizerPass::instance;
+            glm::vec3 pos = voxelizer->brushes[editorState.selectedBrushIndex].model[3];
             Emitter ev{};
             ev.information = glm::ivec4(0, 1, 0, 0);            // y=1 = LEPTON.
-            ev.position = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f); // center=origin, count=100.
+            ev.position = glm::vec4(pos.x, pos.y, pos.z, 100.0f); // center=origin, count=100.
             ev.shape = glm::vec4(0.5f, 0.0f, 0.0f, 1.0f);      // radius=2, shape=sphere.
             ev.direction = glm::vec4(0.0f, 0.0f, 1.0f, 0.725f);
             ev.velocity = glm::vec4(2.0f, 0.0f, 0.0f, 5.0f);   // w=lifespan.
