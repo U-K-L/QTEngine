@@ -49,6 +49,16 @@ static glm::vec3 grabPos(0.0f), grabRot(0.0f), grabScale(1.0f);
 static bool simulationPaused = false;
 static bool simulationWarmupDone = false;
 
+// Console log buffer.
+static std::vector<std::string> consoleLog;
+static const int CONSOLE_MAX_LINES = 256;
+void ConsoleLog(const std::string& msg)
+{
+    consoleLog.push_back(msg);
+    if ((int)consoleLog.size() > CONSOLE_MAX_LINES)
+        consoleLog.erase(consoleLog.begin());
+}
+
 bool initialStart = false;
 //extern SDL_Window *SDLWindow;
 
@@ -150,6 +160,7 @@ void SaveScene()
     outFile.close();
 
     std::cout << "Scene saved to " << jsonPath << std::endl;
+    ConsoleLog("Scene saved to " + jsonPath);
 }
 
 static void ApplyTransform(int objectIndex, const glm::vec3& pos, const glm::vec3& rot, const glm::vec3& scale)
@@ -415,11 +426,37 @@ void QTDoughApplication::RunMainGameLoop()
                 ImGui::Text("%s", name);
                 ImGui::Separator();
                 ImGui::Text("ID: %u", b.id);
-                ImGui::Text("Type: %u  Opcode: %u", b.type, b.opcode);
-                ImGui::Text("Verts: %u  Res: %u", b.vertexCount, b.resolution);
-                ImGui::Text("Blend: %.2f  Stiffness: %.2f", b.blend, b.stiffness);
-                ImGui::Text("Smoothness: %.2f", b.smoothness);
-                ImGui::Text("Material: %d  Density: %d", b.materialId, b.density);
+
+                int iType = (int)b.type;
+                int iOpcode = (int)b.opcode;
+                int iRes = (int)b.resolution;
+                int iDensity = b.density;
+                int iMaterialId = b.materialId;
+
+                bool changed = false;
+                changed |= ImGui::InputInt("Type", &iType);
+                changed |= ImGui::InputInt("Opcode", &iOpcode);
+                changed |= ImGui::InputInt("Resolution", &iRes);
+                changed |= ImGui::DragFloat("Blend", &b.blend, 0.01f);
+                changed |= ImGui::DragFloat("Stiffness", &b.stiffness, 0.01f);
+                changed |= ImGui::DragFloat("Smoothness", &b.smoothness, 0.01f);
+                changed |= ImGui::InputInt("Material", &iMaterialId);
+                changed |= ImGui::InputInt("Density", &iDensity);
+                changed |= ImGui::DragFloat("Mass", &b.mass, 0.01f);
+                changed |= ImGui::DragFloat("Particle Radius", &b.particleRadius, 0.01f);
+
+                if (changed)
+                {
+                    b.type = (uint32_t)iType;
+                    b.opcode = (uint32_t)iOpcode;
+                    b.resolution = (uint32_t)iRes;
+                    b.density = iDensity;
+                    b.materialId = iMaterialId;
+                    b.isDirty = 1;
+                }
+
+                ImGui::Separator();
+                ImGui::Text("Verts: %u", b.vertexCount);
                 ImGui::Text("Dirty: %u", b.isDirty);
                 glm::vec3 pos = glm::vec3(b.model[3]);
                 ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
@@ -437,13 +474,40 @@ void QTDoughApplication::RunMainGameLoop()
             ImGui::EndChild();
         }
 
+        // --- Material properties ---
+        if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
+                && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
+            {
+                UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[editorState.selectedBrushIndex];
+                auto& props = obj->_material.vectorProperties;
+
+                for (auto& [key, val] : props)
+                {
+                    float col[4] = { val.x, val.y, val.z, val.w };
+                    if (ImGui::ColorEdit4(key.c_str(), col))
+                    {
+                        val = glm::vec4(col[0], col[1], col[2], col[3]);
+                    }
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("No object selected");
+            }
+        }
+
         ImGui::End();
 
         // --- Viewport panel (game render) to the RIGHT of settings ---
+        float bottomPanelHeight = 180.0f;
+        float menuBarHeight = ImGui::GetFrameHeight();
         float viewportWidth = (float)SCREEN_WIDTH - sidePanelWidth;
+        float viewportHeight = (float)SCREEN_HEIGHT - bottomPanelHeight - menuBarHeight;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::SetNextWindowPos(ImVec2(sidePanelWidth, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(viewportWidth, (float)SCREEN_HEIGHT), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(sidePanelWidth, menuBarHeight), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(viewportWidth, viewportHeight), ImGuiCond_Always);
         ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar);
 
         // --- View mode tabs (Blender-style) ---
@@ -574,6 +638,47 @@ void QTDoughApplication::RunMainGameLoop()
 
         ImGui::End();
         ImGui::PopStyleVar();
+
+        // --- Bottom panel (Console + File Explorer) ---
+        ImGui::SetNextWindowPos(ImVec2(sidePanelWidth, menuBarHeight + viewportHeight), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(viewportWidth, bottomPanelHeight), ImGuiCond_Always);
+        ImGui::Begin("##BottomPanel", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+
+        if (ImGui::BeginTabBar("BottomTabs"))
+        {
+            if (ImGui::BeginTabItem("Console"))
+            {
+                ImGui::BeginChild("ConsoleScroll", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+                for (auto& line : consoleLog)
+                    ImGui::TextUnformatted(line.c_str());
+                if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+                    ImGui::SetScrollHereY(1.0f);
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("File Explorer"))
+            {
+                const std::string& sceneName = GetCurrentSceneName();
+                if (!sceneName.empty())
+                {
+                    ImGui::Text("Scene: %s", sceneName.c_str());
+                    ImGui::Text("Path: Assets/Scenes/%s/", sceneName.c_str());
+                }
+                else
+                {
+                    ImGui::TextDisabled("No scene loaded");
+                }
+                ImGui::Separator();
+                // TODO: asset browser / file listing
+                ImGui::TextDisabled("Asset browser coming soon");
+                ImGui::EndTabItem();
+            }
+
+            ImGui::EndTabBar();
+        }
+
+        ImGui::End();
 
         //make imgui calculate internal draw structures
         ImGui::Render();

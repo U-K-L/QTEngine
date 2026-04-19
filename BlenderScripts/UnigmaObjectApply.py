@@ -1,3 +1,13 @@
+bl_info = {
+    "name": "Unigma Object Properties",
+    "author": "UKL",
+    "blender": (4, 0, 0),
+    "version": (0, 0, 1),
+    "location": "View3D > Object Menu",
+    "description": "Add Unigma custom properties (albedos, outlines) to objects",
+    "category": "Object"
+}
+
 import bpy
 from bpy.props import FloatVectorProperty
 

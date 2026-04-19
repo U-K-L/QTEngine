@@ -66,7 +66,10 @@ UNIGMANATIVE_API void EndProgram()
     GameManager->EndGame();
 }
 
+static AppFunctionType storedAppCallback = nullptr;
+
 UNIGMANATIVE_API void RegisterCallback(AppFunctionType appFunction) {
+    storedAppCallback = appFunction;
     if (appFunction) {
         appFunction("Hello from the DLL!");
     }
@@ -135,10 +138,16 @@ void FreeDebugConsole()
 
 void DebugPrint(const char* format, ...)
 {
+    char buf[1024];
     va_list args;
     va_start(args, format);
-    vprintf(format, args);
+    vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
+
+    printf("%s", buf);
+
+    if (storedAppCallback)
+        storedAppCallback(buf);
 }
 
 void RedirectStandardIO()

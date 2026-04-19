@@ -68,8 +68,10 @@ void LoadUnigmaNativeFunctions()
 }
 
 
+extern void ConsoleLog(const std::string& msg);
+
 void ApplicationFunction(const char* message) {
-    std::cout << "Application received message: " << message << std::endl;
+    ConsoleLog(message);
 }
 
 UnigmaInputStruct LoadInput(int flag)
