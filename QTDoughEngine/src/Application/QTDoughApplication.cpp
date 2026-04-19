@@ -21,6 +21,8 @@
 #include "json.hpp"
 #include "stb_image.h"
 #include <random>
+extern std::map<uint32_t, nlohmann::json> objectComponents;
+extern nlohmann::json componentDefs;
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
 GameObjectShaderData gameObjectShaderDataArray[NUM_OBJECTS];
 UnigmaCameraStruct CameraMain;
@@ -147,6 +149,10 @@ void SaveScene()
                 goJson["CustomProperties"][key] = { val.x, val.y, val.z, val.w };
             }
         }
+
+        // Components.
+        if (objectComponents.count(jid))
+            goJson["Components"] = objectComponents[jid];
     }
 
     // Write back.
@@ -336,10 +342,12 @@ void QTDoughApplication::RunMainGameLoop()
         }
 
         // --- Side panel (Settings) on the LEFT ---
-        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(180.0f, (float)SCREEN_HEIGHT), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSizeConstraints(ImVec2(120.0f, (float)SCREEN_HEIGHT), ImVec2(400.0f, (float)SCREEN_HEIGHT));
-        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoMove);
+        float menuH = ImGui::GetFrameHeight();
+        float sideH = (float)SCREEN_HEIGHT - menuH;
+        ImGui::SetNextWindowPos(ImVec2(0, menuH), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(180.0f, sideH), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(120.0f, sideH), ImVec2(400.0f, sideH));
+        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         float sidePanelWidth = ImGui::GetWindowWidth();
 
         // Performance stats
@@ -490,6 +498,165 @@ void QTDoughApplication::RunMainGameLoop()
                     {
                         val = glm::vec4(col[0], col[1], col[2], col[3]);
                     }
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("No object selected");
+            }
+        }
+
+        // --- Components ---
+        if (ImGui::CollapsingHeader("Components", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            // Get JID for selected object.
+            uint32_t jid = UINT32_MAX;
+            if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
+                && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
+            {
+                UnigmaGameObject* gObj = VoxelizerPass::instance->renderingObjects[editorState.selectedBrushIndex]->GetGameObject();
+                if (gObj)
+                    jid = gObj->JID;
+            }
+
+            if (jid != UINT32_MAX && objectComponents.count(jid))
+            {
+                auto& comps = objectComponents[jid];
+
+                // Display each component.
+                std::string toRemove;
+                for (auto it = comps.begin(); it != comps.end(); ++it)
+                {
+                    std::string compName = it.key();
+                    bool open = ImGui::TreeNode(compName.c_str());
+                    ImGui::SameLine();
+                    std::string removeLabel = "X##" + compName;
+                    if (ImGui::SmallButton(removeLabel.c_str()))
+                        toRemove = compName;
+
+                    if (open)
+                    {
+                        auto& fields = it.value();
+                        for (auto fit = fields.begin(); fit != fields.end(); ++fit)
+                        {
+                            std::string fieldName = fit.key();
+                            if (fieldName == "name")
+                                continue;
+
+                            std::string label = fieldName + "##" + compName;
+
+                            if (fit.value().is_boolean())
+                            {
+                                bool val = fit.value().get<bool>();
+                                if (ImGui::Checkbox(label.c_str(), &val))
+                                    fit.value() = val;
+                            }
+                            else if (fit.value().is_number_float())
+                            {
+                                float val = fit.value().get<float>();
+                                if (ImGui::DragFloat(label.c_str(), &val, 0.01f))
+                                    fit.value() = val;
+                            }
+                            else if (fit.value().is_number_integer())
+                            {
+                                int val = fit.value().get<int>();
+                                if (ImGui::InputInt(label.c_str(), &val))
+                                    fit.value() = val;
+                            }
+                            else if (fit.value().is_string())
+                            {
+                                std::string val = fit.value().get<std::string>();
+                                // Check if it's an enum in componentDefs.
+                                bool isEnum = false;
+                                if (componentDefs.contains(compName) && componentDefs[compName].contains(fieldName)
+                                    && componentDefs[compName][fieldName].is_array())
+                                {
+                                    isEnum = true;
+                                    auto& opts = componentDefs[compName][fieldName];
+                                    if (ImGui::BeginCombo(label.c_str(), val.c_str()))
+                                    {
+                                        for (auto& opt : opts)
+                                        {
+                                            std::string s = opt.get<std::string>();
+                                            if (ImGui::Selectable(s.c_str(), s == val))
+                                                fit.value() = s;
+                                        }
+                                        ImGui::EndCombo();
+                                    }
+                                }
+                                if (!isEnum)
+                                {
+                                    char buf[128] = {};
+                                    strncpy(buf, val.c_str(), sizeof(buf) - 1);
+                                    if (ImGui::InputText(label.c_str(), buf, sizeof(buf)))
+                                        fit.value() = std::string(buf);
+                                }
+                            }
+                            else if (fit.value().is_array() && fit.value().size() == 3)
+                            {
+                                float v[3] = { fit.value()[0], fit.value()[1], fit.value()[2] };
+                                if (ImGui::DragFloat3(label.c_str(), v, 0.01f))
+                                    fit.value() = { v[0], v[1], v[2] };
+                            }
+                        }
+                        ImGui::TreePop();
+                    }
+                }
+
+                if (!toRemove.empty())
+                    comps.erase(toRemove);
+
+                ImGui::Separator();
+
+                // Add component button.
+                if (ImGui::Button("Add Component"))
+                    ImGui::OpenPopup("AddCompPopup");
+
+                if (ImGui::BeginPopup("AddCompPopup"))
+                {
+                    for (auto it = componentDefs.begin(); it != componentDefs.end(); ++it)
+                    {
+                        std::string defName = it.key();
+                        if (comps.contains(defName))
+                            continue; // already has it
+                        if (ImGui::Selectable(defName.c_str()))
+                        {
+                            nlohmann::json newComp;
+                            newComp["name"] = defName;
+                            auto& fields = it.value();
+                            for (auto fit = fields.begin(); fit != fields.end(); ++fit)
+                            {
+                                auto& fval = fit.value();
+                                if (fval.is_array())
+                                    newComp[fit.key()] = fval[0]; // default to first enum option
+                                else if (fval.is_object())
+                                {
+                                    if (fval.contains("default"))
+                                        newComp[fit.key()] = fval["default"];
+                                    else if (fval["type"] == "float")
+                                        newComp[fit.key()] = 0.0f;
+                                    else if (fval["type"] == "int")
+                                        newComp[fit.key()] = 0;
+                                    else if (fval["type"] == "bool")
+                                        newComp[fit.key()] = false;
+                                    else
+                                        newComp[fit.key()] = "";
+                                }
+                                else if (fval == "float")
+                                    newComp[fit.key()] = 0.0f;
+                                else if (fval == "int")
+                                    newComp[fit.key()] = 0;
+                                else if (fval == "bool")
+                                    newComp[fit.key()] = false;
+                                else if (fval == "vector3")
+                                    newComp[fit.key()] = { 1.0f, 1.0f, 1.0f };
+                                else
+                                    newComp[fit.key()] = "";
+                            }
+                            comps[defName] = newComp;
+                        }
+                    }
+                    ImGui::EndPopup();
                 }
             }
             else

@@ -1,4 +1,5 @@
 #include "UnigmaNative.h"
+#include <map>
 #include "../Application/AssetLoader.h"
 #include "../Application/QTDoughApplication.h"
 #include "tiny_gltf.h"
@@ -10,6 +11,11 @@
 
 AssetLoader assetLoader;
 static std::string currentLoadedSceneName;
+
+// Cached component data per game object (keyed by JID).
+std::map<uint32_t, nlohmann::json> objectComponents;
+// Component definitions from Components.json.
+nlohmann::json componentDefs;
 
 
 // Define the global variables here
@@ -126,6 +132,26 @@ void LoadScene(const char* sceneName) {
     nlohmann::json sceneJson;
     inputFile2 >> sceneJson;
     inputFile2.close();
+
+    // Cache component data per game object.
+    objectComponents.clear();
+    for (uint32_t j = 0; j < sceneJson["GameObjects"].size(); j++)
+    {
+        auto& goJson = sceneJson["GameObjects"][j];
+        if (goJson.contains("Components"))
+            objectComponents[j] = goJson["Components"];
+        else
+            objectComponents[j] = nlohmann::json::object();
+    }
+
+    // Load component definitions.
+    std::string compPath = AssetsPath + "Components/Components.json";
+    std::ifstream compFile(compPath);
+    if (compFile.is_open())
+    {
+        compFile >> componentDefs;
+        compFile.close();
+    }
 
     //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
