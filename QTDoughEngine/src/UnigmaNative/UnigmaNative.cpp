@@ -9,6 +9,7 @@
 #include "../Engine/Physics/MaterialSimulationPass.h"
 
 AssetLoader assetLoader;
+static std::string currentLoadedSceneName;
 
 
 // Define the global variables here
@@ -95,6 +96,7 @@ int AddBrushFromNative(uint32_t type, float px, float py, float pz,
 
 //Loads the scene and all its initial models. This may or may not include the player.
 void LoadScene(const char* sceneName) {
+    currentLoadedSceneName = sceneName;
 
     int sizeOfLight = sizeof(UnigmaLight);
 
@@ -449,4 +451,9 @@ void LoadScene(const char* sceneName) {
     std::cout << "Scene Loaded!" << std::endl;
 
     std::cout << "Model Information and Material Size: " << model.materials.size() << std::endl;
+}
+
+const std::string& GetCurrentSceneName()
+{
+    return currentLoadedSceneName;
 }

@@ -18,6 +18,7 @@
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
+#include "json.hpp"
 #include "stb_image.h"
 #include <random>
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
@@ -35,6 +36,19 @@ EmitterSystem* emitterSystem;
 
 uint32_t currentFrame = 0;
 
+// Undo/redo state (kept out of the header to avoid layout changes).
+struct GizmoAction {
+    int objectIndex;
+    glm::vec3 beforePos, beforeRot, beforeScale;
+    glm::vec3 afterPos, afterRot, afterScale;
+};
+static std::vector<GizmoAction> undoStack;
+static std::vector<GizmoAction> redoStack;
+static bool gizmoWasUsing = false;
+static glm::vec3 grabPos(0.0f), grabRot(0.0f), grabScale(1.0f);
+static bool simulationPaused = false;
+static bool simulationWarmupDone = false;
+
 bool initialStart = false;
 //extern SDL_Window *SDLWindow;
 
@@ -50,6 +64,105 @@ void QTDoughApplication::AddRenderObject(UnigmaRenderingStructCopyableAttributes
 void QTDoughApplication::ClearObjectData()
 {
     lights.clear();
+}
+
+void SaveScene()
+{
+    const std::string& sceneName = GetCurrentSceneName();
+    if (sceneName.empty())
+    {
+        std::cerr << "SaveScene: No scene loaded." << std::endl;
+        return;
+    }
+
+    std::string jsonPath = AssetsPath + "Scenes/" + sceneName + "/" + sceneName + ".json";
+
+    // Read existing JSON.
+    std::ifstream inFile(jsonPath);
+    if (!inFile.is_open())
+    {
+        std::cerr << "SaveScene: Unable to open " << jsonPath << std::endl;
+        return;
+    }
+    nlohmann::json sceneJson;
+    inFile >> sceneJson;
+    inFile.close();
+
+    // Update each active rendering object's data back into the JSON.
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+        if (!unigmaRenderingObjects[i].isRendering)
+            continue;
+
+        UnigmaGameObject* gObj = UNGetGameObject(unigmaRenderingObjects[i]._renderer.GID);
+        if (!gObj)
+            continue;
+
+        uint32_t jid = gObj->JID;
+        if (jid >= sceneJson["GameObjects"].size())
+            continue;
+
+        auto& goJson = sceneJson["GameObjects"][jid];
+        const UnigmaTransform& t = unigmaRenderingObjects[i]._transform;
+
+        // Position.
+        goJson["position"]["local"]["x"] = t.position.x;
+        goJson["position"]["local"]["y"] = t.position.y;
+        goJson["position"]["local"]["z"] = t.position.z;
+        goJson["position"]["world"]["x"] = t.position.x;
+        goJson["position"]["world"]["y"] = t.position.y;
+        goJson["position"]["world"]["z"] = t.position.z;
+
+        // Rotation.
+        goJson["rotation"]["local"]["x"] = t.rotation.x;
+        goJson["rotation"]["local"]["y"] = t.rotation.y;
+        goJson["rotation"]["local"]["z"] = t.rotation.z;
+        goJson["rotation"]["world"]["x"] = t.rotation.x;
+        goJson["rotation"]["world"]["y"] = t.rotation.y;
+        goJson["rotation"]["world"]["z"] = t.rotation.z;
+
+        // Scale.
+        goJson["scale"]["local"]["x"] = t.scale.x;
+        goJson["scale"]["local"]["y"] = t.scale.y;
+        goJson["scale"]["local"]["z"] = t.scale.z;
+        goJson["scale"]["world"]["x"] = t.scale.x;
+        goJson["scale"]["world"]["y"] = t.scale.y;
+        goJson["scale"]["world"]["z"] = t.scale.z;
+
+        // Custom properties (material vector properties).
+        if (goJson.contains("CustomProperties"))
+        {
+            for (auto& [key, val] : unigmaRenderingObjects[i]._material.vectorProperties)
+            {
+                goJson["CustomProperties"][key] = { val.x, val.y, val.z, val.w };
+            }
+        }
+    }
+
+    // Write back.
+    std::ofstream outFile(jsonPath);
+    if (!outFile.is_open())
+    {
+        std::cerr << "SaveScene: Unable to write " << jsonPath << std::endl;
+        return;
+    }
+    outFile << sceneJson.dump(4);
+    outFile.close();
+
+    std::cout << "Scene saved to " << jsonPath << std::endl;
+}
+
+static void ApplyTransform(int objectIndex, const glm::vec3& pos, const glm::vec3& rot, const glm::vec3& scale)
+{
+    if (!VoxelizerPass::instance || objectIndex < 0
+        || objectIndex >= (int)VoxelizerPass::instance->renderingObjects.size())
+        return;
+    UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[objectIndex];
+    obj->_transform.position = pos;
+    obj->_transform.rotation = rot;
+    obj->_transform.scale = scale;
+    obj->_transform.UpdateTransform();
+    obj->gizmoControlled = true;
 }
 
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
@@ -140,20 +253,83 @@ void QTDoughApplication::RunMainGameLoop()
         ImGui::NewFrame();
         ImGuizmo::BeginFrame();
 
+        // --- Main menu bar ---
+        if (ImGui::BeginMainMenuBar())
+        {
+            if (ImGui::BeginMenu("File"))
+            {
+                if (ImGui::MenuItem("Save", "Ctrl+S"))
+                    SaveScene();
+                ImGui::Separator();
+                if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !undoStack.empty()))
+                {
+                    auto& action = undoStack.back();
+                    ApplyTransform(action.objectIndex, action.beforePos, action.beforeRot, action.beforeScale);
+                    redoStack.push_back(action);
+                    undoStack.pop_back();
+                }
+                if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !redoStack.empty()))
+                {
+                    auto& action = redoStack.back();
+                    ApplyTransform(action.objectIndex, action.afterPos, action.afterRot, action.afterScale);
+                    undoStack.push_back(action);
+                    redoStack.pop_back();
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Run"))
+            {
+                bool isEditor = editorState.IsEditor();
+                if (ImGui::MenuItem(isEditor ? "Play" : "Editor"))
+                {
+                    editorState.mode = isEditor ? EngineMode::Play : EngineMode::Editor;
+                    if (!isEditor)
+                        simulationPaused = true; // returning to editor pauses
+                    else
+                        simulationPaused = false; // entering play always runs
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Start Simulation", nullptr, false, simulationPaused))
+                    simulationPaused = false;
+                if (ImGui::MenuItem("Pause Simulation", nullptr, false, !simulationPaused))
+                    simulationPaused = true;
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+
+        // --- Ctrl+Z / Ctrl+Y hotkeys ---
+        {
+            static bool zWasPressed = false;
+            static bool yWasPressed = false;
+            bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+            bool zPressed = (GetKeyState('Z') & 0x8000) != 0;
+            bool yPressed = (GetKeyState('Y') & 0x8000) != 0;
+
+            if (ctrl && zPressed && !zWasPressed && !undoStack.empty())
+            {
+                auto& action = undoStack.back();
+                ApplyTransform(action.objectIndex, action.beforePos, action.beforeRot, action.beforeScale);
+                redoStack.push_back(action);
+                undoStack.pop_back();
+            }
+            if (ctrl && yPressed && !yWasPressed && !redoStack.empty())
+            {
+                auto& action = redoStack.back();
+                ApplyTransform(action.objectIndex, action.afterPos, action.afterRot, action.afterScale);
+                undoStack.push_back(action);
+                redoStack.pop_back();
+            }
+            zWasPressed = zPressed;
+            yWasPressed = yPressed;
+        }
+
         // --- Side panel (Settings) on the LEFT ---
         ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(180.0f, (float)SCREEN_HEIGHT), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSizeConstraints(ImVec2(120.0f, (float)SCREEN_HEIGHT), ImVec2(400.0f, (float)SCREEN_HEIGHT));
         ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoMove);
         float sidePanelWidth = ImGui::GetWindowWidth();
-
-        // Mode toggle
-        bool isEditor = editorState.IsEditor();
-        if (ImGui::Button(isEditor ? "Switch to Play" : "Switch to Editor", ImVec2(-1, 30)))
-        {
-            editorState.mode = isEditor ? EngineMode::Play : EngineMode::Editor;
-        }
-        ImGui::Separator();
 
         // Performance stats
         if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSecondPassed).count() > 999)
@@ -357,7 +533,17 @@ void QTDoughApplication::RunMainGameLoop()
                 glm::value_ptr(model)
             );
 
-            if (ImGuizmo::IsUsing())
+            bool isUsing = ImGuizmo::IsUsing();
+
+            // Snapshot on grab.
+            if (isUsing && !gizmoWasUsing)
+            {
+                grabPos = t.position;
+                grabRot = t.rotation;
+                grabScale = t.scale;
+            }
+
+            if (isUsing)
             {
                 obj->gizmoControlled = true;
                 float trans[3], rot[3], scl[3];
@@ -367,6 +553,23 @@ void QTDoughApplication::RunMainGameLoop()
                 t.scale = glm::vec3(scl[0], scl[1], scl[2]);
                 t.UpdateTransform();
             }
+
+            // Push action on release.
+            if (!isUsing && gizmoWasUsing)
+            {
+                GizmoAction action;
+                action.objectIndex = (int)gi;
+                action.beforePos = grabPos;
+                action.beforeRot = grabRot;
+                action.beforeScale = grabScale;
+                action.afterPos = t.position;
+                action.afterRot = t.rotation;
+                action.afterScale = t.scale;
+                undoStack.push_back(action);
+                redoStack.clear();
+            }
+
+            gizmoWasUsing = isUsing;
         }
 
         ImGui::End();
@@ -414,7 +617,20 @@ void QTDoughApplication::RunMainGameLoop()
 
     if (elapsedTime.count() >= 33)
     {
-        ComputePhysics();
+        // Auto-pause after 2s warmup in editor mode.
+        if (!simulationWarmupDone)
+        {
+            auto sinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSinceApplication);
+            if (sinceStart.count() >= 2000)
+            {
+                simulationWarmupDone = true;
+                if (editorState.IsEditor())
+                    simulationPaused = true;
+            }
+        }
+
+        if (!simulationPaused || !simulationWarmupDone)
+            ComputePhysics();
     }
 
     elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeMinutePassed);
