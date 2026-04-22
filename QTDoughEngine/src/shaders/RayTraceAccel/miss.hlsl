@@ -3,5 +3,5 @@
 [shader("miss")]
 void main(inout Payload payload : SV_RayPayload)
 {
-    payload.color = float4(0, 0, 0,0);
+    payload.color = float4(0, 0, 0,-1);
 }

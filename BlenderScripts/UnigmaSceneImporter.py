@@ -77,7 +77,7 @@ class UnigmaImporter(bpy.types.Operator):
             # Custom properties (BaseAlbedo, TopAlbedo, etc.).
             for prop_name, prop_value in gobj.get("CustomProperties", {}).items():
                 if isinstance(prop_value, list) and len(prop_value) == 4:
-                    obj[prop_name] = prop_value
+                    setattr(obj, prop_name, prop_value)
 
             # Emission (update light data if it's a light).
             em = gobj.get("Emission", {})

@@ -1101,8 +1101,8 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
         
         //If the brush isn't deformed at all, skip.
         //Used for initial triangle mesh.
-        if(brush.isDeformed == 0)
-            continue;
+        //if(brush.isDeformed == 0)
+        //    continue;
         
         
         float d = Read3DTransformed(brush, center).x;

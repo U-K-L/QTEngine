@@ -162,7 +162,7 @@ float4 main(VSOutput i) : SV_Target
     if (pc.input == 2)
         return float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     if (pc.input == 4)
-        return albedoImage + materialGridImage;
+        return rayAlbedoPass + materialGridImage;
     if(pc.input == 5)
         return rayAlbedoPass + materialGridImage; //sdfImage.w;
 

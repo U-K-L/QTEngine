@@ -33,5 +33,5 @@ void main(inout Payload payload : SV_RayPayload, in Attributes attr : SV_Interse
     float3 Ns_ws = normalize(mul(O2W, Ns_obj));
     float3 Ng_ws = normalize(mul(O2W, Ng_obj));
 
-    payload.color = float4(Ns_ws, 1);
+    payload.color = float4(Ns_ws, Vertices[i0].normal.w);
 }

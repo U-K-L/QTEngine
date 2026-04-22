@@ -233,6 +233,9 @@ void ComputePass::UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint
 void ComputePass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
+
     //Get the images path tied to this material.
     for (int i = 0; i < material.textures.size(); i++) {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);

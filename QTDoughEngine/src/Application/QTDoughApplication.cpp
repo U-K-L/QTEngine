@@ -21,6 +21,7 @@
 #include "json.hpp"
 #include "stb_image.h"
 #include <random>
+#include <variant>
 extern std::map<uint32_t, nlohmann::json> objectComponents;
 extern nlohmann::json componentDefs;
 UnigmaRenderingObject unigmaRenderingObjects[NUM_OBJECTS];
@@ -44,8 +45,14 @@ struct GizmoAction {
     glm::vec3 beforePos, beforeRot, beforeScale;
     glm::vec3 afterPos, afterRot, afterScale;
 };
-static std::vector<GizmoAction> undoStack;
-static std::vector<GizmoAction> redoStack;
+struct MaterialAction {
+    int objectIndex;
+    std::string propertyKey;
+    glm::vec4 before, after;
+};
+using UndoAction = std::variant<GizmoAction, MaterialAction>;
+static std::vector<UndoAction> undoStack;
+static std::vector<UndoAction> redoStack;
 static bool gizmoWasUsing = false;
 static glm::vec3 grabPos(0.0f), grabRot(0.0f), grabScale(1.0f);
 static bool simulationPaused = false;
@@ -59,6 +66,98 @@ void ConsoleLog(const std::string& msg)
     consoleLog.push_back(msg);
     if ((int)consoleLog.size() > CONSOLE_MAX_LINES)
         consoleLog.erase(consoleLog.begin());
+}
+
+void SetupImGuiStyle()
+{
+    // Moonlight style by deathsu/madam-herta
+    // https://github.com/Madam-Herta/Moonlight/
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    style.Alpha = 1.0f;
+    style.DisabledAlpha = 1.0f;
+    style.WindowPadding = ImVec2(12.0f, 12.0f);
+    style.WindowRounding = 11.5f;
+    style.WindowBorderSize = 0.0f;
+    style.WindowMinSize = ImVec2(20.0f, 20.0f);
+    style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
+    style.WindowMenuButtonPosition = ImGuiDir_Right;
+    style.ChildRounding = 0.0f;
+    style.ChildBorderSize = 1.0f;
+    style.PopupRounding = 0.0f;
+    style.PopupBorderSize = 1.0f;
+    style.FramePadding = ImVec2(20.0f, 3.400000095367432f);
+    style.FrameRounding = 11.89999961853027f;
+    style.FrameBorderSize = 0.0f;
+    style.ItemSpacing = ImVec2(4.300000190734863f, 5.5f);
+    style.ItemInnerSpacing = ImVec2(7.099999904632568f, 1.799999952316284f);
+    style.CellPadding = ImVec2(12.10000038146973f, 9.199999809265137f);
+    style.IndentSpacing = 0.0f;
+    style.ColumnsMinSpacing = 4.900000095367432f;
+    style.ScrollbarSize = 11.60000038146973f;
+    style.ScrollbarRounding = 15.89999961853027f;
+    style.GrabMinSize = 3.700000047683716f;
+    style.GrabRounding = 20.0f;
+    style.TabRounding = 0.0f;
+    style.TabBorderSize = 0.0f;
+    style.TabMinWidthForCloseButton = 0.0f;
+    style.ColorButtonPosition = ImGuiDir_Right;
+    style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
+    style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
+
+    style.Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.2745098173618317f, 0.3176470696926117f, 0.4509803950786591f, 1.0f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_ChildBg] = ImVec4(0.09250493347644806f, 0.100297249853611f, 0.1158798336982727f, 1.0f);
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_Border] = ImVec4(0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.1120669096708298f, 0.1262156516313553f, 0.1545064449310303f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.09803921729326248f, 0.105882354080677f, 0.1215686276555061f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.1568627506494522f, 0.168627455830574f, 0.1921568661928177f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f);
+    style.Colors[ImGuiCol_CheckMark] = ImVec4(0.9725490212440491f, 1.0f, 0.4980392158031464f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.971993625164032f, 1.0f, 0.4980392456054688f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.7953379154205322f, 0.4980392456054688f, 1.0f);
+    style.Colors[ImGuiCol_Button] = ImVec4(0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.1821731775999069f, 0.1897992044687271f, 0.1974248886108398f, 1.0f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.1545050293207169f, 0.1545048952102661f, 0.1545064449310303f, 1.0f);
+    style.Colors[ImGuiCol_Header] = ImVec4(0.1414651423692703f, 0.1629818230867386f, 0.2060086131095886f, 1.0f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.1072951927781105f, 0.107295036315918f, 0.1072961091995239f, 1.0f);
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_Separator] = ImVec4(0.1293079704046249f, 0.1479243338108063f, 0.1931330561637878f, 1.0f);
+    style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.1568627506494522f, 0.1843137294054031f, 0.250980406999588f, 1.0f);
+    style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.1568627506494522f, 0.1843137294054031f, 0.250980406999588f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.1459212601184845f, 0.1459220051765442f, 0.1459227204322815f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.9725490212440491f, 1.0f, 0.4980392158031464f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.999999463558197f, 1.0f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_Tab] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_TabHovered] = ImVec4(0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f);
+    style.Colors[ImGuiCol_TabActive] = ImVec4(0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.0784313753247261f, 0.08627451211214066f, 0.1019607856869698f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.1249424293637276f, 0.2735691666603088f, 0.5708154439926147f, 1.0f);
+    style.Colors[ImGuiCol_PlotLines] = ImVec4(0.5215686559677124f, 0.6000000238418579f, 0.7019608020782471f, 1.0f);
+    style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.03921568766236305f, 0.9803921580314636f, 0.9803921580314636f, 1.0f);
+    style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.8841201663017273f, 0.7941429018974304f, 0.5615870356559753f, 1.0f);
+    style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.9570815563201904f, 0.9570719599723816f, 0.9570761322975159f, 1.0f);
+    style.Colors[ImGuiCol_TableHeaderBg] = ImVec4(0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f);
+    style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.0470588244497776f, 0.05490196123719215f, 0.07058823853731155f, 1.0f);
+    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.1176470592617989f, 0.1333333402872086f, 0.1490196138620377f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.09803921729326248f, 0.105882354080677f, 0.1215686276555061f, 1.0f);
+    style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.9356134533882141f, 0.9356129765510559f, 0.9356223344802856f, 1.0f);
+    style.Colors[ImGuiCol_DragDropTarget] = ImVec4(0.4980392158031464f, 0.5137255191802979f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.266094446182251f, 0.2890366911888123f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.4980392158031464f, 0.5137255191802979f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 0.501960813999176f);
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.196078434586525f, 0.1764705926179886f, 0.5450980663299561f, 0.501960813999176f);
 }
 
 bool initialStart = false;
@@ -182,6 +281,37 @@ static void ApplyTransform(int objectIndex, const glm::vec3& pos, const glm::vec
     obj->gizmoControlled = true;
 }
 
+static void ApplyMaterialColor(int objectIndex, const std::string& key, const glm::vec4& value)
+{
+    if (!VoxelizerPass::instance || objectIndex < 0
+        || objectIndex >= (int)VoxelizerPass::instance->renderingObjects.size())
+        return;
+    UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[objectIndex];
+    obj->_material.vectorProperties[key] = value;
+}
+
+static void ApplyUndo(const UndoAction& a)
+{
+    std::visit([](auto const& x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<T, GizmoAction>)
+            ApplyTransform(x.objectIndex, x.beforePos, x.beforeRot, x.beforeScale);
+        else if constexpr (std::is_same_v<T, MaterialAction>)
+            ApplyMaterialColor(x.objectIndex, x.propertyKey, x.before);
+    }, a);
+}
+
+static void ApplyRedo(const UndoAction& a)
+{
+    std::visit([](auto const& x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<T, GizmoAction>)
+            ApplyTransform(x.objectIndex, x.afterPos, x.afterRot, x.afterScale);
+        else if constexpr (std::is_same_v<T, MaterialAction>)
+            ApplyMaterialColor(x.objectIndex, x.propertyKey, x.after);
+    }, a);
+}
+
 void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, UnigmaGameObject* gObj, uint32_t index)
 {
 
@@ -269,6 +399,7 @@ void QTDoughApplication::RunMainGameLoop()
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
         ImGuizmo::BeginFrame();
+        SetupImGuiStyle();
 
         // --- Main menu bar ---
         if (ImGui::BeginMainMenuBar())
@@ -280,15 +411,15 @@ void QTDoughApplication::RunMainGameLoop()
                 ImGui::Separator();
                 if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !undoStack.empty()))
                 {
-                    auto& action = undoStack.back();
-                    ApplyTransform(action.objectIndex, action.beforePos, action.beforeRot, action.beforeScale);
+                    auto action = undoStack.back();
+                    ApplyUndo(action);
                     redoStack.push_back(action);
                     undoStack.pop_back();
                 }
                 if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !redoStack.empty()))
                 {
-                    auto& action = redoStack.back();
-                    ApplyTransform(action.objectIndex, action.afterPos, action.afterRot, action.afterScale);
+                    auto action = redoStack.back();
+                    ApplyRedo(action);
                     undoStack.push_back(action);
                     redoStack.pop_back();
                 }
@@ -325,15 +456,15 @@ void QTDoughApplication::RunMainGameLoop()
 
             if (ctrl && zPressed && !zWasPressed && !undoStack.empty())
             {
-                auto& action = undoStack.back();
-                ApplyTransform(action.objectIndex, action.beforePos, action.beforeRot, action.beforeScale);
+                auto action = undoStack.back();
+                ApplyUndo(action);
                 redoStack.push_back(action);
                 undoStack.pop_back();
             }
             if (ctrl && yPressed && !yWasPressed && !redoStack.empty())
             {
-                auto& action = redoStack.back();
-                ApplyTransform(action.objectIndex, action.afterPos, action.afterRot, action.afterScale);
+                auto action = redoStack.back();
+                ApplyRedo(action);
                 undoStack.push_back(action);
                 redoStack.pop_back();
             }
@@ -376,41 +507,6 @@ void QTDoughApplication::RunMainGameLoop()
         int tempOffset = materialSimulationPass->temperatureHistoryHead % 120;
         ImGui::PlotLines("##TempWave", materialSimulationPass->temperatureHistory, 120, tempOffset, nullptr, FLT_MAX, FLT_MAX, ImVec2(ImGui::GetContentRegionAvail().x, 60));
         ImGui::Separator();
-
-        // --- Brush list ---
-        if (VoxelizerPass::instance && ImGui::CollapsingHeader("Brushes", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            auto& brushes = VoxelizerPass::instance->brushes;
-            auto& objects = VoxelizerPass::instance->renderingObjects;
-            for (size_t i = 0; i < brushes.size(); i++)
-            {
-                auto& b = brushes[i];
-                const char* label = "Brush";
-                if (i < objects.size())
-                {
-                    UnigmaGameObject* gObj = objects[i]->GetGameObject();
-                    if (gObj && gObj->name[0] != '\0')
-                        label = gObj->name;
-                }
-
-                bool selected = (editorState.selectedBrushIndex == (int)i);
-                if (ImGui::Selectable(label, selected))
-                {
-                    editorState.selectedBrushIndex = (int)i;
-                }
-            }
-            if (materialSimulationPass->quantaCountReady)
-            {
-                ImGui::Separator();
-                uint32_t used = 0;
-                for (uint32_t c : materialSimulationPass->brushQuantaCounts)
-                    used += c;
-                uint32_t free = QUANTA_COUNT - used;
-                float pct = 100.0f * (float)used / (float)QUANTA_COUNT;
-                ImGui::Text("Total: %u / %u (%.1f%%)", used, QUANTA_COUNT, pct);
-                ImGui::Text("Free: %u", free);
-            }
-        }
 
         // --- Inspector (inline, scrollable) ---
         if (ImGui::CollapsingHeader("Inspector", ImGuiTreeNodeFlags_DefaultOpen))
@@ -488,15 +584,40 @@ void QTDoughApplication::RunMainGameLoop()
             if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
                 && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
             {
+                static std::string matGrabKey;
+                static int matGrabObj = -1;
+                static glm::vec4 matGrabBefore(0.0f);
+
                 UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[editorState.selectedBrushIndex];
                 auto& props = obj->_material.vectorProperties;
 
                 for (auto& [key, val] : props)
                 {
+                    glm::vec4 valBeforeWidget = val;
                     float col[4] = { val.x, val.y, val.z, val.w };
                     if (ImGui::ColorEdit4(key.c_str(), col))
                     {
                         val = glm::vec4(col[0], col[1], col[2], col[3]);
+                    }
+                    if (ImGui::IsItemActivated())
+                    {
+                        matGrabKey = key;
+                        matGrabObj = editorState.selectedBrushIndex;
+                        matGrabBefore = valBeforeWidget;
+                    }
+                    if (ImGui::IsItemDeactivatedAfterEdit()
+                        && matGrabObj == editorState.selectedBrushIndex
+                        && matGrabKey == key
+                        && matGrabBefore != val)
+                    {
+                        MaterialAction action;
+                        action.objectIndex = matGrabObj;
+                        action.propertyKey = matGrabKey;
+                        action.before = matGrabBefore;
+                        action.after = val;
+                        undoStack.push_back(action);
+                        redoStack.clear();
+                        matGrabObj = -1;
                     }
                 }
             }
@@ -669,8 +790,9 @@ void QTDoughApplication::RunMainGameLoop()
 
         // --- Viewport panel (game render) to the RIGHT of settings ---
         float bottomPanelHeight = 180.0f;
+        float rightPanelWidth = 260.0f;
         float menuBarHeight = ImGui::GetFrameHeight();
-        float viewportWidth = (float)SCREEN_WIDTH - sidePanelWidth;
+        float viewportWidth = (float)SCREEN_WIDTH - sidePanelWidth - rightPanelWidth;
         float viewportHeight = (float)SCREEN_HEIGHT - bottomPanelHeight - menuBarHeight;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::SetNextWindowPos(ImVec2(sidePanelWidth, menuBarHeight), ImGuiCond_Always);
@@ -846,6 +968,145 @@ void QTDoughApplication::RunMainGameLoop()
         }
 
         ImGui::End();
+
+        // --- Right panel (Camera / Lights tabs) ---
+        {
+            float rightH = (float)SCREEN_HEIGHT - menuBarHeight;
+            ImGui::SetNextWindowPos(ImVec2((float)SCREEN_WIDTH - rightPanelWidth, menuBarHeight), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(rightPanelWidth, rightH), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSizeConstraints(ImVec2(rightPanelWidth, rightH), ImVec2(rightPanelWidth, rightH));
+            ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+            if (ImGui::BeginTabBar("SceneTabs"))
+            {
+                if (ImGui::BeginTabItem("Camera"))
+                {
+                    UnigmaCameraStruct* cam = UNGetCamera(0);
+                    if (!cam)
+                    {
+                        ImGui::TextDisabled("No camera");
+                    }
+                    else
+                    {
+                        glm::vec3 camPos = cam->position();
+                        if (ImGui::DragFloat3("Position", glm::value_ptr(camPos), 0.05f))
+                        {
+                            cam->setPosition(camPos);
+                        }
+
+                        glm::vec3 camFwd = cam->forward();
+                        if (ImGui::DragFloat3("Forward", glm::value_ptr(camFwd), 0.01f, -1.0f, 1.0f))
+                        {
+                            if (glm::length(camFwd) > 1e-5f)
+                                cam->setForward(glm::normalize(camFwd));
+                        }
+
+                        ImGui::DragFloat("FOV", &cam->fov, 0.25f, 1.0f, 179.0f);
+                        ImGui::DragFloat("Near", &cam->nearClip, 0.01f, 0.001f, 1000.0f);
+                        ImGui::DragFloat("Far", &cam->farClip, 1.0f, 0.1f, 100000.0f);
+                        ImGui::DragFloat("Ortho Width", &cam->orthoWidth, 0.1f, 0.01f, 1000.0f);
+
+                        bool ortho = cam->isOrthogonal >= 0.5f;
+                        if (ImGui::Checkbox("Orthographic", &ortho))
+                        {
+                            cam->isOrthogonal = ortho ? 1.0f : 0.0f;
+                        }
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Brushes"))
+                {
+                    if (!VoxelizerPass::instance)
+                    {
+                        ImGui::TextDisabled("Voxelizer not initialized");
+                    }
+                    else
+                    {
+                        auto& brushes = VoxelizerPass::instance->brushes;
+                        auto& objects = VoxelizerPass::instance->renderingObjects;
+                        for (size_t i = 0; i < brushes.size(); i++)
+                        {
+                            const char* label = "Brush";
+                            if (i < objects.size())
+                            {
+                                UnigmaGameObject* gObj = objects[i]->GetGameObject();
+                                if (gObj && gObj->name[0] != '\0')
+                                    label = gObj->name;
+                            }
+
+                            bool selected = (editorState.selectedBrushIndex == (int)i);
+                            if (ImGui::Selectable(label, selected))
+                            {
+                                editorState.selectedBrushIndex = (int)i;
+                            }
+                        }
+                        if (materialSimulationPass->quantaCountReady)
+                        {
+                            ImGui::Separator();
+                            uint32_t used = 0;
+                            for (uint32_t c : materialSimulationPass->brushQuantaCounts)
+                                used += c;
+                            uint32_t free = QUANTA_COUNT - used;
+                            float pct = 100.0f * (float)used / (float)QUANTA_COUNT;
+                            ImGui::Text("Total: %u / %u (%.1f%%)", used, QUANTA_COUNT, pct);
+                            ImGui::Text("Free: %u", free);
+                        }
+                    }
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Lights"))
+                {
+                    uint32_t lightCount = UNGetLightsSize();
+                    if (lightCount == 0)
+                    {
+                        ImGui::TextDisabled("No lights in scene");
+                    }
+                    for (uint32_t i = 0; i < lightCount; i++)
+                    {
+                        UnigmaLight* L = UNGetLight(i);
+                        if (!L) continue;
+                        ImGui::PushID((int)i);
+
+                        char header[32];
+                        snprintf(header, sizeof(header), "Light %u", i);
+                        if (ImGui::TreeNodeEx(header, ImGuiTreeNodeFlags_DefaultOpen))
+                        {
+                            ImGui::DragFloat3("Position", glm::value_ptr(L->position), 0.05f);
+                            ImGui::DragFloat3("Direction", glm::value_ptr(L->direction), 0.01f, -1.0f, 1.0f);
+
+                            glm::vec3 color(L->emission.x, L->emission.y, L->emission.z);
+                            if (ImGui::ColorEdit3("Color", glm::value_ptr(color)))
+                            {
+                                L->emission.x = color.x;
+                                L->emission.y = color.y;
+                                L->emission.z = color.z;
+                            }
+                            ImGui::DragFloat("Intensity", &L->emission.w, 0.05f, 0.0f, 10000.0f);
+
+                            const char* types[] = { "Directional", "Point", "Spot", "Area" };
+                            int typeIdx = (int)L->type;
+                            if (typeIdx < 0 || typeIdx >= IM_ARRAYSIZE(types)) typeIdx = 0;
+                            if (ImGui::Combo("Type", &typeIdx, types, IM_ARRAYSIZE(types)))
+                            {
+                                L->type = (uint32_t)typeIdx;
+                            }
+
+                            ImGui::TreePop();
+                        }
+
+                        ImGui::PopID();
+                    }
+                    ImGui::EndTabItem();
+                }
+
+                ImGui::EndTabBar();
+            }
+
+            ImGui::End();
+        }
 
         //make imgui calculate internal draw structures
         ImGui::Render();
