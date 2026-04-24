@@ -361,7 +361,7 @@ int QTDoughApplication::Run() {
 
 // Queries device-local VRAM usage and budget (in bytes) via VK_EXT_memory_budget.
 // Sums all heaps with VK_MEMORY_HEAP_DEVICE_LOCAL_BIT.
-static void QueryVRAMUsage(VkPhysicalDevice physicalDevice, VkDeviceSize& outUsed, VkDeviceSize& outBudget)
+static void QueryVRAMUsage(VkPhysicalDevice physicalDevice, VkDeviceSize& outUsed, VkDeviceSize& outBudget, VkDeviceSize& totalBudget)
 {
     outUsed = 0;
     outBudget = 0;
@@ -382,6 +382,12 @@ static void QueryVRAMUsage(VkPhysicalDevice physicalDevice, VkDeviceSize& outUse
         {
             outUsed += budgetProps.heapUsage[i];
             outBudget += budgetProps.heapBudget[i];
+        }
+    }
+
+    for (uint32_t i = 0; i < mp.memoryHeapCount; i++) {
+        if (mp.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+            totalBudget += mp.memoryHeaps[i].size;
         }
     }
 }
@@ -491,14 +497,39 @@ void QTDoughApplication::RunMainGameLoop()
 
         // VRAM usage (device-local heaps, via VK_EXT_memory_budget)
         {
-            VkDeviceSize vramUsed = 0, vramBudget = 0;
-            QueryVRAMUsage(_physicalDevice, vramUsed, vramBudget);
+            VkDeviceSize vramUsed = 0, vramBudget = 0, vramTotal = 0;
+            QueryVRAMUsage(_physicalDevice, vramUsed, vramBudget, vramTotal);
             const double toMB = 1.0 / (1024.0 * 1024.0);
-            double usedMB = (double)vramUsed * toMB;
+            double usedMB   = (double)vramUsed   * toMB;
             double budgetMB = (double)vramBudget * toMB;
-            float frac = (vramBudget > 0) ? (float)((double)vramUsed / (double)vramBudget) : 0.0f;
-            ImGui::Text("VRAM: %.0f / %.0f MB", usedMB, budgetMB);
-            ImGui::ProgressBar(frac, ImVec2(-1, 0));
+            double totalMB  = (double)vramTotal  * toMB;
+            ImGui::Text("VRAM: %.0f / %.0f / %.0f MB", usedMB, budgetMB, totalMB);
+
+            float budgetFrac = (vramTotal > 0) ? (float)((double)vramBudget / (double)vramTotal) : 0.0f;
+            float usedFrac   = (vramTotal > 0) ? (float)((double)vramUsed   / (double)vramTotal) : 0.0f;
+
+            ImVec2 pos  = ImGui::GetCursorScreenPos();
+            ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight());
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+
+            dl->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                              ImGui::GetColorU32(ImGuiCol_FrameBg), 3.0f);
+
+            dl->AddRectFilled(pos, ImVec2(pos.x + size.x * budgetFrac, pos.y + size.y),
+                              IM_COL32(90, 160, 230, 255), 3.0f);
+            
+            ImU32 redColor = IM_COL32(230, 60, 60, 255);
+            ImU32 yellowColor = IM_COL32(230, 200, 60, 255);
+            ImU32 usedColor;
+
+            if(usedMB > budgetMB)
+                usedColor = redColor;
+			else
+				usedColor = yellowColor;
+
+            dl->AddRectFilled(pos, ImVec2(pos.x + size.x * usedFrac, pos.y + size.y),
+                usedColor, 3.0f);
+            ImGui::Dummy(size); // advance layout cursor past the bar
         }
         ImGui::Separator();
 

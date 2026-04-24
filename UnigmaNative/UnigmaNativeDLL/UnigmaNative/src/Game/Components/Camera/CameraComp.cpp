@@ -124,7 +124,7 @@ void CameraComp::Update()
     // Zoom camera via mousewheel
     if (Controller0->cameraZoom == true)
     {
-        int scrollY = Controller0->wheel.y;
+        int scrollY = Controller0->wheel.y*2;
         camera->Zoom(scrollY);
         Controller0->cameraZoom = false;
     }
