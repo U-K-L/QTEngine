@@ -39,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10427.1 GFLOPS
-  Memory bandwidth:   236.806 GB/s
+  Compute throughput: 10531.8 GFLOPS
+  Memory bandwidth:   236.592 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -199,10 +199,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 00000228E823C420
-quanta[0]: 00000228DC7EAFC0
-quanta[1]: 00000228DC7EA1B0
-quanta[2]: 00000228DC7EA7F0
+emitterEventBuffer: 000001E5D22D0640
+quanta[0]: 000001E5C6BD0610
+quanta[1]: 000001E5C6BD07A0
+quanta[2]: 000001E5C6BD0930
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets

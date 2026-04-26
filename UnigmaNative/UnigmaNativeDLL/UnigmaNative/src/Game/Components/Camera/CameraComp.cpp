@@ -281,6 +281,10 @@ void CameraComp::InitializeData(nlohmann::json& componentData)
 	{
 		camera->nearClip = componentData["NearClip"];
 	}
+	if (componentData.contains("FOV"))
+	{
+		camera->fov = componentData["FOV"];
+	}
 	if (componentData.contains("CameraType"))
 	{
         if(componentData["CameraType"] == "Perspective")

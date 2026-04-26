@@ -118,18 +118,13 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 		if(strcmp(std::string(obj["type"]).c_str(), "Light") == 0)
 		{
-			//std::cout << "Light object found: " << gameObject.name << std::endl;
 			gameManager->RenderingManager->CreateLightObject(gameObject);
-
-			//Get size of lights.
-			uint32_t size = GetLightsSize();
-			UnigmaLight light;
-
-			light.emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
-
-			Lights.push_back(light);
-
-			//std::cout << "Light Emission: " << Lights[size].emission.r << ", " << Lights[size].emission.g << ", " << Lights[size].emission.b << ", " << Lights[size].emission.a << std::endl;
+			UnigmaLight& L = Lights.back();
+			L.emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
+			if (obj.contains("LightType"))
+				L.type = (uint32_t)obj["LightType"];
+			if (obj.contains("Direction"))
+				L.direction = glm::vec3(obj["Direction"][0], obj["Direction"][1], obj["Direction"][2]);
 		}
 	}
 }

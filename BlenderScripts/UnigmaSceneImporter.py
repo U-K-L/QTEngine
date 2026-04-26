@@ -2,6 +2,7 @@
 import bpy
 import os
 import json
+import math
 from mathutils import Euler, Vector
 
 bl_info = {
@@ -84,6 +85,28 @@ class UnigmaImporter(bpy.types.Operator):
             if obj.type == 'LIGHT' and em:
                 obj.data.color = (em.get("r", 1), em.get("g", 1), em.get("b", 1))
                 obj.data.energy = em.get("a", 1000)
+
+            # Light type.
+            if obj.type == 'LIGHT' and "LightType" in gobj:
+                light_type_map = {0: 'SUN', 1: 'POINT', 2: 'SPOT', 3: 'AREA'}
+                lt = light_type_map.get(int(gobj["LightType"]))
+                if lt:
+                    obj.data.type = lt
+
+            # Camera fields from Components.CameraComp.
+            if obj.type == 'CAMERA':
+                cam_comp = gobj.get("Components", {}).get("CameraComp", {})
+                if cam_comp:
+                    if "FOV" in cam_comp:
+                        obj.data.angle = math.radians(float(cam_comp["FOV"]))
+                    if "NearClip" in cam_comp:
+                        obj.data.clip_start = float(cam_comp["NearClip"])
+                    if "FarClip" in cam_comp:
+                        obj.data.clip_end = float(cam_comp["FarClip"])
+                    if "CameraType" in cam_comp:
+                        obj.data.type = 'ORTHO' if cam_comp["CameraType"] == "Orthogonal" else 'PERSP'
+                    if "OrthographicSize" in cam_comp:
+                        obj.data.ortho_scale = float(cam_comp["OrthographicSize"])
 
             updated += 1
 

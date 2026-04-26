@@ -43,6 +43,14 @@ struct PushConsts
     int3 voxelResolution;
 };
 
+cbuffer Constants : register(b2, space0)
+{
+    float deltaTime; // offset 0
+    float time; // offset 4
+    float2 pad; // offset 8..15
+    GPULight light[32]; // each: float4 emission + float3 direction
+};
+
 [[vk::push_constant]]
 PushConsts pc;
 
@@ -306,13 +314,14 @@ void main()
 
 
     p.color.xyz = surface.xyz;
+    p.direction.xyz = rd;
 
     Images image = InitImages();
     uint albedoHandle = NonUniformResourceIndex(image.AlbedoImage);
     uint normalHandle = NonUniformResourceIndex(image.NormalImage);
     uint positionHandle = NonUniformResourceIndex(image.PositionImage);
 
-    float linearDepth = surface.w;
+    float linearDepth = distance(p.position.xyz, ro);
     float maxRenderDistance = 64.0f;
     float normalizedDepth = linearDepth / maxRenderDistance;
     float depthMapped = col.w * normalizedDepth;
@@ -349,13 +358,11 @@ void main()
 
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
 */
-    GPULight light;
-    light.direction = float3(0, 1, 1);
-    light.emission = 1.0f;
-    float4 finalColor = UnigmaBRDF(material, p, surf, light);
+    GPULight l = light[0];
+    float4 finalColor = UnigmaBRDFDirectionalLight(material, p, surf, l);
     
     gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
     gBindlessStorage[normalHandle][pixel] = float4(surface.xyz, depthMapped);
-    gBindlessStorage[positionHandle][pixel] = float4(1,1,0,1);
+    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, surface.w);
 
 }

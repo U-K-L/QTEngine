@@ -255,6 +255,35 @@ void SaveScene()
             goJson["Components"] = objectComponents[jid];
     }
 
+    // Lights: write back position, direction, emission, light type.
+    for (uint32_t i = 0; i < UNGetLightsSize(); i++)
+    {
+        UnigmaLight* L = UNGetLight(i);
+        if (!L) continue;
+        UnigmaGameObject* gObj = UNGetGameObject(L->GID);
+        if (!gObj) continue;
+        uint32_t jid = gObj->JID;
+        if (jid >= sceneJson["GameObjects"].size()) continue;
+
+        auto& goJson = sceneJson["GameObjects"][jid];
+
+        goJson["position"]["local"]["x"] = L->position.x;
+        goJson["position"]["local"]["y"] = L->position.y;
+        goJson["position"]["local"]["z"] = L->position.z;
+        goJson["position"]["world"]["x"] = L->position.x;
+        goJson["position"]["world"]["y"] = L->position.y;
+        goJson["position"]["world"]["z"] = L->position.z;
+
+        goJson["Direction"] = { L->direction.x, L->direction.y, L->direction.z };
+
+        goJson["Emission"]["r"] = L->emission.x;
+        goJson["Emission"]["g"] = L->emission.y;
+        goJson["Emission"]["b"] = L->emission.z;
+        goJson["Emission"]["a"] = L->emission.w;
+
+        goJson["LightType"] = (uint32_t)L->type;
+    }
+
     // Write back.
     std::ofstream outFile(jsonPath);
     if (!outFile.is_open())
@@ -959,6 +988,36 @@ void QTDoughApplication::RunMainGameLoop()
             gizmoWasUsing = isUsing;
         }
 
+        // Light gizmo: translate moves position, rotate aligns direction.
+        if (editorState.selectedLightIndex >= 0
+            && editorState.selectedLightIndex < (int)UNGetLightsSize())
+        {
+            UnigmaLight* L = UNGetLight(editorState.selectedLightIndex);
+            if (L)
+            {
+                ImGuizmo::SetID(10000 + editorState.selectedLightIndex);
+
+                glm::vec3 dir = glm::normalize(L->direction);
+                glm::vec3 upRef = (fabs(dir.z) > 0.99f) ? glm::vec3(0, 1, 0) : glm::vec3(0, 0, 1);
+                glm::mat4 rot = glm::inverse(glm::lookAt(glm::vec3(0), dir, upRef));
+                glm::mat4 model = glm::translate(glm::mat4(1.0f), L->position) * rot;
+
+                ImGuizmo::OPERATION op = (editorState.gizmoOperation == ImGuizmo::SCALE)
+                    ? ImGuizmo::ROTATE : editorState.gizmoOperation;
+
+                ImGuizmo::Manipulate(
+                    glm::value_ptr(view), glm::value_ptr(proj),
+                    op, ImGuizmo::WORLD,
+                    glm::value_ptr(model));
+
+                if (ImGuizmo::IsUsing())
+                {
+                    L->position = glm::vec3(model[3]);
+                    L->direction = glm::normalize(-glm::vec3(model[2]));
+                }
+            }
+        }
+
         ImGui::End();
         ImGui::PopStyleVar();
 
@@ -1106,7 +1165,13 @@ void QTDoughApplication::RunMainGameLoop()
 
                         char header[32];
                         snprintf(header, sizeof(header), "Light %u", i);
-                        if (ImGui::TreeNodeEx(header, ImGuiTreeNodeFlags_DefaultOpen))
+                        bool isSelected = (editorState.selectedLightIndex == (int)i);
+                        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen
+                            | (isSelected ? ImGuiTreeNodeFlags_Selected : 0);
+                        bool open = ImGui::TreeNodeEx(header, flags);
+                        if (ImGui::IsItemClicked())
+                            editorState.selectedLightIndex = (int)i;
+                        if (open)
                         {
                             ImGui::DragFloat3("Position", glm::value_ptr(L->position), 0.05f);
                             ImGui::DragFloat3("Direction", glm::value_ptr(L->direction), 0.01f, -1.0f, 1.0f);

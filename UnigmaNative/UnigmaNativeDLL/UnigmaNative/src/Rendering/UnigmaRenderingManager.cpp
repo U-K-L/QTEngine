@@ -30,6 +30,7 @@ void UnigmaRenderingManager::CreateLightObject(UnigmaGameObject& gameObject)
 {
 	UnigmaLight lightObject = UnigmaLight();
 
+	lightObject.GID = gameObject.ID;
 	lightObject.position = gameObject.transform.position;
 	lightObject.direction = gameObject.transform.forward();
 

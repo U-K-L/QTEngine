@@ -1952,7 +1952,7 @@ float3 CalculateDualContour(int3 cellCoord, float mipLevel)
     return CalculateDualVertexCentroidWorld(cellCoord, mipLevel);
 }
 
-void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
+void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush, bool flip)
 {
 
     uint vertOffset;
@@ -2000,16 +2000,18 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     if (normalMethod == 1)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
+        if (flip) faceNormal = -faceNormal;
         n0 = faceNormal;
         n1 = faceNormal;
         n2 = faceNormal;
         n3 = faceNormal;
     }
-    
+
     //Interpolate based on smoothness.
     if(normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
+        if (flip) faceNormal = -faceNormal;
 
         float t = clamp(1.0f - exp(-brush.smoothness), 0, 1.0f);
         n0 = GetNormal(v0);
@@ -2144,7 +2146,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         float3 v2 = CalculateDualContour(DTid + int3(0, -1, -1), mipLevel);
         float3 v3 = CalculateDualContour(DTid + int3(0, 0, -1), mipLevel);
 
-        EmitTriangles(v0, v1, v2, v3, brush);
+        EmitTriangles(v0, v1, v2, v3, brush, sdfOrigin > 0);
 
     }
 
@@ -2159,7 +2161,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         float3 v3 = CalculateDualContour(DTid + int3(-1, 0, 0), mipLevel);
 
 
-        EmitTriangles(v0, v1, v2, v3, brush);
+        EmitTriangles(v0, v1, v2, v3, brush, sdfOrigin > 0);
     }
 
     // Check edge along +Z axis
@@ -2171,8 +2173,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         float3 v1 = CalculateDualContour(DTid + int3(-1, 0, 0), mipLevel);
         float3 v2 = CalculateDualContour(DTid + int3(-1, -1, 0), mipLevel);
         float3 v3 = CalculateDualContour(DTid + int3(0, -1, 0), mipLevel);
-        
-        EmitTriangles(v0, v1, v2, v3, brush);
+
+        EmitTriangles(v0, v1, v2, v3, brush, sdfOrigin > 0);
     }
 }
 
