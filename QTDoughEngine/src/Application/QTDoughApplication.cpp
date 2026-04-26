@@ -20,6 +20,7 @@
 #include "../UnigmaNative/UnigmaNative.h"
 #include "json.hpp"
 #include "stb_image.h"
+#include "stb_image_write.h"
 #include <random>
 #include <variant>
 extern std::map<uint32_t, nlohmann::json> objectComponents;
@@ -324,9 +325,9 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
     }
 
     //Update the shader game objects.
-    gameObjectShaderDataArray[gObj->RenderID].BaseAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["BaseAlbedo"];
-    gameObjectShaderDataArray[gObj->RenderID].TopAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["TopAlbedo"];
-    gameObjectShaderDataArray[gObj->RenderID].SideAlbedo = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["SideAlbedo"];
+    gameObjectShaderDataArray[gObj->RenderID].Midtone = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Midtone"];
+    gameObjectShaderDataArray[gObj->RenderID].Highlight = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Highlight"];
+    gameObjectShaderDataArray[gObj->RenderID].Shadow = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Shadow"];
 
 
     int lightSize = UNGetLightsSize();
@@ -414,6 +415,8 @@ void QTDoughApplication::RunMainGameLoop()
             {
                 if (ImGui::MenuItem("Save", "Ctrl+S"))
                     SaveScene();
+                if (ImGui::MenuItem("Export Pass Outputs"))
+                    ExportPassOutputs();
                 ImGui::Separator();
                 if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !undoStack.empty()))
                 {
@@ -4121,6 +4124,131 @@ void QTDoughApplication::CreateSwapChain() {
     swapChainExtent = extent;
 }
 
+static bool DumpVkImageToPng(QTDoughApplication* app,
+                             VkImage src, VkFormat fmt,
+                             uint32_t w, uint32_t h,
+                             VkImageLayout currentLayout,
+                             const std::string& outPath)
+{
+    if (src == VK_NULL_HANDLE || w == 0 || h == 0)
+        return false;
+
+    uint32_t bpp = 0;
+    bool isFloat = false;
+    bool isBGRA = false;
+    switch (fmt)
+    {
+    case VK_FORMAT_R32G32B32A32_SFLOAT: bpp = 16; isFloat = true; break;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    case VK_FORMAT_R8G8B8A8_SRGB:       bpp = 4; break;
+    case VK_FORMAT_B8G8R8A8_UNORM:
+    case VK_FORMAT_B8G8R8A8_SRGB:       bpp = 4; isBGRA = true; break;
+    default: return false;
+    }
+
+    VkDeviceSize bufSize = (VkDeviceSize)w * h * bpp;
+    VkBuffer staging;
+    VkDeviceMemory stagingMem;
+    app->CreateBuffer(bufSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        staging, stagingMem);
+
+    VkCommandBuffer cmd = app->BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier toSrc{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    toSrc.oldLayout = currentLayout;
+    toSrc.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    toSrc.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    toSrc.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    toSrc.image = src;
+    toSrc.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    toSrc.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    toSrc.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &toSrc);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = { w, h, 1 };
+    vkCmdCopyImageToBuffer(cmd, src,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        staging, 1, &region);
+
+    VkImageMemoryBarrier toShader = toSrc;
+    toShader.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    toShader.newLayout = currentLayout;
+    toShader.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    toShader.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &toShader);
+
+    app->EndSingleTimeCommands(cmd);
+
+    void* mapped = nullptr;
+    vkMapMemory(app->_logicalDevice, stagingMem, 0, bufSize, 0, &mapped);
+
+    std::vector<uint8_t> pixels((size_t)w * h * 4);
+    if (isFloat)
+    {
+        const float* src32 = static_cast<const float*>(mapped);
+        for (size_t i = 0; i < (size_t)w * h; ++i)
+        {
+            for (int c = 0; c < 4; ++c)
+            {
+                float v = src32[i * 4 + c];
+                if (v < 0.0f) v = 0.0f;
+                if (v > 1.0f) v = 1.0f;
+                pixels[i * 4 + c] = (uint8_t)(v * 255.0f + 0.5f);
+            }
+        }
+    }
+    else
+    {
+        const uint8_t* src8 = static_cast<const uint8_t*>(mapped);
+        if (isBGRA)
+        {
+            for (size_t i = 0; i < (size_t)w * h; ++i)
+            {
+                pixels[i * 4 + 0] = src8[i * 4 + 2];
+                pixels[i * 4 + 1] = src8[i * 4 + 1];
+                pixels[i * 4 + 2] = src8[i * 4 + 0];
+                pixels[i * 4 + 3] = src8[i * 4 + 3];
+            }
+        }
+        else
+        {
+            std::memcpy(pixels.data(), src8, pixels.size());
+        }
+    }
+
+    vkUnmapMemory(app->_logicalDevice, stagingMem);
+    vkDestroyBuffer(app->_logicalDevice, staging, nullptr);
+    vkFreeMemory(app->_logicalDevice, stagingMem, nullptr);
+
+    int ok = stbi_write_png(outPath.c_str(), (int)w, (int)h, 4, pixels.data(), (int)(w * 4));
+    return ok != 0;
+}
+
+static std::string SanitizeFilenameKey(const std::string& s)
+{
+    std::string out = s;
+    for (char& c : out)
+    {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
+            c = '_';
+    }
+    return out;
+}
+
 static std::string MakeCaptureFilename() {
     std::string dir = "C:/ProjectsSpeed/QTDEngine/Media/Captures";
     std::filesystem::create_directories(dir);
@@ -4158,6 +4286,71 @@ void QTDoughApplication::StartRecording(const char* path, uint32_t fps) {
 void QTDoughApplication::StopRecording() {
     if (recorder) { recorder->End(); delete recorder; recorder = nullptr; }
     std::cout << "[Recorder] Recording stopped." << std::endl;
+}
+
+void QTDoughApplication::ExportPassOutputs()
+{
+    char ts[32];
+    std::time_t t = std::time(nullptr);
+    std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", std::localtime(&t));
+
+    std::string folder = std::string("C:/ProjectsSpeed/QTDEngine/Media/Captures/passes_") + ts;
+    std::filesystem::create_directories(folder);
+
+    vkDeviceWaitIdle(_logicalDevice);
+
+    int dumped = 0;
+    int skipped = 0;
+
+    auto dumpKey = [&](const std::string& key, VkFormat fmt)
+    {
+        auto it = textures.find(key);
+        if (it == textures.end()) { ++skipped; return; }
+        UnigmaTexture& tex = it->second;
+        uint32_t w = tex.WIDTH > 0 ? tex.WIDTH : swapChainExtent.width;
+        uint32_t h = tex.HEIGHT > 0 ? tex.HEIGHT : swapChainExtent.height;
+        std::string path = folder + "/" + SanitizeFilenameKey(key) + ".png";
+        if (DumpVkImageToPng(this, tex.u_image, fmt, w, h, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, path))
+        {
+            ++dumped;
+            ConsoleLog("Dumped " + key + " -> " + path);
+        }
+        else
+        {
+            ++skipped;
+            ConsoleLog("Failed to dump " + key);
+        }
+    };
+
+    for (RayTracerPass* p : rayTracePassStack)
+    {
+        if (!p) continue;
+        dumpKey(p->PassName, VK_FORMAT_R32G32B32A32_SFLOAT);
+        for (const auto& n : p->PassNames)
+            dumpKey(n, VK_FORMAT_R32G32B32A32_SFLOAT);
+    }
+
+    for (ComputePass* p : computePassStack)
+    {
+        if (!p) continue;
+        dumpKey(p->PassName, VK_FORMAT_R32G32B32A32_SFLOAT);
+        for (const auto& n : p->PassNames)
+            dumpKey(n, VK_FORMAT_R32G32B32A32_SFLOAT);
+    }
+
+    for (RenderPassObject* p : renderPassStack)
+    {
+        if (!p) continue;
+        VkFormat fmt = (dynamic_cast<AlbedoPass*>(p) || dynamic_cast<PositionPass*>(p))
+            ? _swapChainImageFormat
+            : VK_FORMAT_R32G32B32A32_SFLOAT;
+        dumpKey(p->PassName, fmt);
+        for (const auto& n : p->PassNames)
+            dumpKey(n, fmt);
+    }
+
+    ConsoleLog("Exported " + std::to_string(dumped) + " pass outputs to " + folder
+        + " (" + std::to_string(skipped) + " skipped)");
 }
 
 void QTDoughApplication::CreateInstance()

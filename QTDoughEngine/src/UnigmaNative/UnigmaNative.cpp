@@ -205,7 +205,7 @@ void LoadScene(const char* sceneName) {
             //Loop through all custom properties as a hashmap.
             for (const auto& [propName, propValue] : GameObjectJson["CustomProperties"].items()) {
                 if (propValue.is_array()) {
-                    // Handle nested properties (e.g., BaseAlbedo)
+                    // Handle nested properties (e.g., Midtone)
                     renderCopy._material.vectorProperties[propName] = glm::vec4(propValue[0], propValue[1], propValue[2], propValue[3]);
 
                 }

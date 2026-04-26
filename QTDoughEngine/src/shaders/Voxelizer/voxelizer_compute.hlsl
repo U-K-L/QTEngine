@@ -1990,10 +1990,10 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     //Smooth.
     if(normalMethod == 0)
     {
-        n0 = GetNormal(mul(brush.model, float4(v0, 1)).xyz);
-        n1 = GetNormal(mul(brush.model, float4(v1, 1)).xyz);
-        n2 = GetNormal(mul(brush.model, float4(v2, 1)).xyz);
-        n3 = GetNormal(mul(brush.model, float4(v3, 1)).xyz);
+        n0 = GetNormal(v0);
+        n1 = GetNormal(v1);
+        n2 = GetNormal(v2);
+        n3 = GetNormal(v3);
     }
     
     //Flat.
@@ -2010,12 +2010,13 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush)
     if(normalMethod == 2)
     {
         float3 faceNormal = normalize(cross(v2 - v0, v3 - v1));
+
         float t = clamp(1.0f - exp(-brush.smoothness), 0, 1.0f);
         n0 = GetNormal(v0);
         n1 = GetNormal(v1);
         n2 = GetNormal(v2);
         n3 = GetNormal(v3);
-        
+
         n0 = lerp(faceNormal, n0, t);
         n1 = lerp(faceNormal, n1, t);
         n2 = lerp(faceNormal, n2, t);
@@ -2321,17 +2322,28 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     
     uint outBase;
     InterlockedAdd(GlobalIDCounter[1], 3, outBase);
+    
+    float4x4 transInvModel = transpose(brush.invModel);
+    //World normals.
+    float3 n0 = mul(transInvModel, float4(vertexBuffer[i0].normal.xyz, 0)).xyz;
+    float3 n1 = mul(transInvModel, float4(vertexBuffer[i1].normal.xyz, 0)).xyz;
+    float3 n2 = mul(transInvModel, float4(vertexBuffer[i2].normal.xyz, 0)).xyz;
+    
+    n0 = normalize(n0);
+    n1 = normalize(n1);
+    n2 = normalize(n2);
+
 
     // Write. w = brush ID for hit-shader material lookup.
     float bID = (float)brush.id;
     meshingVertices[outBase + 0].position = float4(pW0, bID);
-    meshingVertices[outBase + 0].normal = float4(vertexBuffer[i0].normal.xyz, brush.materialId);
+    meshingVertices[outBase + 0].normal = float4(n0, brush.materialId);
 
     meshingVertices[outBase + 1].position = float4(pW1, bID);
-    meshingVertices[outBase + 1].normal = float4(vertexBuffer[i1].normal.xyz, brush.materialId);
+    meshingVertices[outBase + 1].normal = float4(n1, brush.materialId);
 
     meshingVertices[outBase + 2].position = float4(pW2, bID);
-    meshingVertices[outBase + 2].normal = float4(vertexBuffer[i2].normal.xyz, brush.materialId);
+    meshingVertices[outBase + 2].normal = float4(n2, brush.materialId);
 
     // Compact positions for RTA. vec4: xyz + brushID in w.
     uint po2 = outBase * 4;

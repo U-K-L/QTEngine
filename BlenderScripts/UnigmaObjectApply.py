@@ -12,17 +12,17 @@ import bpy
 from bpy.props import FloatVectorProperty
 
 custom_property_defaults = {
-    "BaseAlbedo": (1.0, 1.0, 1.0, 1.0),
-    "TopAlbedo": (1.0, 1.0, 1.0, 1.0),
-    "SideAlbedo": (1.0, 1.0, 1.0, 1.0),
+    "Midtone": (1.0, 1.0, 1.0, 1.0),
+    "Highlight": (1.0, 1.0, 1.0, 1.0),
+    "Shadow": (1.0, 1.0, 1.0, 1.0),
     "InnerOutlineColor": (0.01, 0.01, 0.01, 1.0),
     "OuterOutlineColor": (0.01, 0.01, 0.01, 1.0),
 }
 
 custom_properties = {
-    "BaseAlbedo": FloatVectorProperty(name="Base Albedo", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
-    "TopAlbedo": FloatVectorProperty(name="Top Albedo", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
-    "SideAlbedo": FloatVectorProperty(name="Side Albedo", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
+    "Midtone": FloatVectorProperty(name="Midtone", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
+    "Highlight": FloatVectorProperty(name="Highlight", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
+    "Shadow": FloatVectorProperty(name="Shadow", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
     "InnerOutlineColor": FloatVectorProperty(name="Inner Outline Color", default=(0.01, 0.01, 0.01, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
     "OuterOutlineColor": FloatVectorProperty(name="Outer Outline Color", default=(0.01, 0.01, 0.01, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0)
 }
@@ -54,9 +54,9 @@ class OBJECT_PT_unigma_panel(bpy.types.Panel):
         layout = self.layout
         obj = context.object
         if obj:
-            layout.prop(obj, "BaseAlbedo")
-            layout.prop(obj, "TopAlbedo")
-            layout.prop(obj, "SideAlbedo")
+            layout.prop(obj, "Midtone")
+            layout.prop(obj, "Highlight")
+            layout.prop(obj, "Shadow")
             layout.prop(obj, "InnerOutlineColor")
             layout.prop(obj, "OuterOutlineColor")
 

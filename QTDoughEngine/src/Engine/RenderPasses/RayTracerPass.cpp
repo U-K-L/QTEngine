@@ -231,14 +231,14 @@ void RayTracerPass::CreateMaterials() {
 
     material.textureNames[0] = "RayAlbedoPass";
     material.textureNames[1] = "RayNormalPass";
-    material.textureNames[2] = "RayDepthPass";
+    material.textureNames[2] = "RayPositionPass";
 
     images.resize(3);
     imagesMemory.resize(3);
     imagesViews.resize(3);
     PassNames.push_back("RayAlbedoPass");
     PassNames.push_back("RayNormalPass");
-    PassNames.push_back("RayDepthPass");
+    PassNames.push_back("RayPositionPass");
 
 }
 

@@ -25,4 +25,10 @@ class CameraComp : public Component
 	bool rotationHeld;
 	bool panHeld;
 	glm::vec3 orbitPivot = glm::vec3(0.0f);
+
+	float targetOrthoWidth = 0.0f;
+	float targetFov = 0.0f;
+	float velOrthoWidth = 0.0f;
+	float velFov = 0.0f;
+	bool zoomTargetsInit = false;
 };

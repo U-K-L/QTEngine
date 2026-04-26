@@ -89,9 +89,9 @@ class UnigmaExporter(bpy.types.Operator):
             world_rotation = obj.matrix_world.to_euler()
             world_scale = obj.matrix_world.to_scale()
 
-            # Custom properties (e.g., BaseAlbedo)
+            # Custom properties (e.g., Midtone)
             custom_properties = {}
-            outlineNames = ["BaseAlbedo", "TopAlbedo", "SideAlbedo", "InnerOutlineColor", "OuterOutlineColor"]
+            outlineNames = ["Midtone", "Highlight", "Shadow", "InnerOutlineColor", "OuterOutlineColor"]
             for prop_name, prop_value in obj.items():
                 if prop_name not in outlineNames:
                     continue

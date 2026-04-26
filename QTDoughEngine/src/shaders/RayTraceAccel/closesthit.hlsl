@@ -4,7 +4,7 @@
 StructuredBuffer<Vertex> Vertices : register(t3, space1);
 
 [shader("closesthit")]
-void main(inout Payload payload : SV_RayPayload, in Attributes attr : SV_IntersectionAttributes)
+void main(inout Photon photon : SV_RayPayload, in Attributes attr : SV_IntersectionAttributes)
 {
     uint prim = PrimitiveIndex();
     uint i0 = prim * 3 + 0;
@@ -18,8 +18,13 @@ void main(inout Payload payload : SV_RayPayload, in Attributes attr : SV_Interse
     float b1 = attr.bary.x;
     float b2 = attr.bary.y;
     float b0 = 1.0f - b1 - b2;
+    
+    float3 ws =
+        Vertices[i0].position.xyz * b0 +
+        Vertices[i1].position.xyz * b1 +
+        Vertices[i2].position.xyz * b2;
 
-    // Flat geometric normal (object space)
+    // Flat geometric normal.
     float3 Ng_obj = normalize(cross(p1 - p0, p2 - p0));
 
     // Smooth normals.
@@ -29,9 +34,13 @@ void main(inout Payload payload : SV_RayPayload, in Attributes attr : SV_Interse
         Vertices[i2].normal.xyz * b2
     );
 
+    //Already in world space.
+    /*
     float3x3 O2W = (float3x3) ObjectToWorld3x4();
     float3 Ns_ws = normalize(mul(O2W, Ns_obj));
     float3 Ng_ws = normalize(mul(O2W, Ng_obj));
+    */
 
-    payload.color = float4(Ns_ws, Vertices[i0].normal.w);
+    photon.color = float4(Ns_obj, Vertices[i0].normal.w);
+    photon.position = float4(ws, 1.0f);
 }

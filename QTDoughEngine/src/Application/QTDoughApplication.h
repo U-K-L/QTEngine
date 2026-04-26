@@ -117,9 +117,9 @@ struct GlobalUniformBufferObject
 struct GameObjectShaderData
 {
     glm::mat4 transform;
-    glm::vec4 BaseAlbedo;
-    glm::vec4 TopAlbedo;
-    glm::vec4 SideAlbedo;
+    glm::vec4 Midtone;
+    glm::vec4 Highlight;
+    glm::vec4 Shadow;
 
 };
 
@@ -312,6 +312,8 @@ public:
 
     void StartRecording(const char* path, uint32_t fps);
     void StopRecording();
+
+    void ExportPassOutputs();
 
     void CreateImages3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     VkImageView Create3DImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);

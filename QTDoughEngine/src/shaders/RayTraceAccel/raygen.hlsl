@@ -1,13 +1,5 @@
-#include "rayTracingAccelHelper.hlsl"
 #include "../Helpers/ShaderHelpers.hlsl"
-
-struct GameObjectShaderData
-{
-    float4x4 transform;
-    float4 BaseAlbedo;
-    float4 TopAlbedo;
-    float4 SideAlbedo;
-};
+#include "../Helpers/LightingHelpers.hlsl"
 
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 // For reading
@@ -24,6 +16,7 @@ struct Images
 {
     uint AlbedoImage;
     uint NormalImage;
+    uint PositionImage;
 };
 
 Images InitImages()
@@ -31,6 +24,7 @@ Images InitImages()
     Images image;
     image.AlbedoImage = intArray[0];
     image.NormalImage = intArray[1];
+    image.PositionImage = intArray[2];
     return image;
 }
 
@@ -271,13 +265,13 @@ void main()
     ray.TMin = 0.001f;
     ray.TMax = 1e6f; 
 
-    Payload p;
+    Photon p;
     p.color = float4(0, 0, 0, 0);
     
     GameObjectShaderData material;
-    material.BaseAlbedo = float4(0.90, 0.9, 0.78, 1.0);
-    material.TopAlbedo = float4(1.0, 0.92, 0.928, 1.0);
-    material.SideAlbedo = float4(0.9, 0.63, 0.61, 1.0);
+    material.Midtone = float4(0.90, 0.9, 0.78, 1.0);
+    material.Highlight = float4(1.0, 0.92, 0.928, 1.0);
+    material.Shadow = float4(0.9, 0.63, 0.61, 1.0);
 
     float4 surface = p.color;
     float4 visibility = 0;
@@ -316,14 +310,19 @@ void main()
     Images image = InitImages();
     uint albedoHandle = NonUniformResourceIndex(image.AlbedoImage);
     uint normalHandle = NonUniformResourceIndex(image.NormalImage);
+    uint positionHandle = NonUniformResourceIndex(image.PositionImage);
 
     float linearDepth = surface.w;
     float maxRenderDistance = 64.0f;
     float normalizedDepth = linearDepth / maxRenderDistance;
     float depthMapped = col.w * normalizedDepth;
     
-        //Albedo.
+    Surface surf;
+    surf.normal.xyz = surface.xyz;
+    surf.position = p.position;
     
+        //Albedo.
+    /*
     float thresholdX = 0.2;
     float thresholdY = 0.6;
     float thresholdZ = 0.8;
@@ -331,9 +330,9 @@ void main()
     //Pick based on normals.
     float3 normal = surface.xyz;
 
-    float4 front = material.BaseAlbedo * 1.0725f;
-    float4 sides = material.SideAlbedo * 1.0725f;
-    float4 top = material.TopAlbedo * 1.0725f;
+    float4 front = material.Midtone * 1.0725f;
+    float4 sides = material.Shadow * 1.0725f;
+    float4 top = material.Highlight * 1.0725f;
     
     float3 forward = float3(0, 1, 0);
     float3 up = float3(0, 0, 1);
@@ -349,8 +348,14 @@ void main()
     weightTop /= total;
 
     float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
-
+*/
+    GPULight light;
+    light.direction = float3(0, 1, 1);
+    light.emission = 1.0f;
+    float4 finalColor = UnigmaBRDF(material, p, surf, light);
+    
     gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
-    gBindlessStorage[normalHandle][pixel] = float4(p.color.xyz, depthMapped);
+    gBindlessStorage[normalHandle][pixel] = float4(surface.xyz, depthMapped);
+    gBindlessStorage[positionHandle][pixel] = float4(1,1,0,1);
 
 }

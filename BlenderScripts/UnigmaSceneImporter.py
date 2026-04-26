@@ -74,7 +74,7 @@ class UnigmaImporter(bpy.types.Operator):
             if scl:
                 obj.scale = (scl.get("x", 1), scl.get("y", 1), scl.get("z", 1))
 
-            # Custom properties (BaseAlbedo, TopAlbedo, etc.).
+            # Custom properties (Midtone, Highlight, etc.).
             for prop_name, prop_value in gobj.get("CustomProperties", {}).items():
                 if isinstance(prop_value, list) and len(prop_value) == 4:
                     setattr(obj, prop_name, prop_value)

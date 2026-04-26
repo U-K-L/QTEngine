@@ -48,6 +48,8 @@ struct Images
     uint CombineSDFRasterPass;
     uint FullSDFField;
     uint RayAlbedoPass;
+    uint RayNormalPass;
+    uint RayPositionPass;
     uint MaterialGridImage;
 };
 
@@ -67,7 +69,9 @@ Images InitImages()
     image.CombineSDFRasterPass = intArray[9];
     image.FullSDFField = intArray[10];
     image.RayAlbedoPass = intArray[11];
-    image.MaterialGridImage = intArray[12];
+    image.RayNormalPass = intArray[12];
+    image.RayPositionPass = intArray[13];
+    image.MaterialGridImage = intArray[14];
 
     return image;
 }
@@ -151,8 +155,10 @@ float4 main(VSOutput i) : SV_Target
     float4 fullFieldSDF = textures[images.FullSDFField].Sample(samplers[images.FullSDFField], textureUVs);
     
     float4 rayAlbedoPass = textures[images.RayAlbedoPass].Sample(samplers[images.RayAlbedoPass], textureUVs);
+    float4 rayNormalPass = textures[images.RayNormalPass].Sample(samplers[images.RayNormalPass], textureUVs);
+    float4 rayPositionPass = textures[images.RayPositionPass].Sample(samplers[images.RayPositionPass], textureUVs);
     
-    
+
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
     float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
@@ -160,11 +166,11 @@ float4 main(VSOutput i) : SV_Target
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
-        return float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
+        return float4(rayNormalPass.xyz, 1.0f);
     if (pc.input == 4)
         return rayAlbedoPass + materialGridImage;
     if(pc.input == 5)
-        return rayAlbedoPass + materialGridImage; //sdfImage.w;
+        return float4(rayNormalPass.xyz, 1.0f);
 
     if(pc.input == 6)
         rayAlbedoPass.xyz += materialGridImage.xyz; //color.xyz += materialGridImage.xyz; //return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);

@@ -269,16 +269,16 @@ void UnigmaRenderingObject::UpdateUniformBuffer(QTDoughApplication& app, uint32_
     ubo.proj = camera.getProjectionMatrix();
 
     ubo.proj[1][1] *= -1;
-    ubo.baseAlbedo = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    ubo.midtone = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     ubo.innerOutlineColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f);
     ubo.outerOutlineColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f);
 
-    if(_material.vectorProperties.count("BaseAlbedo") > 0)
-		ubo.baseAlbedo = _material.vectorProperties["BaseAlbedo"];
-    if (_material.vectorProperties.count("SideAlbedo") > 0)
-        ubo.sideAlbedo = _material.vectorProperties["SideAlbedo"];
-    if (_material.vectorProperties.count("TopAlbedo") > 0)
-        ubo.topAlbedo = _material.vectorProperties["TopAlbedo"];
+    if(_material.vectorProperties.count("Midtone") > 0)
+		ubo.midtone = _material.vectorProperties["Midtone"];
+    if (_material.vectorProperties.count("Shadow") > 0)
+        ubo.shadow = _material.vectorProperties["Shadow"];
+    if (_material.vectorProperties.count("Highlight") > 0)
+        ubo.highlight = _material.vectorProperties["Highlight"];
     if (_material.vectorProperties.count("InnerOutlineColor") > 0)
         ubo.innerOutlineColor = _material.vectorProperties["InnerOutlineColor"];
     if (_material.vectorProperties.count("OuterOutlineColor") > 0)
