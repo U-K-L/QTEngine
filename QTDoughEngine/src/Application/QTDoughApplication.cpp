@@ -15,6 +15,7 @@
 #include "../Engine/RenderPasses/VoxelizerPass.h"
 #include "../Engine/RenderPasses/RayTracerPass.h"
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
+#include "../Engine/RenderPasses/QuantaSpherePass.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
@@ -428,6 +429,18 @@ void QTDoughApplication::RunMainGameLoop()
     previousTime = currentTime;
     currentTime = std::chrono::high_resolution_clock::now();
 
+    // Global F9 — toggle recording (works in both editor and play mode).
+    {
+        static bool f9WasPressed = false;
+        bool f9Pressed = (GetKeyState(VK_F9) & 0x8000) != 0;
+        if (f9Pressed && !f9WasPressed)
+        {
+            if (recorder == nullptr) StartRecording("", 30);
+            else                     StopRecording();
+        }
+        f9WasPressed = f9Pressed;
+    }
+
     if (editorState.IsEditor())
     {
         // imgui new frame
@@ -479,6 +492,12 @@ void QTDoughApplication::RunMainGameLoop()
                     simulationPaused = false;
                 if (ImGui::MenuItem("Pause Simulation", nullptr, false, !simulationPaused))
                     simulationPaused = true;
+                ImGui::Separator();
+                bool isRecording = (recorder != nullptr);
+                if (ImGui::MenuItem("Start Recording", nullptr, false, !isRecording))
+                    StartRecording("", 30);
+                if (ImGui::MenuItem("Stop Recording", nullptr, false, isRecording))
+                    StopRecording();
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -525,7 +544,10 @@ void QTDoughApplication::RunMainGameLoop()
             ImGuiIO& io = ImGui::GetIO();
             FPS = io.Framerate;
         }
-        ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / FPS, FPS);
+        if (recorder == nullptr)
+            ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / FPS, FPS);
+        else
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "● Recording");
 
         // VRAM usage (device-local heaps, via VK_EXT_memory_budget)
         {
@@ -570,6 +592,12 @@ void QTDoughApplication::RunMainGameLoop()
         int tempOffset = materialSimulationPass->temperatureHistoryHead % 120;
         ImGui::PlotLines("##TempWave", materialSimulationPass->temperatureHistory, 120, tempOffset, nullptr, FLT_MAX, FLT_MAX, ImVec2(ImGui::GetContentRegionAvail().x, 60));
         ImGui::Separator();
+
+        if (VoxelizerPass::instance)
+        {
+            ImGui::SliderFloat("Support", &VoxelizerPass::instance->supportMultiplier, 0.0f, 5.0f, "%.3f");
+            ImGui::Separator();
+        }
 
         // --- Inspector (inline, scrollable) ---
         if (ImGui::CollapsingHeader("Inspector", ImGuiTreeNodeFlags_DefaultOpen))
@@ -871,12 +899,11 @@ void QTDoughApplication::RunMainGameLoop()
                 { "Quanta",   ViewModes::Quanta },
                 { "Normals",  ViewModes::Normals },
                 { "Material", ViewModes::Material },
-                { "Gaussian", ViewModes::Gaussian },
                 { "MBrush",   ViewModes::MaterialBrush },
             };
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 7; i++)
             {
                 if (i > 0) ImGui::SameLine();
                 bool selected = (editorState.viewMode == viewTabs[i].mode);
@@ -2006,6 +2033,7 @@ void QTDoughApplication::AddPasses()
     NormalPass* normalPass = new NormalPass();
     AlbedoPass* albedoPass = new AlbedoPass();
     BackgroundPass* bgPass = new BackgroundPass();
+    QuantaSpherePass* quantaSpherePass = new QuantaSpherePass();
 
     //Add objects.
     albedoPass->AddObjects(unigmaRenderingObjects);
@@ -2018,6 +2046,7 @@ void QTDoughApplication::AddPasses()
     renderPassStack.push_back(positionPass);
     renderPassStack.push_back(combineSDFRasterPass);
     renderPassStack.push_back(outlinePass);
+    renderPassStack.push_back(quantaSpherePass);
     renderPassStack.push_back(compPass);
 
 
@@ -3776,6 +3805,15 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
             vkCmdEndRendering(commandBuffer);
         }
+
+        // Capture full swapchain (ImGui UI + embedded viewport) for recording.
+        if (recorder && recorder->IsRecording()) {
+            recorder->CmdCopySwapImageToStaging(commandBuffer,
+                swapChainImages[imageIndex],
+                currentFrame,
+                swapChainExtent.width,
+                swapChainExtent.height);
+        }
     }
     else
     {
@@ -3838,6 +3876,12 @@ void QTDoughApplication::RenderPasses(VkCommandBuffer commandBuffer, uint32_t im
 
     for (int i = 0; i < renderPassStack.size(); i++)
     {
+        if (renderPassStack[i]->PassName == "QuantaSpherePass")
+        {
+            if (editorState.viewMode == ViewModes::Quanta)
+                renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame, nullptr, &CameraMain);
+            continue;
+        }
         renderPassStack[i]->Render(commandBuffer, imageIndex, currentFrame, nullptr, &CameraMain);
     }
 

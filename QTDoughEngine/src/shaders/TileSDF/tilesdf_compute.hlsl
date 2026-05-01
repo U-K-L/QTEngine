@@ -309,7 +309,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     uint brushIdx = (uint) quanta.information.x - 1;
     Brush brush = Brushes[brushIdx];
     
-    if (quanta.mana.w < 0.01f && brush.isDeformed == 0 && pc.viewMode != 1) //Unexcited, fade away, store as triangle mesh.
+    if (quanta.mana.w < 0.01f && brush.isDeformed == 0 && pc.viewMode != 1 && pc.viewMode != 6) //Unexcited, fade away, store as triangle mesh.
         return;
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)

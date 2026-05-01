@@ -1,5 +1,4 @@
 #include "CompositionPass.h"
-static bool capturing = false;
 CompositionPass::~CompositionPass() {
 }
 
@@ -25,19 +24,7 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     else if (GetKeyState('6') & 0x8000) { pc.input = 5; app->editorState.viewMode = ViewModes::Albedo; }
     else if (GetKeyState('7') & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
     else if (GetKeyState('8') & 0x8000) { pc.input = (int)ViewModes::MaterialBrush; app->editorState.viewMode = ViewModes::MaterialBrush; }
-
-    if (GetKeyState('H') & 0x8000 && capturing == false)
-    {
-        //Empty string for default output path.
-        app->StartRecording("", 30);
-        capturing = true;
-    }
-    else if (GetKeyState('J') & 0x8000 && capturing == true)
-	{
-		app->StopRecording();
-		capturing = false;
-	}
-
+    else if (GetKeyState('9') & 0x8000) { pc.input = (int)ViewModes::Quanta; app->editorState.viewMode = ViewModes::Quanta; }
 
     // Editor: render to offscreen viewport image. Play: render to swapchain.
     VkImageView* target = app->editorState.IsEditor()
@@ -66,6 +53,7 @@ void CompositionPass::CreateMaterials() {
     material.textureNames[12] = "RayNormalPass";
     material.textureNames[13] = "RayPositionPass";
     material.textureNames[14] = "MaterialGridPass";
+    material.textureNames[15] = "QuantaSpherePass";
 
     //material.textures.push_back(UnigmaTexture("animeGirl"));
     //material.textures[0].TEXTURE_PATH = "Assets/Textures/animeGirl.png";

@@ -2233,19 +2233,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     UpdateBrushesGPU(commandBuffer);
 
-    //Quick inputs change support multiplier when pressed.
-    if (GetKeyState('9') & 0x8000)
-    {
-        std::cout << "Support increasing... supprt at: " << supportMultiplier << std::endl;
-        supportMultiplier += 0.025f;
-    }
-
-    if (GetKeyState('0') & 0x8000)
-    {
-        std::cout << "Support decreasing... supprt at:" << supportMultiplier << std::endl;
-        supportMultiplier -= 0.025f;
-    }
-
     if (GetKeyState('8') & 0x8000)
     {
         std::cout << "Starting readback" << std::endl;
@@ -3477,7 +3464,8 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
+        glm::vec3 aabbVoxels = dcAABBSize * glm::vec3(WORLD_SDF_RESOLUTION) / sceneSize;
+        res = glm::ivec3(glm::ceil(aabbVoxels));
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;

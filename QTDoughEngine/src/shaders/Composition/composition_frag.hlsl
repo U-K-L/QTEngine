@@ -51,6 +51,7 @@ struct Images
     uint RayNormalPass;
     uint RayPositionPass;
     uint MaterialGridImage;
+    uint QuantaSpheresImage;
 };
 
 Images InitImages()
@@ -72,6 +73,7 @@ Images InitImages()
     image.RayNormalPass = intArray[12];
     image.RayPositionPass = intArray[13];
     image.MaterialGridImage = intArray[14];
+    image.QuantaSpheresImage = intArray[15];
 
     return image;
 }
@@ -162,11 +164,14 @@ float4 main(VSOutput i) : SV_Target
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
     float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
+    float4 quantaSpheresImage = textures[images.QuantaSpheresImage].Sample(samplers[images.QuantaSpheresImage], textureUVs);
 
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
         return float4(rayNormalPass.xyz, 1.0f);
+    if (pc.input == 9)
+        return float4(quantaSpheresImage.rgb, 1.0f);
     if (pc.input == 4)
         return rayAlbedoPass + materialGridImage;
     if(pc.input == 5)

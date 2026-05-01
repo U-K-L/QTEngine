@@ -938,6 +938,13 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi;
+    
+    if(pc.viewMode == 6) //material
+    {
+        Write3DDist(0, DTid, sdfVal);
+        return;
+    }
+    
     minDist = min(sdfVal, minDist);
 
     if(brushCount == 0)
@@ -2107,7 +2114,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     //Sum the distoration field.
     //mesh
-    if(brush.type == 0)
+    if(brush.type == 0 && pc.viewMode != 6)
     {
     
         int kernelSize = 3;
@@ -2270,6 +2277,8 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     }
     Brush brush = Brushes[brushID];
     
+    if (pc.viewMode == 6)
+        return;
     //If the brush is deformed remove it from the default static mesh.
     //if(brush.isDeformed > 0)
     //    return;

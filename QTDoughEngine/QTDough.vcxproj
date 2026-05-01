@@ -47,6 +47,7 @@
     <ClCompile Include="src\Engine\RenderPasses\NormalPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\OutlinePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\PositionPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\QuantaSpherePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RayTracerPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\SDFPass.cpp" />
@@ -92,6 +93,7 @@
     <ClInclude Include="src\Engine\RenderPasses\NormalPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\OutlinePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\PositionPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\QuantaSpherePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RayTracerPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
     <ClInclude Include="src\Engine\RenderPasses\SDFPass.h" />
@@ -216,6 +218,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\Helpers\LightingHelpers.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\MaterialSim\lepton_histogram.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

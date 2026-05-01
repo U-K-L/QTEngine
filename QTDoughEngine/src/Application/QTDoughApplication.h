@@ -172,7 +172,6 @@ enum class ViewModes
 	Normals = 2,
 	Albedo = 4,
 	Material = 6,
-	Gaussian = 7,
 	MaterialBrush = 8,
 	Quanta = 9
 };
