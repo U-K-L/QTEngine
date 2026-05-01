@@ -168,19 +168,20 @@ const bool enableValidationLayers = true;
 enum class ViewModes
 {
 	Render = 0,
-	Quanta = 1,
+	SDF = 1,
 	Normals = 2,
 	Albedo = 4,
 	Material = 6,
 	Gaussian = 7,
-	MaterialBrush = 8
+	MaterialBrush = 8,
+	Quanta = 9
 };
 enum class EngineMode { Editor, Play };
 
 struct EditorState {
     EngineMode mode = EngineMode::Editor;
     bool IsEditor() const { return mode == EngineMode::Editor; }
-    ViewModes viewMode = ViewModes::Albedo; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
+    ViewModes viewMode = ViewModes::Albedo; // Composition shader view: 0=Render, 1=SDF, 2=Normals, 4=Albedo, 6=Material, 9=Quanta
     int selectedBrushIndex = -1; // -1 = none selected
     int selectedLightIndex = -1; // -1 = none selected
     ImGuizmo::OPERATION gizmoOperation = ImGuizmo::TRANSLATE;

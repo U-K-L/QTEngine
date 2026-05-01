@@ -39,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10531.8 GFLOPS
-  Memory bandwidth:   236.592 GB/s
+  Compute throughput: 10479.2 GFLOPS
+  Memory bandwidth:   235.314 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -199,10 +199,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000001E5D22D0640
-quanta[0]: 000001E5C6BD0610
-quanta[1]: 000001E5C6BD07A0
-quanta[2]: 000001E5C6BD0930
+emitterEventBuffer: 000001751281E7A0
+quanta[0]: 0000017506E4A8E0
+quanta[1]: 0000017506E4AD90
+quanta[2]: 0000017506E4B3D0
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -235,7 +235,7 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
+Brush creation took: 13 milliseconds
 Brushes Processed: 3
 Total Voxels Created: 75497472
 Estimated Particles Created: 9437184
@@ -261,7 +261,77 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
+Brush creation took: 11 milliseconds
 Brushes Processed: 3
 Total Voxels Created: 75497472
 Estimated Particles Created: 9437184
+Creating swap chain
+Swap chain being queried
+Swap chain support details acquired successfully.
+Created swap chain
+Cleaning up pipeline: BackgroundPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: BackgroundPass
+src/shaders/backgroundvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: AlbedoPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: AlbedoPass
+src/shaders/albedovert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: NormalPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: NormalPass
+src/shaders/normalvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline
+Creating graphics pipeline background for: PositionPass
+src/shaders/positionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: CombineSDFRasterPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: CombineSDFRasterPass
+src/shaders/combineSDFRastervert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: OutlinePass
+Cleaning pipiline loop
+Creating graphics pipeline background for: OutlinePass
+src/shaders/outlinevert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: DefaultPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: DefaultPass
+src/shaders/compositionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Texture Loaded Name: Assets/Textures/SkyboxBorder.png
+Texture Loaded Name Final Token: SkyboxBorder
+Texture Loaded Name: Assets/Textures/NoiseAndGrain.png
+Texture Loaded Name Final Token: NoiseAndGrain
+Memory of 3D Textures WORLD SDF: 64 MB
+Memory of 3D Textures in L1: 768 MB
+Memory of 3D Textures in L2: 64 MB
+Memory of 3D Textures in L3: 8 MB
+Textures created
+New screen size: 1600x996
+Quanta count readback done.
