@@ -52,7 +52,10 @@ struct MaterialAction {
     std::string propertyKey;
     glm::vec4 before, after;
 };
-using UndoAction = std::variant<GizmoAction, MaterialAction>;
+struct CameraAction {
+    UnigmaCameraStruct before, after;
+};
+using UndoAction = std::variant<GizmoAction, MaterialAction, CameraAction>;
 static std::vector<UndoAction> undoStack;
 static std::vector<UndoAction> redoStack;
 static bool gizmoWasUsing = false;
@@ -321,6 +324,12 @@ static void ApplyMaterialColor(int objectIndex, const std::string& key, const gl
     obj->_material.vectorProperties[key] = value;
 }
 
+static void ApplyCameraState(const UnigmaCameraStruct& s)
+{
+    UnigmaCameraStruct* cam = UNGetCamera(0);
+    if (cam) *cam = s;
+}
+
 static void ApplyUndo(const UndoAction& a)
 {
     std::visit([](auto const& x) {
@@ -329,6 +338,8 @@ static void ApplyUndo(const UndoAction& a)
             ApplyTransform(x.objectIndex, x.beforePos, x.beforeRot, x.beforeScale);
         else if constexpr (std::is_same_v<T, MaterialAction>)
             ApplyMaterialColor(x.objectIndex, x.propertyKey, x.before);
+        else if constexpr (std::is_same_v<T, CameraAction>)
+            ApplyCameraState(x.before);
     }, a);
 }
 
@@ -340,6 +351,8 @@ static void ApplyRedo(const UndoAction& a)
             ApplyTransform(x.objectIndex, x.afterPos, x.afterRot, x.afterScale);
         else if constexpr (std::is_same_v<T, MaterialAction>)
             ApplyMaterialColor(x.objectIndex, x.propertyKey, x.after);
+        else if constexpr (std::is_same_v<T, CameraAction>)
+            ApplyCameraState(x.after);
     }, a);
 }
 
@@ -1046,6 +1059,54 @@ void QTDoughApplication::RunMainGameLoop()
             }
         }
 
+        // Camera gizmo: translate moves position, rotate aligns forward.
+        if (editorState.cameraSelected)
+        {
+            UnigmaCameraStruct* cam = UNGetCamera(0);
+            if (cam)
+            {
+                ImGuizmo::SetID(20000);
+
+                glm::vec3 camPos = cam->position();
+                glm::vec3 fwd = glm::normalize(cam->forward());
+                glm::vec3 upRef = (fabs(fwd.z) > 0.99f) ? glm::vec3(0, 1, 0) : glm::vec3(0, 0, 1);
+                glm::mat4 rot = glm::inverse(glm::lookAt(glm::vec3(0), fwd, upRef));
+                glm::mat4 model = glm::translate(glm::mat4(1.0f), camPos) * rot;
+
+                ImGuizmo::OPERATION op = (editorState.gizmoOperation == ImGuizmo::SCALE)
+                    ? ImGuizmo::ROTATE : editorState.gizmoOperation;
+
+                ImGuizmo::Manipulate(
+                    glm::value_ptr(view), glm::value_ptr(proj),
+                    op, ImGuizmo::WORLD,
+                    glm::value_ptr(model));
+
+                static bool camGizmoWasUsing = false;
+                static UnigmaCameraStruct camGizmoBefore;
+                bool isUsing = ImGuizmo::IsUsing();
+
+                if (isUsing && !camGizmoWasUsing)
+                    camGizmoBefore = *cam;
+
+                if (isUsing)
+                {
+                    cam->setPosition(glm::vec3(model[3]));
+                    cam->setForward(glm::normalize(-glm::vec3(model[2])));
+                }
+
+                if (!isUsing && camGizmoWasUsing)
+                {
+                    CameraAction a;
+                    a.before = camGizmoBefore;
+                    a.after = *cam;
+                    undoStack.push_back(a);
+                    redoStack.clear();
+                }
+
+                camGizmoWasUsing = isUsing;
+            }
+        }
+
         ImGui::End();
         ImGui::PopStyleVar();
 
@@ -1109,11 +1170,36 @@ void QTDoughApplication::RunMainGameLoop()
                     }
                     else
                     {
+                        // Snapshot before any widget mutates the camera this frame.
+                        UnigmaCameraStruct beforeCam = *cam;
+                        static UnigmaCameraStruct camGrabBefore;
+                        static bool camGrabValid = false;
+
+                        auto checkCamUndo = [&]() {
+                            if (ImGui::IsItemActivated())
+                            {
+                                camGrabBefore = beforeCam;
+                                camGrabValid = true;
+                            }
+                            if (ImGui::IsItemDeactivatedAfterEdit() && camGrabValid)
+                            {
+                                CameraAction a;
+                                a.before = camGrabBefore;
+                                a.after = *cam;
+                                undoStack.push_back(a);
+                                redoStack.clear();
+                                camGrabValid = false;
+                            }
+                        };
+
+                        ImGui::Checkbox("Selected", &editorState.cameraSelected);
+
                         glm::vec3 camPos = cam->position();
                         if (ImGui::DragFloat3("Position", glm::value_ptr(camPos), 0.05f))
                         {
                             cam->setPosition(camPos);
                         }
+                        checkCamUndo();
 
                         glm::vec3 camFwd = cam->forward();
                         if (ImGui::DragFloat3("Forward", glm::value_ptr(camFwd), 0.01f, -1.0f, 1.0f))
@@ -1121,16 +1207,26 @@ void QTDoughApplication::RunMainGameLoop()
                             if (glm::length(camFwd) > 1e-5f)
                                 cam->setForward(glm::normalize(camFwd));
                         }
+                        checkCamUndo();
 
                         ImGui::DragFloat("FOV", &cam->fov, 0.25f, 1.0f, 179.0f);
+                        checkCamUndo();
                         ImGui::DragFloat("Near", &cam->nearClip, 0.01f, 0.001f, 1000.0f);
+                        checkCamUndo();
                         ImGui::DragFloat("Far", &cam->farClip, 1.0f, 0.1f, 100000.0f);
+                        checkCamUndo();
                         ImGui::DragFloat("Ortho Width", &cam->orthoWidth, 0.1f, 0.01f, 1000.0f);
+                        checkCamUndo();
 
                         bool ortho = cam->isOrthogonal >= 0.5f;
                         if (ImGui::Checkbox("Orthographic", &ortho))
                         {
                             cam->isOrthogonal = ortho ? 1.0f : 0.0f;
+                            CameraAction a;
+                            a.before = beforeCam;
+                            a.after = *cam;
+                            undoStack.push_back(a);
+                            redoStack.clear();
                         }
                     }
 

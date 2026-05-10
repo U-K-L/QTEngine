@@ -2,12 +2,16 @@ Scene Loaded!
 Model Information and Material Size: 20
 Houston we're running the renderer!!!
 validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
+validation layer: windows_get_device_registry_files: GUID for 7 is not SoftwareComponent skipping
+validation layer: windows_get_device_registry_files: GUID for 8 is not SoftwareComponent skipping
 validation layer: Searching for ICD drivers named .\igvk64.dll
 validation layer: Searching for ICD drivers named .\nvoglv64.dll
 validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
 validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
 validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_5e2650a2c90ec8ec\.\nvoglv64.dll
 validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
+validation layer: windows_get_device_registry_files: GUID for 7 is not SoftwareComponent skipping
+validation layer: windows_get_device_registry_files: GUID for 8 is not SoftwareComponent skipping
 validation layer: Searching for ICD drivers named .\igvk64.dll
 validation layer: Searching for ICD drivers named .\nvoglv64.dll
 validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
@@ -39,8 +43,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10280.2 GFLOPS
-  Memory bandwidth:   207.065 GB/s
+  Compute throughput: 10211.3 GFLOPS
+  Memory bandwidth:   237.449 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -145,6 +149,8 @@ Brush 18 shares batch 1 texture pair [5, 6]
 Brush 19 shares batch 1 texture pair [5, 6]
 Brush 20 batchID=0 new texture pair [7, 8]
 Brush 21 batchID=0 new texture pair [9, 10]
+Brush 22 batchID=0 new texture pair [11, 12]
+Brush 23 batchID=0 new texture pair [13, 14]
 Textures created2
 Created 3D texture for world SDF level 0 with resolution: 512
 Created 3D texture for world SDF level 1 with resolution: 256
@@ -155,9 +161,9 @@ Textures creat2ed2
 Creating Uniform Buffers
 Created Uniform Buffers
 Creating Shader Storage Buffers VoxelizerPass
-Vertex count: 15588
-Vertex size: 748224
-vertexBuffer memReq.size = 748224
+Vertex count: 21534
+Vertex size: 1033632
+vertexBuffer memReq.size = 1033632
 Voxel L1 Storage Buffers created
 VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
 Shader Storage Buffers created
@@ -199,10 +205,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000001C8187C1C10
-quanta[0]: 000001C80CD9A2C0
-quanta[1]: 000001C80CD9A130
-quanta[2]: 000001C80CD99190
+emitterEventBuffer: 000001CCFEF04E40
+quanta[0]: 000001CCF32BB090
+quanta[1]: 000001CCF32BC030
+quanta[2]: 000001CCF32BC800
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -235,10 +241,12 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
-Brushes Processed: 3
-Total Voxels Created: 75497472
-Estimated Particles Created: 9437184
+Brush resolution and ID: 22 , 256
+Brush resolution and ID: 23 , 256
+Brush creation took: 12 milliseconds
+Brushes Processed: 5
+Total Voxels Created: 109051904
+Estimated Particles Created: 13631488
 Brush resolution and ID: 0 , 128
 Brush resolution and ID: 1 , 128
 Brush resolution and ID: 2 , 128
@@ -261,26 +269,84 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
-Brushes Processed: 3
-Total Voxels Created: 75497472
-Estimated Particles Created: 9437184
+Brush resolution and ID: 22 , 256
+Brush resolution and ID: 23 , 256
+Brush creation took: 14 milliseconds
+Brushes Processed: 5
+Total Voxels Created: 109051904
+Estimated Particles Created: 13631488
+Creating swap chain
+Swap chain being queried
+Swap chain support details acquired successfully.
+Created swap chain
+Cleaning up pipeline: BackgroundPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: BackgroundPass
+src/shaders/backgroundvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: AlbedoPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: AlbedoPass
+src/shaders/albedovert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: NormalPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: NormalPass
+src/shaders/normalvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline
+Creating graphics pipeline background for: PositionPass
+src/shaders/positionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: CombineSDFRasterPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: CombineSDFRasterPass
+src/shaders/combineSDFRastervert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: OutlinePass
+Cleaning pipiline loop
+Creating graphics pipeline background for: OutlinePass
+src/shaders/outlinevert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Cleaning up pipeline: QuantaSpherePass
+Cleaning pipiline loop
+Cleaning up pipeline: DefaultPass
+Cleaning pipiline loop
+Creating graphics pipeline background for: DefaultPass
+src/shaders/compositionvert.spv
+Shader modules created and cleaned
+Viewport created
+Dynamic pipeline created
+Graphics pipeline created
+Texture Loaded Name: Assets/Textures/SkyboxBorder.png
+Texture Loaded Name Final Token: SkyboxBorder
+Texture Loaded Name: Assets/Textures/NoiseAndGrain.png
+Texture Loaded Name Final Token: NoiseAndGrain
+Memory of 3D Textures WORLD SDF: 64 MB
+Memory of 3D Textures in L1: 768 MB
+Memory of 3D Textures in L2: 64 MB
+Memory of 3D Textures in L3: 8 MB
+Textures created
+New screen size: 1600x996
 Quanta count readback done.
-Added event
-Emitted event
-Emitter dispatch
-Emitter descriptor
-Emitter done
-Added event
-Emitted event
-Emitter dispatch
-Emitter descriptor
-Emitter done
-Added event
-Emitted event
-Emitter dispatch
-Emitter descriptor
-Emitter done
 Added event
 Emitted event
 Emitter dispatch

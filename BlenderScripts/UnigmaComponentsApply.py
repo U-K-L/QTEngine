@@ -92,6 +92,8 @@ class OBJECT_PT_components(bpy.types.Panel):
 
         idx = obj.components_index
         if idx >= 0 and idx < len(obj.components):
+            if not COMPONENT_DEFS:
+                _load_component_defs()
             comp_def = COMPONENT_DEFS[obj.components[idx].name]
             comp_inst = obj.components[idx]
 

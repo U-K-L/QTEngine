@@ -68,6 +68,7 @@ class UnigmaImporter(bpy.types.Operator):
             # Rotation (use local, radians).
             rot = gobj.get("rotation", {}).get("local", {})
             if rot:
+                obj.rotation_mode = 'XYZ'
                 obj.rotation_euler = Euler((rot.get("x", 0), rot.get("y", 0), rot.get("z", 0)))
 
             # Scale (use local).
@@ -78,7 +79,7 @@ class UnigmaImporter(bpy.types.Operator):
             # Custom properties (Midtone, Highlight, etc.).
             for prop_name, prop_value in gobj.get("CustomProperties", {}).items():
                 if isinstance(prop_value, list) and len(prop_value) == 4:
-                    setattr(obj, prop_name, prop_value)
+                    obj[prop_name] = prop_value
 
             # Emission (update light data if it's a light).
             em = gobj.get("Emission", {})
@@ -92,6 +93,25 @@ class UnigmaImporter(bpy.types.Operator):
                 lt = light_type_map.get(int(gobj["LightType"]))
                 if lt:
                     obj.data.type = lt
+
+            # Light direction (overrides rotation for lights — engine source of truth).
+            if obj.type == 'LIGHT' and "Direction" in gobj:
+                d = gobj["Direction"]
+                forward = Vector((d[0], d[1], d[2])).normalized()
+                quat = Vector((0.0, 0.0, -1.0)).rotation_difference(forward)
+                obj.rotation_mode = 'XYZ'
+                obj.rotation_euler = quat.to_euler('XYZ')
+
+            # Components: rebuild obj.components from JSON to stay in sync with engine.
+            comps_json = gobj.get("Components", {})
+            if comps_json and hasattr(obj, "components"):
+                obj.components.clear()
+                for comp_name, settings in comps_json.items():
+                    new = obj.components.add()
+                    new.name = comp_name
+                    if isinstance(settings, dict):
+                        for k, v in settings.items():
+                            new[k] = v
 
             # Camera fields from Components.CameraComp.
             if obj.type == 'CAMERA':
