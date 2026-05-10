@@ -182,6 +182,14 @@ public:
     VkBuffer stagingGlobalIDCounterBuffer;
     VkDeviceMemory stagingGlobalIDCounterMemory;
 
+    //Brush vertices counter.
+    std::vector<uint32_t> BrushVerticesCount;
+    VkBuffer brushVerticesStorageBuffer;
+    VkDeviceMemory brushVerticesStorageMemory;
+
+    VkBuffer stagingBrushVerticesBuffer;
+    VkDeviceMemory stagingBrushVerticesMemory;
+
     //For IDs and Verts.
     uint32_t globalIDCounterSize = 2;
 

@@ -570,6 +570,35 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     app->CopyBuffer(stagingGlobalIDCounterBuffer, globalIDCounterStorageBuffers, sizeof(uint32_t)* globalIDCounterSize);
 
+    BrushVerticesCount.resize(maxBrushCapacity, 0);
+    app->CreateBuffer(
+        sizeof(uint32_t)* maxBrushCapacity,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBrushVerticesBuffer,
+        stagingBrushVerticesMemory
+    );
+
+    void* brushVerticesData;
+
+    //CPU pointer -> VKmemory
+    vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t)* maxBrushCapacity, 0, &brushVerticesData);
+    memcpy(brushVerticesData, BrushVerticesCount.data(), sizeof(uint32_t)* maxBrushCapacity);
+    vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+
+
+    app->CreateBuffer(
+        sizeof(uint32_t)* maxBrushCapacity,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        brushVerticesStorageBuffer,
+        brushVerticesStorageMemory
+    );
+
+    app->CopyBuffer(stagingBrushVerticesBuffer, brushVerticesStorageBuffer, sizeof(uint32_t)* maxBrushCapacity);
+
     //vkDestroyBuffer(app->_logicalDevice, stagingGlobalIDCounterBuffer, nullptr);
     //vkFreeMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, nullptr);
 
