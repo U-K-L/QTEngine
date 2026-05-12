@@ -16,6 +16,7 @@
 #include "../Engine/RenderPasses/RayTracerPass.h"
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
 #include "../Engine/RenderPasses/QuantaSpherePass.h"
+#include "../Engine/RenderPasses/ImguiOverlayPass.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
@@ -387,15 +388,24 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 
 int QTDoughApplication::Run() {
 
+
     CameraMain = UnigmaCameraStruct();
     //InitSDLWindow();
 	InitVulkan();
 
     while (PROGRAMEND == false) {
 
+
+        // Advance the clock before anything reads it.
+        previousTime = currentTime;
+        currentTime = std::chrono::high_resolution_clock::now();
         // Main Game Loop.
+        SetupEngineGUI();
         RunMainGameLoop();
     }
+
+
+
     // Final loop to release resources.
     RunMainGameLoop();
     vkDeviceWaitIdle(_logicalDevice);
@@ -436,30 +446,16 @@ static void QueryVRAMUsage(VkPhysicalDevice physicalDevice, VkDeviceSize& outUse
     }
 }
 
-void QTDoughApplication::RunMainGameLoop()
-{
-    // Advance the clock before anything reads it.
-    previousTime = currentTime;
-    currentTime = std::chrono::high_resolution_clock::now();
 
-    // Global F9 — toggle recording (works in both editor and play mode).
-    {
-        static bool f9WasPressed = false;
-        bool f9Pressed = (GetKeyState(VK_F9) & 0x8000) != 0;
-        if (f9Pressed && !f9WasPressed)
-        {
-            if (recorder == nullptr) StartRecording("", 30);
-            else                     StopRecording();
-        }
-        f9WasPressed = f9Pressed;
-    }
+void QTDoughApplication::SetupEngineGUI()
+{
+    // Always advance ImGui's frame so RenderDrawData has valid data regardless of mode.
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
 
     if (editorState.IsEditor())
     {
-        // imgui new frame
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
         ImGuizmo::BeginFrame();
         SetupImGuiStyle();
 
@@ -567,32 +563,32 @@ void QTDoughApplication::RunMainGameLoop()
             VkDeviceSize vramUsed = 0, vramBudget = 0, vramTotal = 0;
             QueryVRAMUsage(_physicalDevice, vramUsed, vramBudget, vramTotal);
             const double toMB = 1.0 / (1024.0 * 1024.0);
-            double usedMB   = (double)vramUsed   * toMB;
+            double usedMB = (double)vramUsed * toMB;
             double budgetMB = (double)vramBudget * toMB;
-            double totalMB  = (double)vramTotal  * toMB;
+            double totalMB = (double)vramTotal * toMB;
             ImGui::Text("VRAM: %.0f / %.0f / %.0f MB", usedMB, budgetMB, totalMB);
 
             float budgetFrac = (vramTotal > 0) ? (float)((double)vramBudget / (double)vramTotal) : 0.0f;
-            float usedFrac   = (vramTotal > 0) ? (float)((double)vramUsed   / (double)vramTotal) : 0.0f;
+            float usedFrac = (vramTotal > 0) ? (float)((double)vramUsed / (double)vramTotal) : 0.0f;
 
-            ImVec2 pos  = ImGui::GetCursorScreenPos();
+            ImVec2 pos = ImGui::GetCursorScreenPos();
             ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight());
             ImDrawList* dl = ImGui::GetWindowDrawList();
 
             dl->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y),
-                              ImGui::GetColorU32(ImGuiCol_FrameBg), 3.0f);
+                ImGui::GetColorU32(ImGuiCol_FrameBg), 3.0f);
 
             dl->AddRectFilled(pos, ImVec2(pos.x + size.x * budgetFrac, pos.y + size.y),
-                              IM_COL32(90, 160, 230, 255), 3.0f);
-            
+                IM_COL32(90, 160, 230, 255), 3.0f);
+
             ImU32 redColor = IM_COL32(230, 60, 60, 255);
             ImU32 yellowColor = IM_COL32(230, 200, 60, 255);
             ImU32 usedColor;
 
-            if(usedMB > budgetMB)
+            if (usedMB > budgetMB)
                 usedColor = redColor;
-			else
-				usedColor = yellowColor;
+            else
+                usedColor = yellowColor;
 
             dl->AddRectFilled(pos, ImVec2(pos.x + size.x * usedFrac, pos.y + size.y),
                 usedColor, 3.0f);
@@ -1190,7 +1186,7 @@ void QTDoughApplication::RunMainGameLoop()
                                 redoStack.clear();
                                 camGrabValid = false;
                             }
-                        };
+                            };
 
                         ImGui::Checkbox("Selected", &editorState.cameraSelected);
 
@@ -1330,10 +1326,27 @@ void QTDoughApplication::RunMainGameLoop()
 
             ImGui::End();
         }
-
-        //make imgui calculate internal draw structures
-        ImGui::Render();
     }
+
+    // Always end the ImGui frame so the overlay pass has valid draw data, even in play mode.
+    ImGui::Render();
+}
+
+void QTDoughApplication::RunMainGameLoop()
+{
+
+    // Global F9 — toggle recording (works in both editor and play mode).
+    {
+        static bool f9WasPressed = false;
+        bool f9Pressed = (GetKeyState(VK_F9) & 0x8000) != 0;
+        if (f9Pressed && !f9WasPressed)
+        {
+            if (recorder == nullptr) StartRecording("", 30);
+            else                     StopRecording();
+        }
+        f9WasPressed = f9Pressed;
+    }
+
 
     //If a request is sent pause rendering.
     {
@@ -1917,6 +1930,8 @@ void QTDoughApplication::InitImGui()
 
     ImGui_ImplVulkan_CreateFontsTexture();
 
+    renderPassStack.push_back(new ImguiOverlayPass());
+
     /*
     // add the destroy the imgui created structures
     _mainDeletionQueue.push_function([=]() {
@@ -1926,46 +1941,66 @@ void QTDoughApplication::InitImGui()
         */
 }
 
-void QTDoughApplication::CreateEditorViewportImage()
+void QTDoughApplication::CreateFrameOutput()
 {
-    // Create offscreen image matching swapchain format/size
     CreateImage(
         swapChainExtent.width,
         swapChainExtent.height,
         _swapChainImageFormat,
         VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        editorState.viewportImage,
-        editorState.viewportImageMemory
+        frameOutput,
+        frameOutputMemory
     );
+    frameOutputView = CreateImageView(frameOutput, _swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    editorState.viewportImageView = CreateImageView(
-        editorState.viewportImage, _swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    CreateImage(
+        swapChainExtent.width,
+        swapChainExtent.height,
+        _swapChainImageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        frameOutputSnapshot,
+        frameOutputSnapshotMemory
+    );
+    frameOutputSnapshotView = CreateImageView(frameOutputSnapshot, _swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    // No initial layout transition — the per-frame barriers use srcLayout=UNDEFINED, which
+    // discards prior contents and works regardless of the image's current state.
+}
 
-    // Transition to SHADER_READ_ONLY so ImGui can sample it from the start
-    VkCommandBuffer cmd = BeginSingleTimeCommands();
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = editorState.viewportImage;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &barrier);
-    EndSingleTimeCommands(cmd);
+void QTDoughApplication::CleanupFrameOutput()
+{
+    if (frameOutputView != VK_NULL_HANDLE) {
+        vkDestroyImageView(_logicalDevice, frameOutputView, nullptr);
+        frameOutputView = VK_NULL_HANDLE;
+    }
+    if (frameOutput != VK_NULL_HANDLE) {
+        vkDestroyImage(_logicalDevice, frameOutput, nullptr);
+        frameOutput = VK_NULL_HANDLE;
+    }
+    if (frameOutputMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(_logicalDevice, frameOutputMemory, nullptr);
+        frameOutputMemory = VK_NULL_HANDLE;
+    }
+    if (frameOutputSnapshotView != VK_NULL_HANDLE) {
+        vkDestroyImageView(_logicalDevice, frameOutputSnapshotView, nullptr);
+        frameOutputSnapshotView = VK_NULL_HANDLE;
+    }
+    if (frameOutputSnapshot != VK_NULL_HANDLE) {
+        vkDestroyImage(_logicalDevice, frameOutputSnapshot, nullptr);
+        frameOutputSnapshot = VK_NULL_HANDLE;
+    }
+    if (frameOutputSnapshotMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(_logicalDevice, frameOutputSnapshotMemory, nullptr);
+        frameOutputSnapshotMemory = VK_NULL_HANDLE;
+    }
+}
 
-    // Create sampler
+void QTDoughApplication::CreateEditorViewportImage()
+{
+    // ImGui-side: sampler + descriptor binding so ImGui::Image can display frameOutput.
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -1975,18 +2010,15 @@ void QTDoughApplication::CreateEditorViewportImage()
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     VK_CHECK(vkCreateSampler(_logicalDevice, &samplerInfo, nullptr, &editorState.viewportSampler));
 
-    // Register with ImGui so we can use it in ImGui::Image()
     editorState.viewportDescriptorSet = ImGui_ImplVulkan_AddTexture(
         editorState.viewportSampler,
-        editorState.viewportImageView,
+        frameOutputSnapshotView,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
 }
 
 void QTDoughApplication::CleanupEditorViewportImage()
 {
-    vkDeviceWaitIdle(_logicalDevice);
-
     if (editorState.viewportDescriptorSet != VK_NULL_HANDLE) {
         ImGui_ImplVulkan_RemoveTexture(editorState.viewportDescriptorSet);
         editorState.viewportDescriptorSet = VK_NULL_HANDLE;
@@ -1994,18 +2026,6 @@ void QTDoughApplication::CleanupEditorViewportImage()
     if (editorState.viewportSampler != VK_NULL_HANDLE) {
         vkDestroySampler(_logicalDevice, editorState.viewportSampler, nullptr);
         editorState.viewportSampler = VK_NULL_HANDLE;
-    }
-    if (editorState.viewportImageView != VK_NULL_HANDLE) {
-        vkDestroyImageView(_logicalDevice, editorState.viewportImageView, nullptr);
-        editorState.viewportImageView = VK_NULL_HANDLE;
-    }
-    if (editorState.viewportImage != VK_NULL_HANDLE) {
-        vkDestroyImage(_logicalDevice, editorState.viewportImage, nullptr);
-        editorState.viewportImage = VK_NULL_HANDLE;
-    }
-    if (editorState.viewportImageMemory != VK_NULL_HANDLE) {
-        vkFreeMemory(_logicalDevice, editorState.viewportImageMemory, nullptr);
-        editorState.viewportImageMemory = VK_NULL_HANDLE;
     }
 }
 
@@ -2251,6 +2271,7 @@ void QTDoughApplication::InitVulkan()
     CreatePhysicsCommandBuffer();
 
     //Imgui.
+    CreateFrameOutput();
     InitImGui();
     CreateEditorViewportImage();
 
@@ -3822,21 +3843,19 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
-    // Editor mode: transition viewport image to COLOR_ATTACHMENT before render passes write to it
-    if (editorState.IsEditor())
     {
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = editorState.viewportImage;
+        barrier.image = frameOutput;
         barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         vkCmdPipelineBarrier(commandBuffer,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
@@ -3872,55 +3891,92 @@ void QTDoughApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         );
     }
 
-    if (editorState.IsEditor())
+    // Blit frameOutput into the swapchain image. Always runs, regardless of which UI passes
+    // (or none) are registered — the engine owns presentation.
     {
-        // Transition viewport image back to SHADER_READ_ONLY so ImGui can sample it
-        {
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = editorState.viewportImage;
-            barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            vkCmdPipelineBarrier(commandBuffer,
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &barrier);
-        }
+        VkImageMemoryBarrier preBlit[2] = {};
+        preBlit[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        preBlit[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        preBlit[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        preBlit[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBlit[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBlit[0].image = frameOutput;
+        preBlit[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        preBlit[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        preBlit[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
-        // Draw ImGui (with viewport texture inside) to swapchain, clearing it first
-        {
-            VkClearValue clearColor = { {{0.12f, 0.12f, 0.12f, 1.0f}} };
-            VkRenderingAttachmentInfo colorAttachment = AttachmentInfo(swapChainImageViews[imageIndex], &clearColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            VkRenderingInfo renderInfo = RenderingInfo(swapChainExtent, &colorAttachment, nullptr);
-            vkCmdBeginRendering(commandBuffer, &renderInfo);
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
-            vkCmdEndRendering(commandBuffer);
-        }
+        preBlit[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        preBlit[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        preBlit[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        preBlit[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBlit[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBlit[1].image = swapChainImages[imageIndex];
+        preBlit[1].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        preBlit[1].srcAccessMask = 0;
+        preBlit[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-        // Capture full swapchain (ImGui UI + embedded viewport) for recording.
-        if (recorder && recorder->IsRecording()) {
-            recorder->CmdCopySwapImageToStaging(commandBuffer,
-                swapChainImages[imageIndex],
-                currentFrame,
-                swapChainExtent.width,
-                swapChainExtent.height);
-        }
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 2, preBlit);
+
+        VkImageBlit region{};
+        region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        region.srcOffsets[0] = { 0, 0, 0 };
+        region.srcOffsets[1] = { (int32_t)swapChainExtent.width, (int32_t)swapChainExtent.height, 1 };
+        region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        region.dstOffsets[0] = { 0, 0, 0 };
+        region.dstOffsets[1] = { (int32_t)swapChainExtent.width, (int32_t)swapChainExtent.height, 1 };
+
+        vkCmdBlitImage(commandBuffer,
+            frameOutput, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &region, VK_FILTER_LINEAR);
+
+        // Put swap into COLOR_ATTACHMENT so the recorder's internal barrier (which expects that
+        // oldLayout) keeps working.
+        VkImageMemoryBarrier postBlit{};
+        postBlit.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        postBlit.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        postBlit.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        postBlit.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        postBlit.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        postBlit.image = swapChainImages[imageIndex];
+        postBlit.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        postBlit.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        postBlit.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &postBlit);
     }
-    else
+
+    if (recorder && recorder->IsRecording()) {
+        recorder->CmdCopySwapImageToStaging(commandBuffer,
+            swapChainImages[imageIndex],
+            currentFrame,
+            swapChainExtent.width,
+            swapChainExtent.height);
+    }
+
+    // Final swap transition for present.
     {
-        // Play mode: record video or just present (no ImGui)
-        if (recorder && recorder->IsRecording()) {
-            recorder->CmdCopySwapImageToStaging(commandBuffer,
-                swapChainImages[imageIndex],
-                currentFrame,
-                swapChainExtent.width,
-                swapChainExtent.height);
-        }
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = swapChainImages[imageIndex];
+        barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = 0;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -4293,7 +4349,7 @@ void QTDoughApplication::CreateSwapChain() {
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
     uint32_t queueFamilyIndices[] = { indices.graphicsAndComputeFamily.value(), indices.presentFamily.value() };
@@ -5000,6 +5056,7 @@ void QTDoughApplication::RecreateSwapChain()
     }
 
     CleanupEditorViewportImage();
+    CleanupFrameOutput();
     CleanupSwapChain();
 
     // Update screen dimensions.
@@ -5011,6 +5068,7 @@ void QTDoughApplication::RecreateSwapChain()
     CreateImageViews();
     CreateDepthResources();
 
+    CreateFrameOutput();
     CreateEditorViewportImage();
     RecreateResources();
 
@@ -5294,6 +5352,7 @@ void QTDoughApplication::DebugCompute(uint32_t currentFrame) {
 void QTDoughApplication::Cleanup()
 {
     CleanupEditorViewportImage();
+    CleanupFrameOutput();
     CleanupSwapChain();
 
     for (int i = 0; i < NUM_OBJECTS; i++)
