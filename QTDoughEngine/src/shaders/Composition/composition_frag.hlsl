@@ -168,11 +168,11 @@ float4 main(VSOutput i) : SV_Target
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
-        return float4(rayNormalPass.xyz, 1.0f);
+        return float4(normalImage.xyz, 1.0f);
     if (pc.input == 9)
         return float4(quantaSpheresImage.rgb, 1.0f);
     if (pc.input == 4)
-        return rayAlbedoPass + materialGridImage;
+        return albedoImage; //rayAlbedoPass + materialGridImage;
     if(pc.input == 5)
         return float4(rayNormalPass.xyz, 1.0f);
 

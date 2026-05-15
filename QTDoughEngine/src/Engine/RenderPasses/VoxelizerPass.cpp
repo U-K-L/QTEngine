@@ -190,8 +190,21 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
 }
 
-void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
+void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
+    // Guard against null handles; readback cannot run without all participants.
+    if (commandBuffer == VK_NULL_HANDLE ||
+        globalIDCounterStorageBuffers == VK_NULL_HANDLE ||
+        brushVerticesStorageBuffer == VK_NULL_HANDLE ||
+        brushVertexOffsetsBuffers[currentFrame % 2] == VK_NULL_HANDLE ||
+        stagingGlobalIDCounterBuffer == VK_NULL_HANDLE ||
+        stagingBrushVerticesBuffer == VK_NULL_HANDLE ||
+        stagingBrushVertexOffsetsBuffer == VK_NULL_HANDLE)
+    {
+        std::cout << "RecordCounterReadback: null handle present, skipping readback." << std::endl;
+        return;
+    }
+
     // make counters visible to transfer
     VkBufferMemoryBarrier shaderToTransfer[3] = {};
     shaderToTransfer[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -208,7 +221,7 @@ void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
     shaderToTransfer[1].size = sizeof(uint32_t) * maxBrushCapacity;
 
     shaderToTransfer[2] = shaderToTransfer[0];
-    shaderToTransfer[2].buffer = brushVertexOffsetsBuffer;
+    shaderToTransfer[2].buffer = brushVertexOffsetsBuffers[currentFrame % 2];
     shaderToTransfer[2].size = sizeof(uint32_t) * maxBrushCapacity;
 
     vkCmdPipelineBarrier(
@@ -247,7 +260,7 @@ void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
 
     vkCmdCopyBuffer(
         commandBuffer,
-        brushVertexOffsetsBuffer,
+        brushVertexOffsetsBuffers[currentFrame % 2],
         stagingBrushVertexOffsetsBuffer,
         1, &brushCopy
     );
@@ -349,12 +362,21 @@ void VoxelizerPass::GetMeshFromGPU()
     vkDeviceWaitIdle(app->_logicalDevice);
 
 
-    void* mapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
-    memcpy(counters, mapped, sizeof(counters));
-    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
-
-    vertexCount = counters[1];
+    if (stagingGlobalIDCounterMemory != VK_NULL_HANDLE)
+    {
+        void* mapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
+        if (r == VK_SUCCESS && mapped != nullptr)
+        {
+            memcpy(counters, mapped, sizeof(counters));
+            vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+            vertexCount = counters[1];
+        }
+        else
+        {
+            std::cout << "GetMeshFromGPU: globalIDCounter map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 
     if(vertexCount == 0) {
 		std::cout << "No vertices generated in voxelization." << std::endl;
@@ -363,10 +385,20 @@ void VoxelizerPass::GetMeshFromGPU()
     readBackVertexCount = vertexCount;
 
     // Pull per-brush vertex counts to CPU for post-DC TLAS instance build.
-    void* brushMapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &brushMapped);
-    memcpy(BrushVerticesCount.data(), brushMapped, sizeof(uint32_t) * maxBrushCapacity);
-    vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+    if (stagingBrushVerticesMemory != VK_NULL_HANDLE && BrushVerticesCount.size() >= maxBrushCapacity)
+    {
+        void* brushMapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &brushMapped);
+        if (r == VK_SUCCESS && brushMapped != nullptr)
+        {
+            memcpy(BrushVerticesCount.data(), brushMapped, sizeof(uint32_t) * maxBrushCapacity);
+            vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+        }
+        else
+        {
+            std::cout << "GetMeshFromGPU: brushVertices map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -666,15 +698,17 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     app->CopyBuffer(stagingBrushVerticesBuffer, brushVerticesStorageBuffer, sizeof(uint32_t)* maxBrushCapacity);
 
-    app->CreateBuffer(
-        sizeof(uint32_t) * maxBrushCapacity,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        brushVertexOffsetsBuffer,
-        brushVertexOffsetsMemory
-    );
+    for (int p = 0; p < 2; ++p) {
+        app->CreateBuffer(
+            sizeof(uint32_t) * maxBrushCapacity,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            brushVertexOffsetsBuffers[p],
+            brushVertexOffsetsMemories[p]
+        );
+    }
 
     app->CreateBuffer(
         sizeof(uint32_t) * maxBrushCapacity,
@@ -825,20 +859,23 @@ void VoxelizerPass::CreateShaderStorageBuffers()
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-    app->CreateBuffer(vertexBufferSize, usage,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        meshingVertexBuffer, meshingVertexBufferMemory);
-
-    app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
+    for (int p = 0; p < 2; ++p) {
+        app->CreateBuffer(vertexBufferSize, usage,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            meshingVertexBuffers[p], meshingVertexBufferMemories[p]);
+        app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffers[p], vertexBufferSize);
+    }
 
     // Compact position buffer for RTA (float4 per vertex: xyz + brushID in w).
     uint32_t positionBufferSize = sizeof(float) * 4 * VertexMaxCount;
-    app->CreateBuffer(positionBufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        meshingPositionBuffer, meshingPositionBufferMemory);
+    for (int p = 0; p < 2; ++p) {
+        app->CreateBuffer(positionBufferSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            meshingPositionBuffers[p], meshingPositionBufferMemories[p]);
+    }
 
     //Indirect mesh draw.
     app->CreateBuffer(
@@ -901,12 +938,6 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     globalIDCounterBufferInfo.buffer = globalIDCounterStorageBuffers;
     globalIDCounterBufferInfo.offset = 0;
     globalIDCounterBufferInfo.range = VK_WHOLE_SIZE;
-
-    //Vertices
-    VkDescriptorBufferInfo meshingVertexBufferInfo{};
-    meshingVertexBufferInfo.buffer = meshingVertexBuffer;
-    meshingVertexBufferInfo.offset = 0;
-    meshingVertexBufferInfo.range = VK_WHOLE_SIZE;
 
     //Indirect Draw Buffer
     VkDescriptorBufferInfo indirectDrawBufferInfo{};
@@ -1129,6 +1160,11 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[16].pBufferInfo = &globalIDCounterBufferInfo;
 
         //Meshing Vertex Buffer
+        VkDescriptorBufferInfo meshingVertexBufferInfo{};
+        meshingVertexBufferInfo.buffer = meshingVertexBuffers[i % 2];
+        meshingVertexBufferInfo.offset = 0;
+        meshingVertexBufferInfo.range = VK_WHOLE_SIZE;
+
         descriptorWrites[17].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[17].dstSet = computeDescriptorSets[i];
         descriptorWrites[17].dstBinding = 17;
@@ -1211,7 +1247,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
 
         //Compact positions for RTA
         VkDescriptorBufferInfo meshingPositionBufferInfo{};
-        meshingPositionBufferInfo.buffer = meshingPositionBuffer;
+        meshingPositionBufferInfo.buffer = meshingPositionBuffers[i % 2];
         meshingPositionBufferInfo.offset = 0;
         meshingPositionBufferInfo.range = VK_WHOLE_SIZE;
 
@@ -1238,7 +1274,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[25].pBufferInfo = &brushVerticesBufferInfo;
 
         VkDescriptorBufferInfo brushVertexOffsetsInfo{};
-        brushVertexOffsetsInfo.buffer = brushVertexOffsetsBuffer;
+        brushVertexOffsetsInfo.buffer = brushVertexOffsetsBuffers[i % 2];
         brushVertexOffsetsInfo.offset = 0;
         brushVertexOffsetsInfo.range = VK_WHOLE_SIZE;
 
@@ -2623,7 +2659,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     if(dispatchCount > 1)
 	{
         // Zero the position buffer so un-emitted slots are degenerate triangles.
-        vkCmdFillBuffer(commandBuffer, meshingPositionBuffer, 0, sizeof(float) * 4 * VertexMaxCount, 0);
+        vkCmdFillBuffer(commandBuffer, meshingPositionBuffers[currentFrame % 2], 0, sizeof(float) * 4 * VertexMaxCount, 0);
         VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
         clearBarrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
         clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
@@ -2783,7 +2819,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         barriers[1].dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
         barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barriers[1].buffer = meshingVertexBuffer; // The buffer being generated
+        barriers[1].buffer = meshingVertexBuffers[currentFrame % 2]; // The buffer being generated
         barriers[1].offset = 0;
         barriers[1].size = VK_WHOLE_SIZE;
 
@@ -2799,7 +2835,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         );
 
 
-        RecordCounterReadback(commandBuffer);
+        RecordCounterReadback(commandBuffer, currentFrame);
         //ReadCounterOnCPU();
 
         //GetMeshFromGPU(); //Important.
@@ -3092,25 +3128,64 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 void VoxelizerPass::ReadCounterOnCPU()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
-    uint32_t counters[2] = { 0,0 };
+    if (app == nullptr || app->_logicalDevice == VK_NULL_HANDLE)
+    {
+        std::cout << "ReadCounterOnCPU: device unavailable, skipping." << std::endl;
+        return;
+    }
 
-    void* mapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
-    memcpy(counters, mapped, sizeof(counters));
-    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+    vkDeviceWaitIdle(app->_logicalDevice);
 
-    readBackVertexCount =  std::min(counters[1] + 65536, VertexMaxCount);
+    uint32_t counters[2] = { 0, 0 };
 
-    void* brushMapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &brushMapped);
-    memcpy(BrushVerticesCount.data(), brushMapped, sizeof(uint32_t) * maxBrushCapacity);
-    vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+    // Counters readback
+    if (stagingGlobalIDCounterMemory != VK_NULL_HANDLE)
+    {
+        void* mapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
+        if (r == VK_SUCCESS && mapped != nullptr)
+        {
+            memcpy(counters, mapped, sizeof(counters));
+            vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+            readBackVertexCount = std::min(counters[1] + 65536, VertexMaxCount);
+        }
+        else
+        {
+            std::cout << "ReadCounterOnCPU: globalIDCounter map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 
-    void* offsetsMapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingBrushVertexOffsetsMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &offsetsMapped);
-    memcpy(BrushVertexOffsets.data(), offsetsMapped, sizeof(uint32_t) * maxBrushCapacity);
-    vkUnmapMemory(app->_logicalDevice, stagingBrushVertexOffsetsMemory);
+    // Brush vertex counts readback
+    if (stagingBrushVerticesMemory != VK_NULL_HANDLE && BrushVerticesCount.size() >= maxBrushCapacity)
+    {
+        void* brushMapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &brushMapped);
+        if (r == VK_SUCCESS && brushMapped != nullptr)
+        {
+            memcpy(BrushVerticesCount.data(), brushMapped, sizeof(uint32_t) * maxBrushCapacity);
+            vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+        }
+        else
+        {
+            std::cout << "ReadCounterOnCPU: brushVertices map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 
+    // Brush vertex offsets readback
+    if (stagingBrushVertexOffsetsMemory != VK_NULL_HANDLE && BrushVertexOffsets.size() >= maxBrushCapacity)
+    {
+        void* offsetsMapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingBrushVertexOffsetsMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &offsetsMapped);
+        if (r == VK_SUCCESS && offsetsMapped != nullptr)
+        {
+            memcpy(BrushVertexOffsets.data(), offsetsMapped, sizeof(uint32_t) * maxBrushCapacity);
+            vkUnmapMemory(app->_logicalDevice, stagingBrushVertexOffsetsMemory);
+        }
+        else
+        {
+            std::cout << "ReadCounterOnCPU: brushVertexOffsets map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 }
 
 

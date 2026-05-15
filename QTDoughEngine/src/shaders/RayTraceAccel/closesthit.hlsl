@@ -9,7 +9,7 @@ void main(inout Photon photon : SV_RayPayload, in Attributes attr : SV_Intersect
 {
     // meshingVertices and meshingPositions are per-brush-partitioned. BLAS prim index is
     // local to this brush's slice; resolve to a global Vertices index via the brush's base.
-    uint brushIdx = InstanceIndex();
+    uint brushIdx = InstanceID();
     uint base = brushVertexOffsets[brushIdx];
     uint prim = PrimitiveIndex();
     uint i0 = base + prim * 3 + 0;

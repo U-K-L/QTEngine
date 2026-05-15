@@ -961,7 +961,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     float deformationField = 0;
     uint ioffset = tileIndex * TILE_MAX_BRUSHES + 0;
-    minId = BrushesIndices[ioffset];
+    minId = voxelsL1Out[index].brushId; //BrushesIndices[ioffset];
     
     for (uint i = 0; i < brushCount; i++)
     {

@@ -1548,15 +1548,24 @@ void QTDoughApplication::DrawFrame()
     //Waits for this fence to finish. 
     vkWaitForFences(_logicalDevice, 1, &_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
-    vkWaitForFences(
+    VkResult computeWaitResult = vkWaitForFences(
         _logicalDevice,
         1,
         &computeInFlightFences[currentFrame],
         VK_TRUE,
         UINT64_MAX
     );
-	//Get data from previous frame.
-	ReadBackGPUData();
+
+    if (computeWaitResult == VK_SUCCESS)
+    {
+        //Get data from previous frame.
+        ReadBackGPUData();
+    }
+    else
+    {
+        std::cout << "DrawFrame: compute fence wait failed (VkResult=" << computeWaitResult
+                  << "), skipping readback." << std::endl;
+    }
 
     // Write previous frame's bytes to ffmpeg
     if (recorder && recorder->IsRecording()) {

@@ -192,8 +192,8 @@ public:
     VkDeviceMemory stagingBrushVerticesMemory;
 
     //Per-brush base offset into the soup (GPU prefix-sum of BrushVerticesCount).
-    VkBuffer brushVertexOffsetsBuffer;
-    VkDeviceMemory brushVertexOffsetsMemory;
+    VkBuffer brushVertexOffsetsBuffers[2];
+    VkDeviceMemory brushVertexOffsetsMemories[2];
     VkBuffer stagingBrushVertexOffsetsBuffer;
     VkDeviceMemory stagingBrushVertexOffsetsMemory;
     std::vector<uint32_t> BrushVertexOffsets;
@@ -278,7 +278,7 @@ public:
     void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID, bool countOnly = false);
     void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
-    void RecordCounterReadback(VkCommandBuffer commandBuffer);
+    void RecordCounterReadback(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void ReadCounterOnCPU();
     void ReadBackGPUData() override;
     int AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,
@@ -326,12 +326,12 @@ public:
     std::vector<Vertex> meshVertices;
     std::vector<Vertex> meshingVertexSoup;
     std::vector<glm::uvec3> meshingTriangleIndices;
-    VkBuffer meshingVertexBuffer;
-    VkBuffer meshingPositionBuffer;
-    VkDeviceMemory meshingPositionBufferMemory;
+    VkBuffer meshingVertexBuffers[2];
+    VkBuffer meshingPositionBuffers[2];
+    VkDeviceMemory meshingPositionBufferMemories[2];
     VkBuffer vertexBufferReadbackBuffer;
     VkDeviceMemory vertexBufferReadbackMemory;
-    VkDeviceMemory meshingVertexBufferMemory;
+    VkDeviceMemory meshingVertexBufferMemories[2];
     VkBuffer meshingIndexBuffer;
     VkDeviceMemory meshingIndexBufferMemory;
 
