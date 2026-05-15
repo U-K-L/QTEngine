@@ -458,7 +458,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 uint dummy;
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
-                InterlockedExchange(voxelsL1Out[flatIndex].brushId, (uint)quanta.information.x, dummy);
+                InterlockedExchange(voxelsL1Out[flatIndex].brushId, quanta.information.x, dummy);
 
                 if (quanta.mana.w < 0.05f)
                     continue;

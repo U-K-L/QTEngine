@@ -63,12 +63,21 @@ public:
     VkStridedDeviceAddressRegionKHR raygenRegion, missRegion, hitRegion, callableRegion;
 
     // Acceleration Structures
-    struct RtASPerFrame
+    struct PerBrushBlas
     {
-        // BLAS
         VkAccelerationStructureKHR blas = VK_NULL_HANDLE;
         VkBuffer blasBuffer = VK_NULL_HANDLE;
         VkDeviceMemory blasMemory = VK_NULL_HANDLE;
+        VkDeviceAddress blasAddr = 0;
+        VkDeviceSize blasAllocatedSize = 0;
+    };
+
+    struct RtASPerFrame
+    {
+        // Per-brush BLASes. Each brush's vertices live in a contiguous slice of
+        // VoxelizerPass::meshingPositionBuffer at offset BrushVertexOffsets[i]*sizeof(vec4),
+        // length BrushVerticesCount[i]. One BLAS per brush so cullMask actually skips geometry.
+        std::vector<PerBrushBlas> perBrushBlas;
 
         // TLAS
         VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
@@ -82,10 +91,7 @@ public:
         VkBuffer instanceBuffer = VK_NULL_HANDLE;
         VkDeviceMemory instanceMemory = VK_NULL_HANDLE;
 
-        VkDeviceAddress blasAddr = 0;
         VkDeviceAddress tlasAddr = 0;
-        uint32_t prevPrimitiveCount = 0;
-        VkDeviceSize blasAllocatedSize = 0;
     };
     std::vector<RtASPerFrame> rtAS;
 
@@ -93,9 +99,9 @@ public:
     VkDeviceAddress GetBufferAddress(VkBuffer buffer);
     VkDeviceAddress GetASAddress(VkAccelerationStructureKHR as);
 
-    void BuildBLAS_FromTriangleSoup(VkCommandBuffer cmd, uint32_t frame, VkBuffer vertexBuffer, VkDeviceSize vertexOffset, uint32_t vertexCount, VkDeviceSize vertexStride);
+    void BuildBLAS_PerBrush(VkCommandBuffer cmd, uint32_t frame, uint32_t brushIdx, VkBuffer vertexBuffer, VkDeviceSize vertexOffset, uint32_t vertexCount, VkDeviceSize vertexStride);
 
-    void BuildTLAS_SingleInstance(
+    void BuildTLAS_MultiInstance(
         VkCommandBuffer cmd,
         uint32_t frame,
         const VkTransformMatrixKHR& xform = { {

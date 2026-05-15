@@ -87,7 +87,7 @@ public:
 
         //Physics.
         float mass;
-        float pad;
+        uint32_t rayMask;
         float pad2;
         float pad3;
     };
@@ -111,6 +111,7 @@ public:
         glm::vec4 aabbCenter;
         float supportMultiplier;
         int viewMode;
+        int countOnly;
     };
 
     glm::vec3 dcAABBSize = glm::vec3(32.0f, 32.0f, 8.0f);
@@ -190,6 +191,16 @@ public:
     VkBuffer stagingBrushVerticesBuffer;
     VkDeviceMemory stagingBrushVerticesMemory;
 
+    //Per-brush base offset into the soup (GPU prefix-sum of BrushVerticesCount).
+    VkBuffer brushVertexOffsetsBuffer;
+    VkDeviceMemory brushVertexOffsetsMemory;
+    VkBuffer stagingBrushVertexOffsetsBuffer;
+    VkDeviceMemory stagingBrushVertexOffsetsMemory;
+    std::vector<uint32_t> BrushVertexOffsets;
+    //Per-brush write cursor used by DC pass 2 to claim slots within the brush's slice.
+    VkBuffer brushWriteCursorsBuffer;
+    VkDeviceMemory brushWriteCursorsMemory;
+
     //For IDs and Verts.
     uint32_t globalIDCounterSize = 2;
 
@@ -244,7 +255,7 @@ public:
     void IsOccupiedByVoxel();
     void BakeSDFFromTriangles();
     float DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
-    void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false);
+    void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false, bool countOnly = false);
     void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void DispatchBrushOccupancy(VkCommandBuffer commandBuffer, uint32_t currentFrame, int brushIndex);
@@ -264,7 +275,7 @@ public:
     void DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID);
     void DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void GetMeshFromGPU();
-    void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
+    void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID, bool countOnly = false);
     void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
     void RecordCounterReadback(VkCommandBuffer commandBuffer);

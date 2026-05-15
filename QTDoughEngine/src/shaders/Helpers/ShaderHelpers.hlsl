@@ -182,7 +182,7 @@ struct Brush
     
     //Physics.
     float mass;
-    float pad;
+    uint rayMask;
     float pad2;
     float pad3;
 };

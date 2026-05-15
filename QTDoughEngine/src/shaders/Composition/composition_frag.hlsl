@@ -160,7 +160,6 @@ float4 main(VSOutput i) : SV_Target
     float4 rayNormalPass = textures[images.RayNormalPass].Sample(samplers[images.RayNormalPass], textureUVs);
     float4 rayPositionPass = textures[images.RayPositionPass].Sample(samplers[images.RayPositionPass], textureUVs);
     
-
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
     float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);

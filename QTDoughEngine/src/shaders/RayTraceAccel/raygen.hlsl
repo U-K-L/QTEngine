@@ -142,9 +142,8 @@ float3 CentralDifferenceNormalTexture(float3 p, float sampleLevel)
 }
 
 
-float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inout float4 visibility, inout float4 specular, inout float4 positionId)
+float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface)
 {
-    visibility = 1;
     float3 direction = rd;
     float3 light = normalize(float3(-0.85f, 1.0, 0.5f));
     
@@ -189,8 +188,6 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
                 //float smoothness = voxelsL1In[index].normalDistance.x;
                 surface.xyz = normalize(closesSDF.yzw);
                 surface.w = length(pos - ro);
-                positionId.xyz = pos;
-                positionId.w = sampleId.y;
                 hitSample = closesSDF;
                 
                 bounces = 1;
@@ -201,14 +198,12 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
                 pos += surface.xyz * voxelSizeL1 * 4.0f;
                 
                 closesSDF.xy = SampleNormalSDFTexture(pos, sampleLevel);
-                specular.w = i; //store count.
                 
                 return hitSample;
 
             }
             else if (bounces == 1)
             {
-                visibility = 0;
                 return hitSample;
 
             }
@@ -217,17 +212,6 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         //update position to the nearest point. effectively a sphere trace.
 
         float stepSize = clamp(closesSDF.x, voxelSizeL1 * 0.05f, voxelSizeL1 * (sampleLevel + 1));
-        /*
-        if (bounces == 0)43423454
-        {
-            if (closesSDF.x < minDistanceL0)
-                stepSize = voxelSizeL1 * 0.075f;
-        }
-
-
-        */
-
-            
         
         accumaltor += abs((voxelSizeL1 * 4.0f * sampleLevel) - currentSDF.x) * 0.001f;
         pos += direction * stepSize;
@@ -241,11 +225,76 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
 
 }
 
+void samplePotentialField(inout Photon p, inout Surface surface, float3 camPos, int mask = 0xFF, bool rayHitAABB = true)
+{
+    RayDesc ray;
+    ray.Origin = p.position;
+    ray.Direction = p.direction;
+    ray.TMin = 0.001f;
+    ray.TMax = 1e6f;
+   
+    if (rayHitAABB)
+    {
+        TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
+        if (p.color.w > -1)
+        {
+            surface.normal = p.color;
+        }
+
+    }
+    else
+        p.color = FullMarch(p.position, p.direction, camPos, surface.normal);
+
+}
+
+float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool rayHitAABB = true)
+{
+    GPULight l = light[0];
+    float4 finalColor = 0;
+    
+
+    //Fire away! Multiple shots.
+    int samples = 2;
+    float norm = 1.0f / (1.0f - exp2(-(float) samples));
+    for (int i = 0; i < samples; i++)
+    {
+        float pdfWeight = exp2(-(float) (i + 1)) * norm;
+        
+        //Initial Pass.
+        if(i == 0)
+        {
+            if (surface.normal.w >= 0)
+            {
+                GameObjectShaderData material = globalObjMaterials[(uint) (surface.normal.w)];
+                finalColor += UnigmaBRDFDirectionalLight(material, p, surface, l) * pdfWeight;
+            }
+            continue;
+        }
+
+        
+        samplePotentialField(p, surface, camPos, 0xFF);
+        if (surface.normal.w >= 0)
+        {
+            GameObjectShaderData material = globalObjMaterials[(uint) (surface.normal.w)];
+            finalColor += UnigmaBRDFDirectionalLight(material, p, surface, l) * pdfWeight;
+        }
+    }
+
+    return finalColor;
+}
+
 
 
 [shader("raygeneration")]
 void main()
 {
+    
+    
+    Images image = InitImages();
+    uint albedoHandle = NonUniformResourceIndex(image.AlbedoImage);
+    uint normalHandle = NonUniformResourceIndex(image.NormalImage);
+    uint positionHandle = NonUniformResourceIndex(image.PositionImage);
+    
     uint2 pixel = DispatchRaysIndex().xy;
 
     float2 dim = texelSize.xy;
@@ -274,14 +323,18 @@ void main()
     ray.TMax = 1e6f; 
 
     Photon p;
+    p.position = float4(ro, 0);
     p.color = float4(0, 0, 0, 0);
+    p.direction = float4(rd, 0);
     
     GameObjectShaderData material;
     material.Midtone = float4(0.90, 0.9, 0.78, 1.0);
     material.Highlight = float4(1.0, 0.92, 0.928, 1.0);
     material.Shadow = float4(0.9, 0.63, 0.61, 1.0);
 
-    float4 surface = p.color;
+    Surface surface;
+    surface.normal = -1;
+    surface.position = 0;
     float4 visibility = 0;
     float4 specular = 0;
     float4 depth = 0;
@@ -289,80 +342,35 @@ void main()
     float4 surfaceFull = float4(0, 0, 0, 0);
     float4 hit = 0;
     float4 col = 0;
+    float tHit;
+    float4 finalColor = 0;
     
+    //Get the main center of the world by which triangle based ray tracing is done.
     float3 bmin = -GetDCAABBSize() * 0.5f;
     float3 bmax = GetDCAABBSize() * 0.5f;
-    float tHit;
+    bool rayHitAABB = true; //RayAABB(ro, rd, bmin, bmax, tHit); TEMP OFF.
     
-    bool rayHitAABB = true; //RayAABB(ro, rd, bmin, bmax, tHit);
     
-    if (rayHitAABB)
-    {
-        TraceRay(tlas, 0, 0xFF, 0, 1, 0, ray, p);
-        if (p.color.w > -1)
-        {
-            surface = p.color;
-            material = globalObjMaterials[(uint) (surface.w)];
-        }
-        else
-            hit = FullMarch(ro, rd, camPos, surface, visibility, specular, positionId);
-    }
-    else
-        hit = FullMarch(ro, rd, camPos, surface, visibility, specular, positionId);
+    samplePotentialField(p, surface, camPos, 0x01);
     
-    col = (hit.x < 1.0f) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
+    
+    //Store initial surface.
+    Surface firstHitSurface;
+    firstHitSurface.normal = surface.normal;
+    firstHitSurface.position = p.position;
 
+    if (firstHitSurface.normal.w > -1)
+        finalColor = accumulateLight(p, surface, camPos);
 
-    p.color.xyz = surface.xyz;
-    p.direction.xyz = rd;
-
-    Images image = InitImages();
-    uint albedoHandle = NonUniformResourceIndex(image.AlbedoImage);
-    uint normalHandle = NonUniformResourceIndex(image.NormalImage);
-    uint positionHandle = NonUniformResourceIndex(image.PositionImage);
-
+    
+    
     float linearDepth = distance(p.position.xyz, ro);
     float maxRenderDistance = 64.0f;
     float normalizedDepth = linearDepth / maxRenderDistance;
     float depthMapped = col.w * normalizedDepth;
     
-    Surface surf;
-    surf.normal.xyz = surface.xyz;
-    surf.position = p.position;
-    
-        //Albedo.
-    /*
-    float thresholdX = 0.2;
-    float thresholdY = 0.6;
-    float thresholdZ = 0.8;
-
-    //Pick based on normals.
-    float3 normal = surface.xyz;
-
-    float4 front = material.Midtone * 1.0725f;
-    float4 sides = material.Shadow * 1.0725f;
-    float4 top = material.Highlight * 1.0725f;
-    
-    float3 forward = float3(0, 1, 0);
-    float3 up = float3(0, 0, 1);
-    float3 right = float3(1, 0, 0);
-    
-    float weightFront = abs(normal.y);
-    float weightSides = abs(normal.x);
-    float weightTop = abs(normal.z);
-    
-    float total = weightFront + weightSides + weightTop + 1e-6f; // Add a tiny value
-    weightFront /= total;
-    weightSides /= total;
-    weightTop /= total;
-
-    float4 finalColor = front * weightFront + sides * weightSides + top * weightTop;
-*/
-    GPULight l = light[0];
-    float4 finalColor = UnigmaBRDFDirectionalLight(material, p, surf, l);
-    
     gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
-    gBindlessStorage[normalHandle][pixel] = float4(surface.xyz, depthMapped);
-    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, surface.w);
+    gBindlessStorage[normalHandle][pixel] = float4(firstHitSurface.normal.xyz, depthMapped);
+    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, firstHitSurface.normal.w);
 
 }

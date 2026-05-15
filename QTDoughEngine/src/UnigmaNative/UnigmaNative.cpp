@@ -153,6 +153,56 @@ void LoadScene(const char* sceneName) {
         compFile.close();
     }
 
+    // Backfill schema fields missing from per-object component data. Lets newly-added
+    // schema fields (e.g. RenderComp.RayMask) show up in ImGui and round-trip back out
+    // for scenes whose JSON predates the field.
+    for (auto& kv : objectComponents)
+    {
+        auto& comps = kv.second;
+        for (auto cit = comps.begin(); cit != comps.end(); ++cit)
+        {
+            const std::string& compName = cit.key();
+            if (!componentDefs.contains(compName))
+                continue;
+            auto& schema = componentDefs[compName];
+            auto& fields = cit.value();
+            for (auto sit = schema.begin(); sit != schema.end(); ++sit)
+            {
+                const std::string& fieldName = sit.key();
+                if (fields.contains(fieldName))
+                    continue;
+                auto& fval = sit.value();
+                if (fval.is_array())
+                    fields[fieldName] = fval.empty() ? "" : fval[0];
+                else if (fval.is_object())
+                {
+                    if (fval.contains("default"))
+                        fields[fieldName] = fval["default"];
+                    else if (fval.value("type", "") == "float")
+                        fields[fieldName] = 0.0f;
+                    else if (fval.value("type", "") == "int")
+                        fields[fieldName] = 0;
+                    else if (fval.value("type", "") == "bool")
+                        fields[fieldName] = false;
+                    else if (fval.value("type", "") == "vector3")
+                        fields[fieldName] = { 1.0f, 1.0f, 1.0f };
+                    else
+                        fields[fieldName] = "";
+                }
+                else if (fval == "float")
+                    fields[fieldName] = 0.0f;
+                else if (fval == "int")
+                    fields[fieldName] = 0;
+                else if (fval == "bool")
+                    fields[fieldName] = false;
+                else if (fval == "vector3")
+                    fields[fieldName] = { 1.0f, 1.0f, 1.0f };
+                else
+                    fields[fieldName] = "";
+            }
+        }
+    }
+
     //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
 

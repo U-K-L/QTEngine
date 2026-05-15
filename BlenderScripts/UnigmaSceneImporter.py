@@ -16,6 +16,48 @@ bl_info = {
 }
 
 
+def _load_component_defs():
+    blend_dir = bpy.path.abspath("//")
+    if not blend_dir:
+        return {}
+    json_path = os.path.normpath(
+        os.path.join(blend_dir, "..", "..", "Components", "Components.json")
+    )
+    if not os.path.isfile(json_path):
+        return {}
+    with open(json_path) as f:
+        return json.load(f)
+
+
+def _default_for_field(field_def):
+    """Resolve the default value for a Components.json field schema entry."""
+    if isinstance(field_def, dict):
+        default = field_def.get("default")
+        typ = field_def.get("type")
+        if default is not None:
+            return default
+        if typ == "bool":
+            return False
+        if typ == "float":
+            return 0.0
+        if typ == "int":
+            return 0
+        if typ == "vector3":
+            return [1.0, 1.0, 1.0]
+        return ""
+    if isinstance(field_def, list):
+        return field_def[0] if field_def else ""
+    if field_def == "bool":
+        return False
+    if field_def == "float":
+        return 0.0
+    if field_def == "int":
+        return 0
+    if field_def == "vector3":
+        return [1.0, 1.0, 1.0]
+    return ""
+
+
 class UnigmaImporter(bpy.types.Operator):
 
     bl_idname = "import_scene.unigma_importer"
@@ -45,6 +87,8 @@ class UnigmaImporter(bpy.types.Operator):
 
         with open(self.filepath, 'r') as f:
             scene_data = json.load(f)
+
+        component_defs = _load_component_defs()
 
         scene = context.scene
         updated = 0
@@ -103,6 +147,8 @@ class UnigmaImporter(bpy.types.Operator):
                 obj.rotation_euler = quat.to_euler('XYZ')
 
             # Components: rebuild obj.components from JSON to stay in sync with engine.
+            # Backfill any schema fields missing from the scene JSON with their defaults
+            # so old scenes pick up newly-added fields (e.g. RenderComp.RayMask).
             comps_json = gobj.get("Components", {})
             if comps_json and hasattr(obj, "components"):
                 obj.components.clear()
@@ -112,6 +158,10 @@ class UnigmaImporter(bpy.types.Operator):
                     if isinstance(settings, dict):
                         for k, v in settings.items():
                             new[k] = v
+                    comp_def = component_defs.get(comp_name, {})
+                    for field, field_def in comp_def.items():
+                        if not isinstance(settings, dict) or field not in settings:
+                            new[field] = _default_for_field(field_def)
 
             # Camera fields from Components.CameraComp.
             if obj.type == 'CAMERA':

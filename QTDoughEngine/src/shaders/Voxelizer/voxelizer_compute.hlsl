@@ -36,6 +36,7 @@ struct PushConsts
     float4 aabbCenter;
     float supportMultiplier;
     int viewMode;
+    int countOnly;
 };
 
 [[vk::push_constant]]
@@ -89,6 +90,10 @@ StructuredBuffer<uint> tileOffsets  : register(t21, space1);
 RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space1);
 
 RWStructuredBuffer<float> meshingPositions : register(u24, space1);
+
+RWStructuredBuffer<uint> brushVerticesCount : register(u25, space1);
+RWStructuredBuffer<uint> brushVertexOffsets : register(u26, space1);
+RWStructuredBuffer<uint> brushWriteCursors  : register(u27, space1);
 
 float3 getAABB(uint vertexOffset, uint vertexCount, out float3 minBounds, out float3 maxBounds, in Brush brush)
 {
@@ -938,7 +943,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
     float sdfVal = voxelsL1Out[index].isoPhi;
-    
+
     if(pc.viewMode == 6) //material
     {
         Write3DDist(0, DTid, sdfVal);
@@ -955,6 +960,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     
 
     float deformationField = 0;
+    uint ioffset = tileIndex * TILE_MAX_BRUSHES + 0;
+    minId = BrushesIndices[ioffset];
+    
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -1038,6 +1046,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     }
     else
         Write3DDist(0, fullDTid, sdfVal); // Consider particles.
+    
     voxelsL1Out[index].brushId = minId;
     /*
     float t = time*0.0001f;
@@ -1962,22 +1971,32 @@ float3 CalculateDualContour(int3 cellCoord, float mipLevel)
 void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush, bool flip)
 {
 
+    if (pc.countOnly != 0)
+    {
+        uint dummy;
+        InterlockedAdd(brushVerticesCount[brush.id-1], 6, dummy);
+        return;
+    }
+
     uint vertOffset;
     InterlockedAdd(GlobalIDCounter[1], 6, vertOffset);
     InterlockedAdd(GlobalIDCounter[0], 6, vertOffset);
 
-    //Set vertices positions. w = brush ID for hit-shader material lookup.
+    uint localCursor;
+    InterlockedAdd(brushWriteCursors[brush.id-1], 6, localCursor);
+    uint brushVertOffset = brushVertexOffsets[brush.id-1] + localCursor;
+
     float brushID = (float)brush.id;
-    meshingVertices[vertOffset + 0].position = float4(v0, brushID);
-    meshingVertices[vertOffset + 1].position = float4(v1, brushID);
-    meshingVertices[vertOffset + 2].position = float4(v2, brushID);
+    meshingVertices[brushVertOffset + 0].position = float4(v0, brushID);
+    meshingVertices[brushVertOffset + 1].position = float4(v1, brushID);
+    meshingVertices[brushVertOffset + 2].position = float4(v2, brushID);
 
-    meshingVertices[vertOffset + 3].position = float4(v0, brushID);
-    meshingVertices[vertOffset + 4].position = float4(v2, brushID);
-    meshingVertices[vertOffset + 5].position = float4(v3, brushID);
+    meshingVertices[brushVertOffset + 3].position = float4(v0, brushID);
+    meshingVertices[brushVertOffset + 4].position = float4(v2, brushID);
+    meshingVertices[brushVertOffset + 5].position = float4(v3, brushID);
 
-    // Compact positions for RTA. vec4: xyz = position, w = brushID.
-    uint po = vertOffset * 4;
+    // Compact positions for RTA. vec4: xyz = position, w = brushID. Partitioned per-brush.
+    uint po = brushVertOffset * 4;
     meshingPositions[po + 0] = v0.x; meshingPositions[po + 1] = v0.y; meshingPositions[po + 2] = v0.z; meshingPositions[po + 3] = brushID;
     meshingPositions[po + 4] = v1.x; meshingPositions[po + 5] = v1.y; meshingPositions[po + 6] = v1.z; meshingPositions[po + 7] = brushID;
     meshingPositions[po + 8] = v2.x; meshingPositions[po + 9] = v2.y; meshingPositions[po + 10] = v2.z; meshingPositions[po + 11] = brushID;
@@ -2047,29 +2066,30 @@ void EmitTriangles(float3 v0, float3 v1, float3 v2, float3 v3, in Brush brush, b
         n3 = lerp(faceNormal, n3, t);
     }
 */
-    meshingVertices[vertOffset + 0].normal = float4(n0, brush.materialId);
-    meshingVertices[vertOffset + 1].normal = float4(n1, brush.materialId);
-    meshingVertices[vertOffset + 2].normal = float4(n2, brush.materialId);
-        
-    meshingVertices[vertOffset + 3].normal = float4(n0, brush.materialId);
-    meshingVertices[vertOffset + 4].normal = float4(n2, brush.materialId);
-    meshingVertices[vertOffset + 5].normal = float4(n3, brush.materialId);
-    
+    meshingVertices[brushVertOffset + 0].normal = float4(n0, brush.materialId);
+    meshingVertices[brushVertOffset + 1].normal = float4(n1, brush.materialId);
+    meshingVertices[brushVertOffset + 2].normal = float4(n2, brush.materialId);
+
+    meshingVertices[brushVertOffset + 3].normal = float4(n0, brush.materialId);
+    meshingVertices[brushVertOffset + 4].normal = float4(n2, brush.materialId);
+    meshingVertices[brushVertOffset + 5].normal = float4(n3, brush.materialId);
+
     float4 finalColor = float4(1, 0, 1, 0);
-    
-    meshingVertices[vertOffset + 0].color = finalColor;
-    meshingVertices[vertOffset + 1].color = finalColor;
-    meshingVertices[vertOffset + 2].color = finalColor;
-        
-    meshingVertices[vertOffset + 3].color = finalColor;
-    meshingVertices[vertOffset + 4].color = finalColor;
-    meshingVertices[vertOffset + 5].color = finalColor;
+
+    meshingVertices[brushVertOffset + 0].color = finalColor;
+    meshingVertices[brushVertOffset + 1].color = finalColor;
+    meshingVertices[brushVertOffset + 2].color = finalColor;
+
+    meshingVertices[brushVertOffset + 3].color = finalColor;
+    meshingVertices[brushVertOffset + 4].color = finalColor;
+    meshingVertices[brushVertOffset + 5].color = finalColor;
 }
 
 
 void DualContour(uint3 DTid : SV_DispatchThreadID)
 {
-    
+
+
     int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
     float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
@@ -2138,8 +2158,6 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
     //Check Every single face.
     int offSet = 1;
-    
-
     
     // Check edge along +X axis
     int3 xNeighbor = baseTexel + int3(offSet, 0, 0);
@@ -2330,10 +2348,21 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
 
     if (deformed)
         return;
-    
+
+    if (pc.countOnly != 0)
+    {
+        uint dummy;
+        InterlockedAdd(brushVerticesCount[brushID], 3, dummy);
+        return;
+    }
+
     uint outBase;
     InterlockedAdd(GlobalIDCounter[1], 3, outBase);
-    
+
+    uint localCursor;
+    InterlockedAdd(brushWriteCursors[brushID], 3, localCursor);
+    uint brushVertOffset = brushVertexOffsets[brushID] + localCursor;
+
     float4x4 transInvModel = transpose(brush.invModel);
     //World normals.
     float3 n0 = mul(transInvModel, float4(vertexBuffer[i0].normal.xyz, 0)).xyz;
@@ -2344,20 +2373,18 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     n1 = normalize(n1);
     n2 = normalize(n2);
 
-
-    // Write. w = brush ID for hit-shader material lookup.
     float bID = (float)brush.id;
-    meshingVertices[outBase + 0].position = float4(pW0, bID);
-    meshingVertices[outBase + 0].normal = float4(n0, brush.materialId);
+    meshingVertices[brushVertOffset + 0].position = float4(pW0, bID);
+    meshingVertices[brushVertOffset + 0].normal = float4(n0, brush.materialId);
 
-    meshingVertices[outBase + 1].position = float4(pW1, bID);
-    meshingVertices[outBase + 1].normal = float4(n1, brush.materialId);
+    meshingVertices[brushVertOffset + 1].position = float4(pW1, bID);
+    meshingVertices[brushVertOffset + 1].normal = float4(n1, brush.materialId);
 
-    meshingVertices[outBase + 2].position = float4(pW2, bID);
-    meshingVertices[outBase + 2].normal = float4(n2, brush.materialId);
+    meshingVertices[brushVertOffset + 2].position = float4(pW2, bID);
+    meshingVertices[brushVertOffset + 2].normal = float4(n2, brush.materialId);
 
-    // Compact positions for RTA. vec4: xyz + brushID in w.
-    uint po2 = outBase * 4;
+    // Compact positions for RTA. vec4: xyz + brushID in w. Partitioned per-brush.
+    uint po2 = brushVertOffset * 4;
     meshingPositions[po2 + 0] = pW0.x; meshingPositions[po2 + 1] = pW0.y; meshingPositions[po2 + 2] = pW0.z; meshingPositions[po2 + 3] = bID;
     meshingPositions[po2 + 4] = pW1.x; meshingPositions[po2 + 5] = pW1.y; meshingPositions[po2 + 6] = pW1.z; meshingPositions[po2 + 7] = bID;
     meshingPositions[po2 + 8] = pW2.x; meshingPositions[po2 + 9] = pW2.y; meshingPositions[po2 + 10] = pW2.z; meshingPositions[po2 + 11] = bID;
@@ -2826,7 +2853,28 @@ void main(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint gIndex 
     {
         GlobalIDCounter[1] = 0;
         GlobalIDCounter[0] = 0;
+        if (DTid.x < 256 && DTid.y == 0 && DTid.z == 0)
+        {
+            brushVerticesCount[DTid.x] = 0;
+            brushWriteCursors[DTid.x] = 0;
+        }
         ClearVoxelData(DTid);
+        return;
+    }
+
+    if (sampleLevelL == 26.0f)
+    {
+        // Exclusive prefix sum of brushVerticesCount -> brushVertexOffsets.
+        // Single thread, 256 elements, runs between DC pass 1 (count) and DC pass 2 (emit).
+        if (DTid.x == 0 && DTid.y == 0 && DTid.z == 0)
+        {
+            uint accum = 0;
+            for (uint i = 0; i < 256; ++i)
+            {
+                brushVertexOffsets[i] = accum;
+                accum += brushVerticesCount[i];
+            }
+        }
         return;
     }
     

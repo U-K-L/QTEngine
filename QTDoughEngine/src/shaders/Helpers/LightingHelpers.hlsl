@@ -18,7 +18,7 @@ struct GPULight
     float3 direction;
 };
 
-float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, in Photon photon, in Surface surface, in GPULight light)
+float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, inout Photon photon, in Surface surface, in GPULight light)
 {
     //Pick based on normals.
     float3 normal = surface.normal.xyz;
@@ -57,6 +57,12 @@ float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, in Photon ph
 
     float4 BRDF = max(midTones, shadows);
     BRDF = max(BRDF, highlights);
+    
+    //Reflectance.
+    float roughness = 0.05f; // Add to material struct.
+    float3 specularReflect = reflect(photon.direction.xyz, normal);
+    float3 smoothReflect = lerp(specularReflect, normal, roughness); //Replace with diffuse direction.
+    photon.direction.xyz = smoothReflect;
     
     return BRDF + finalSpecular;
 }
