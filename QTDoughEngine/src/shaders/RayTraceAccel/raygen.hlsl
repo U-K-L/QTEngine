@@ -225,25 +225,54 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface)
 
 }
 
-void samplePotentialField(inout Photon p, inout Surface surface, float3 camPos, int mask = 0xFF, bool rayHitAABB = true)
+float2 samplePotentialField(float3 position)
+{
+    float2 sampleSDF = SampleNormalSDFTexture(position, 1.0f);
+    return sampleSDF;
+        
+}
+
+void photonMarch(inout Photon p, inout Surface surface, float3 camPos, int mask = 0xFF, bool rayHitAABB = true)
 {
     RayDesc ray;
     ray.Origin = p.position;
     ray.Direction = p.direction;
-    ray.TMin = 0.001f;
-    ray.TMax = 1e6f;
+    ray.TMin = 0.000001f;
+    ray.TMax = Propagation_Step_Length;
    
     if (rayHitAABB)
     {
-        TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
-        if (p.color.w > -1)
+        int maxTries = 128;
+        for (int i = 0; i < maxTries; i++)
         {
-            surface.normal = p.color;
+            TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
+            if (p.color.w > -1)
+            {
+                surface.normal = p.color;
+                return;
+            }
+
+            TraverseGeodesic(p, ray.Origin);
+            
+            //Incremental step.
+            float ds = Propagation_Step_Length;
+            ds *= 0.125f;
+            //take larger steps in empty space.
+            float dist = samplePotentialField(p.position.xyz);
+            float tol = 0.025f;
+            
+            if (dist >= abs(DEFUALT_EMPTY_SPACE - tol))
+                ds *= 4.0f;
+
+
+            ray.Origin = p.position;
+            ray.Direction = p.direction;
+            ray.TMax = ds;
+
         }
 
+
     }
-    else
-        p.color = FullMarch(p.position, p.direction, camPos, surface.normal);
 
 }
 
@@ -272,7 +301,7 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
         }
 
         
-        samplePotentialField(p, surface, camPos, 0xFF);
+        photonMarch(p, surface, camPos, 0xFF);
         if (surface.normal.w >= 0)
         {
             GameObjectShaderData material = globalObjMaterials[(uint) (surface.normal.w)];
@@ -323,6 +352,7 @@ void main()
     ray.TMax = 1e6f; 
 
     Photon p;
+    p.mana = 1.0f;
     p.position = float4(ro, 0);
     p.color = float4(0, 0, 0, 0);
     p.direction = float4(rd, 0);
@@ -351,23 +381,26 @@ void main()
     bool rayHitAABB = true; //RayAABB(ro, rd, bmin, bmax, tHit); TEMP OFF.
     
     
-    samplePotentialField(p, surface, camPos, 0x01);
+    photonMarch(p, surface, camPos, 0x01);
     
+
     
     //Store initial surface.
     Surface firstHitSurface;
     firstHitSurface.normal = surface.normal;
     firstHitSurface.position = p.position;
-
-    if (firstHitSurface.normal.w > -1)
-        finalColor = accumulateLight(p, surface, camPos);
-
     
-    
+    bool surfaceHit = firstHitSurface.normal.w > -1;
+
+    //Initial depth.
     float linearDepth = distance(p.position.xyz, ro);
     float maxRenderDistance = 64.0f;
     float normalizedDepth = linearDepth / maxRenderDistance;
-    float depthMapped = col.w * normalizedDepth;
+    float depthMapped = surfaceHit * normalizedDepth;
+    
+    if (surfaceHit)
+        finalColor = accumulateLight(p, surface, camPos);
+
     
     gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
     gBindlessStorage[normalHandle][pixel] = float4(firstHitSurface.normal.xyz, depthMapped);

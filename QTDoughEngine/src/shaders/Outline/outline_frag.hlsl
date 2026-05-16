@@ -175,15 +175,17 @@ float4 main(VSOutput i) : SV_Target
     //edgeDepth *= 1.0 - step(depthImage.r, 0.9999);
     
     //Combine the lines. most outter overrides most inner.
-    edgeDepth = 0;
+    //edgeDepth = 0;
     //edgeNormal = 0;
     edgePos = 0;
     //First check if inner is 0, then add outer.
+    innerColorsImage = float4(0.35, 0.157, 0.115f, 0.78f);
+    outlineColorsImage = float4(0.35, 0.157, 0.115f, 0.78f);
     float4 outterLineFinal = lerp(edgeNormal * innerColorsImage, edgePos * outlineColorsImage, edgePos);// * lineBreaker;
-    float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;
+    float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)) + edgeDepth;
     
     
-    return edgeNormal * float4(0.35, 0.157, 0.115f, 0.78f);
+    return finalOutline;//saturate(float4(finalOutline.xyz, 1.0f) * float4(0.35, 0.157, 0.115f, 0.78f) + float4(edgeDepth, edgeDepth, edgeDepth, 1.0));
     //return noiseAndGrain;
     //return edgePos;
     //return albedoImage;

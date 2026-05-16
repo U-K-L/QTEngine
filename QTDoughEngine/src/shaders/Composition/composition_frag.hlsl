@@ -164,7 +164,7 @@ float4 main(VSOutput i) : SV_Target
     
     float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
     float4 quantaSpheresImage = textures[images.QuantaSpheresImage].Sample(samplers[images.QuantaSpheresImage], textureUVs);
-    
+
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
