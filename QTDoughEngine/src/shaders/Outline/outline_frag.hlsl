@@ -176,14 +176,14 @@ float4 main(VSOutput i) : SV_Target
     
     //Combine the lines. most outter overrides most inner.
     edgeDepth = 0;
-    edgeNormal = 0;
+    //edgeNormal = 0;
     edgePos = 0;
     //First check if inner is 0, then add outer.
     float4 outterLineFinal = lerp(edgeNormal * innerColorsImage, edgePos * outlineColorsImage, edgePos);// * lineBreaker;
     float4 finalOutline = lerp(outterLineFinal, 1.0, max(0, edgeDepth - edgePos - edgeNormal)); // + edgeDepth;
     
     
-    return finalOutline;
+    return edgeNormal * float4(0.35, 0.157, 0.115f, 0.78f);
     //return noiseAndGrain;
     //return edgePos;
     //return albedoImage;

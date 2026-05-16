@@ -254,7 +254,7 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
     
 
     //Fire away! Multiple shots.
-    int samples = 2;
+    int samples = 3;
     float norm = 1.0f / (1.0f - exp2(-(float) samples));
     for (int i = 0; i < samples; i++)
     {
