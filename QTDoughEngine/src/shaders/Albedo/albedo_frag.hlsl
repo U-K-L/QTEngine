@@ -66,20 +66,20 @@ PSOutput main(PSInput input)
     float NdotL = dot(input.normal.xyz, normLightDir) * 0.5 + 0.5;
     
     /*
-    float4 midTones = baseAlbedo * step(thresholdX, NdotL);
-    float4 shadows = (sideAlbedo) * step(NdotL, thresholdY);
-    float4 highlights = (topAlbedo) * step(thresholdZ, NdotL);
-    
-    
+    float4 midTones = midtone * step(thresholdX, NdotL);
+    float4 shadows = (shadow) * step(NdotL, thresholdY);
+    float4 highlights = (highlight) * step(thresholdZ, NdotL);
+
+
     float4 finalColor = max(midTones, shadows);
     finalColor = max(finalColor, highlights);
     */
-    
+
     //Pick based on normals.
     float3 normal = input.normal;
-    float4 front = globalObjMaterials[input.normal.w].BaseAlbedo; //float4(1, globalObjMaterials[1], 0, 1);
-    float4 sides = globalObjMaterials[input.normal.w].SideAlbedo;
-    float4 top = globalObjMaterials[input.normal.w].TopAlbedo;
+    float4 front = globalObjMaterials[input.normal.w].Midtone; //float4(1, globalObjMaterials[1], 0, 1);
+    float4 sides = globalObjMaterials[input.normal.w].Shadow;
+    float4 top = globalObjMaterials[input.normal.w].Highlight;
     
     float3 forward = float3(0, 1, 0);
     float3 up = float3(0, 0, 1);

@@ -8,6 +8,7 @@
 #define WORLD_SDF_RESOLUTION 1024.0f
 #define WORLD_SDF_BOUNDS 64.0f
 #define QUANTA_COUNT 2097152
+#define LEPTON_COUNT 65536
 
 #define VOXEL_RESOLUTIONL1 512.0f
 #define SCENE_BOUNDSL1 16.0f
@@ -33,6 +34,7 @@
 #define MATERIAL_BRUSH_GRID_RES 32
 
 #define DENSITY_SCALE 1048576.0f
+#define FIXED_POINT_SCALE 1024
 
 #define NO_LABEL 16777215  // safe max exact int
 float NO_LABELF()
@@ -43,6 +45,23 @@ float NO_LABELF()
 static const uint PrimMesh = 0;
 static const uint PrimSphere = 1;
 
+
+#define DIFFUSION_RATE 20.25f
+
+// Quadratic B-spline weight for integer offset d (-1, 0, +1).
+float BSplineWeight(int d)
+{
+    // N2(0) = 0.75, N2(+-1) = 0.125
+    float ad = abs((float) d);
+    if (ad < 0.5f)
+        return 0.75f;
+    if (ad < 1.5f)
+    {
+        float t = 1.5f - ad;
+        return 0.5f * t * t;
+    }
+    return 0.0f;
+}
 
 // cheap length (dot*rsqrt)
 inline float lenFast(float3 v)
@@ -97,10 +116,27 @@ struct QuantaDeformation
 
 struct MaterialGridPoint
 {
+    int4 information;
     float4 fieldValues;
     float4 massMomentum;
     float4 velocity;
     float4 normal;
+};
+
+struct MaterialGridAccumulator
+{
+    int4 fieldValues;
+    int4 massMomentum;
+    int4 velocity;
+    int4 normal;
+};
+
+struct Lepton
+{
+    float4 position;   // w = claimer ID.
+    float4 direction;  // w = radius of influence.
+    float4 mana;       // xyz = charge types, w = lifespan.
+    float4 velocity;   // speed through field.
 };
 
 struct ControlParticle
@@ -143,6 +179,12 @@ struct Brush
     float particleRadius;
     int isCollapsing;
     float collapsePad0;
+    
+    //Physics.
+    float mass;
+    uint rayMask;
+    float pad2;
+    float pad3;
 };
 
 struct Vertex
@@ -177,12 +219,17 @@ float GetTileSize(int3 voxelRes)
 
 float3 GetDCAABBSize()
 {
-    return float3(16, 16, 4);
+    return float3(32, 32, 8);
 }
 
 float3 GetSceneSize()
 {
     return float3(64, 64, 16);
+}
+
+int3 GetMaterialGridSize()
+{
+    return int3(256, 256, 64);
 }
 
 float4 GetVoxelResolutionWorldSDFArbitrary(float sampleLevel, int3 voxelRes)
@@ -904,6 +951,17 @@ uint ComputeTileIndex(float3 pos, int3 tileGrid)
     return (uint) Flatten3D(tileCoord, int3(tileGrid.x, tileGrid.y, tileGrid.z));
 }
 
+float3 RandomUnitVector(float3 pos, float seed)
+{
+    float3 v = float3(
+        randNegative1to1(pos, seed),
+        randNegative1to1(pos, seed + 1.0f),
+        randNegative1to1(pos, seed + 2.0f)
+    );
+
+    return normalize(v);
+}
+
 
 
         //-----------------------------------
@@ -985,3 +1043,4 @@ static const uint3 triangles[] =
         uint3(7, 11, 25), uint3(11, 6, 25),
         uint3(6, 18, 25), uint3(18, 2, 25)
 };
+

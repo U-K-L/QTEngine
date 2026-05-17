@@ -19,11 +19,8 @@ cbuffer LightBuffer : register(b0)
 
 float4 main(PSInput input) : SV_TARGET
 {
-    //Create normal as float4 and set to final color.
-    //multiply normal by model matrix to get world normal.
-    float3 worldNormal = mul((float3x3) transpose(inverse(model)), input.normal);
-    worldNormal = normalize(worldNormal);
-    
+    float3 worldNormal = normalize(input.normal.xyz);
+
     //float4 randomIdColored = rand4(float4(input.normal.w, input.normal.w * 3, input.normal.w + 722, 1.0f));
 
 

@@ -20,9 +20,9 @@ UnigmaScene::~UnigmaScene()
 
 void UnigmaScene::Update()
 {
-	float simulationTime = 1.0f / 24.0f;
-	physicsScene->simulate(simulationTime);
-	physicsScene->fetchResults(true);
+	//float simulationTime = 1.0f / 24.0f;
+	//physicsScene->simulate(simulationTime);
+	//physicsScene->fetchResults(true);
 }
 
 void UnigmaScene::Start()
@@ -118,18 +118,13 @@ void UnigmaScene::LoadJSON(std::string sceneName)
 
 		if(strcmp(std::string(obj["type"]).c_str(), "Light") == 0)
 		{
-			//std::cout << "Light object found: " << gameObject.name << std::endl;
 			gameManager->RenderingManager->CreateLightObject(gameObject);
-
-			//Get size of lights.
-			uint32_t size = GetLightsSize();
-			UnigmaLight light;
-
-			light.emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
-
-			Lights.push_back(light);
-
-			//std::cout << "Light Emission: " << Lights[size].emission.r << ", " << Lights[size].emission.g << ", " << Lights[size].emission.b << ", " << Lights[size].emission.a << std::endl;
+			UnigmaLight& L = Lights.back();
+			L.emission = glm::vec4(obj["Emission"]["r"], obj["Emission"]["g"], obj["Emission"]["b"], obj["Emission"]["a"]);
+			if (obj.contains("LightType"))
+				L.type = (uint32_t)obj["LightType"];
+			if (obj.contains("Direction"))
+				L.direction = glm::vec3(obj["Direction"][0], obj["Direction"][1], obj["Direction"][2]);
 		}
 	}
 }
@@ -139,13 +134,11 @@ void UnigmaScene::CreateScene()
 
 	std::cout << "Creating scene: " << Name << std::endl;
 
-	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
-	sceneDesc.cpuDispatcher = gPhysicsDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-
-
-	physicsScene = gPhysics->createScene(sceneDesc);
+	//PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
+	//sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
+	//sceneDesc.cpuDispatcher = gPhysicsDispatcher;
+	//sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+	//physicsScene = gPhysics->createScene(sceneDesc);
 	/*
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
 	//Create a camera.
@@ -167,11 +160,11 @@ void UnigmaScene::CreateScene()
 void UnigmaScene::CleanUpScene()
 {
 	std::cout << "Cleaning up scene named: " << Name << std::endl;
-	// in your cleanup, before gPhysicsDispatcher->release()…
-	if (physicsScene)
-	{
-		physicsScene->release();
-		physicsScene = nullptr;
-	}
+	// in your cleanup, before gPhysicsDispatcher->release()ï¿½
+	//if (physicsScene)
+	//{
+	//	physicsScene->release();
+	//	physicsScene = nullptr;
+	//}
 
 }

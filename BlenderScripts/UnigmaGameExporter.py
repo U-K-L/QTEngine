@@ -2,6 +2,7 @@
 import bpy
 import os
 import json
+import math
 from mathutils import Vector
 
 #Exporter menu options
@@ -89,9 +90,9 @@ class UnigmaExporter(bpy.types.Operator):
             world_rotation = obj.matrix_world.to_euler()
             world_scale = obj.matrix_world.to_scale()
 
-            # Custom properties (e.g., BaseAlbedo)
+            # Custom properties (e.g., Midtone)
             custom_properties = {}
-            outlineNames = ["BaseAlbedo", "TopAlbedo", "SideAlbedo", "InnerOutlineColor", "OuterOutlineColor"]
+            outlineNames = ["Midtone", "Highlight", "Shadow", "InnerOutlineColor", "OuterOutlineColor"]
             for prop_name, prop_value in obj.items():
                 if prop_name not in outlineNames:
                     continue
@@ -124,11 +125,17 @@ class UnigmaExporter(bpy.types.Operator):
                                     print(f"Available inputs: {[input.name for input in node.inputs]}")
 
 
+            light_type_index = None
+            light_direction = None
             if obj.type == 'LIGHT':
                 light_data = obj.data
                 emcolor = list(light_data.color)
                 emission = [emcolor[0], emcolor[1], emcolor[2], light_data.energy]
-                                        
+                light_type_map = {'SUN': 0, 'POINT': 1, 'SPOT': 2, 'AREA': 3}
+                light_type_index = light_type_map.get(light_data.type, 0)
+                forward_world = (obj.matrix_world.to_3x3() @ Vector((0.0, 0.0, -1.0))).normalized()
+                light_direction = [forward_world.x, forward_world.y, forward_world.z]
+
             parent_name = obj.parent.name if obj.parent else None
             
             compOut = {}
@@ -160,6 +167,17 @@ class UnigmaExporter(bpy.types.Operator):
                         v = list(v)
                     settings[k] = v
                 compOut[comp_name] = settings
+
+            # For cameras, inject CameraComp from Blender camera datablock so engine reads it.
+            if obj.type == 'CAMERA':
+                cam = obj.data
+                cam_settings = compOut.get("CameraComp", {})
+                cam_settings["FOV"] = float(math.degrees(cam.angle))
+                cam_settings["NearClip"] = float(cam.clip_start)
+                cam_settings["FarClip"] = float(cam.clip_end)
+                cam_settings["CameraType"] = "Orthogonal" if cam.type == 'ORTHO' else "Perspective"
+                cam_settings["OrthographicSize"] = float(cam.ortho_scale)
+                compOut["CameraComp"] = cam_settings
 
             serializableComponents = self.make_serializable(compOut)
             # Add info to the scene data structure
@@ -213,6 +231,10 @@ class UnigmaExporter(bpy.types.Operator):
                 "Components": serializableComponents,
                 "CustomProperties": custom_properties
             })
+            if light_type_index is not None:
+                scene_data["GameObjects"][-1]["LightType"] = light_type_index
+            if light_direction is not None:
+                scene_data["GameObjects"][-1]["Direction"] = light_direction
 
         blend_file_dir = bpy.path.abspath("//")
         blend_file_name_no_ext = os.path.basename(bpy.data.filepath).replace(".blend", "")

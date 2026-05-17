@@ -233,6 +233,9 @@ void ComputePass::UpdateUniformBufferObjects(VkCommandBuffer commandBuffer, uint
 void ComputePass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
 
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
+
     //Get the images path tied to this material.
     for (int i = 0; i < material.textures.size(); i++) {
         app->LoadTexture(material.textures[i].TEXTURE_PATH);
@@ -348,6 +351,28 @@ void ComputePass::CreateImages() {
 
 		app->textures.insert({ PassNames[i], texture });
 	}
+}
+
+void ComputePass::CleanupImages()
+{
+    VkDevice device = QTDoughApplication::instance->_logicalDevice;
+    vkDeviceWaitIdle(device);
+
+    if (imageView != VK_NULL_HANDLE) { vkDestroyImageView(device, imageView, nullptr); imageView = VK_NULL_HANDLE; }
+    if (image != VK_NULL_HANDLE) { vkDestroyImage(device, image, nullptr); image = VK_NULL_HANDLE; }
+    if (imageMemory != VK_NULL_HANDLE) { vkFreeMemory(device, imageMemory, nullptr); imageMemory = VK_NULL_HANDLE; }
+
+    for (size_t i = 0; i < imagesViews.size(); i++)
+    {
+        if (imagesViews[i] != VK_NULL_HANDLE) vkDestroyImageView(device, imagesViews[i], nullptr);
+    }
+    imagesViews.clear();
+
+    for (size_t i = 0; i < images.size(); i++)
+    {
+        if (images[i] != VK_NULL_HANDLE) { vkDestroyImage(device, images[i], nullptr); images[i] = VK_NULL_HANDLE; }
+        if (imagesMemory[i] != VK_NULL_HANDLE) { vkFreeMemory(device, imagesMemory[i], nullptr); imagesMemory[i] = VK_NULL_HANDLE; }
+    }
 }
 
 void ComputePass::CreateComputePipeline()

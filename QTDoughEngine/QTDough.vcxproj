@@ -35,6 +35,7 @@
     <ClCompile Include="src\Engine\Core\UnigmaGameObject.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaGameObjectManager.cpp" />
     <ClCompile Include="src\Engine\Core\UnigmaScenes.cpp" />
+    <ClCompile Include="src\Engine\Physics\Emitter.cpp" />
     <ClCompile Include="src\Engine\Physics\MaterialSimulationPass.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingManager.cpp" />
     <ClCompile Include="src\Engine\Renderer\UnigmaRenderingObject.cpp" />
@@ -43,9 +44,11 @@
     <ClCompile Include="src\Engine\RenderPasses\CombineSDFRasterPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\CompositionPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\ComputePass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\ImguiOverlayPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\NormalPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\OutlinePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\PositionPass.cpp" />
+    <ClCompile Include="src\Engine\RenderPasses\QuantaSpherePass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RayTracerPass.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\RenderPassObject.cpp" />
     <ClCompile Include="src\Engine\RenderPasses\SDFPass.cpp" />
@@ -73,6 +76,7 @@
     <ClInclude Include="src\Engine\Core\UnigmaGameObjectManager.h" />
     <ClInclude Include="src\Engine\Core\UnigmaScenes.h" />
     <ClInclude Include="src\Engine\Core\UnigmaTransform.h" />
+    <ClInclude Include="src\Engine\Physics\Emitter.h" />
     <ClInclude Include="src\Engine\Physics\MaterialSimulationPass.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaLights.h" />
     <ClInclude Include="src\Engine\Renderer\UnigmaMaterial.h" />
@@ -87,9 +91,11 @@
     <ClInclude Include="src\Engine\RenderPasses\CombineSDFRasterPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\CompositionPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\ComputePass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\ImguiOverlayPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\NormalPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\OutlinePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\PositionPass.h" />
+    <ClInclude Include="src\Engine\RenderPasses\QuantaSpherePass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RayTracerPass.h" />
     <ClInclude Include="src\Engine\RenderPasses\RenderPassObject.h" />
     <ClInclude Include="src\Engine\RenderPasses\SDFPass.h" />
@@ -209,6 +215,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\RayTraceAccel\rayTracingAccelHelper.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\Helpers\LightingHelpers.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\MaterialSim\lepton_histogram.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

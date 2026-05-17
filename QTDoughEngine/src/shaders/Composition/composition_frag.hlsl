@@ -48,7 +48,10 @@ struct Images
     uint CombineSDFRasterPass;
     uint FullSDFField;
     uint RayAlbedoPass;
+    uint RayNormalPass;
+    uint RayPositionPass;
     uint MaterialGridImage;
+    uint QuantaSpheresImage;
 };
 
 Images InitImages()
@@ -67,7 +70,10 @@ Images InitImages()
     image.CombineSDFRasterPass = intArray[9];
     image.FullSDFField = intArray[10];
     image.RayAlbedoPass = intArray[11];
-    image.MaterialGridImage = intArray[12];
+    image.RayNormalPass = intArray[12];
+    image.RayPositionPass = intArray[13];
+    image.MaterialGridImage = intArray[14];
+    image.QuantaSpheresImage = intArray[15];
 
     return image;
 }
@@ -151,22 +157,27 @@ float4 main(VSOutput i) : SV_Target
     float4 fullFieldSDF = textures[images.FullSDFField].Sample(samplers[images.FullSDFField], textureUVs);
     
     float4 rayAlbedoPass = textures[images.RayAlbedoPass].Sample(samplers[images.RayAlbedoPass], textureUVs);
-    
+    float4 rayNormalPass = textures[images.RayNormalPass].Sample(samplers[images.RayNormalPass], textureUVs);
+    float4 rayPositionPass = textures[images.RayPositionPass].Sample(samplers[images.RayPositionPass], textureUVs);
     
     float4 color = lerp(backgroundImage, sdfImage, sdfImage.w);
     
+    float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
+    float4 quantaSpheresImage = textures[images.QuantaSpheresImage].Sample(samplers[images.QuantaSpheresImage], textureUVs);
+
     if(pc.input == 1)
         return fullFieldSDF;
     if (pc.input == 2)
-        return float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
+        return float4(normalImage.xyz, 1.0f);
+    if (pc.input == 9)
+        return float4(quantaSpheresImage.rgb, 1.0f);
     if (pc.input == 4)
-        return albedoImage;
+        return albedoImage; //rayAlbedoPass + materialGridImage;
     if(pc.input == 5)
-        return rayAlbedoPass; //sdfImage.w;
+        return float4(rayNormalPass.xyz, 1.0f);
 
-    float4 materialGridImage = textures[images.MaterialGridImage].Sample(samplers[images.MaterialGridImage], textureUVs);
     if(pc.input == 6)
-        return float4(materialGridImage.xyz, 1.0f);
+        rayAlbedoPass.xyz += materialGridImage.xyz; //color.xyz += materialGridImage.xyz; //return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);
@@ -211,7 +222,7 @@ float4 main(VSOutput i) : SV_Target
     //Light is stored in w.
     float4 colorWithLight = finalColor; //saturate(float4((finalColor - saturate(1.0 - sdfImage.w) * 0.25f).xyz, 1));
     
-    color = lerp(backgroundImage, colorWithLight, combinedNormals.w);
+    color = lerp(0, colorWithLight, colorWithLight.w);
     
     
 
@@ -239,6 +250,6 @@ float4 main(VSOutput i) : SV_Target
     //return outColor;
     //return float4(GammaEncode(albedoImage.xyz, 0.32875), 1);
     //float sins = sin(time);
-    return float4(finalImage.xyz, 1.0);
+    return float4(finalImage.xyz + materialGridImage.xyz, 1.0);
 
 }

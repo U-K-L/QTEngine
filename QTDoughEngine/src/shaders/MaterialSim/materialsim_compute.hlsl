@@ -29,6 +29,7 @@ RWStructuredBuffer<uint> tileCursor : register(u6, space1);
 
 StructuredBuffer<QuantaDeformation> deformIn : register(t9, space1);
 RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
+StructuredBuffer<Brush> Brushes : register(t7, space1);
 
 #define GROUP_SIZE 512 // 8 * 8 * 8
 #define BROWNIAN_STRENGTH 25.5f
@@ -43,33 +44,46 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     Quanta q = quantaIn[globalIndex];
-    q.mana.w = 0;
+    int brushId = q.information.x - 1;
     
-
-    if (q.position.w < 1 || q.information.x > 0)
+        
+    //Reset
+    if (q.information.x > 0 && q.information.z > 0 && q.mana.w < 0.01f)
     {
-        //quantaOut[globalIndex] = q;
-        //return;
+        //q.information.x = 0;
+        //q.mana.w = 0;
+        quantaOut[globalIndex] = q;
+        return;
+    }
+    
+    //Skip.
+    if (q.position.w < 1 || q.mana.w < 0.01)
+    {
+        quantaOut[globalIndex] = q;
+        return;
     }
 
-    // Brownian motion — random kick each frame.
-    float3 kick = float3(
-        randNegative1to1(q.position.xyz, time),
-        randNegative1to1(q.position.xyz, time + 3.7f),
-        randNegative1to1(q.position.xyz, time + 7.3f)
-    );
 
-    //q.position.xyz += kick * BROWNIAN_STRENGTH * deltaTime;
 
-    // Melt: only x >= 0 half, strength falls off with distance from origin.
-    if (q.position.x >= 0)
+
+    float3 worldPos = q.position.xyz;
+    
+    if (brushId >= 0)
+        worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
+    
+    float3 gravity = float3(0, 0, -9.8f) * q.mana.w;
+    worldPos += gravity * deltaTime * 0.01f;
+    
+    if (brushId >= 0)
     {
-        float dist = length(q.position.xyz);
-        float meltStrength = 1.0f / (1.0f + dist * dist); // Inverse square falloff.
-        float3 meltDir = float3(0, 0, -1); // Drip downward.
-        q.position.xyz += meltDir * meltStrength * 52.4f * deltaTime;
-        q.mana.w = 1.0f;
-    }
+        q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
 
+        // If quanta left its brush AABB, unassign it.
+        float3 qUvw = (q.position.xyz - Brushes[brushId].aabbmin.xyz) / (Brushes[brushId].aabbmax.xyz - Brushes[brushId].aabbmin.xyz);
+        if (any(qUvw < 0.0f) || any(qUvw > 1.0f))
+            q.information.x = 0;
+    }
+    else
+        q.position.xyz = worldPos;
     quantaOut[globalIndex] = q;
 }

@@ -84,6 +84,12 @@ public:
         float particleRadius;
         int isCollapsing;
         uint32_t particleCount;
+
+        //Physics.
+        float mass;
+        uint32_t rayMask;
+        float pad2;
+        float pad3;
     };
 
     struct MaterialBrushPoint
@@ -105,8 +111,11 @@ public:
         glm::vec4 aabbCenter;
         float supportMultiplier;
         int viewMode;
+        int countOnly;
     };
 
+    glm::vec3 dcAABBSize = glm::vec3(32.0f, 32.0f, 8.0f);
+    glm::vec3 sceneSize  = glm::vec3(64.0f, 64.0f, 16.0f); // mirrors GetSceneSize() in ShaderHelpers.hlsl
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024,256);
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3
@@ -128,10 +137,13 @@ public:
 
 
     uint32_t dispatchCount = 0;
+    uint32_t occupancyRollingIndex = 0;
+    uint32_t occupancyBrushesPerFrame = 2;
     uint32_t IDDispatchIteration = 0;
     uint32_t requiredIterations = 60;
 
     bool flagSDFBaker = false; //This is a flag to bake the SDF from triangles.
+    bool voxelDataInitialized = false;
 
 
     float defaultDistanceMax = 100.0f; //This is the maximum distance for each point in the grid.
@@ -171,6 +183,24 @@ public:
     VkBuffer stagingGlobalIDCounterBuffer;
     VkDeviceMemory stagingGlobalIDCounterMemory;
 
+    //Brush vertices counter.
+    std::vector<uint32_t> BrushVerticesCount;
+    VkBuffer brushVerticesStorageBuffer;
+    VkDeviceMemory brushVerticesStorageMemory;
+
+    VkBuffer stagingBrushVerticesBuffer;
+    VkDeviceMemory stagingBrushVerticesMemory;
+
+    //Per-brush base offset into the soup (GPU prefix-sum of BrushVerticesCount).
+    VkBuffer brushVertexOffsetsBuffers[2];
+    VkDeviceMemory brushVertexOffsetsMemories[2];
+    VkBuffer stagingBrushVertexOffsetsBuffer;
+    VkDeviceMemory stagingBrushVertexOffsetsMemory;
+    std::vector<uint32_t> BrushVertexOffsets;
+    //Per-brush write cursor used by DC pass 2 to claim slots within the brush's slice.
+    VkBuffer brushWriteCursorsBuffer;
+    VkDeviceMemory brushWriteCursorsMemory;
+
     //For IDs and Verts.
     uint32_t globalIDCounterSize = 2;
 
@@ -195,6 +225,8 @@ public:
     VkPipelineLayout voxelizeComputePipelineLayout;
     VkPipeline tileGenerationComputePipeline;
     VkPipelineLayout tileGenerationComputePipelineLayout;
+    VkPipeline brushOccupancyPipeline;
+    VkPipelineLayout brushOccupancyPipelineLayout;
 
     VkBuffer  voxL1PingPong[2]{};
     VkBuffer  voxL2PingPong[2]{};
@@ -223,9 +255,10 @@ public:
     void IsOccupiedByVoxel();
     void BakeSDFFromTriangles();
     float DistanceToTriangle(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
-    void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false);
+    void DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag = false, bool countOnly = false);
     void CreateComputePipelineName(std::string shaderPass, VkPipeline& rcomputePipeline, VkPipelineLayout& rcomputePipelineLayout);
     void DispatchTile(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
+    void DispatchBrushOccupancy(VkCommandBuffer commandBuffer, uint32_t currentFrame, int brushIndex);
     void DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void CreateImages() override;
     void Create3DTextures();
@@ -242,10 +275,10 @@ public:
     void DispatchBrushGeneration(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lod, uint32_t brushID);
     void DispatchParticleCreation(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel);
     void GetMeshFromGPU();
-    void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID);
+    void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID, bool countOnly = false);
     void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
-    void RecordCounterReadback(VkCommandBuffer commandBuffer);
+    void RecordCounterReadback(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void ReadCounterOnCPU();
     void ReadBackGPUData() override;
     int AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,
@@ -293,10 +326,12 @@ public:
     std::vector<Vertex> meshVertices;
     std::vector<Vertex> meshingVertexSoup;
     std::vector<glm::uvec3> meshingTriangleIndices;
-    VkBuffer meshingVertexBuffer;
+    VkBuffer meshingVertexBuffers[2];
+    VkBuffer meshingPositionBuffers[2];
+    VkDeviceMemory meshingPositionBufferMemories[2];
     VkBuffer vertexBufferReadbackBuffer;
     VkDeviceMemory vertexBufferReadbackMemory;
-    VkDeviceMemory meshingVertexBufferMemory;
+    VkDeviceMemory meshingVertexBufferMemories[2];
     VkBuffer meshingIndexBuffer;
     VkDeviceMemory meshingIndexBufferMemory;
 

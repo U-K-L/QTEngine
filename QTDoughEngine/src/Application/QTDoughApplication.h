@@ -76,7 +76,8 @@ const std::vector<const char*> deviceExtensions = {
     VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
     VK_KHR_SPIRV_1_4_EXTENSION_NAME,
     VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
-    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+    VK_EXT_MEMORY_BUDGET_EXTENSION_NAME
 };
 
 
@@ -116,9 +117,9 @@ struct GlobalUniformBufferObject
 struct GameObjectShaderData
 {
     glm::mat4 transform;
-    glm::vec4 BaseAlbedo;
-    glm::vec4 TopAlbedo;
-    glm::vec4 SideAlbedo;
+    glm::vec4 Midtone;
+    glm::vec4 Highlight;
+    glm::vec4 Shadow;
 
 };
 
@@ -167,24 +168,26 @@ const bool enableValidationLayers = true;
 enum class ViewModes
 {
 	Render = 0,
-	Quanta = 1,
+	SDF = 1,
 	Normals = 2,
 	Albedo = 4,
 	Material = 6,
-	Gaussian = 7,
-	MaterialBrush = 8
+	MaterialBrush = 8,
+	Quanta = 9
 };
 enum class EngineMode { Editor, Play };
 
 struct EditorState {
     EngineMode mode = EngineMode::Editor;
     bool IsEditor() const { return mode == EngineMode::Editor; }
-    ViewModes viewMode; // Composition shader view: 0=Render, 1=Quanta, 2=Normals, 4=Albedo, 6=Material
+    ViewModes viewMode = ViewModes::Albedo; // Composition shader view: 0=Render, 1=SDF, 2=Normals, 4=Albedo, 6=Material, 9=Quanta
+    int selectedBrushIndex = -1; // -1 = none selected
+    int selectedLightIndex = -1; // -1 = none selected
+    bool cameraSelected = false; // camera gizmo visibility
+    ImGuizmo::OPERATION gizmoOperation = ImGuizmo::TRANSLATE;
+    float viewportX = 0, viewportY = 0, viewportW = 1, viewportH = 1; // ImGui viewport rect
 
-    // Offscreen viewport resources (editor renders game here, then displays via ImGui::Image)
-    VkImage viewportImage = VK_NULL_HANDLE;
-    VkDeviceMemory viewportImageMemory = VK_NULL_HANDLE;
-    VkImageView viewportImageView = VK_NULL_HANDLE;
+    // ImGui texture binding for sampling the engine's frame output inside an embedded viewport widget.
     VkSampler viewportSampler = VK_NULL_HANDLE;
     VkDescriptorSet viewportDescriptorSet = VK_NULL_HANDLE; // For ImGui_ImplVulkan_AddTexture
 };
@@ -215,13 +218,27 @@ public:
     EditorState editorState;
     void CreateEditorViewportImage();
     void CleanupEditorViewportImage();
+    void CreateFrameOutput();
+    void CleanupFrameOutput();
+
+    // Engine final render target. All passes write to this; engine blits it to the swapchain.
+    VkImage frameOutput = VK_NULL_HANDLE;
+    VkDeviceMemory frameOutputMemory = VK_NULL_HANDLE;
+    VkImageView frameOutputView = VK_NULL_HANDLE;
+
+    // Snapshot of frameOutput taken by ImguiOverlayPass before it writes back into frameOutput.
+    // Lets the editor viewport widget sample the pre-overlay scene without a feedback-loop hazard.
+    VkImage frameOutputSnapshot = VK_NULL_HANDLE;
+    VkDeviceMemory frameOutputSnapshotMemory = VK_NULL_HANDLE;
+    VkImageView frameOutputSnapshotView = VK_NULL_HANDLE;
 
     //Fields.
     bool PROGRAMEND = false;
     std::chrono::high_resolution_clock::time_point timeSinceApplication;
     std::chrono::high_resolution_clock::time_point timeSecondPassed;
     std::chrono::high_resolution_clock::time_point timeMinutePassed;
-    std::chrono::high_resolution_clock::time_point currentTime;
+    std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point previousTime = std::chrono::high_resolution_clock::now();
     std::vector<VkBuffer> globalUniformBufferObject;
     std::vector<VkDeviceMemory> globalUniformBuffersMemory;
     std::vector<VkDescriptorSet> globalDescriptorSets;
@@ -307,6 +324,9 @@ public:
 
     void StartRecording(const char* path, uint32_t fps);
     void StopRecording();
+    void SetupEngineGUI();
+
+    void ExportPassOutputs();
 
     void CreateImages3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     VkImageView Create3DImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);

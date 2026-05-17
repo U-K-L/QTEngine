@@ -9,14 +9,15 @@ UnigmaPhysicsComp::UnigmaPhysicsComp()
 UnigmaPhysicsComp::~UnigmaPhysicsComp()
 {
 	// Clean up the actor if it exists
-	if (actor)
-	{
-		actor->release();
-	}
+	//if (actor)
+	//{
+	//	actor->release();
+	//}
 }
 
 void UnigmaPhysicsComp::InitializeData(nlohmann::json& componentData)
 {
+	return; // PhysX disabled
 	UnigmaGameObject* gobj = &GameObjects[GID];
 	// Initialize the component data from JSON
 	if (componentData.contains("GeometryType"))
@@ -96,6 +97,7 @@ void UnigmaPhysicsComp::Start()
 
 void UnigmaPhysicsComp::Init()
 {
+	return; // PhysX disabled
 	UnigmaGameObject* gobj = &GameObjects[GID];
 	PxMaterial* material = gPhysics->createMaterial(staticFriction, dynamicFriction, restitution);
 
@@ -150,6 +152,7 @@ void UnigmaPhysicsComp::Init()
 
 void UnigmaPhysicsComp::Update()
 {
+	return; // PhysX disabled
 	UnigmaGameObject* gobj = &GameObjects[GID];
 	if(bodyType == Static)
 	{

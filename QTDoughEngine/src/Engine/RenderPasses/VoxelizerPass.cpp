@@ -1,4 +1,5 @@
 #include "VoxelizerPass.h"
+#include "../Physics/Emitter.h"
 #include <random>
 
 VoxelizerPass* VoxelizerPass::instance = nullptr;
@@ -189,17 +190,39 @@ void VoxelizerPass::CreateComputePipelineName(std::string shaderPass, VkPipeline
     vkDestroyShaderModule(app->_logicalDevice, computeShaderModule, nullptr);
 }
 
-void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
+void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
-    // make counter visible to transfer
-    VkBufferMemoryBarrier barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.buffer = globalIDCounterStorageBuffers;
-    barrier.offset = 0;
-    barrier.size = sizeof(uint32_t) * globalIDCounterSize;
+    // Guard against null handles; readback cannot run without all participants.
+    if (commandBuffer == VK_NULL_HANDLE ||
+        globalIDCounterStorageBuffers == VK_NULL_HANDLE ||
+        brushVerticesStorageBuffer == VK_NULL_HANDLE ||
+        brushVertexOffsetsBuffers[currentFrame % 2] == VK_NULL_HANDLE ||
+        stagingGlobalIDCounterBuffer == VK_NULL_HANDLE ||
+        stagingBrushVerticesBuffer == VK_NULL_HANDLE ||
+        stagingBrushVertexOffsetsBuffer == VK_NULL_HANDLE)
+    {
+        std::cout << "RecordCounterReadback: null handle present, skipping readback." << std::endl;
+        return;
+    }
+
+    // make counters visible to transfer
+    VkBufferMemoryBarrier shaderToTransfer[3] = {};
+    shaderToTransfer[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    shaderToTransfer[0].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    shaderToTransfer[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    shaderToTransfer[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    shaderToTransfer[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    shaderToTransfer[0].buffer = globalIDCounterStorageBuffers;
+    shaderToTransfer[0].offset = 0;
+    shaderToTransfer[0].size = sizeof(uint32_t) * globalIDCounterSize;
+
+    shaderToTransfer[1] = shaderToTransfer[0];
+    shaderToTransfer[1].buffer = brushVerticesStorageBuffer;
+    shaderToTransfer[1].size = sizeof(uint32_t) * maxBrushCapacity;
+
+    shaderToTransfer[2] = shaderToTransfer[0];
+    shaderToTransfer[2].buffer = brushVertexOffsetsBuffers[currentFrame % 2];
+    shaderToTransfer[2].size = sizeof(uint32_t) * maxBrushCapacity;
 
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -207,7 +230,7 @@ void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         0,
         0, nullptr,
-        1, &barrier,
+        3, shaderToTransfer,
         0, nullptr
     );
 
@@ -223,15 +246,43 @@ void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
         1, &copy
     );
 
+    VkBufferCopy brushCopy{};
+    brushCopy.srcOffset = 0;
+    brushCopy.dstOffset = 0;
+    brushCopy.size = sizeof(uint32_t) * maxBrushCapacity;
+
+    vkCmdCopyBuffer(
+        commandBuffer,
+        brushVerticesStorageBuffer,
+        stagingBrushVerticesBuffer,
+        1, &brushCopy
+    );
+
+    vkCmdCopyBuffer(
+        commandBuffer,
+        brushVertexOffsetsBuffers[currentFrame % 2],
+        stagingBrushVertexOffsetsBuffer,
+        1, &brushCopy
+    );
+
     // optional: make transfer visible to host (not strictly required if you wait on fence)
-    VkBufferMemoryBarrier hostBarrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-    hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
-    hostBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    hostBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    hostBarrier.buffer = stagingGlobalIDCounterBuffer;
-    hostBarrier.offset = 0;
-    hostBarrier.size = sizeof(uint32_t) * globalIDCounterSize;
+    VkBufferMemoryBarrier transferToHost[3] = {};
+    transferToHost[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    transferToHost[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    transferToHost[0].dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    transferToHost[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    transferToHost[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    transferToHost[0].buffer = stagingGlobalIDCounterBuffer;
+    transferToHost[0].offset = 0;
+    transferToHost[0].size = sizeof(uint32_t) * globalIDCounterSize;
+
+    transferToHost[1] = transferToHost[0];
+    transferToHost[1].buffer = stagingBrushVerticesBuffer;
+    transferToHost[1].size = sizeof(uint32_t) * maxBrushCapacity;
+
+    transferToHost[2] = transferToHost[0];
+    transferToHost[2].buffer = stagingBrushVertexOffsetsBuffer;
+    transferToHost[2].size = sizeof(uint32_t) * maxBrushCapacity;
 
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -239,7 +290,7 @@ void VoxelizerPass::RecordCounterReadback(VkCommandBuffer commandBuffer)
         VK_PIPELINE_STAGE_HOST_BIT,
         0,
         0, nullptr,
-        1, &hostBarrier,
+        3, transferToHost,
         0, nullptr
     );
 }
@@ -282,16 +333,50 @@ void VoxelizerPass::GetMeshFromGPU()
 
     vkCmdCopyBuffer(cb, globalIDCounterStorageBuffers, stagingGlobalIDCounterBuffer, 1, &copy);
 
+    VkBufferMemoryBarrier brushBarrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    brushBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    brushBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    brushBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    brushBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    brushBarrier.buffer = brushVerticesStorageBuffer;
+    brushBarrier.offset = 0;
+    brushBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(
+        cb,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        1, &brushBarrier,
+        0, nullptr
+    );
+
+    VkBufferCopy brushCopy{};
+    brushCopy.srcOffset = 0;
+    brushCopy.dstOffset = 0;
+    brushCopy.size = sizeof(uint32_t) * maxBrushCapacity;
+    vkCmdCopyBuffer(cb, brushVerticesStorageBuffer, stagingBrushVerticesBuffer, 1, &brushCopy);
+
     app->EndSingleTimeCommands(cb);
     vkDeviceWaitIdle(app->_logicalDevice);
 
 
-    void* mapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
-    memcpy(counters, mapped, sizeof(counters));
-    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
-
-    vertexCount = counters[1];
+    if (stagingGlobalIDCounterMemory != VK_NULL_HANDLE)
+    {
+        void* mapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
+        if (r == VK_SUCCESS && mapped != nullptr)
+        {
+            memcpy(counters, mapped, sizeof(counters));
+            vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+            vertexCount = counters[1];
+        }
+        else
+        {
+            std::cout << "GetMeshFromGPU: globalIDCounter map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 
     if(vertexCount == 0) {
 		std::cout << "No vertices generated in voxelization." << std::endl;
@@ -299,6 +384,21 @@ void VoxelizerPass::GetMeshFromGPU()
 
     readBackVertexCount = vertexCount;
 
+    // Pull per-brush vertex counts to CPU for post-DC TLAS instance build.
+    if (stagingBrushVerticesMemory != VK_NULL_HANDLE && BrushVerticesCount.size() >= maxBrushCapacity)
+    {
+        void* brushMapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &brushMapped);
+        if (r == VK_SUCCESS && brushMapped != nullptr)
+        {
+            memcpy(BrushVerticesCount.data(), brushMapped, sizeof(uint32_t) * maxBrushCapacity);
+            vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+        }
+        else
+        {
+            std::cout << "GetMeshFromGPU: brushVertices map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 }
 
 void VoxelizerPass::CreateComputePipeline()
@@ -307,6 +407,7 @@ void VoxelizerPass::CreateComputePipeline()
 
     CreateComputePipelineName("voxelizer", voxelizeComputePipeline, voxelizeComputePipelineLayout);
     CreateComputePipelineName("tilesdf", tileGenerationComputePipeline, tileGenerationComputePipelineLayout);
+    CreateComputePipelineName("brush_occupancy", brushOccupancyPipeline, brushOccupancyPipelineLayout);
     std::cout << "Compute pipeline created" << std::endl;
 
     std::cout << "Memory of voxels in L1: " << sizeof(VoxelL1) * VOXEL_COUNTL1 / 1024.0f / 1024.0f << " MB" << std::endl;
@@ -347,9 +448,9 @@ void VoxelizerPass::CreateDescriptorPool()
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = kTotalSets * 1;
 
-    // storage buffers per set (bindings 1-23)
+    // storage buffers per set (bindings 1-25)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = kTotalSets * 23;
+    poolSizes[1].descriptorCount = kTotalSets * 27;
 
     VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     poolInfo.poolSizeCount = 2;
@@ -568,6 +669,67 @@ void VoxelizerPass::CreateShaderStorageBuffers()
 
     app->CopyBuffer(stagingGlobalIDCounterBuffer, globalIDCounterStorageBuffers, sizeof(uint32_t)* globalIDCounterSize);
 
+    BrushVerticesCount.resize(maxBrushCapacity, 0);
+    app->CreateBuffer(
+        sizeof(uint32_t)* maxBrushCapacity,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBrushVerticesBuffer,
+        stagingBrushVerticesMemory
+    );
+
+    void* brushVerticesData;
+
+    //CPU pointer -> VKmemory
+    vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t)* maxBrushCapacity, 0, &brushVerticesData);
+    memcpy(brushVerticesData, BrushVerticesCount.data(), sizeof(uint32_t)* maxBrushCapacity);
+    vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+
+
+    app->CreateBuffer(
+        sizeof(uint32_t)* maxBrushCapacity,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        brushVerticesStorageBuffer,
+        brushVerticesStorageMemory
+    );
+
+    app->CopyBuffer(stagingBrushVerticesBuffer, brushVerticesStorageBuffer, sizeof(uint32_t)* maxBrushCapacity);
+
+    for (int p = 0; p < 2; ++p) {
+        app->CreateBuffer(
+            sizeof(uint32_t) * maxBrushCapacity,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            brushVertexOffsetsBuffers[p],
+            brushVertexOffsetsMemories[p]
+        );
+    }
+
+    app->CreateBuffer(
+        sizeof(uint32_t) * maxBrushCapacity,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBrushVertexOffsetsBuffer,
+        stagingBrushVertexOffsetsMemory
+    );
+
+    BrushVertexOffsets.resize(maxBrushCapacity, 0);
+
+    app->CreateBuffer(
+        sizeof(uint32_t) * maxBrushCapacity,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        brushWriteCursorsBuffer,
+        brushWriteCursorsMemory
+    );
+
     //vkDestroyBuffer(app->_logicalDevice, stagingGlobalIDCounterBuffer, nullptr);
     //vkFreeMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, nullptr);
 
@@ -697,11 +859,23 @@ void VoxelizerPass::CreateShaderStorageBuffers()
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-    app->CreateBuffer(vertexBufferSize, usage,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        meshingVertexBuffer, meshingVertexBufferMemory);
+    for (int p = 0; p < 2; ++p) {
+        app->CreateBuffer(vertexBufferSize, usage,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            meshingVertexBuffers[p], meshingVertexBufferMemories[p]);
+        app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffers[p], vertexBufferSize);
+    }
 
-    app->CopyBuffer(vertexStagingBuffer, meshingVertexBuffer, vertexBufferSize);
+    // Compact position buffer for RTA (float4 per vertex: xyz + brushID in w).
+    uint32_t positionBufferSize = sizeof(float) * 4 * VertexMaxCount;
+    for (int p = 0; p < 2; ++p) {
+        app->CreateBuffer(positionBufferSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            meshingPositionBuffers[p], meshingPositionBufferMemories[p]);
+    }
 
     //Indirect mesh draw.
     app->CreateBuffer(
@@ -765,12 +939,6 @@ void VoxelizerPass::CreateComputeDescriptorSets()
     globalIDCounterBufferInfo.offset = 0;
     globalIDCounterBufferInfo.range = VK_WHOLE_SIZE;
 
-    //Vertices
-    VkDescriptorBufferInfo meshingVertexBufferInfo{};
-    meshingVertexBufferInfo.buffer = meshingVertexBuffer;
-    meshingVertexBufferInfo.offset = 0;
-    meshingVertexBufferInfo.range = VK_WHOLE_SIZE;
-
     //Indirect Draw Buffer
     VkDescriptorBufferInfo indirectDrawBufferInfo{};
     indirectDrawBufferInfo.buffer = indirectDrawBuffer;
@@ -790,7 +958,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         intArrayBufferInfo.range = VK_WHOLE_SIZE;
 
 
-        std::array<VkWriteDescriptorSet, 24> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 28> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = computeDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -992,6 +1160,11 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[16].pBufferInfo = &globalIDCounterBufferInfo;
 
         //Meshing Vertex Buffer
+        VkDescriptorBufferInfo meshingVertexBufferInfo{};
+        meshingVertexBufferInfo.buffer = meshingVertexBuffers[i % 2];
+        meshingVertexBufferInfo.offset = 0;
+        meshingVertexBufferInfo.range = VK_WHOLE_SIZE;
+
         descriptorWrites[17].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[17].dstSet = computeDescriptorSets[i];
         descriptorWrites[17].dstBinding = 17;
@@ -1071,6 +1244,60 @@ void VoxelizerPass::CreateComputeDescriptorSets()
         descriptorWrites[23].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[23].descriptorCount = 1;
         descriptorWrites[23].pBufferInfo = &materialBrushPointsBufferInfo;
+
+        //Compact positions for RTA
+        VkDescriptorBufferInfo meshingPositionBufferInfo{};
+        meshingPositionBufferInfo.buffer = meshingPositionBuffers[i % 2];
+        meshingPositionBufferInfo.offset = 0;
+        meshingPositionBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[24].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[24].dstSet = computeDescriptorSets[i];
+        descriptorWrites[24].dstBinding = 24;
+        descriptorWrites[24].dstArrayElement = 0;
+        descriptorWrites[24].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[24].descriptorCount = 1;
+        descriptorWrites[24].pBufferInfo = &meshingPositionBufferInfo;
+
+        //Per-brush vertex counts
+        VkDescriptorBufferInfo brushVerticesBufferInfo{};
+        brushVerticesBufferInfo.buffer = brushVerticesStorageBuffer;
+        brushVerticesBufferInfo.offset = 0;
+        brushVerticesBufferInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[25].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[25].dstSet = computeDescriptorSets[i];
+        descriptorWrites[25].dstBinding = 25;
+        descriptorWrites[25].dstArrayElement = 0;
+        descriptorWrites[25].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[25].descriptorCount = 1;
+        descriptorWrites[25].pBufferInfo = &brushVerticesBufferInfo;
+
+        VkDescriptorBufferInfo brushVertexOffsetsInfo{};
+        brushVertexOffsetsInfo.buffer = brushVertexOffsetsBuffers[i % 2];
+        brushVertexOffsetsInfo.offset = 0;
+        brushVertexOffsetsInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[26].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[26].dstSet = computeDescriptorSets[i];
+        descriptorWrites[26].dstBinding = 26;
+        descriptorWrites[26].dstArrayElement = 0;
+        descriptorWrites[26].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[26].descriptorCount = 1;
+        descriptorWrites[26].pBufferInfo = &brushVertexOffsetsInfo;
+
+        VkDescriptorBufferInfo brushWriteCursorsInfo{};
+        brushWriteCursorsInfo.buffer = brushWriteCursorsBuffer;
+        brushWriteCursorsInfo.offset = 0;
+        brushWriteCursorsInfo.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[27].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[27].dstSet = computeDescriptorSets[i];
+        descriptorWrites[27].dstBinding = 27;
+        descriptorWrites[27].dstArrayElement = 0;
+        descriptorWrites[27].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[27].descriptorCount = 1;
+        descriptorWrites[27].pBufferInfo = &brushWriteCursorsInfo;
 
         vkUpdateDescriptorSets(app->_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
@@ -1273,8 +1500,36 @@ void VoxelizerPass::CreateComputeDescriptorSetLayout()
     materialBrushPointsBinding.descriptorCount = 1;
     materialBrushPointsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // Compact position buffer for RTA
+    VkDescriptorSetLayoutBinding meshingPositionBinding{};
+    meshingPositionBinding.binding = 24;
+    meshingPositionBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    meshingPositionBinding.descriptorCount = 1;
+    meshingPositionBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // Per-brush vertex counts for post-DC TLAS instance build
+    VkDescriptorSetLayoutBinding brushVerticesBinding{};
+    brushVerticesBinding.binding = 25;
+    brushVerticesBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    brushVerticesBinding.descriptorCount = 1;
+    brushVerticesBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // Per-brush base offsets into the soup (GPU prefix sum of brushVerticesCount).
+    VkDescriptorSetLayoutBinding brushVertexOffsetsBinding{};
+    brushVertexOffsetsBinding.binding = 26;
+    brushVertexOffsetsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    brushVertexOffsetsBinding.descriptorCount = 1;
+    brushVertexOffsetsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // Per-brush write cursors used by DC pass 2 to claim slots within the brush's slice.
+    VkDescriptorSetLayoutBinding brushWriteCursorsBinding{};
+    brushWriteCursorsBinding.binding = 27;
+    brushWriteCursorsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    brushWriteCursorsBinding.descriptorCount = 1;
+    brushWriteCursorsBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     //Bind the buffers we specified.
-    std::array<VkDescriptorSetLayoutBinding, 24> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding, materialBrushPointsBinding };
+    std::array<VkDescriptorSetLayoutBinding, 28> bindings = { uboLayoutBinding, intArrayLayoutBinding, voxelL1Binding, voxelL1Binding2, voxelL2Binding, voxelL2Binding2, voxelL3Binding, voxelL3Binding2, vertexBinding, brushBinding, brushIndicesBinding, tileBrushCountBinding, particleBinding1, particleBinding2, controlParticleBinding1, controlParticleBinding2, globalIDCounterBinding, meshingVertexBinding, indirectDrawBinding, quantaIdsBinding, tileCountsBinding, tileOffsetsBinding, materialGridBinding, materialBrushPointsBinding, meshingPositionBinding, brushVerticesBinding, brushVertexOffsetsBinding, brushWriteCursorsBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1343,9 +1598,10 @@ void VoxelizerPass::CreateBrushes()
         };
 
     int vertexOffset = 0;
+    int uniqueTextureCount = 0;
+    std::unordered_map<int, int> batchTextureMap; // batchID -> imageIndex
     for (int i = 0; i < renderingObjects.size(); i++)
     {
-        int imageIndex = (i * 2) + mipsCount; //MIPs must be avoided.
         UnigmaRenderingObject* obj = renderingObjects[i];
         UnigmaGameObject* gObj = obj->GetGameObject();
         
@@ -1360,9 +1616,31 @@ void VoxelizerPass::CreateBrushes()
 
         auto primType = gObj->GetComponentAttr<int>("RenderComp", "Type");
 
+        auto batchID = gObj->GetComponentAttr<int>("RenderComp", "BatchID");
+
+        auto rayMask = gObj->GetComponentAttr<int>("RenderComp", "RayMask");
+
+        int imageIndex;
+        if (batchID > 0 && batchTextureMap.count(batchID)) {
+            imageIndex = batchTextureMap[batchID];
+            std::cout << "Brush " << i << " shares batch " << batchID
+                      << " texture pair [" << imageIndex << ", " << imageIndex + 1 << "]" << std::endl;
+        } else {
+            imageIndex = (uniqueTextureCount * 2) + mipsCount;
+            uniqueTextureCount++;
+            if (batchID > 0) {
+                batchTextureMap[batchID] = imageIndex;
+            }
+            std::cout << "Brush " << i << " batchID=" << batchID
+                      << " new texture pair [" << imageIndex << ", " << imageIndex + 1 << "]" << std::endl;
+        }
+
         Brush brush;
         brush.type = primType; //Mesh type
         brush.vertexCount = obj->_renderer.vertices.size();
+
+        brush.mass = 2.5f;
+        brush.rayMask = static_cast<uint32_t>(rayMask) & 0xFFu;
 
         //std::cout << "Creating brush for object: " << i << " with vertex count: " << brush.vertexCount << std::endl;
         brush.vertexOffset = vertexOffset;
@@ -1451,7 +1729,7 @@ void VoxelizerPass::Create3DTextures()
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );
 
-    //Create the world SDF. Multiple levels. 
+    //Create the world SDF. Multiple levels.
     for (int i = 0; i < mipsCount; i++)
     {
         int divisor = i;
@@ -1509,64 +1787,68 @@ void VoxelizerPass::Create3DTextures()
         std::cout << "Created 3D texture for world SDF level " << i << " with resolution: " << resolution.x << std::endl;
     }
 
-    //Create per brush.
-
-    for (int i = 0; i < brushes.size()*2; i++)
+    //Create per brush. Skip brushes that share a texture via batchID.
+    std::set<uint32_t> createdTextureIDs;
+    int brushTexCounter = 0;
+    for (size_t i = 0; i < brushes.size(); i++)
     {
-        int index = i / 2;
-        Brush& brush = brushes[index];
+        Brush& brush = brushes[i];
 
-        /*
-        if(brush.type != 0) {
-			continue;
-		}
-        */
+        // Skip if this brush's textures were already created (batched duplicate).
+        if (createdTextureIDs.count(brush.textureID)) {
+            continue;
+        }
+        createdTextureIDs.insert(brush.textureID);
+        createdTextureIDs.insert(brush.textureID2);
 
-        Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
-		app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
-			brushSdfFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			brushTexture.u_image, brushTexture.u_imageMemory);
+        // Create both textures for this brush's ping-pong pair.
+        for (int t = 0; t < 2; t++)
+        {
+            Unigma3DTexture brushTexture = Unigma3DTexture(brush.resolution, brush.resolution, brush.resolution);
+            app->CreateImages3D(brushTexture.WIDTH, brushTexture.HEIGHT, brushTexture.DEPTH,
+                brushSdfFormat,
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                brushTexture.u_image, brushTexture.u_imageMemory);
 
-		brushTexture.u_imageView = app->Create3DImageView(
-			brushTexture.u_image,
-			sdfFormat,
-			VK_IMAGE_ASPECT_COLOR_BIT
-		);
-        brushTexture.ID = app->textures3D.size();
+            brushTexture.u_imageView = app->Create3DImageView(
+                brushTexture.u_image,
+                sdfFormat,
+                VK_IMAGE_ASPECT_COLOR_BIT
+            );
+            brushTexture.ID = app->textures3D.size();
 
-		// Transition the 3D image layout to GENERAL for compute write
-		VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+            // Transition the 3D image layout for compute read.
+            VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-		VkImageMemoryBarrier barrier{};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = brushTexture.u_image;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = brushTexture.u_image;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barrier.subresourceRange.baseMipLevel = 0;
+            barrier.subresourceRange.levelCount = 1;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = 1;
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0, 0, nullptr, 0, nullptr,
-			1, &barrier);
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr,
+                1, &barrier);
 
-		app->EndSingleTimeCommands(commandBuffer);
+            app->EndSingleTimeCommands(commandBuffer);
 
-
-		app->textures3D.insert({ "brush_" + std::to_string(i), std::move(brushTexture) });
-        //std::cout << "Created 3D texture for brush " << i << " with resolution: " << brush.resolution << std::endl;
+            app->textures3D.insert({ "brush_" + std::to_string(brushTexCounter), std::move(brushTexture) });
+            brushTexCounter++;
+        }
     }
 }
 
@@ -1625,7 +1907,7 @@ glm::ivec3 VoxelizerPass::SetVoxelGridSize()
         if (ramRequired*2 < app->TotalGPURam)
         {
             std::cout << "Medium Quality Voxel Resolution. " << std::endl;
-            VertexMaxCount = VOXEL_COUNTL3;
+            VertexMaxCount = VOXEL_COUNTL2;
             std::cout << "Max Vertex Count set to: " << VertexMaxCount << std::endl;
 
         }
@@ -1809,10 +2091,9 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 
         if (model != brushes[i].model)
         {
-            brushes[i].model = renderingObjects[i]->_transform.GetModelMatrixBrush();
-            brushes[i].isDirty = 1;
-            std::cout << "Brush " << i << " dirty, pos=("
-                      << brushes[i].model[3][0] << "," << brushes[i].model[3][1] << "," << brushes[i].model[3][2] << ")" << std::endl;
+            brushes[i].model = model;
+            brushes[i].invModel = glm::inverse(model);
+            brushes[i].isDirty = 0;
         }
     }
 
@@ -1829,6 +2110,15 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
             &brushes[i].model
         );
 
+        offset = sizeof(Brush) * i + offsetof(Brush, invModel);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(glm::mat4),
+            &brushes[i].invModel
+        );
 
         offset = sizeof(Brush) * i + offsetof(Brush, isDirty);
 
@@ -2163,23 +2453,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     QTDoughApplication* app = QTDoughApplication::instance;
 
     // Wait for physics to finish writing Out, then copy Out -> READ on this queue.
-    vkWaitForFences(app->_logicalDevice, 1, &app->_physicsFence, VK_TRUE, UINT64_MAX);
-    MaterialSimulation::instance->CopyOutToRead(commandBuffer);
+    //vkWaitForFences(app->_logicalDevice, 1, &app->_physicsFence, VK_TRUE, UINT64_MAX);
+    //MaterialSimulation::instance->CopyOutToRead(commandBuffer);
 
     UpdateBrushesGPU(commandBuffer);
-
-    //Quick inputs change support multiplier when pressed.
-    if (GetKeyState('9') & 0x8000)
-    {
-        std::cout << "Support increasing... supprt at: " << supportMultiplier << std::endl;
-        supportMultiplier += 0.025f;
-    }
-
-    if (GetKeyState('0') & 0x8000)
-    {
-        std::cout << "Support decreasing... supprt at:" << supportMultiplier << std::endl;
-        supportMultiplier -= 0.025f;
-    }
 
     if (GetKeyState('8') & 0x8000)
     {
@@ -2187,7 +2464,9 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         MaterialSimulation::instance->ReadBackMaterialGridSDF();
     }
 
-    if (GetKeyState(VK_LBUTTON) & 0x8000)
+    static bool wasPressed = false;
+    bool isPressed = (GetKeyState(VK_LBUTTON) & 0x8000) != 0;
+    if (isPressed && !wasPressed)
     {
         int mx, my;
         SDL_GetMouseState(&mx, &my);
@@ -2197,16 +2476,16 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         photon.position = glm::vec4(origin, 1.0f);
         photon.direction = glm::vec4(direction, 1.0f);
         photon.information = glm::ivec4(0);
-            
-            
-        int wasHit = MaterialSimulation::instance->RayCast(photon);
+
+        int wasHit = MaterialSimulation::instance->RayCast(photon, true);
         if (wasHit > 0)
         {
-            glm::vec3 position = photon.position;
-            //AddBrush(0, position, glm::vec3(1, 1, 1), 128);
-            //std::cout << "Click ray hit at: " << photon.position.x << ", " << photon.position.y << ", " << photon.position.z << std::endl;
+            int brushId = static_cast<int>(photon.information.x);
+            QTDoughApplication::instance->editorState.selectedBrushIndex = brushId;
         }
     }
+    wasPressed = isPressed;
+
 
     /*
     float  f = 100.0f;
@@ -2304,18 +2583,20 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             uint32_t index = brushes[i].textureID;
 
             if(processedTextureIndexMap.find(index) != processedTextureIndexMap.end()) {
-				//Already processed this texture.
-				continue;
+				//Already processed this texture — but still dispatch for aabb computation.
 			}
+            else {
+                processedTextureIndexMap.insert(index);
+            }
+
             if (brushes[i].type >= 0) { //Mesh type
 
                 DispatchBrushCreation(commandBuffer, currentFrame, i);
 
                 //Sum voxels.
                 voxelCount += (uint64_t)(brushes[i].resolution * brushes[i].resolution * brushes[i].resolution);
-                
+
             }
-            processedTextureIndexMap.insert(i); //Mark this texture as processed.
 		}
         particleCount += voxelCount / 8; //Estimate particles.
 
@@ -2377,6 +2658,18 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     if(dispatchCount > 1)
 	{
+        // Zero the position buffer so un-emitted slots are degenerate triangles.
+        vkCmdFillBuffer(commandBuffer, meshingPositionBuffers[currentFrame % 2], 0, sizeof(float) * 4 * VertexMaxCount, 0);
+        VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+        clearBarrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        clearBarrier.dstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+        VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        clearDep.memoryBarrierCount = 1;
+        clearDep.pMemoryBarriers = &clearBarrier;
+        vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
 		//Dispatch the tile generation.
         DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
@@ -2385,6 +2678,17 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
         //DispatchParticlesTiled(commandBuffer, currentFrame); //Tiled gather particle SDF.
         DispatchTile(commandBuffer, currentFrame, 2);
+
+        // Rolling occupancy check: N brushes per frame.
+        if (!brushes.empty())
+        {
+            for (uint32_t j = 0; j < occupancyBrushesPerFrame; j++)
+            {
+                int idx = (occupancyRollingIndex + j) % brushes.size();
+                DispatchBrushOccupancy(commandBuffer, currentFrame, idx);
+            }
+            occupancyRollingIndex = (occupancyRollingIndex + occupancyBrushesPerFrame) % brushes.size();
+        }
 	}
 
 
@@ -2468,14 +2772,21 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
         DispatchLOD(commandBuffer, currentFrame, 40);
 
-        //Dual Contour.
-        DispatchLOD(commandBuffer, currentFrame, 50);
-
-        //Create Vertex Mask.
-        //For each brush that needs to be updated.
+        //Two-pass DC.
+        //Pass 1: count only. Populates brushVerticesCount[] per brush, no vertex writes.
+        DispatchLOD(commandBuffer, currentFrame, 50, false, true);
         for (int i = 0; i < brushes.size(); i++)
-            if(brushes[i].type == 0) //mesh.
-                DispatchVertexMask(commandBuffer, currentFrame, i);
+            if (brushes[i].type == 0) //mesh.
+                DispatchVertexMask(commandBuffer, currentFrame, i, true);
+
+        //Prefix sum brushVerticesCount -> brushVertexOffsets.
+        DispatchLOD(commandBuffer, currentFrame, 26);
+
+
+        DispatchLOD(commandBuffer, currentFrame, 50, false, false);
+        for (int i = 0; i < brushes.size(); i++)
+            if (brushes[i].type == 0) //mesh.
+                DispatchVertexMask(commandBuffer, currentFrame, i, false);
 
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
@@ -2508,7 +2819,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         barriers[1].dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
         barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barriers[1].buffer = meshingVertexBuffer; // The buffer being generated
+        barriers[1].buffer = meshingVertexBuffers[currentFrame % 2]; // The buffer being generated
         barriers[1].offset = 0;
         barriers[1].size = VK_WHOLE_SIZE;
 
@@ -2524,7 +2835,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         );
 
 
-        RecordCounterReadback(commandBuffer);
+        RecordCounterReadback(commandBuffer, currentFrame);
         //ReadCounterOnCPU();
 
         //GetMeshFromGPU(); //Important.
@@ -2817,14 +3128,64 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 void VoxelizerPass::ReadCounterOnCPU()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
-    uint32_t counters[2] = { 0,0 };
+    if (app == nullptr || app->_logicalDevice == VK_NULL_HANDLE)
+    {
+        std::cout << "ReadCounterOnCPU: device unavailable, skipping." << std::endl;
+        return;
+    }
 
-    void* mapped = nullptr;
-    vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
-    memcpy(counters, mapped, sizeof(counters));
-    vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+    vkDeviceWaitIdle(app->_logicalDevice);
 
-    readBackVertexCount =  std::min(counters[1] + 65536, VertexMaxCount);
+    uint32_t counters[2] = { 0, 0 };
+
+    // Counters readback
+    if (stagingGlobalIDCounterMemory != VK_NULL_HANDLE)
+    {
+        void* mapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory, 0, sizeof(counters), 0, &mapped);
+        if (r == VK_SUCCESS && mapped != nullptr)
+        {
+            memcpy(counters, mapped, sizeof(counters));
+            vkUnmapMemory(app->_logicalDevice, stagingGlobalIDCounterMemory);
+            readBackVertexCount = std::min(counters[1] + 65536, VertexMaxCount);
+        }
+        else
+        {
+            std::cout << "ReadCounterOnCPU: globalIDCounter map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
+
+    // Brush vertex counts readback
+    if (stagingBrushVerticesMemory != VK_NULL_HANDLE && BrushVerticesCount.size() >= maxBrushCapacity)
+    {
+        void* brushMapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingBrushVerticesMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &brushMapped);
+        if (r == VK_SUCCESS && brushMapped != nullptr)
+        {
+            memcpy(BrushVerticesCount.data(), brushMapped, sizeof(uint32_t) * maxBrushCapacity);
+            vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
+        }
+        else
+        {
+            std::cout << "ReadCounterOnCPU: brushVertices map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
+
+    // Brush vertex offsets readback
+    if (stagingBrushVertexOffsetsMemory != VK_NULL_HANDLE && BrushVertexOffsets.size() >= maxBrushCapacity)
+    {
+        void* offsetsMapped = nullptr;
+        VkResult r = vkMapMemory(app->_logicalDevice, stagingBrushVertexOffsetsMemory, 0, sizeof(uint32_t) * maxBrushCapacity, 0, &offsetsMapped);
+        if (r == VK_SUCCESS && offsetsMapped != nullptr)
+        {
+            memcpy(BrushVertexOffsets.data(), offsetsMapped, sizeof(uint32_t) * maxBrushCapacity);
+            vkUnmapMemory(app->_logicalDevice, stagingBrushVertexOffsetsMemory);
+        }
+        else
+        {
+            std::cout << "ReadCounterOnCPU: brushVertexOffsets map failed (VkResult=" << r << ")." << std::endl;
+        }
+    }
 }
 
 
@@ -3160,6 +3521,58 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     vkCmdPipelineBarrier2(commandBuffer, &dep);
 }
 
+void VoxelizerPass::DispatchBrushOccupancy(VkCommandBuffer commandBuffer, uint32_t currentFrame, int brushIndex)
+{
+    QTDoughApplication* app = QTDoughApplication::instance;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, brushOccupancyPipeline);
+
+    VkDescriptorSet sets[] = {
+        app->globalDescriptorSets[currentFrame],
+        computeDescriptorSets[currentFrame]
+    };
+
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        brushOccupancyPipelineLayout,
+        0, 2, sets,
+        0, nullptr);
+
+    int tileGridX = MaterialSimulation::instance->Field.FieldSize.x / MaterialSimulation::instance->TileSize.x;
+    int tileGridY = MaterialSimulation::instance->Field.FieldSize.y / MaterialSimulation::instance->TileSize.y;
+    int tileGridZ = MaterialSimulation::instance->Field.FieldSize.z / MaterialSimulation::instance->TileSize.z;
+
+    struct OccupancyPushConsts {
+        int brushIndex;
+        int tileGridX;
+        int tileGridY;
+        int tileGridZ;
+    } pc;
+    pc.brushIndex = brushIndex;
+    pc.tileGridX = tileGridX;
+    pc.tileGridY = tileGridY;
+    pc.tileGridZ = tileGridZ;
+
+    vkCmdPushConstants(commandBuffer,
+        brushOccupancyPipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0, sizeof(pc), &pc);
+
+    uint32_t groups = (MATERIAL_BRUSH_GRID_RES + 7) / 8;
+    vkCmdDispatch(commandBuffer, groups, groups, groups);
+
+    VkMemoryBarrier2 mem{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    mem.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    mem.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    mem.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.memoryBarrierCount = 1;
+    dep.pMemoryBarriers = &mem;
+    vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
 void VoxelizerPass::DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -3198,7 +3611,7 @@ void VoxelizerPass::DispatchParticlesTiled(VkCommandBuffer commandBuffer, uint32
 }
 
 //Dispatches Voxelization kernels.
-void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag)
+void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t lodLevel, bool pingFlag, bool countOnly)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -3221,6 +3634,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
     pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
+    pc.countOnly = countOnly ? 1 : 0;
 
 
     // Each LOD uses a different resolution
@@ -3315,10 +3729,17 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     //Clear Voxels
     if (lodLevel == 24)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
-        groupCountX = (res.x + 7) / 8;
+        res = glm::ivec3(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4);                                                               groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
+    }
+
+    //Prefix sum of brushVerticesCount -> brushVertexOffsets. Single thread, 256 elements.
+    if (lodLevel == 26)
+    {
+        groupCountX = 1;
+        groupCountY = 1;
+        groupCountZ = 1;
     }
 
     //Meshing
@@ -3333,7 +3754,8 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        res = WORLD_SDF_RESOLUTION / 2;
+        glm::vec3 aabbVoxels = dcAABBSize * glm::vec3(WORLD_SDF_RESOLUTION) / sceneSize;
+        res = glm::ivec3(glm::ceil(aabbVoxels));
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
@@ -3413,7 +3835,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 }
 
 //Dispatches Voxelization kernels.
-void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID)
+void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID, bool countOnly)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
@@ -3434,6 +3856,7 @@ void VoxelizerPass::DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t c
     pc.aabbCenter = glm::vec4(0, 0, 0, 0);
     pc.supportMultiplier = supportMultiplier;
     pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
+    pc.countOnly = countOnly ? 1 : 0;
 
     // Each LOD uses a different resolution
     glm::ivec3 res = WORLD_SDF_RESOLUTION; //Expand
@@ -3560,6 +3983,7 @@ int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, 
     brush.particleRadius = 2.0f * (density - 1);
     brush.materialId = index;
     brush.isDeformed = 0;
+    brush.rayMask = 0xFF;
     brush.isCollapsing = 1;
 
     UnigmaTransform t = UnigmaTransform();

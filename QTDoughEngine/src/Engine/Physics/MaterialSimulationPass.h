@@ -26,22 +26,22 @@ struct QuantaDeformation {
 };
 
 struct MaterialGridPoint {
-	glm::vec4 fieldValues; //x is SDF.
+	glm::ivec4 information;
+	glm::vec4 fieldValues; //x is SDF, yzw is mana.
 	glm::vec4 massMomentum;
 	glm::vec4 velocity;
 	glm::vec4 normal;
 };
 
-struct UnigmaField
-{
-	Unigma3DTexture SignedDistanceField; //3D texture holding the signed distance field. Resolutions changes based on settings.
-	glm::ivec3 FieldSize; //invariant holding the size of the field. This can be non-cubic, ie 64x64x16...
-	Quanta* Quantas; //The quantas emerging from this field.
-	MaterialGridPoint* MaterialField; //A proxy field for physics.
-	float* MaterialGridSDFData; // mapped pointer for quick CPU read/write access to SDF data.
+struct MaterialGridAccumulator {
+	glm::ivec4 fieldValues;
+	glm::ivec4 massMomentum;
+	glm::ivec4 velocity;
+	glm::ivec4 normal;
 };
 
 //Carries information, is the "hit" that interacts with the materialField.
+//A type of boson.
 struct Photon
 {
 	glm::vec4 position;
@@ -52,12 +52,30 @@ struct Photon
 };
 
 //Control points... used for cage deformation AND creating spacetime metric.
+//A type of boson.
 struct Graviton
 {
 	glm::vec4 position;
-	glm::vec4 direction; //Direction it points to, xyz. w being magnitude or weight.
+	glm::vec4 direction; //xyz normalize = direction, unormalized = direction and speed, w = time direction (dt * w)
 };
 
+struct Lepton
+{
+	glm::vec4 position; //Persistent position while claimed. w is ID of claimer.
+	glm::vec4 direction; //Direction of movement through the field. w is radius of influence which falls off with distance.
+	glm::vec4 mana; //Potential energy, or "charge". each xyz different type. w is lifespan
+	glm::vec4 velocity; //Speed at which it moves through the field.
+};
+
+struct UnigmaField
+{
+	glm::ivec3 FieldSize; //invariant holding the size of the field. This can be non-cubic, ie 64x64x16...
+	Unigma3DTexture PotentialField; //3D texture holding the signed distance field. Resolutions changes based on settings.
+	MaterialGridPoint* InteractionField; //A proxy field for physics.
+	Graviton* MetricField; //The gravitons that create the spacetime metric.
+	Quanta* Quantas; //The Quark Quanta that make up the material.
+	float* MaterialGridSDFData; // mapped pointer for quick CPU read/write access to SDF data.
+};
 
 class MaterialSimulation
 {
@@ -66,6 +84,7 @@ class MaterialSimulation
 		MaterialSimulation();
 		~MaterialSimulation();
 		static MaterialSimulation* instance;
+		int pendingCollapseBrushIndex = -1;
 
 		void SetInstance(MaterialSimulation* matSim)
 		{
@@ -88,7 +107,14 @@ class MaterialSimulation
 		void DispatchCollapseFill(VkCommandBuffer commandBuffer); //Per-voxel fill: claim quanta into brush density grid.
 		void DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex); //Direct per-brush quanta assignment on creation.
 		void DispatchP2G(VkCommandBuffer commandBuffer); //Particle to Grid scatter.
+		void DispatchG2P(VkCommandBuffer commandBuffer); //Grid to Particle gather.
+		void InitLeptons();
+		void DispatchLeptonTileSort(VkCommandBuffer commandBuffer);
+		void DispatchLeptonP2G(VkCommandBuffer commandBuffer);
+		void DispatchAccumConvert(VkCommandBuffer commandBuffer); //Converts int accumulator to float materialGrid.
+		void DispatchLeptonPropagate(VkCommandBuffer commandBuffer);
 		void DispatchSDFDownsample(VkCommandBuffer commandBuffer); //Copy matching SDF mip into materialGrid.
+		void DispatchDiffusion(VkCommandBuffer commandBuffer); //Diffusion step: reads materialGrid In, writes materialGrid Out.
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -99,16 +125,58 @@ class MaterialSimulation
 		void ReadBackQuantaFull();
 		void ReadBackMaterialGridFull();
 		void ReadBackMaterialGridSDF();
+		void DispatchQuantaCount(VkCommandBuffer commandBuffer);
+		void ReadBackQuantaCount();
 		void SerializeMaterialGridText(const std::string& path);
-		int RayCast(Photon& photon);
+		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
+		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
+		VkBuffer MaterialSimulation::GetQuantaBuffer(uint32_t i) const;
+		size_t MaterialSimulation::GetQuantaBufferCount() const;
+		VkBuffer MaterialSimulation::GetLeptonBuffer(uint32_t i) const;
+		size_t MaterialSimulation::GetLeptonBufferCount() const;
+		uint32_t MaterialSimulation::GetCurrentFrame() const;
 		std::atomic<bool> readbackInProgress{false};
 		std::atomic<bool> materialGridReadbackInProgress{false};
 		std::atomic<bool> materialGridSDFReadbackInProgress{false};
+		std::atomic<bool> quantaCountReadbackInProgress{false};
+		bool quantaCountReady = false;
+		bool quantaCountDispatched = false;
+		std::vector<uint32_t> brushQuantaCounts;
+		static const uint32_t MAX_BRUSH_COUNT = 256;
 		UnigmaField Field; //Underlying field of everything.
+
+		// Temperature survey.
+		float temperatureHistory[120] = {};
+		int temperatureHistoryHead = 0;
+		float currentTemperature = 0.0f;
+		float TEMP_SCALE = 1.0f;
+		void SurveyTemperature();
 
 		std::vector<VkBuffer> QuantaStorageBuffers;
 		std::vector<VkDeviceMemory> QuantaStorageMemory;
+
+		uint32_t leptonMaxSize = 65536;
+		Lepton* Leptons;
+		std::vector<VkBuffer> LeptonStorageBuffers;
+		std::vector<VkDeviceMemory> LeptonStorageMemory;
+		uint64_t leptonMemorySize;
+
+		std::vector<uint32_t> LeptonIds;
+		std::vector<VkBuffer> LeptonIdsBuffer;
+		std::vector<VkDeviceMemory> LeptonIdsMemory;
+
+		std::vector<uint32_t> LeptonTileCounts;
+		std::vector<VkBuffer> LeptonTileCountsBuffer;
+		std::vector<VkDeviceMemory> LeptonTileCountsMemory;
+
+		std::vector<uint32_t> LeptonTileOffsets;
+		std::vector<VkBuffer> LeptonTileOffsetsBuffer;
+		std::vector<VkDeviceMemory> LeptonTileOffsetsMemory;
+
+		std::vector<uint32_t> LeptonTileCursor;
+		std::vector<VkBuffer> LeptonTileCursorBuffer;
+		std::vector<VkDeviceMemory> LeptonTileCursorMemory;
 
 		std::vector<VkBuffer> deformationStorageBuffers;      // double buffered ping-pong
 		std::vector<VkDeviceMemory> deformationStorageMemory;
@@ -141,6 +209,9 @@ class MaterialSimulation
 		std::vector<VkBuffer> materialGridSDFBuffers;
 		std::vector<VkDeviceMemory> materialGridSDFBuffersMemory;
 
+		VkBuffer materialGridAccumBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory materialGridAccumMemory = VK_NULL_HANDLE;
+		uint64_t accumBufferSize;
 
 		uint64_t materialMemorySize;
 
@@ -171,11 +242,24 @@ class MaterialSimulation
 
 		// Wave Function Collapse — brush access for quanta gather/snap.
 		VkBuffer brushesBuffer = VK_NULL_HANDLE;
+		VkBuffer voxelL1Buffer = VK_NULL_HANDLE;
 		VkPipeline collapsePipeline = VK_NULL_HANDLE;
 		VkPipeline collapseFillPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAssignPipeline = VK_NULL_HANDLE;
 		VkPipeline p2gPipeline = VK_NULL_HANDLE;
+		VkPipeline g2pPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
+		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
+		VkPipeline quantaCountPipeline = VK_NULL_HANDLE;
+		VkBuffer brushQuantaCountBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory brushQuantaCountMemory = VK_NULL_HANDLE;
+
+		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonScatterPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonP2GPipeline = VK_NULL_HANDLE;
+		VkPipeline accumConvertPipeline = VK_NULL_HANDLE;
+		VkPipeline leptonPropagatePipeline = VK_NULL_HANDLE;
 
 		uint32_t dispatchesCount = 0;
 };
@@ -220,7 +304,7 @@ inline glm::vec3 GridIndexToWorld(int index, glm::vec3 sceneBounds, glm::ivec3 g
 inline MaterialGridPoint SampleMaterialGrid(glm::vec3 worldPos, UnigmaField& field)
 {
 	int index = WorldToGridIndex(worldPos, field.FieldSize, glm::ivec3(256, 256, 64));
-	return field.MaterialField[index];
+	return field.InteractionField[index];
 }
 
 inline float SampleMaterialGridSDF(glm::vec3 worldPos, UnigmaField& field)

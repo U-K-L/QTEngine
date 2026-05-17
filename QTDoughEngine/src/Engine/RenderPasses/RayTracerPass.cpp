@@ -2,21 +2,27 @@
 #include "VoxelizerPass.h"
 #include <random>
 
+static const uint32_t kMaxPrimsPerBLAS = 1u << 20;
+
 RayTracerPass::~RayTracerPass()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
 
     for (auto& F : rtAS)
     {
-        if (F.blas) vkDestroyAccelerationStructureKHR_fn(app->_logicalDevice, F.blas, nullptr);
+        for (auto& B : F.perBrushBlas)
+        {
+            if (B.blas) vkDestroyAccelerationStructureKHR_fn(app->_logicalDevice, B.blas, nullptr);
+            if (B.blasBuffer) vkDestroyBuffer(app->_logicalDevice, B.blasBuffer, nullptr);
+            if (B.blasMemory) vkFreeMemory(app->_logicalDevice, B.blasMemory, nullptr);
+            B = {};
+        }
         if (F.tlas) vkDestroyAccelerationStructureKHR_fn(app->_logicalDevice, F.tlas, nullptr);
 
-        if (F.blasBuffer) vkDestroyBuffer(app->_logicalDevice, F.blasBuffer, nullptr);
         if (F.tlasBuffer) vkDestroyBuffer(app->_logicalDevice, F.tlasBuffer, nullptr);
         if (F.scratchBuffer) vkDestroyBuffer(app->_logicalDevice, F.scratchBuffer, nullptr);
         if (F.instanceBuffer) vkDestroyBuffer(app->_logicalDevice, F.instanceBuffer, nullptr);
 
-        if (F.blasMemory) vkFreeMemory(app->_logicalDevice, F.blasMemory, nullptr);
         if (F.tlasMemory) vkFreeMemory(app->_logicalDevice, F.tlasMemory, nullptr);
         if (F.scratchMemory) vkFreeMemory(app->_logicalDevice, F.scratchMemory, nullptr);
         if (F.instanceMemory) vkFreeMemory(app->_logicalDevice, F.instanceMemory, nullptr);
@@ -61,6 +67,9 @@ void RayTracerPass::CreateTriangleSoup()
 
 void RayTracerPass::CreateImages() {
     QTDoughApplication* app = QTDoughApplication::instance;
+
+    passWidth = app->swapChainExtent.width;
+    passHeight = app->swapChainExtent.height;
 
     //Get the images path tied to this material.
     for (int i = 0; i < material.textures.size(); i++) {
@@ -179,6 +188,28 @@ void RayTracerPass::CreateImages() {
     }
 }
 
+void RayTracerPass::CleanupImages()
+{
+    VkDevice device = QTDoughApplication::instance->_logicalDevice;
+    vkDeviceWaitIdle(device);
+
+    if (imageView != VK_NULL_HANDLE) { vkDestroyImageView(device, imageView, nullptr); imageView = VK_NULL_HANDLE; }
+    if (image != VK_NULL_HANDLE) { vkDestroyImage(device, image, nullptr); image = VK_NULL_HANDLE; }
+    if (imageMemory != VK_NULL_HANDLE) { vkFreeMemory(device, imageMemory, nullptr); imageMemory = VK_NULL_HANDLE; }
+
+    for (size_t i = 0; i < imagesViews.size(); i++)
+    {
+        if (imagesViews[i] != VK_NULL_HANDLE) vkDestroyImageView(device, imagesViews[i], nullptr);
+    }
+    imagesViews.clear();
+
+    for (size_t i = 0; i < images.size(); i++)
+    {
+        if (images[i] != VK_NULL_HANDLE) { vkDestroyImage(device, images[i], nullptr); images[i] = VK_NULL_HANDLE; }
+        if (imagesMemory[i] != VK_NULL_HANDLE) { vkFreeMemory(device, imagesMemory[i], nullptr); imagesMemory[i] = VK_NULL_HANDLE; }
+    }
+}
+
 void RayTracerPass::CreateUniformBuffers()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
@@ -206,14 +237,14 @@ void RayTracerPass::CreateMaterials() {
 
     material.textureNames[0] = "RayAlbedoPass";
     material.textureNames[1] = "RayNormalPass";
-    material.textureNames[2] = "RayDepthPass";
+    material.textureNames[2] = "RayPositionPass";
 
     images.resize(3);
     imagesMemory.resize(3);
     imagesViews.resize(3);
     PassNames.push_back("RayAlbedoPass");
     PassNames.push_back("RayNormalPass");
-    PassNames.push_back("RayDepthPass");
+    PassNames.push_back("RayPositionPass");
 
 }
 
@@ -401,7 +432,10 @@ void RayTracerPass::CreateComputePipeline()
     vkDestroyShaderModule(app->_logicalDevice, rchit, nullptr);
     vkDestroyShaderModule(app->_logicalDevice, rahit, nullptr);
 
+    
+    CreateSBT();
     std::cout << "Ray Tracing Pipeline created successfully." << std::endl;
+
 
 }
 
@@ -447,7 +481,13 @@ void RayTracerPass::CreateComputeDescriptorSetLayout()
     vb.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     vb.stageFlags = ubo.stageFlags;
 
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { ubo, ids, tlas, vb };
+    VkDescriptorSetLayoutBinding bvo{};
+    bvo.binding = 4;
+    bvo.descriptorCount = 1;
+    bvo.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bvo.stageFlags = ubo.stageFlags;
+
+    std::array<VkDescriptorSetLayoutBinding, 5> bindings = { ubo, ids, tlas, vb, bvo };
 
     VkDescriptorSetLayoutCreateInfo info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
     info.bindingCount = (uint32_t)bindings.size();
@@ -466,7 +506,7 @@ void RayTracerPass::CreateDescriptorPool()
     poolSizes[0].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
 
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = app->MAX_FRAMES_IN_FLIGHT * 2;
+    poolSizes[1].descriptorCount = app->MAX_FRAMES_IN_FLIGHT * 3;
 
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     poolSizes[2].descriptorCount = app->MAX_FRAMES_IN_FLIGHT;
@@ -487,6 +527,45 @@ void RayTracerPass::CreateComputeDescriptorSets()
 
     rtDescriptorSets.resize(app->MAX_FRAMES_IN_FLIGHT);
     rtAS.resize(app->MAX_FRAMES_IN_FLIGHT);
+
+    // Pre-size scratch once for worst-case BLAS build (kMaxPrimsPerBLAS).
+    // Same scratch is shared with TLAS build later in the frame; BLAS scratch dominates.
+    {
+        VkAccelerationStructureGeometryTrianglesDataKHR tri{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
+        tri.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+        tri.vertexStride = sizeof(float) * 4;
+        tri.maxVertex = kMaxPrimsPerBLAS * 3 - 1;
+        tri.indexType = VK_INDEX_TYPE_NONE_KHR;
+
+        VkAccelerationStructureGeometryKHR geom{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
+        geom.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+        geom.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+        geom.geometry.triangles = tri;
+
+        VkAccelerationStructureBuildGeometryInfoKHR buildInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
+        buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+        buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        buildInfo.geometryCount = 1;
+        buildInfo.pGeometries = &geom;
+
+        VkAccelerationStructureBuildSizesInfoKHR sizes{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+        uint32_t maxPrim = kMaxPrimsPerBLAS;
+        vkGetAccelerationStructureBuildSizesKHR_fn(
+            app->_logicalDevice,
+            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+            &buildInfo, &maxPrim, &sizes);
+
+        for (uint32_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; ++i) {
+            auto& F = rtAS[i];
+            F.scratchSize = sizes.buildScratchSize;
+            app->CreateBuffer(
+                F.scratchSize,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                F.scratchBuffer, F.scratchMemory);
+        }
+    }
 
     std::vector<VkDescriptorSetLayout> layouts(app->MAX_FRAMES_IN_FLIGHT, rtDescriptorSetLayout);
 
@@ -612,25 +691,30 @@ VkDeviceAddress RayTracerPass::GetASAddress(VkAccelerationStructureKHR as)
     return vkGetAccelerationStructureDeviceAddressKHR_fn(app->_logicalDevice, &info);
 }
 
-void RayTracerPass::BuildBLAS_FromTriangleSoup(
+void RayTracerPass::BuildBLAS_PerBrush(
     VkCommandBuffer cmd,
     uint32_t frame,
+    uint32_t brushIdx,
     VkBuffer vertexBuffer, VkDeviceSize vertexOffset,
     uint32_t vertexCount, VkDeviceSize vertexStride)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     auto& F = rtAS[frame];
+    VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+    if (F.perBrushBlas.size() < voxelizer->maxBrushCapacity)
+        F.perBrushBlas.resize(voxelizer->maxBrushCapacity);
+
+    auto& B = F.perBrushBlas[brushIdx];
 
     if (vertexCount < 3) return;
 
-    VkDeviceSize posOffset = offsetof(Vertex, pos);
-
-    VkDeviceAddress vaddr = GetBufferAddress(vertexBuffer) + vertexOffset + posOffset;
+    VkDeviceAddress vaddr = GetBufferAddress(vertexBuffer) + vertexOffset;
 
     VkAccelerationStructureGeometryTrianglesDataKHR tri{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR
     };
-    tri.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT; 
+    tri.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
     tri.vertexData.deviceAddress = vaddr;
     tri.vertexStride = vertexStride;
     tri.maxVertex = vertexCount - 1;
@@ -647,11 +731,13 @@ void RayTracerPass::BuildBLAS_FromTriangleSoup(
     range.primitiveCount = vertexCount / 3;
     const VkAccelerationStructureBuildRangeInfoKHR* pRange = &range;
 
+    uint32_t primCount = range.primitiveCount;
+
     VkAccelerationStructureBuildGeometryInfoKHR buildInfo{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR
     };
     buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-    buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
     buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geom;
@@ -659,8 +745,6 @@ void RayTracerPass::BuildBLAS_FromTriangleSoup(
     VkAccelerationStructureBuildSizesInfoKHR sizes{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR
     };
-    uint32_t primCount = range.primitiveCount;
-
     vkGetAccelerationStructureBuildSizesKHR_fn(
         app->_logicalDevice,
         VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
@@ -668,86 +752,93 @@ void RayTracerPass::BuildBLAS_FromTriangleSoup(
         &primCount,
         &sizes);
 
-    if (F.blas != VK_NULL_HANDLE) {
-        vkDestroyAccelerationStructureKHR_fn(app->_logicalDevice, F.blas, nullptr);
-        vkDestroyBuffer(app->_logicalDevice, F.blasBuffer, nullptr);
-        vkFreeMemory(app->_logicalDevice, F.blasMemory, nullptr);
-        F.blas = VK_NULL_HANDLE;
-        F.blasBuffer = VK_NULL_HANDLE;
-        F.blasMemory = VK_NULL_HANDLE;
-        F.blasAddr = 0;
-    }
-
-    app->CreateBuffer(
-        sizes.accelerationStructureSize,
-        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        F.blasBuffer, F.blasMemory);
-
-    VkAccelerationStructureCreateInfoKHR asCreate{
-        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR
-    };
-    asCreate.buffer = F.blasBuffer;
-    asCreate.size = sizes.accelerationStructureSize;
-    asCreate.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-
-    VK_CHECK(vkCreateAccelerationStructureKHR_fn(app->_logicalDevice, &asCreate, nullptr, &F.blas));
-
-
-    if (F.scratchBuffer == VK_NULL_HANDLE || sizes.buildScratchSize > F.scratchSize) {
-        if (F.scratchBuffer != VK_NULL_HANDLE) {
-            vkDestroyBuffer(app->_logicalDevice, F.scratchBuffer, nullptr);
-            vkFreeMemory(app->_logicalDevice, F.scratchMemory, nullptr);
+    if (sizes.accelerationStructureSize > B.blasAllocatedSize) {
+        if (B.blas != VK_NULL_HANDLE) {
+            vkDestroyAccelerationStructureKHR_fn(app->_logicalDevice, B.blas, nullptr);
+            vkDestroyBuffer(app->_logicalDevice, B.blasBuffer, nullptr);
+            vkFreeMemory(app->_logicalDevice, B.blasMemory, nullptr);
+            B.blas = VK_NULL_HANDLE;
         }
-        F.scratchSize = sizes.buildScratchSize;
+
+        B.blasAllocatedSize = sizes.accelerationStructureSize * 2;
+
         app->CreateBuffer(
-            F.scratchSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            B.blasAllocatedSize,
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            F.scratchBuffer, F.scratchMemory);
+            B.blasBuffer, B.blasMemory);
+
+        VkAccelerationStructureCreateInfoKHR asCreate{
+            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR
+        };
+        asCreate.buffer = B.blasBuffer;
+        asCreate.size = B.blasAllocatedSize;
+        asCreate.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+
+        VK_CHECK(vkCreateAccelerationStructureKHR_fn(app->_logicalDevice, &asCreate, nullptr, &B.blas));
+        B.blasAddr = GetASAddress(B.blas);
     }
 
-    buildInfo.dstAccelerationStructure = F.blas;
+    buildInfo.dstAccelerationStructure = B.blas;
     buildInfo.scratchData.deviceAddress = GetBufferAddress(F.scratchBuffer);
 
     vkCmdBuildAccelerationStructuresKHR_fn(cmd, 1, &buildInfo, &pRange);
 
-
+    // Barrier the BLAS write so (a) the next per-brush BLAS build can reuse the shared
+    // scratch (BUILD->BUILD) and (b) the TLAS build / raygen can read this BLAS.
     VkMemoryBarrier mb{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
     mb.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-    mb.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+    mb.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 
     vkCmdPipelineBarrier(
         cmd,
         VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         0, 1, &mb, 0, nullptr, 0, nullptr);
 
-    F.blasAddr = GetASAddress(F.blas);
+    B.blasAddr = GetASAddress(B.blas);
 }
 
-void RayTracerPass::BuildTLAS_SingleInstance(
+void RayTracerPass::BuildTLAS_MultiInstance(
     VkCommandBuffer cmd,
     uint32_t frame,
     const VkTransformMatrixKHR& xform)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     auto& F = rtAS[frame];
+    VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
-    // Instance points at THIS FRAME'S BLAS
-    VkAccelerationStructureInstanceKHR inst{};
-    inst.transform = xform;
-    inst.instanceCustomIndex = 0;
-    inst.mask = 0xFF;
-    inst.instanceShaderBindingTableRecordOffset = 0;
-    inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-    inst.accelerationStructureReference = F.blasAddr;
+    std::vector<VkAccelerationStructureInstanceKHR> instanceList;
+    instanceList.reserve(voxelizer->brushes.size());
+    for (size_t i = 0; i < voxelizer->brushes.size(); ++i)
+    {
+        if (i >= voxelizer->BrushVerticesCount.size() || voxelizer->BrushVerticesCount[i] == 0)
+            continue;
+        if (i >= F.perBrushBlas.size() || F.perBrushBlas[i].blas == VK_NULL_HANDLE)
+            continue;
 
+        VkAccelerationStructureInstanceKHR inst{};
+        inst.transform = xform;
+        inst.instanceCustomIndex = static_cast<uint32_t>(i) & 0xFFFFFF;
+        inst.mask = voxelizer->brushes[i].rayMask & 0xFF;
+        inst.instanceShaderBindingTableRecordOffset = 0;
+        inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        inst.accelerationStructureReference = F.perBrushBlas[i].blasAddr;
+        instanceList.push_back(inst);
+
+    }
+
+
+    if (instanceList.empty())
+        return;
+
+    const VkDeviceSize instancesBytes = sizeof(VkAccelerationStructureInstanceKHR) * instanceList.size();
+    const VkDeviceSize instanceBufferBytes = sizeof(VkAccelerationStructureInstanceKHR) * voxelizer->maxBrushCapacity;
 
     if (F.instanceBuffer == VK_NULL_HANDLE) {
         app->CreateBuffer(
-            sizeof(VkAccelerationStructureInstanceKHR),
+            instanceBufferBytes,
             VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -755,8 +846,8 @@ void RayTracerPass::BuildTLAS_SingleInstance(
     }
 
     void* mapped = nullptr;
-    vkMapMemory(app->_logicalDevice, F.instanceMemory, 0, sizeof(inst), 0, &mapped);
-    memcpy(mapped, &inst, sizeof(inst));
+    vkMapMemory(app->_logicalDevice, F.instanceMemory, 0, instancesBytes, 0, &mapped);
+    memcpy(mapped, instanceList.data(), instancesBytes);
     vkUnmapMemory(app->_logicalDevice, F.instanceMemory);
 
     VkDeviceAddress instAddr = GetBufferAddress(F.instanceBuffer);
@@ -774,14 +865,14 @@ void RayTracerPass::BuildTLAS_SingleInstance(
     geom.geometry.instances = instances;
 
     VkAccelerationStructureBuildRangeInfoKHR range{};
-    range.primitiveCount = 1;
+    range.primitiveCount = static_cast<uint32_t>(instanceList.size());
     const VkAccelerationStructureBuildRangeInfoKHR* pRange = &range;
 
     VkAccelerationStructureBuildGeometryInfoKHR buildInfo{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR
     };
     buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-    buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
     buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geom;
@@ -789,7 +880,7 @@ void RayTracerPass::BuildTLAS_SingleInstance(
     VkAccelerationStructureBuildSizesInfoKHR sizes{
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR
     };
-    uint32_t primCount = 1;
+    uint32_t primCount = static_cast<uint32_t>(instanceList.size());
 
     vkGetAccelerationStructureBuildSizesKHR_fn(
         app->_logicalDevice,
@@ -826,19 +917,6 @@ void RayTracerPass::BuildTLAS_SingleInstance(
     VK_CHECK(vkCreateAccelerationStructureKHR_fn(app->_logicalDevice, &asCreate, nullptr, &F.tlas));
 
 
-    if (F.scratchBuffer == VK_NULL_HANDLE || sizes.buildScratchSize > F.scratchSize) {
-        if (F.scratchBuffer != VK_NULL_HANDLE) {
-            vkDestroyBuffer(app->_logicalDevice, F.scratchBuffer, nullptr);
-            vkFreeMemory(app->_logicalDevice, F.scratchMemory, nullptr);
-        }
-        F.scratchSize = sizes.buildScratchSize;
-        app->CreateBuffer(
-            F.scratchSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            F.scratchBuffer, F.scratchMemory);
-    }
-
     buildInfo.dstAccelerationStructure = F.tlas;
     buildInfo.scratchData.deviceAddress = GetBufferAddress(F.scratchBuffer);
 
@@ -863,8 +941,6 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     QTDoughApplication* app = QTDoughApplication::instance;
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
-    CreateSBT();
-
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.srcAccessMask = 0;
@@ -879,9 +955,37 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 
+    const uint32_t readIdx = (currentFrame + 1) % 2;
 
-    BuildBLAS_FromTriangleSoup(commandBuffer, currentFrame, voxelizer->meshingVertexBuffer, 0, voxelizer->readBackVertexCount, sizeof(Vertex));
-    BuildTLAS_SingleInstance(commandBuffer, currentFrame);
+    // Sync voxelizer's compute writes to meshingPositionBuffer with the per-brush BLAS reads.
+    VkBufferMemoryBarrier mpBarrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    mpBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    mpBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+    mpBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    mpBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    mpBarrier.buffer = voxelizer->meshingPositionBuffers[readIdx];
+    mpBarrier.offset = 0;
+    mpBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+        0, 0, nullptr, 1, &mpBarrier, 0, nullptr);
+
+    // Build per-brush BLASes over each brush's slice of meshingPositionBuffer.
+    const VkDeviceSize vertexStride = sizeof(float) * 4;
+    for (size_t i = 0; i < voxelizer->brushes.size(); ++i)
+    {
+        if (i >= voxelizer->BrushVerticesCount.size())
+            break;
+        uint32_t vertexCount = voxelizer->BrushVerticesCount[i];
+        if (vertexCount == 0)
+            continue;
+        VkDeviceSize vertexOffset = static_cast<VkDeviceSize>(voxelizer->BrushVertexOffsets[i]) * vertexStride;
+        BuildBLAS_PerBrush(commandBuffer, currentFrame, static_cast<uint32_t>(i),
+            voxelizer->meshingPositionBuffers[readIdx], vertexOffset, vertexCount, vertexStride);
+    }
+    BuildTLAS_MultiInstance(commandBuffer, currentFrame);
 
     VkAccelerationStructureKHR tlasForFrame = rtAS[currentFrame].tlas;
 
@@ -916,7 +1020,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     );
 
     VkDescriptorBufferInfo vbInfo{};
-    vbInfo.buffer = voxelizer->meshingVertexBuffer;
+    vbInfo.buffer = voxelizer->meshingVertexBuffers[readIdx];
     vbInfo.offset = 0;
     vbInfo.range = VK_WHOLE_SIZE;
 
@@ -928,6 +1032,20 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     vbWrite.pBufferInfo = &vbInfo;
 
     vkUpdateDescriptorSets(app->_logicalDevice, 1, &vbWrite, 0, nullptr);
+
+    VkDescriptorBufferInfo bvoInfo{};
+    bvoInfo.buffer = voxelizer->brushVertexOffsetsBuffers[readIdx];
+    bvoInfo.offset = 0;
+    bvoInfo.range = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet bvoWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    bvoWrite.dstSet = rtDescriptorSets[currentFrame];
+    bvoWrite.dstBinding = 4;
+    bvoWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bvoWrite.descriptorCount = 1;
+    bvoWrite.pBufferInfo = &bvoInfo;
+
+    vkUpdateDescriptorSets(app->_logicalDevice, 1, &bvoWrite, 0, nullptr);
 
 
     vkUpdateDescriptorSets(app->_logicalDevice, 1, &tlasWrite, 0, nullptr);

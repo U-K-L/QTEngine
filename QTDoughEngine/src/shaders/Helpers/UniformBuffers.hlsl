@@ -3,9 +3,9 @@ cbuffer UniformBufferObject : register(b0, space1)
     float4x4 model; // Model matrix
     float4x4 view; // View matrix
     float4x4 proj; // Projection matrix
-    float4 baseAlbedo;
-    float4 sideAlbedo;
-    float4 topAlbedo;
+    float4 midtone;
+    float4 shadow;
+    float4 highlight;
     float2 texelSize;
     float4 outerOutlineColor;
     float4 innerOutlineColor;
@@ -21,8 +21,8 @@ struct GPULight
 struct GameObjectShaderData
 {
     float4x4 transform;
-    float4 BaseAlbedo;
-    float4 TopAlbedo;
-    float4 SideAlbedo;
+    float4 Midtone;
+    float4 Highlight;
+    float4 Shadow;
 
 };

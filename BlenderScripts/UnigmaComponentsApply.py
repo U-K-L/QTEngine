@@ -1,15 +1,28 @@
+bl_info = {
+    "name": "Unigma Components",
+    "author": "UKL",
+    "blender": (4, 0, 0),
+    "version": (0, 0, 1),
+    "location": "Properties > Object Data",
+    "description": "Add and manage Unigma Engine components on objects",
+    "category": "Object"
+}
+
 import os, bpy, json
 
-if not bpy.data.filepath:
-    raise RuntimeError("Save your .blend first so we know where “//” is!")
+COMPONENT_DEFS = {}
 
-blend_dir = bpy.path.abspath("//")
-json_path  = os.path.normpath(
-    os.path.join(blend_dir, "..", "..", "Components", "Components.json")
-)
-
-with open(json_path) as f:
-    COMPONENT_DEFS = json.load(f)
+def _load_component_defs():
+    global COMPONENT_DEFS
+    blend_dir = bpy.path.abspath("//")
+    if not blend_dir:
+        return
+    json_path = os.path.normpath(
+        os.path.join(blend_dir, "..", "..", "Components", "Components.json")
+    )
+    if os.path.isfile(json_path):
+        with open(json_path) as f:
+            COMPONENT_DEFS = json.load(f)
 
 
 class ComponentItem(bpy.types.PropertyGroup):
@@ -20,10 +33,14 @@ class COMPONENTS_UL_items(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         layout.label(text=item.name)
 
+def _get_component_items(self, context):
+    _load_component_defs()
+    return [(k, k, "") for k in COMPONENT_DEFS.keys()] or [("NONE", "None", "")]
+
 class OBJECT_OT_add_component(bpy.types.Operator):
     bl_idname = "object.add_component"
     bl_label = "Add Component"
-    component: bpy.props.EnumProperty(items=[(k, k, "") for k in COMPONENT_DEFS.keys()])
+    component: bpy.props.EnumProperty(items=_get_component_items)
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
@@ -75,6 +92,8 @@ class OBJECT_PT_components(bpy.types.Panel):
 
         idx = obj.components_index
         if idx >= 0 and idx < len(obj.components):
+            if not COMPONENT_DEFS:
+                _load_component_defs()
             comp_def = COMPONENT_DEFS[obj.components[idx].name]
             comp_inst = obj.components[idx]
 

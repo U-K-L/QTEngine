@@ -6,21 +6,24 @@
 #include <iostream>
 #include <functional>
 
+struct SharedState {
+    std::mutex mtx;
+    std::condition_variable cvMain;
+    std::condition_variable cvWorker;
+    bool requestSignal = false;
+    bool workFinished = false;
+    bool continueSignal = false;
+};
+
 using namespace std;
 class UnigmaThread
 {
 public:
     std::thread thread;
-    condition_variable maincv;
-    condition_variable workcv;
-    mutex mainmtx;
-    mutex workmtx;
-    atomic<bool> requestSignal{ false };     // Main -> Worker
-    atomic<bool> workFinished{ false };      // Worker -> Main
-    atomic<bool> continueSignal{ false };    // Main -> Worker (resume)
+    SharedState shared;
 
-    atomic<bool> isSleeping;
-    std::atomic<bool> shouldTerminate{ false }; // Flag to signal thread termination
+    std::atomic<bool> shouldTerminate{ false };
+
     UnigmaThread(void (*func)())
     {
         thread = std::thread(func);
@@ -29,28 +32,17 @@ public:
     UnigmaThread(std::function<void()> func) {
         thread = std::thread([this, func]() {
             while (!shouldTerminate) {
-                func(); // Run the provided function
-                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Example sleep to avoid tight loop
+                func();
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             });
     }
 
     ~UnigmaThread() {
-        shouldTerminate = true; // Signal the thread to terminate
+        shouldTerminate = true;
+        shared.cvWorker.notify_one();
         if (thread.joinable()) {
-            thread.join(); // Ensure the thread finishes before destruction
+            thread.join();
         }
     }
-
-    void AskRequest() {
-        requestSignal.store(true, std::memory_order_release);
-    }
-
-    void NotifyMain() {
-		maincv.notify_one();
-	}
-
-    void NotifyWorker() {
-		workcv.notify_one();
-	}
 };

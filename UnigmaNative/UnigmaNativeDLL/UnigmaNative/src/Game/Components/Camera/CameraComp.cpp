@@ -121,12 +121,53 @@ void CameraComp::Update()
         isOrbiting = false;
     }
     */
-    // Zoom camera via mousewheel
+    if (!zoomTargetsInit)
+    {
+        targetOrthoWidth = camera->orthoWidth;
+        targetFov = camera->fov;
+        zoomTargetsInit = true;
+    }
+
     if (Controller0->cameraZoom == true)
     {
-        int scrollY = Controller0->wheel.y;
-        camera->Zoom(scrollY);
+        int scrollY = Controller0->wheel.y * 4;
+        if (camera->isOrthogonal > 0)
+        {
+            if (scrollY > 0)
+                targetOrthoWidth /= (1.0f + scrollY * 0.01f);
+            else
+                targetOrthoWidth *= (1.0f - scrollY * 0.01f);
+        }
+        else
+        {
+            targetFov += scrollY;
+        }
         Controller0->cameraZoom = false;
+    }
+
+    {
+        auto smoothDamp = [](float current, float target, float& vel, float smoothTime, float dt)
+        {
+            smoothTime = std::fmax(0.0001f, smoothTime);
+            float omega = 2.0f / smoothTime;
+            float x = omega * dt;
+            float exp_ = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
+            float change = current - target;
+            float temp = (vel + omega * change) * dt;
+            vel = (vel - omega * temp) * exp_;
+            float output = target + (change + temp) * exp_;
+            if ((target - current > 0.0f) == (output > target))
+            {
+                output = target;
+                vel = (output - target) / dt;
+            }
+            return output;
+        };
+
+        float dt = UnigmaGameManager::instance->deltaTime;
+        const float smoothTime = 0.12f;
+        camera->orthoWidth = smoothDamp(camera->orthoWidth, targetOrthoWidth, velOrthoWidth, smoothTime, dt);
+        camera->fov        = smoothDamp(camera->fov,        targetFov,        velFov,        smoothTime, dt);
     }
 
     //If keyboard P button press change to perspective or orthogonal. depending on current.
@@ -239,6 +280,10 @@ void CameraComp::InitializeData(nlohmann::json& componentData)
 	if (componentData.contains("NearClip"))
 	{
 		camera->nearClip = componentData["NearClip"];
+	}
+	if (componentData.contains("FOV"))
+	{
+		camera->fov = componentData["FOV"];
 	}
 	if (componentData.contains("CameraType"))
 	{

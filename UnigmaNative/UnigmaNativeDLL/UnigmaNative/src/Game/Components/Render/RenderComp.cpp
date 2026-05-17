@@ -77,4 +77,17 @@ void RenderComp::InitializeData(nlohmann::json& componentData)
         SetValue<int>("Density", "int", density);
     }
 
+    if (componentData.contains("BatchID"))
+    {
+        batchID = componentData["BatchID"];
+        SetValue<int>("BatchID", "int", batchID);
+    }
+
+    // Always SetValue so old scenes missing RayMask fall back to the header default.
+    if (componentData.contains("RayMask"))
+    {
+        rayMask = componentData["RayMask"];
+    }
+    SetValue<int>("RayMask", "int", rayMask);
+
 }

@@ -1,4 +1,5 @@
 #include "UnigmaNative.h"
+#include <map>
 #include "../Application/AssetLoader.h"
 #include "../Application/QTDoughApplication.h"
 #include "tiny_gltf.h"
@@ -9,6 +10,12 @@
 #include "../Engine/Physics/MaterialSimulationPass.h"
 
 AssetLoader assetLoader;
+static std::string currentLoadedSceneName;
+
+// Cached component data per game object (keyed by JID).
+std::map<uint32_t, nlohmann::json> objectComponents;
+// Component definitions from Components.json.
+nlohmann::json componentDefs;
 
 
 // Define the global variables here
@@ -67,8 +74,10 @@ void LoadUnigmaNativeFunctions()
 }
 
 
+extern void ConsoleLog(const std::string& msg);
+
 void ApplicationFunction(const char* message) {
-    std::cout << "Application received message: " << message << std::endl;
+    ConsoleLog(message);
 }
 
 UnigmaInputStruct LoadInput(int flag)
@@ -95,6 +104,7 @@ int AddBrushFromNative(uint32_t type, float px, float py, float pz,
 
 //Loads the scene and all its initial models. This may or may not include the player.
 void LoadScene(const char* sceneName) {
+    currentLoadedSceneName = sceneName;
 
     int sizeOfLight = sizeof(UnigmaLight);
 
@@ -122,6 +132,76 @@ void LoadScene(const char* sceneName) {
     nlohmann::json sceneJson;
     inputFile2 >> sceneJson;
     inputFile2.close();
+
+    // Cache component data per game object.
+    objectComponents.clear();
+    for (uint32_t j = 0; j < sceneJson["GameObjects"].size(); j++)
+    {
+        auto& goJson = sceneJson["GameObjects"][j];
+        if (goJson.contains("Components"))
+            objectComponents[j] = goJson["Components"];
+        else
+            objectComponents[j] = nlohmann::json::object();
+    }
+
+    // Load component definitions.
+    std::string compPath = AssetsPath + "Components/Components.json";
+    std::ifstream compFile(compPath);
+    if (compFile.is_open())
+    {
+        compFile >> componentDefs;
+        compFile.close();
+    }
+
+    // Backfill schema fields missing from per-object component data. Lets newly-added
+    // schema fields (e.g. RenderComp.RayMask) show up in ImGui and round-trip back out
+    // for scenes whose JSON predates the field.
+    for (auto& kv : objectComponents)
+    {
+        auto& comps = kv.second;
+        for (auto cit = comps.begin(); cit != comps.end(); ++cit)
+        {
+            const std::string& compName = cit.key();
+            if (!componentDefs.contains(compName))
+                continue;
+            auto& schema = componentDefs[compName];
+            auto& fields = cit.value();
+            for (auto sit = schema.begin(); sit != schema.end(); ++sit)
+            {
+                const std::string& fieldName = sit.key();
+                if (fields.contains(fieldName))
+                    continue;
+                auto& fval = sit.value();
+                if (fval.is_array())
+                    fields[fieldName] = fval.empty() ? "" : fval[0];
+                else if (fval.is_object())
+                {
+                    if (fval.contains("default"))
+                        fields[fieldName] = fval["default"];
+                    else if (fval.value("type", "") == "float")
+                        fields[fieldName] = 0.0f;
+                    else if (fval.value("type", "") == "int")
+                        fields[fieldName] = 0;
+                    else if (fval.value("type", "") == "bool")
+                        fields[fieldName] = false;
+                    else if (fval.value("type", "") == "vector3")
+                        fields[fieldName] = { 1.0f, 1.0f, 1.0f };
+                    else
+                        fields[fieldName] = "";
+                }
+                else if (fval == "float")
+                    fields[fieldName] = 0.0f;
+                else if (fval == "int")
+                    fields[fieldName] = 0;
+                else if (fval == "bool")
+                    fields[fieldName] = false;
+                else if (fval == "vector3")
+                    fields[fieldName] = { 1.0f, 1.0f, 1.0f };
+                else
+                    fields[fieldName] = "";
+            }
+        }
+    }
 
     //Now loop through game objects getting the associated node for each one.
     uint32_t sizeOfRenderObjs = UNGetRenderObjectsSize();
@@ -175,7 +255,7 @@ void LoadScene(const char* sceneName) {
             //Loop through all custom properties as a hashmap.
             for (const auto& [propName, propValue] : GameObjectJson["CustomProperties"].items()) {
                 if (propValue.is_array()) {
-                    // Handle nested properties (e.g., BaseAlbedo)
+                    // Handle nested properties (e.g., Midtone)
                     renderCopy._material.vectorProperties[propName] = glm::vec4(propValue[0], propValue[1], propValue[2], propValue[3]);
 
                 }
@@ -449,4 +529,9 @@ void LoadScene(const char* sceneName) {
     std::cout << "Scene Loaded!" << std::endl;
 
     std::cout << "Model Information and Material Size: " << model.materials.size() << std::endl;
+}
+
+const std::string& GetCurrentSceneName()
+{
+    return currentLoadedSceneName;
 }

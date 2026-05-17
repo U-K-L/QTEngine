@@ -54,5 +54,5 @@ void NormalPass::RenderObjects(VkCommandBuffer commandBuffer, uint32_t imageInde
 
         }
     }
-    renderingObjects[0]->RenderBrush(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame], voxelizer->meshingVertexBuffer, voxelizer->readBackVertexCount, voxelizer->indirectDrawBuffer);
+    renderingObjects[0]->RenderBrush(*app, commandBuffer, imageIndex, currentFrame, graphicsPipeline, pipelineLayout, descriptorSets[currentFrame], voxelizer->meshingVertexBuffers[currentFrame % 2], voxelizer->readBackVertexCount, voxelizer->indirectDrawBuffer);
 }

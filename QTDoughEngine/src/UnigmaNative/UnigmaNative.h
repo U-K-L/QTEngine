@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "UnigmaThread.h"
 #include "../Engine/Core/UnigmaGameObject.h"
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
@@ -65,6 +66,7 @@ extern FnRegisterRayCastSDFCallback UNRegisterRayCastSDFCallback;
 
 void ApplicationFunction(const char* message);
 void LoadScene(const char* sceneName);
+const std::string& GetCurrentSceneName();
 UnigmaInputStruct LoadInput(int flag);
 int AddBrushFromNative(uint32_t type, float px, float py, float pz,
     float sx, float sy, float sz, int resolution,

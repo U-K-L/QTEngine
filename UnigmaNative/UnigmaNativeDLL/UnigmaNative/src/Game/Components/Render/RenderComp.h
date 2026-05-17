@@ -18,6 +18,8 @@ public:
 	int opeartion = 0;
 	int resolution = 0;
 	int density = 0;
+	int batchID = 0;
+	int rayMask = 0xFF;
 	float blend = 0.0225f;
 	float smoothness = 0.1f;
 

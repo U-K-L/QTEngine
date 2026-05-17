@@ -638,19 +638,25 @@ void RenderPassObject::CleanupPipeline() {
 
     if (graphicsPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        graphicsPipeline = VK_NULL_HANDLE;
     }
     if (pipelineLayout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        pipelineLayout = VK_NULL_HANDLE;
     }
 
     //delete images
-    if (imageView != VK_NULL_HANDLE)
+    if (imageView != VK_NULL_HANDLE) {
         vkDestroyImageView(device, imageView, nullptr);
+        imageView = VK_NULL_HANDLE;
+    }
     if (image != VK_NULL_HANDLE) {
 		vkDestroyImage(device, image, nullptr);
+        image = VK_NULL_HANDLE;
 	}
     if (imageMemory != VK_NULL_HANDLE) {
 		vkFreeMemory(device, imageMemory, nullptr);
+        imageMemory = VK_NULL_HANDLE;
 	}
 
 
@@ -659,13 +665,17 @@ void RenderPassObject::CleanupPipeline() {
     std::cout << "Cleaning pipiline loop" << std::endl;
     for (int i = 0; i < images.size(); i++)
 	{
-        if (imagesViews[i] != VK_NULL_HANDLE)
+        if (imagesViews[i] != VK_NULL_HANDLE) {
             vkDestroyImageView(device, imagesViews[i], nullptr);
+            imagesViews[i] = VK_NULL_HANDLE;
+        }
 		if (images[i] != VK_NULL_HANDLE) {
 			vkDestroyImage(device, images[i], nullptr);
+            images[i] = VK_NULL_HANDLE;
 		}
 		if (imagesMemory[i] != VK_NULL_HANDLE) {
 			vkFreeMemory(device, imagesMemory[i], nullptr);
+            imagesMemory[i] = VK_NULL_HANDLE;
 		}
 
 	}
