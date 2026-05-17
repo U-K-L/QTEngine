@@ -232,63 +232,95 @@ float2 samplePotentialField(float3 position)
         
 }
 
-void photonMarch(inout Photon p, inout Surface surface, float3 camPos, int mask = 0xFF, bool rayHitAABB = true)
+void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int maxTries = 64)
 {
     RayDesc ray;
     ray.Origin = p.position;
     ray.Direction = p.direction;
     ray.TMin = 0.000001f;
     ray.TMax = Propagation_Step_Length;
-   
-    if (rayHitAABB)
+    
+    for (int i = 0; i < maxTries; i++)
     {
-        int maxTries = 128;
-        for (int i = 0; i < maxTries; i++)
+        TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
+        if (p.color.w > -1)
         {
-            TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
-            if (p.color.w > -1)
-            {
-                surface.normal = p.color;
-                return;
-            }
+            surface.normal = p.color;
+            return;
+        }
+            
 
-            TraverseGeodesic(p, ray.Origin);
+
+        TraverseGeodesic(p, ray.Origin);
             
             //Incremental step.
-            float ds = Propagation_Step_Length;
-            ds *= 0.125f;
+        float ds = Propagation_Step_Length;
+        ds *= 0.125f;
             //take larger steps in empty space.
-            float dist = samplePotentialField(p.position.xyz);
-            float tol = 0.025f;
+        float dist = samplePotentialField(p.position.xyz).x;
+        float tol = 0.025f;
             
-            if (dist >= abs(DEFUALT_EMPTY_SPACE - tol))
-                ds *= 4.0f;
+        float3 bmin = -GetDCAABBSize() * 0.25f;
+        float3 bmax = GetDCAABBSize() * 0.25f;
+        float tHit;
+        bool centerOfInterest = RayAABB(p.position.xyz, p.direction.xyz, bmin, bmax, tHit);
+            
+        if (dist >= abs(DEFUALT_EMPTY_SPACE - tol) || centerOfInterest == false)
+            ds *= 16.0f;
 
 
-            ray.Origin = p.position;
-            ray.Direction = p.direction;
-            ray.TMax = ds;
-
-        }
-
+        ray.Origin = p.position;
+        ray.Direction = p.direction;
+        ray.TMax = ds;
 
     }
 
+}
+
+//Energy comes from a light source emitter. Get the light and initalize the energy.
+float4 ExcitePhoton(in Photon photon)
+{
+    Photon probingPhoton;
+    probingPhoton.direction = photon.direction;
+    probingPhoton.position = photon.position;
+    probingPhoton.color = -1;
+    probingPhoton.mana = -1;
+    
+    //Dummy surface
+    Surface dummySurface;
+    dummySurface.normal = -1;
+    dummySurface.position = 0;
+    
+    //Only one direct light for now.
+    GPULight l = light[0];
+    float3 toLight = -l.direction.xyz;
+    float4 Le = l.emission; //How much mana is in this light.
+    
+    probingPhoton.direction.xyz = toLight;
+
+    
+    //Can I reach light? In otherwords, will this miss?
+    photonMarch(probingPhoton, dummySurface, 0xFF, 16);
+    
+    //Replace with material soon.
+    float4 absorption = (1.0f - (dummySurface.normal.w > -1))*0.3f + 0.7f; //dummySurface.material.absorption;
+    
+    return Le * absorption;
+    
 }
 
 float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool rayHitAABB = true)
 {
     GPULight l = light[0];
     float4 finalColor = 0;
+    p.mana = ExcitePhoton(p);
     
-
     //Fire away! Multiple shots.
-    int samples = 3;
+    int samples = 4;
     float norm = 1.0f / (1.0f - exp2(-(float) samples));
+    float pdfWeight = (exp2(-(float) (0 + 1)) * norm) * p.mana.w;
     for (int i = 0; i < samples; i++)
-    {
-        float pdfWeight = exp2(-(float) (i + 1)) * norm;
-        
+    {   
         //Initial Pass.
         if(i == 0)
         {
@@ -300,13 +332,23 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
             continue;
         }
 
+                
+        if (p.mana.w < 0.001f) //DEAD.
+            break;
         
-        photonMarch(p, surface, camPos, 0xFF);
+        p.mana = pdfWeight * ExcitePhoton(p);
+        
+        //Ensures it always sums to the mana availible, can go above 1, which causes bloom in HDR.
+        pdfWeight = (exp2(-(float) (i + 1)) * norm) * p.mana.w;
+        
+        photonMarch(p, surface, 0xFF, 8);
         if (surface.normal.w >= 0)
         {
             GameObjectShaderData material = globalObjMaterials[(uint) (surface.normal.w)];
             finalColor += UnigmaBRDFDirectionalLight(material, p, surface, l) * pdfWeight;
         }
+
+        
     }
 
     return finalColor;
@@ -352,7 +394,7 @@ void main()
     ray.TMax = 1e6f; 
 
     Photon p;
-    p.mana = 1.0f;
+    p.mana = 0.0f;
     p.position = float4(ro, 0);
     p.color = float4(0, 0, 0, 0);
     p.direction = float4(rd, 0);
@@ -381,7 +423,7 @@ void main()
     bool rayHitAABB = true; //RayAABB(ro, rd, bmin, bmax, tHit); TEMP OFF.
     
     
-    photonMarch(p, surface, camPos, 0x01);
+    photonMarch(p, surface, 0x01);
     
 
     

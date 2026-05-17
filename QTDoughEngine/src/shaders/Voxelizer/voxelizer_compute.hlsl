@@ -1039,13 +1039,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         Write3DDist(0, fullDTid, minDist); // Ignore particle contribution.
     */
     
-    if (pc.viewMode == 1)
-    {
-        float fieldVal = voxelsL1Out[index].isoPhi; //Only field.
-        Write3DDist(0, fullDTid, fieldVal);
-    }
-    else
-        Write3DDist(0, fullDTid, sdfVal); // Consider particles.
+
+    Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     
     voxelsL1Out[index].brushId = minId;
     /*

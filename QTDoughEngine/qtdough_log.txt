@@ -43,8 +43,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10472.7 GFLOPS
-  Memory bandwidth:   237.127 GB/s
+  Compute throughput: 10198.9 GFLOPS
+  Memory bandwidth:   236.806 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -149,6 +149,8 @@ Brush 18 shares batch 1 texture pair [5, 6]
 Brush 19 shares batch 1 texture pair [5, 6]
 Brush 20 batchID=0 new texture pair [7, 8]
 Brush 21 batchID=0 new texture pair [9, 10]
+Brush 22 batchID=0 new texture pair [11, 12]
+Brush 23 batchID=0 new texture pair [13, 14]
 Textures created2
 Created 3D texture for world SDF level 0 with resolution: 512
 Created 3D texture for world SDF level 1 with resolution: 256
@@ -159,9 +161,9 @@ Textures creat2ed2
 Creating Uniform Buffers
 Created Uniform Buffers
 Creating Shader Storage Buffers VoxelizerPass
-Vertex count: 15588
-Vertex size: 748224
-vertexBuffer memReq.size = 748224
+Vertex count: 21468
+Vertex size: 1030464
+vertexBuffer memReq.size = 1030464
 Voxel L1 Storage Buffers created
 VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
 Shader Storage Buffers created
@@ -203,10 +205,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 00000209F553DFE0
-quanta[0]: 00000209E73C96B0
-quanta[1]: 00000209E73C9B60
-quanta[2]: 00000209F547BF70
+emitterEventBuffer: 0000021963505560
+quanta[0]: 000002191751E150
+quanta[1]: 000002191751E470
+quanta[2]: 00000219634E4540
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -239,10 +241,12 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
-Brushes Processed: 3
-Total Voxels Created: 75497472
-Estimated Particles Created: 9437184
+Brush resolution and ID: 22 , 256
+Brush resolution and ID: 23 , 256
+Brush creation took: 8 milliseconds
+Brushes Processed: 5
+Total Voxels Created: 109051904
+Estimated Particles Created: 13631488
 Brush resolution and ID: 0 , 128
 Brush resolution and ID: 1 , 128
 Brush resolution and ID: 2 , 128
@@ -265,7 +269,9 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
-Brushes Processed: 3
-Total Voxels Created: 75497472
-Estimated Particles Created: 9437184
+Brush resolution and ID: 22 , 256
+Brush resolution and ID: 23 , 256
+Brush creation took: 11 milliseconds
+Brushes Processed: 5
+Total Voxels Created: 109051904
+Estimated Particles Created: 13631488

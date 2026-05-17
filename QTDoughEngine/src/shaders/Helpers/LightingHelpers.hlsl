@@ -64,6 +64,9 @@ float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, inout Photon
     float3 smoothReflect = lerp(specularReflect, normal, roughness); //Replace with diffuse direction.
     photon.direction.xyz = smoothReflect;
     
+    //Calculate energy loss. PER MATERIAL TODO.
+    photon.mana *= 0.75f; //material.absorption;
+    
     return BRDF + finalSpecular;
 }
 
