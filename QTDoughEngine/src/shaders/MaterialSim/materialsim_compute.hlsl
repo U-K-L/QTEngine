@@ -48,7 +48,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     
         
     //Reset
-    if (q.information.x > 0 && q.information.z > 0 && q.mana.w < 0.01f)
+    if (q.information.x > 0 && q.information.z > 0 && q.mana.w < 0.01f && q.information.x != 23)
     {
         //q.information.x = 0;
         //q.mana.w = 0;
@@ -57,7 +57,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     }
     
     //Skip.
-    if (q.position.w < 1 || q.mana.w < 0.01)
+    if ((q.position.w < 1 || q.mana.w < 0.01) && q.information.x != 23)
     {
         quantaOut[globalIndex] = q;
         return;
@@ -73,7 +73,19 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     
     float3 gravity = float3(0, 0, -9.8f) * q.mana.w;
     worldPos += gravity * deltaTime * 0.01f;
-    
+
+    if (q.information.x == 23)
+    {
+        uint seed = globalIndex;
+        float p1 = float((seed * 7u)  % 997u) * 0.00628f + time * 1.5f;
+        float p2 = float((seed * 13u) % 991u) * 0.00628f + time * 2.1f;
+        float3 waveVel = float3(0.023f * sin(p1),
+                                0.023f * sin(p2),
+                                0.015f * cos(p1 + p2));
+        worldPos += waveVel * deltaTime;
+
+    }
+
     if (brushId >= 0)
     {
         q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;

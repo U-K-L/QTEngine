@@ -2413,12 +2413,34 @@ float GetPhi(uint3 index)
     return phi;
 }
 
-float ComputePhi(uint index)
+float CalculateMetaballPhi(uint densityW)
 {
+    if (densityW == 0)
+        return DEFUALT_EMPTY_SPACE;
 
-    float phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
+    float rho = (float) densityW / DENSITY_SCALE;
 
+    // Higher iso = thinner / more separated blobs.
+    // Lower iso = fatter / more merged blobs.
+    const float isoValue = 0.35f;
+
+    // Negative = inside, positive = outside.
+    return isoValue - rho;
+}
+
+float ComputePhi(uint index, uint brushId)
+{
+    float dist = voxelsL1Out[index].distance;
+    float dens = voxelsL1Out[index].density;
+    float phi;
+    
+    if(brushId == 22)
+        phi = CalculateMetaballPhi(dens);
+    else
+        phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     return phi;
+    
+    //return CalculateMetaballPhi(voxelsL1Out[index].density);
 }
 
 [numthreads(8, 8, 8)]
@@ -2464,7 +2486,7 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
         return;
 
     uint flatIndex = Flatten3D(DTid, voxelRes);
-    float c = ComputePhi(flatIndex);
+    float c = ComputePhi(flatIndex, voxelsL1Out[flatIndex].brushId);
     
 
     voxelsL1Out[flatIndex].isoPhi = c;
@@ -2477,7 +2499,7 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz ));
     uint index = Flatten3D(idVoxel, voxelRes);
     
-    float c = ComputePhi(index);
+    float c = ComputePhi(index, voxelsL1Out[index].brushId);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
@@ -2499,7 +2521,7 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz));
     uint index = Flatten3D(idVoxel, voxelRes);
     
-    float c = ComputePhi(index);
+    float c = ComputePhi(index, voxelsL1Out[index].brushId);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;

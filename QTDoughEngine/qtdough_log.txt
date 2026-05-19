@@ -39,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10446.6 GFLOPS
-  Memory bandwidth:   234.791 GB/s
+  Compute throughput: 10472.7 GFLOPS
+  Memory bandwidth:   236.166 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -200,10 +200,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000001EFF4605070
-quanta[0]: 000001EFE90200D0
-quanta[1]: 000001EFE901E640
-quanta[2]: 000001EFF45F4710
+emitterEventBuffer: 000001AD9B9D2070
+quanta[0]: 000001AD4D65B740
+quanta[1]: 000001AD4D65B8D0
+quanta[2]: 000001AD9B96C460
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -236,11 +236,11 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush resolution and ID: 22 , 256
-Brush creation took: 10 milliseconds
+Brush resolution and ID: 22 , 128
+Brush creation took: 9 milliseconds
 Brushes Processed: 4
-Total Voxels Created: 92274688
-Estimated Particles Created: 11534336
+Total Voxels Created: 77594624
+Estimated Particles Created: 9699328
 Brush resolution and ID: 0 , 128
 Brush resolution and ID: 1 , 128
 Brush resolution and ID: 2 , 128
@@ -263,11 +263,11 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush resolution and ID: 22 , 256
-Brush creation took: 13 milliseconds
+Brush resolution and ID: 22 , 128
+Brush creation took: 5 milliseconds
 Brushes Processed: 4
-Total Voxels Created: 92274688
-Estimated Particles Created: 11534336
+Total Voxels Created: 77594624
+Estimated Particles Created: 9699328
 Quanta count readback done.
 Creating swap chain
 Swap chain being queried
