@@ -641,6 +641,8 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].center.xyz = center;
     Brushes[index].isDirty = 0;
     Brushes[index].isDeformed = 0;
+    if(index == 22)
+        Brushes[index].isDeformed = 1;
     Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;

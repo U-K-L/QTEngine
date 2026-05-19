@@ -1393,11 +1393,11 @@ void QTDoughApplication::RunMainGameLoop()
 
     if (elapsedTime.count() >= 33)
     {
-        // Auto-pause after 2s warmup in editor mode.
         if (!simulationWarmupDone)
         {
-            auto sinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSinceApplication);
-            if (sinceStart.count() >= 2000)
+            static int simWarmupFrames = 0;
+            ++simWarmupFrames;
+            if (simWarmupFrames >= 500)
             {
                 simulationWarmupDone = true;
                 if (editorState.IsEditor())

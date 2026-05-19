@@ -1663,6 +1663,7 @@ void VoxelizerPass::CreateBrushes()
         
         brush.isCollapsing = true;
 
+
         //Create the model matrix for the brush.
         //obj->_transform.position = glm::vec3(0.0f, 0.0f, 0.0f); // Set to origin for now
         //brush.model = obj->_transform.GetModelMatrixBrush();
@@ -2458,33 +2459,11 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     UpdateBrushesGPU(commandBuffer);
 
-    if (GetKeyState('8') & 0x8000)
+    if (GetKeyState(VK_F8) & 0x8000)
     {
         std::cout << "Starting readback" << std::endl;
         MaterialSimulation::instance->ReadBackMaterialGridSDF();
     }
-
-    static bool wasPressed = false;
-    bool isPressed = (GetKeyState(VK_LBUTTON) & 0x8000) != 0;
-    if (isPressed && !wasPressed)
-    {
-        int mx, my;
-        SDL_GetMouseState(&mx, &my);
-        glm::vec3 origin, direction;
-        MaterialSimulation::instance->ScreenToWorldRay((float)mx, (float)my, origin, direction);
-        Photon photon;
-        photon.position = glm::vec4(origin, 1.0f);
-        photon.direction = glm::vec4(direction, 1.0f);
-        photon.information = glm::ivec4(0);
-
-        int wasHit = MaterialSimulation::instance->RayCast(photon, true);
-        if (wasHit > 0)
-        {
-            int brushId = static_cast<int>(photon.information.x);
-            QTDoughApplication::instance->editorState.selectedBrushIndex = brushId;
-        }
-    }
-    wasPressed = isPressed;
 
 
     /*
