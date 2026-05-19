@@ -245,6 +245,7 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
         TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
         if (p.color.w > -1)
         {
+           
             surface.normal = p.color;
             return;
         }
@@ -253,10 +254,10 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
 
         TraverseGeodesic(p, ray.Origin);
             
-            //Incremental step.
+        //Incremental step.
         float ds = Propagation_Step_Length;
         ds *= 0.125f;
-            //take larger steps in empty space.
+        //take larger steps in empty space.
         float dist = samplePotentialField(p.position.xyz).x;
         float tol = 0.025f;
             
@@ -274,6 +275,7 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
         ray.TMax = ds;
 
     }
+    p.direction.w = 1.0f;
 
 }
 
@@ -284,7 +286,7 @@ float4 ExcitePhoton(in Photon photon)
     probingPhoton.direction = photon.direction;
     probingPhoton.position = photon.position;
     probingPhoton.color = -1;
-    probingPhoton.mana = -1;
+    probingPhoton.mana = 1.0f;
     
     //Dummy surface
     Surface dummySurface;
@@ -302,10 +304,11 @@ float4 ExcitePhoton(in Photon photon)
     //Can I reach light? In otherwords, will this miss?
     photonMarch(probingPhoton, dummySurface, 0xFF, 16);
     
-    //Replace with material soon.
-    float4 absorption = (1.0f - (dummySurface.normal.w > -1))*0.3f + 0.7f; //dummySurface.material.absorption;
-    
-    return Le * absorption;
+    float4 absorbed = 1.0f;
+    if (dummySurface.normal.w > -1)
+        absorbed = absorptionFunc( 0.2285f * globalObjMaterials[(uint) (dummySurface.normal.w)].absorption);
+
+    return Le * absorbed;
     
 }
 
@@ -318,7 +321,7 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
     //Fire away! Multiple shots.
     int samples = 4;
     float norm = 1.0f / (1.0f - exp2(-(float) samples));
-    float pdfWeight = (exp2(-(float) (0 + 1)) * norm) * p.mana.w;
+    float pdfWeight = p.mana.w;
     for (int i = 0; i < samples; i++)
     {   
         //Initial Pass.
@@ -336,10 +339,11 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
         if (p.mana.w < 0.001f) //DEAD.
             break;
         
-        p.mana = pdfWeight * ExcitePhoton(p);
+        p.mana *= ExcitePhoton(p);
         
         //Ensures it always sums to the mana availible, can go above 1, which causes bloom in HDR.
-        pdfWeight = (exp2(-(float) (i + 1)) * norm) * p.mana.w;
+        //(exp2(-(float) (i + 1)) * norm)
+        pdfWeight =  p.mana.w;
         
         photonMarch(p, surface, 0xFF, 8);
         if (surface.normal.w >= 0)
@@ -397,7 +401,7 @@ void main()
     p.mana = 0.0f;
     p.position = float4(ro, 0);
     p.color = float4(0, 0, 0, 0);
-    p.direction = float4(rd, 0);
+    p.direction = float4(rd, 1.0f);
     
     GameObjectShaderData material;
     material.Midtone = float4(0.90, 0.9, 0.78, 1.0);

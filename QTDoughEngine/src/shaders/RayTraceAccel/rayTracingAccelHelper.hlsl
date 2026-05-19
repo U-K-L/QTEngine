@@ -27,6 +27,12 @@ float3 HyperSurfacePositionManifold(float3 candidatePosition)
 }
 */
 
+float3 ManifoldToHyperSurface(float3 candidatePosition)
+{
+    //TODO: Derive hypersurface from 4D manifold produced by gravitons.
+    return candidatePosition;
+}
+
 //Fun fuunctions to play with:
 float3 ShiftManifold(float3 candidatePosition)
 {
@@ -108,12 +114,6 @@ float3 IdentityManifold(float3 candidatePosition)
     return identityPos;
 }
 
-float3 ManifoldToHyperSurface(float3 candidatePosition)
-{
-    //TODO: Derive hypersurface from 4D manifold produced by gravitons.
-    return candidatePosition;
-}
-
 float3 HyperSurfacePositionMapper(float3 candidatePosition)
 {
     //First get the true manifold position.
@@ -122,11 +122,11 @@ float3 HyperSurfacePositionMapper(float3 candidatePosition)
     //Now chain effects:
     
     //For orb:
-    //float4 viewOrb = float4(0.0f, 0.0f, 0.0f, 1.0f); // portal orb here
-    //float4 peekOrb = float4(1.0f, 2.0f, 0.0f, 2.0f); // see this remote orb
+    float4 viewOrb = float4(0.0f, 0.0f, 1.20f, 1.0f); // portal orb here
+    float4 peekOrb = float4(1.0f, 4.0f, 0.0f, 2.0f); // see this remote orb
     
-    float3 chainedPositions = IdentityManifold(manifoldPosMapped);
-
+    float3 chainedPositions = IdentityManifold(manifoldPosMapped); //No effect.
+    //float3 chainedPositions = PortalManifold(candidatePosition, viewOrb, peekOrb);
     return chainedPositions;
 }
 

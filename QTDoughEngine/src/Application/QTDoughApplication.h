@@ -120,7 +120,8 @@ struct GameObjectShaderData
     glm::vec4 Midtone;
     glm::vec4 Highlight;
     glm::vec4 Shadow;
-
+    glm::vec4 smoothRefract;
+    glm::vec4 absorption;
 };
 
 static std::vector<char> readFile(const std::string& filename) {

@@ -372,6 +372,8 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
     gameObjectShaderDataArray[gObj->RenderID].Midtone = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Midtone"];
     gameObjectShaderDataArray[gObj->RenderID].Highlight = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Highlight"];
     gameObjectShaderDataArray[gObj->RenderID].Shadow = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Shadow"];
+    gameObjectShaderDataArray[gObj->RenderID].smoothRefract = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["smoothRefract"];
+    gameObjectShaderDataArray[gObj->RenderID].absorption = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["absorption"];
 
 
     int lightSize = UNGetLightsSize();
@@ -695,7 +697,12 @@ void QTDoughApplication::SetupEngineGUI()
                 {
                     glm::vec4 valBeforeWidget = val;
                     float col[4] = { val.x, val.y, val.z, val.w };
-                    if (ImGui::ColorEdit4(key.c_str(), col))
+                    bool edited = false;
+                    if (key == "smoothRefract" || key == "absorption")
+                        edited = ImGui::DragFloat4(key.c_str(), col, 0.01f);
+                    else
+                        edited = ImGui::ColorEdit4(key.c_str(), col);
+                    if (edited)
                     {
                         val = glm::vec4(col[0], col[1], col[2], col[3]);
                     }

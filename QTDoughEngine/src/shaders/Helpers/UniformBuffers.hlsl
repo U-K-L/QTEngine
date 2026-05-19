@@ -24,5 +24,6 @@ struct GameObjectShaderData
     float4 Midtone;
     float4 Highlight;
     float4 Shadow;
-
+    float4 smoothRefract;
+    float4 absorption;
 };
