@@ -355,6 +355,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     if(!inAABB)
         sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
+    if (brushIdx == 22)
+        supportMod = brush.smoothness;
+    
     float supportWS = sigma * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
     float speed = 0.001f;

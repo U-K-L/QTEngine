@@ -2130,6 +2130,16 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
             sizeof(uint32_t),
             &brushes[i].isDirty
         );
+
+        offset = sizeof(Brush) * i + offsetof(Brush, smoothness);
+
+        vkCmdUpdateBuffer(
+            commandBuffer,
+            brushesStorageBuffers,
+            offset,
+            sizeof(float),
+            &brushes[i].smoothness
+        );
     }
 
     // Memory barrier after all updates

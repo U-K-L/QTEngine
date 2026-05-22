@@ -228,6 +228,65 @@
       <FileType>Document</FileType>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\MaterialSim\lepton_p2g.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\lepton_prefixsum.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\lepton_propagate.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\lepton_scatter.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\materialsim_compute.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_accum_convert.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_brush_accum.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_brush_assign.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_collapse.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_collapse_fill.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_diffusion.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_emitter.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_field_update.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_g2p.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_histogram_compute.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_p2g.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_prefixsum_compute.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_scatter_compute.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\shaders\MaterialSim\matsim_sdf_downsample.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

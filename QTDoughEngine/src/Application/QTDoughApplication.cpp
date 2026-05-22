@@ -666,9 +666,9 @@ void QTDoughApplication::SetupEngineGUI()
                 ImGui::Text("Dirty: %u", b.isDirty);
                 glm::vec3 pos = glm::vec3(b.model[3]);
                 ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
-                if (materialSimulationPass->quantaCountReady && b.id < materialSimulationPass->brushQuantaCounts.size())
+                if (b.id >= 1 && (b.id - 1) < materialSimulationPass->brushMatricies.size())
                 {
-                    uint32_t count = materialSimulationPass->brushQuantaCounts[b.id];
+                    uint32_t count = (uint32_t)materialSimulationPass->brushMatricies[b.id - 1].bCentroid.w;
                     ImGui::Text("Quanta: %u", count);
                 }
             }
@@ -783,7 +783,16 @@ void QTDoughApplication::SetupEngineGUI()
                             {
                                 float val = fit.value().get<float>();
                                 if (ImGui::DragFloat(label.c_str(), &val, 0.01f))
+                                {
                                     fit.value() = val;
+                                    if (compName == "RenderComp" && fieldName == "Smoothness"
+                                        && VoxelizerPass::instance
+                                        && editorState.selectedBrushIndex >= 0
+                                        && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->brushes.size())
+                                    {
+                                        VoxelizerPass::instance->brushes[editorState.selectedBrushIndex].smoothness = val;
+                                    }
+                                }
                             }
                             else if (fit.value().is_number_integer())
                             {
@@ -1262,12 +1271,11 @@ void QTDoughApplication::SetupEngineGUI()
                                 editorState.selectedBrushIndex = (int)i;
                             }
                         }
-                        if (materialSimulationPass->quantaCountReady)
                         {
                             ImGui::Separator();
                             uint32_t used = 0;
-                            for (uint32_t c : materialSimulationPass->brushQuantaCounts)
-                                used += c;
+                            for (const auto& m : materialSimulationPass->brushMatricies)
+                                used += (uint32_t)m.bCentroid.w;
                             uint32_t free = QUANTA_COUNT - used;
                             float pct = 100.0f * (float)used / (float)QUANTA_COUNT;
                             ImGui::Text("Total: %u / %u (%.1f%%)", used, QUANTA_COUNT, pct);

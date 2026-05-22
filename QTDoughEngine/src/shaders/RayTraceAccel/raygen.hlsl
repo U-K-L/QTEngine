@@ -319,7 +319,7 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
     p.mana = ExcitePhoton(p);
     
     //Fire away! Multiple shots.
-    int samples = 64;
+    int samples = 8;
     float norm = 1.0f / (1.0f - exp2(-(float) samples));
     float pdfWeight = p.mana.w;
     for (int i = 0; i < samples; i++)
@@ -447,17 +447,16 @@ void main()
     if (surfaceHit)
         finalColor = accumulateLight(p, surface, camPos);
     
-    /*
+    float materialPhase = 0;
     //Replace with phase it's in. Which can be per voxel/"triangle"
-    if(firstHitSurface.normal.w == 23)
-        finalColor = depthMapped;
+    if(firstHitSurface.normal.w == 22)
+        materialPhase = 1;
     else
-        finalColor = 0;
-*/
+        materialPhase = 0;
 
     
     gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
     gBindlessStorage[normalHandle][pixel] = float4(firstHitSurface.normal.xyz, depthMapped);
-    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, firstHitSurface.normal.w);
-
+    //gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, firstHitSurface.normal.w);
+    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, materialPhase);
 }

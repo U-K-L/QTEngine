@@ -26,6 +26,13 @@ StructuredBuffer<MaterialGridAccumulator> accumulator : register(t21, space1);
 // MaterialGrid (write).
 RWStructuredBuffer<MaterialGridPoint> materialGrid : register(u8, space1);
 
+//Brush matrix.
+RWStructuredBuffer<BrushMatrix> brushMatricies : register(u23, space1);
+
+RWStructuredBuffer<BrushAccumulator> brushAccumulator : register(u24, space1);
+
+
+
 // Dispatched per grid cell: (materialGridSize / 8) per axis.
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
@@ -44,4 +51,5 @@ void main(uint3 DTid : SV_DispatchThreadID)
     materialGrid[idx].massMomentum.y = (float) accumulator[idx].massMomentum.y / FIXED_POINT_SCALE;
     materialGrid[idx].massMomentum.z = (float) accumulator[idx].massMomentum.z / FIXED_POINT_SCALE;
     materialGrid[idx].massMomentum.w = (float) accumulator[idx].massMomentum.w / FIXED_POINT_SCALE;
+    
 }

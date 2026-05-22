@@ -82,7 +82,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         float3 waveVel = float3(0.023f * sin(p1),
                                 0.023f * sin(p2),
                                 0.015f * cos(p1 + p2));
-        worldPos += waveVel * deltaTime;
+        //worldPos += waveVel * deltaTime;
 
     }
 

@@ -131,6 +131,19 @@ struct MaterialGridAccumulator
     int4 normal;
 };
 
+struct BrushAccumulator
+{
+    uint count;
+    uint posSumX;
+    uint posSumY;
+    uint posSumZ;
+};
+
+struct BrushMatrix
+{
+	float4 bCentroid; //xyz is pos, w is count.
+};
+
 struct Lepton
 {
     float4 position;   // w = claimer ID.
@@ -219,12 +232,12 @@ float GetTileSize(int3 voxelRes)
 
 float3 GetDCAABBSize()
 {
-    return float3(32, 32, 8);
+    return float3(16, 16, 4);
 }
 
 float3 GetSceneSize()
 {
-    return float3(64, 64, 16);
+    return float3(32, 32, 8);
 }
 
 int3 GetMaterialGridSize()

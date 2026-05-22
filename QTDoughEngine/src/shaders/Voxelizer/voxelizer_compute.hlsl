@@ -2413,16 +2413,18 @@ float GetPhi(uint3 index)
     return phi;
 }
 
-float CalculateMetaballPhi(uint densityW)
+float CalculateMetaballPhi(uint densityW, uint brushId)
 {
     if (densityW == 0)
         return DEFUALT_EMPTY_SPACE;
 
     float rho = (float) densityW / DENSITY_SCALE;
+    
+    float smoothness = Brushes[brushId].smoothness;
 
     // Higher iso = thinner / more separated blobs.
     // Lower iso = fatter / more merged blobs.
-    const float isoValue = 0.35f;
+    float isoValue = smoothness;
 
     // Negative = inside, positive = outside.
     return isoValue - rho;

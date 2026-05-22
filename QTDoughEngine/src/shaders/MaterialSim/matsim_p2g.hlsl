@@ -35,6 +35,8 @@ RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
 
 RWStructuredBuffer<MaterialGridAccumulator> accumulator : register(u21, space1);
 
+RWStructuredBuffer<BrushAccumulator> brushAccumulator : register(u24, space1);
+
 [numthreads(8, 8, 8)]
 void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 {
@@ -80,6 +82,20 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     wz[0] = 0.5f * (1.5f - fx.z) * (1.5f - fx.z);
     wz[1] = 0.75f - (fx.z - 1.0f) * (fx.z - 1.0f);
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
+    
+    //Averaged position.
+    int posX = (int) round(q.position.x * FIXED_POINT_SCALE);
+    int posY = (int) round(q.position.y * FIXED_POINT_SCALE);
+    int posZ = (int) round(q.position.z * FIXED_POINT_SCALE);
+    
+    if (brushId >= 0 && brushId < MAX_BRUSHES)
+    {
+        int dummyVal;
+        InterlockedAdd(brushAccumulator[brushId].count, 1, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].posSumX, posX, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].posSumY, posY, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].posSumZ, posZ, dummyVal);
+    }
 
     // --- 27-cell stencil: scatter mass onto accumulator ---
     [unroll]
