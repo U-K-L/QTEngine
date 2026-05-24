@@ -83,10 +83,10 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     wz[1] = 0.75f - (fx.z - 1.0f) * (fx.z - 1.0f);
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
     
-    //Averaged position.
-    int posX = (int) round(q.position.x * FIXED_POINT_SCALE);
-    int posY = (int) round(q.position.y * FIXED_POINT_SCALE);
-    int posZ = (int) round(q.position.z * FIXED_POINT_SCALE);
+    //Averaged position (world space).
+    int posX = (int) round(pos.x * FIXED_POINT_SCALE);
+    int posY = (int) round(pos.y * FIXED_POINT_SCALE);
+    int posZ = (int) round(pos.z * FIXED_POINT_SCALE);
     
     if (brushId >= 0 && brushId < MAX_BRUSHES)
     {

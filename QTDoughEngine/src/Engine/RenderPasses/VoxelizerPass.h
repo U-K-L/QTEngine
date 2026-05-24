@@ -117,7 +117,6 @@ public:
     glm::vec3 dcAABBSize = glm::vec3(32.0f, 32.0f, 8.0f);
     glm::vec3 sceneSize  = glm::vec3(64.0f, 64.0f, 16.0f); // mirrors GetSceneSize() in ShaderHelpers.hlsl
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
-    glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024,256);
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL15 = 256;
     int VOXEL_RESOLUTIONL2 = 128;
@@ -192,11 +191,19 @@ public:
     VkDeviceMemory stagingBrushVerticesMemory;
 
     //Per-brush base offset into the soup (GPU prefix-sum of BrushVerticesCount).
-    VkBuffer brushVertexOffsetsBuffers[2];
-    VkDeviceMemory brushVertexOffsetsMemories[2];
+    VkBuffer brushVertexOffsetsBuffers[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+    VkDeviceMemory brushVertexOffsetsMemories[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
     VkBuffer stagingBrushVertexOffsetsBuffer;
     VkDeviceMemory stagingBrushVertexOffsetsMemory;
     std::vector<uint32_t> BrushVertexOffsets;
+
+    std::vector<VkBuffer>       rbGlobalIDCounterBuffers;
+    std::vector<VkDeviceMemory> rbGlobalIDCounterMemories;
+    std::vector<VkBuffer>       rbBrushVerticesBuffers;
+    std::vector<VkDeviceMemory> rbBrushVerticesMemories;
+    std::vector<VkBuffer>       rbBrushVertexOffsetsBuffers;
+    std::vector<VkDeviceMemory> rbBrushVertexOffsetsMemories;
+    std::vector<bool>           rbArmed;
     //Per-brush write cursor used by DC pass 2 to claim slots within the brush's slice.
     VkBuffer brushWriteCursorsBuffer;
     VkDeviceMemory brushWriteCursorsMemory;
@@ -278,9 +285,8 @@ public:
     void DispatchVertexMask(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t brushID, bool countOnly = false);
     void BindSetsForVoxels(VkCommandBuffer cmd, uint32_t curFrame, bool pingRead);
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
-    void RecordCounterReadback(VkCommandBuffer commandBuffer, uint32_t currentFrame);
-    void ReadCounterOnCPU();
-    void ReadBackGPUData() override;
+    void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame) override;
+    void ConsumeReadback(uint32_t currentFrame) override;
     int AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,
                   float blend = 0.0225f, float smoothness = 0.1f, uint32_t opcode = 0,
                   int density = 3, float stiffness = 1.0f);
@@ -326,12 +332,12 @@ public:
     std::vector<Vertex> meshVertices;
     std::vector<Vertex> meshingVertexSoup;
     std::vector<glm::uvec3> meshingTriangleIndices;
-    VkBuffer meshingVertexBuffers[2];
-    VkBuffer meshingPositionBuffers[2];
-    VkDeviceMemory meshingPositionBufferMemories[2];
+    VkBuffer meshingVertexBuffers[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+    VkBuffer meshingPositionBuffers[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+    VkDeviceMemory meshingPositionBufferMemories[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
     VkBuffer vertexBufferReadbackBuffer;
     VkDeviceMemory vertexBufferReadbackMemory;
-    VkDeviceMemory meshingVertexBufferMemories[2];
+    VkDeviceMemory meshingVertexBufferMemories[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
     VkBuffer meshingIndexBuffer;
     VkDeviceMemory meshingIndexBufferMemory;
 

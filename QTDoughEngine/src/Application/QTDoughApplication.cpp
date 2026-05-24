@@ -1573,13 +1573,12 @@ void QTDoughApplication::DrawFrame()
 
     if (computeWaitResult == VK_SUCCESS)
     {
-        //Get data from previous frame.
-        ReadBackGPUData();
+        ConsumeReadback(currentFrame);
     }
     else
     {
         std::cout << "DrawFrame: compute fence wait failed (VkResult=" << computeWaitResult
-                  << "), skipping readback." << std::endl;
+                  << ")." << std::endl;
     }
 
     // Write previous frame's bytes to ffmpeg
@@ -2119,6 +2118,7 @@ void QTDoughApplication::UpdateUniformBuffer(uint32_t currentImage) {
     memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 */
+
 void QTDoughApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
@@ -4019,6 +4019,8 @@ void QTDoughApplication::RecordComputeCommandBuffer(VkCommandBuffer commandBuffe
 
     DispatchPasses(commandBuffer, currentFrame);
 
+    ReadBackGPUData(commandBuffer, currentFrame);
+
     /**
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline);
 
@@ -5307,10 +5309,17 @@ VkExtent2D QTDoughApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
 
 }
 
-void QTDoughApplication::ReadBackGPUData() {
+void QTDoughApplication::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame) {
     for (int i = 0; i < computePassStack.size(); i++)
     {
-        computePassStack[i]->ReadBackGPUData();
+        computePassStack[i]->ReadBackGPUData(cmd, currentFrame);
+    }
+}
+
+void QTDoughApplication::ConsumeReadback(uint32_t currentFrame) {
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+        computePassStack[i]->ConsumeReadback(currentFrame);
     }
 }
 

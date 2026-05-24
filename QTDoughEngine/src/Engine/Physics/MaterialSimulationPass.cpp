@@ -1112,7 +1112,7 @@ void MaterialSimulation::DispatchLeptonPropagate(VkCommandBuffer commandBuffer)
 void MaterialSimulation::DispatchSDFDownsample(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
-	glm::ivec3 baseRes = VoxelizerPass::instance->WORLD_SDF_RESOLUTION;
+	glm::ivec3 baseRes = app->WORLD_SDF_RESOLUTION;
 
 	// Find which mip matches materialGridSize exactly (quality can change at runtime)
 	uint32_t texID = 0;

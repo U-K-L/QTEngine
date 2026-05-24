@@ -279,7 +279,7 @@ public:
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     VkVertexInputBindingDescription getBindingDescription();
     std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
-    const int MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<VkDynamicState> dynamicStates = {
     VK_DYNAMIC_STATE_VIEWPORT,
     VK_DYNAMIC_STATE_SCISSOR
@@ -309,7 +309,8 @@ public:
     void CreateGlobalDescriptorSet();
     void CreateGlobalDescriptorSetLayout();
     void UpdateGlobalDescriptorSet();
-    void ReadBackGPUData();
+    void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame);
+    void ConsumeReadback(uint32_t currentFrame);
     //void DebugPrintParticles(uint32_t currentFrame);
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -364,6 +365,9 @@ public:
     //Graphics Quality Settings.
     int GameQualityLevel = 0;
     int GeneratedMeshSmoothness = 0;
+
+    //Voxel settings.
+    glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024, 256);
 
 
 

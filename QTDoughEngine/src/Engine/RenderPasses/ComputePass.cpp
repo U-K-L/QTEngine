@@ -767,7 +767,12 @@ void ComputePass::DebugCompute(uint32_t currentFrame)
         });
 }
 
-void ComputePass::ReadBackGPUData()
+void ComputePass::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame)
+{
+
+}
+
+void ComputePass::ConsumeReadback(uint32_t currentFrame)
 {
 
 }
