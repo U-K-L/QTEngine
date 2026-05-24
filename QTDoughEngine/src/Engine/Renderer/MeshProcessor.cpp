@@ -4,12 +4,18 @@ MeshProcessor* MeshProcessor::instance = nullptr;
 
 MeshProcessor::MeshProcessor()
 {
-	vertexSoup = std::vector<Vertex>();
+
 }
 
 MeshProcessor::~MeshProcessor()
 {
 
+}
+
+void MeshProcessor::InitMeshProcessor()
+{
+	vertexSoup = std::vector<Vertex>();
+	CreateVertexBuffers();
 }
 
 //Comes from various generators that appends to the general soup.
@@ -29,7 +35,7 @@ void MeshProcessor::AppendToVerticesSoup(std::vector<Vertex>& incomingVertices)
 	vertexCountsOffsets.push_back(countsOffsets);
 }
 
-void MeshProcessor::AppendToVerticesSoup(VkCommandBuffer cmd, VkBuffer& incomingVertices, uint32_t count, uint32_t frame)
+void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, uint32_t count, uint32_t frame, uint32_t srcOffset)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 	uint32_t currentVerticesCount = 0;
@@ -38,23 +44,37 @@ void MeshProcessor::AppendToVerticesSoup(VkCommandBuffer cmd, VkBuffer& incoming
 		currentVerticesCount += get<0>(countOffset);
 	});
 
+	VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+
 	VkBufferCopy region{};
-	region.srcOffset = 0;
+	region.srcOffset = srcOffset * sizeof(Vertex);
 	region.dstOffset = currentVerticesCount * sizeof(Vertex);
-	region.size = currentVerticesCount * sizeof(Vertex);
+	region.size = count * sizeof(Vertex);
+
 	//Copy buffers on GPU -> GPU.
 	vkCmdCopyBuffer(
-		cmd,
+		commandBuffer,
 		incomingVertices,
 		vertexSoupBuffer[frame],
 		1,
 		&region);
 
+	app->EndSingleTimeCommands(commandBuffer);
 
 	uint32_t offset = currentVerticesCount;
 	std::tuple<int, int> countsOffsets(count, offset);
 
 	vertexCountsOffsets.push_back(countsOffsets);
+}
+
+VkBuffer& MeshProcessor::GetFullVertices(uint32_t currentFrame)
+{
+	return vertexSoupBuffer[currentFrame];
+}
+
+const std::vector<std::tuple<int, int>>& MeshProcessor::GetVerticesCountOffset()
+{
+	return vertexCountsOffsets;
 }
 
 void MeshProcessor::RefreshVertexSoup()
@@ -73,6 +93,7 @@ void MeshProcessor::CreateVertexBuffers()
 	QTDoughApplication* app = QTDoughApplication::instance;
 
 	vertexSoupBuffer.resize(app->MAX_FRAMES_IN_FLIGHT);
+	vertexSoupMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
 	//Calculate the max size needed.
 	glm::ivec3 r = app->WORLD_SDF_RESOLUTION;
 	VertexMaxCount = std::max((uint32_t)(r.x * r.x + r.y * r.y + r.z * r.z) / 2u, VertexMaxCount);
@@ -96,4 +117,9 @@ void MeshProcessor::CreateVertexBuffers()
 			vertexSoupBuffer[i],
 			vertexSoupMemory[i]);
 	}
+}
+
+void MeshProcessor::Refresh()
+{
+	RefreshVertexSoup();
 }

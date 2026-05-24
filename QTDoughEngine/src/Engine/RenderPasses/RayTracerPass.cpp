@@ -1,6 +1,7 @@
 #include "RayTracerPass.h"
 #include "VoxelizerPass.h"
 #include "../Physics/MaterialSimulationPass.h"
+#include "../Renderer/MeshProcessor.h"
 #include <random>
 
 static const uint32_t kMaxPrimsPerBLAS = 1u << 20;
@@ -941,6 +942,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
+    MeshProcessor* meshProc = MeshProcessor::instance;
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -977,13 +979,15 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     const VkDeviceSize vertexStride = sizeof(float) * 4;
     for (size_t i = 0; i < voxelizer->brushes.size(); ++i)
     {
-        if (i >= voxelizer->BrushVerticesCount.size())
+        auto& verticesCountOffset = meshProc->GetVerticesCountOffset();
+        if (i >= verticesCountOffset.size())
             break;
         uint32_t vertexCount = voxelizer->BrushVerticesCount[i];
         if (vertexCount == 0)
             continue;
         VkDeviceSize vertexOffset = static_cast<VkDeviceSize>(voxelizer->BrushVertexOffsets[i]) * vertexStride;
 
+        /*
         if (i == 22)
         {
             // THROWAWAY: append a 1x1 XZ quad as 2nd geometry in brush 22's BLAS, centered on brushMatricies[22].bCentroid.
@@ -1107,10 +1111,11 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
             B.blasAddr = GetASAddress(B.blas);
             continue;
         }
-
+        */
         BuildBLAS_PerBrush(commandBuffer, currentFrame, static_cast<uint32_t>(i),
             voxelizer->meshingPositionBuffers[readIdx], vertexOffset, vertexCount, vertexStride);
     }
+
     BuildTLAS_MultiInstance(commandBuffer, currentFrame);
 
     VkAccelerationStructureKHR tlasForFrame = rtAS[currentFrame].tlas;
@@ -1146,7 +1151,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     );
 
     VkDescriptorBufferInfo vbInfo{};
-    vbInfo.buffer = voxelizer->meshingVertexBuffers[readIdx];
+    vbInfo.buffer = meshProc->GetFullVertices(readIdx);
     vbInfo.offset = 0;
     vbInfo.range = VK_WHOLE_SIZE;
 

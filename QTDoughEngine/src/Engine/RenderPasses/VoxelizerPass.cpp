@@ -234,7 +234,7 @@ void VoxelizerPass::GetMeshFromGPU()
     brushBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
     brushBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     brushBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    brushBarrier.buffer = brushVerticesStorageBuffer;
+    brushBarrier.buffer = brushVerticesStorageBuffers[0];
     brushBarrier.offset = 0;
     brushBarrier.size = VK_WHOLE_SIZE;
 
@@ -252,7 +252,7 @@ void VoxelizerPass::GetMeshFromGPU()
     brushCopy.srcOffset = 0;
     brushCopy.dstOffset = 0;
     brushCopy.size = sizeof(uint32_t) * maxBrushCapacity;
-    vkCmdCopyBuffer(cb, brushVerticesStorageBuffer, stagingBrushVerticesBuffer, 1, &brushCopy);
+    vkCmdCopyBuffer(cb, brushVerticesStorageBuffers[0], stagingBrushVerticesBuffer, 1, &brushCopy);
 
     app->EndSingleTimeCommands(cb);
     vkDeviceWaitIdle(app->_logicalDevice);
@@ -582,17 +582,18 @@ void VoxelizerPass::CreateShaderStorageBuffers()
     vkUnmapMemory(app->_logicalDevice, stagingBrushVerticesMemory);
 
 
-    app->CreateBuffer(
-        sizeof(uint32_t)* maxBrushCapacity,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        brushVerticesStorageBuffer,
-        brushVerticesStorageMemory
-    );
-
-    app->CopyBuffer(stagingBrushVerticesBuffer, brushVerticesStorageBuffer, sizeof(uint32_t)* maxBrushCapacity);
+    for (int p = 0; p < QTDoughApplication::MAX_FRAMES_IN_FLIGHT; ++p) {
+        app->CreateBuffer(
+            sizeof(uint32_t) * maxBrushCapacity,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            brushVerticesStorageBuffers[p],
+            brushVerticesStorageMemories[p]
+        );
+        app->CopyBuffer(stagingBrushVerticesBuffer, brushVerticesStorageBuffers[p], sizeof(uint32_t) * maxBrushCapacity);
+    }
 
     for (int p = 0; p < QTDoughApplication::MAX_FRAMES_IN_FLIGHT; ++p) {
         app->CreateBuffer(
@@ -1192,7 +1193,7 @@ void VoxelizerPass::CreateComputeDescriptorSets()
 
         //Per-brush vertex counts
         VkDescriptorBufferInfo brushVerticesBufferInfo{};
-        brushVerticesBufferInfo.buffer = brushVerticesStorageBuffer;
+        brushVerticesBufferInfo.buffer = brushVerticesStorageBuffers[i % QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
         brushVerticesBufferInfo.offset = 0;
         brushVerticesBufferInfo.range = VK_WHOLE_SIZE;
 
@@ -3818,7 +3819,7 @@ void VoxelizerPass::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame)
     }
 
     if (globalIDCounterStorageBuffers == VK_NULL_HANDLE ||
-        brushVerticesStorageBuffer == VK_NULL_HANDLE ||
+        brushVerticesStorageBuffers[slot] == VK_NULL_HANDLE ||
         brushVertexOffsetsBuffers[slot] == VK_NULL_HANDLE ||
         rbGlobalIDCounterBuffers[slot] == VK_NULL_HANDLE ||
         rbBrushVerticesBuffers[slot] == VK_NULL_HANDLE ||
@@ -3838,7 +3839,7 @@ void VoxelizerPass::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame)
     shaderToTransfer[0].size = sizeof(uint32_t) * globalIDCounterSize;
 
     shaderToTransfer[1] = shaderToTransfer[0];
-    shaderToTransfer[1].buffer = brushVerticesStorageBuffer;
+    shaderToTransfer[1].buffer = brushVerticesStorageBuffers[slot];
     shaderToTransfer[1].size = sizeof(uint32_t) * maxBrushCapacity;
 
     shaderToTransfer[2] = shaderToTransfer[0];
@@ -3861,7 +3862,7 @@ void VoxelizerPass::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame)
 
     VkBufferCopy brushCopy{};
     brushCopy.size = sizeof(uint32_t) * maxBrushCapacity;
-    vkCmdCopyBuffer(cmd, brushVerticesStorageBuffer, rbBrushVerticesBuffers[slot], 1, &brushCopy);
+    vkCmdCopyBuffer(cmd, brushVerticesStorageBuffers[slot], rbBrushVerticesBuffers[slot], 1, &brushCopy);
     vkCmdCopyBuffer(cmd, brushVertexOffsetsBuffers[slot], rbBrushVertexOffsetsBuffers[slot], 1, &brushCopy);
 
     VkBufferMemoryBarrier transferToHost[3] = {};
@@ -3899,6 +3900,8 @@ void VoxelizerPass::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame)
 void VoxelizerPass::ConsumeReadback(uint32_t currentFrame)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+    MeshProcessor* meshProc = MeshProcessor::instance;
+
     if (app == nullptr || app->_logicalDevice == VK_NULL_HANDLE) return;
 
     const uint32_t slot = currentFrame % QTDoughApplication::MAX_FRAMES_IN_FLIGHT;
@@ -3911,10 +3914,10 @@ void VoxelizerPass::ConsumeReadback(uint32_t currentFrame)
     {
         return;
     }
-
+    uint32_t counters[2] = { 0, 0 };
     if (rbGlobalIDCounterMemories[slot] != VK_NULL_HANDLE)
     {
-        uint32_t counters[2] = { 0, 0 };
+        
         void* mapped = nullptr;
         VkResult r = vkMapMemory(app->_logicalDevice, rbGlobalIDCounterMemories[slot], 0, sizeof(counters), 0, &mapped);
         if (r == VK_SUCCESS && mapped)
@@ -3946,6 +3949,14 @@ void VoxelizerPass::ConsumeReadback(uint32_t currentFrame)
             vkUnmapMemory(app->_logicalDevice, rbBrushVertexOffsetsMemories[slot]);
         }
     }
+
+    meshProc->Refresh();
+    uint32_t totalCountOffset = 0;
+    for_each(BrushVerticesCount.begin(), BrushVerticesCount.end(), [&](uint32_t count) {
+        meshProc->AppendToVerticesSoup(meshingVertexBuffers[currentFrame], count, currentFrame, totalCountOffset);
+        totalCountOffset += count;
+    });
+
 }
 
 int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,

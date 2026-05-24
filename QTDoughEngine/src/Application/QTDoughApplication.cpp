@@ -17,6 +17,7 @@
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
 #include "../Engine/RenderPasses/QuantaSpherePass.h"
 #include "../Engine/RenderPasses/ImguiOverlayPass.h"
+#include "../Engine/Renderer/MeshProcessor.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
@@ -38,6 +39,7 @@ std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
 MaterialSimulation* materialSimulationPass;
+MeshProcessor* meshProcessor;
 EmitterSystem* emitterSystem;
 
 uint32_t currentFrame = 0;
@@ -1649,6 +1651,8 @@ void QTDoughApplication::DrawFrame()
     //DebugCompute(currentFrame);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    //meshProcessor->Refresh();
 }
 
 
@@ -2231,6 +2235,11 @@ void QTDoughApplication::InitVulkan()
     CreateCommandPool();
     RunGPUBenchmark();
 
+    //Creating Mesh Processor.
+    meshProcessor = new MeshProcessor();
+    meshProcessor->InitMeshProcessor();
+    meshProcessor->SetInstance(meshProcessor);
+
     //Create Material Sim.
     materialSimulationPass = new MaterialSimulation();
     materialSimulationPass->InitMaterialSim();
@@ -2240,6 +2249,7 @@ void QTDoughApplication::InitVulkan()
     emitterSystem = new EmitterSystem();
     emitterSystem->instance = emitterSystem;
     emitterSystem->InitEmitter();
+
 
     AddPasses();
 

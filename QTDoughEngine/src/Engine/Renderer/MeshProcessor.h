@@ -8,8 +8,12 @@ class MeshProcessor
 	public:
 		MeshProcessor();
 		~MeshProcessor();
+		void InitMeshProcessor();
 		void MeshProcessor::AppendToVerticesSoup(std::vector<Vertex>& incomingVertices);
-		void MeshProcessor::AppendToVerticesSoup(VkCommandBuffer cmd, VkBuffer& incomingVertices, uint32_t count, uint32_t frame);
+		void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, uint32_t count, uint32_t frame, uint32_t srcOffset);
+		void MeshProcessor::Refresh();
+		VkBuffer& MeshProcessor::GetFullVertices(uint32_t currentFrame);
+		const std::vector<std::tuple<int, int>>& GetVerticesCountOffset();
 
 		static MeshProcessor* instance;
 
@@ -45,7 +49,6 @@ class MeshProcessor
 		std::vector<VkDeviceMemory> vertexSoupMemory;
 
 	private:
-		void InitMeshProcessor();
 		void UpdateVertexSoup();
 		void CreateVertexBuffers();
 		void CreateBuffers();

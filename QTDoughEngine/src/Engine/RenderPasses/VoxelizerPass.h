@@ -184,8 +184,8 @@ public:
 
     //Brush vertices counter.
     std::vector<uint32_t> BrushVerticesCount;
-    VkBuffer brushVerticesStorageBuffer;
-    VkDeviceMemory brushVerticesStorageMemory;
+    VkBuffer brushVerticesStorageBuffers[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+    VkDeviceMemory brushVerticesStorageMemories[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
 
     VkBuffer stagingBrushVerticesBuffer;
     VkDeviceMemory stagingBrushVerticesMemory;
