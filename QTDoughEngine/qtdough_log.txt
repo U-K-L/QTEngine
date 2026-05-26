@@ -2,16 +2,12 @@ Scene Loaded!
 Model Information and Material Size: 21
 Houston we're running the renderer!!!
 validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
-validation layer: windows_get_device_registry_files: GUID for 7 is not SoftwareComponent skipping
-validation layer: windows_get_device_registry_files: GUID for 8 is not SoftwareComponent skipping
 validation layer: Searching for ICD drivers named .\igvk64.dll
 validation layer: Searching for ICD drivers named .\nvoglv64.dll
 validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
 validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_4d6313ac7ad4b526\.\nvoglv64.dll
 validation layer: Loading layer library C:\WINDOWS\System32\DriverStore\FileRepository\nvmsoegpu.inf_amd64_4d6313ac7ad4b526\.\nvoglv64.dll
 validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
-validation layer: windows_get_device_registry_files: GUID for 7 is not SoftwareComponent skipping
-validation layer: windows_get_device_registry_files: GUID for 8 is not SoftwareComponent skipping
 validation layer: Searching for ICD drivers named .\igvk64.dll
 validation layer: Searching for ICD drivers named .\nvoglv64.dll
 validation layer: Loading layer library C:\ProgramData\obs-studio-hook\.\graphics-hook64.dll
@@ -43,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10420.6 GFLOPS
-  Memory bandwidth:   235.953 GB/s
+  Compute throughput: 10388.4 GFLOPS
+  Memory bandwidth:   236.272 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -204,10 +200,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000002130634DCA0
-quanta[0]: 00000213062AACD0
-quanta[1]: 00000213062AA820
-quanta[2]: 00000213062AAE60
+emitterEventBuffer: 00000212D15EE040
+quanta[0]: 00000212D151C710
+quanta[1]: 00000212D151BC20
+quanta[2]: 00000212D151C8A0
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -241,7 +237,7 @@ Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
 Brush resolution and ID: 22 , 128
-Brush creation took: 10 milliseconds
+Brush creation took: 11 milliseconds
 Brushes Processed: 4
 Total Voxels Created: 77594624
 Estimated Particles Created: 9699328

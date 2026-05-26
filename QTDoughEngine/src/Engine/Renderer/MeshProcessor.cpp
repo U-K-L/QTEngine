@@ -67,9 +67,75 @@ void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, uint32_t co
 	vertexCountsOffsets.push_back(countsOffsets);
 }
 
-VkBuffer& MeshProcessor::GetFullVertices(uint32_t currentFrame)
+void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, std::vector<uint32_t> counts, uint32_t frame)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	uint32_t preExistingVerticesCount = 0;
+	uint32_t srcCounts = 0;
+
+	std::for_each(vertexCountsOffsets.begin(), vertexCountsOffsets.end(), [&](std::tuple<int, int> countOffset) {
+		preExistingVerticesCount += get<0>(countOffset);
+	});
+
+	std::vector<uint32_t> absOffsets;
+	absOffsets.reserve(counts.size());
+	std::for_each(counts.begin(), counts.end(), [&](uint32_t count) {
+		absOffsets.push_back(preExistingVerticesCount + srcCounts);
+		std::tuple<int, int> countsOffsets(count, preExistingVerticesCount + srcCounts);
+		vertexCountsOffsets.push_back(countsOffsets);
+		srcCounts += count;
+	});
+
+	VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
+	uint32_t offsetOffsets = (vertexCountsOffsets.size() - counts.size()) * sizeof(uint32_t);
+
+	VkBufferCopy vertRegion{};
+	vertRegion.srcOffset = 0;
+	vertRegion.dstOffset = preExistingVerticesCount * sizeof(Vertex);
+	vertRegion.size = srcCounts * sizeof(Vertex);
+
+	VkBufferCopy offsetRegion{};
+	offsetRegion.srcOffset = 0;
+	offsetRegion.dstOffset = offsetOffsets;
+	offsetRegion.size = counts.size() * sizeof(uint32_t);
+
+	//Copy buffers on GPU -> GPU.
+	vkCmdCopyBuffer(
+		commandBuffer,
+		incomingVertices,
+		vertexSoupBuffer[frame],
+		1,
+		&vertRegion);
+
+
+	vkCmdUpdateBuffer(
+		commandBuffer,
+		vertexOffsetsBuffers[frame],
+		offsetRegion.dstOffset,
+		offsetRegion.size,
+		absOffsets.data()
+	);
+
+	/*
+	vkCmdCopyBuffer(
+		commandBuffer,
+		verticesOffsets,
+		vertexOffsetsBuffers[frame],
+		1,
+		&offsetRegion);
+	*/
+
+	app->EndSingleTimeCommands(commandBuffer);
+}
+
+VkBuffer& MeshProcessor::GetVerticesGPUBuffer(uint32_t currentFrame)
 {
 	return vertexSoupBuffer[currentFrame];
+}
+
+VkBuffer& MeshProcessor::GetVerticesOffsetsGPUBuffer(uint32_t currentFrame)
+{
+	return vertexOffsetsBuffers[currentFrame];
 }
 
 const std::vector<std::tuple<int, int>>& MeshProcessor::GetVerticesCountOffset()
@@ -92,8 +158,6 @@ void MeshProcessor::CreateVertexBuffers()
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 
-	vertexSoupBuffer.resize(app->MAX_FRAMES_IN_FLIGHT);
-	vertexSoupMemory.resize(app->MAX_FRAMES_IN_FLIGHT);
 	//Calculate the max size needed.
 	glm::ivec3 r = app->WORLD_SDF_RESOLUTION;
 	VertexMaxCount = std::max((uint32_t)(r.x * r.x + r.y * r.y + r.z * r.z) / 2u, VertexMaxCount);
@@ -107,6 +171,7 @@ void MeshProcessor::CreateVertexBuffers()
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
 	VkDeviceSize vertexBufferSize = sizeof(Vertex) * VertexMaxCount;
+	VkDeviceSize vertexOffsetMaxSize = sizeof(uint32_t) * NUM_OBJECTS;
 
 	for (size_t i = 0; i < app->MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -116,6 +181,13 @@ void MeshProcessor::CreateVertexBuffers()
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			vertexSoupBuffer[i],
 			vertexSoupMemory[i]);
+
+		app->CreateBuffer(
+			vertexOffsetMaxSize,
+			usage,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			vertexOffsetsBuffers[i],
+			vertexOffsetsMemories[i]);
 	}
 }
 

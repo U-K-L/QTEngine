@@ -18,6 +18,7 @@
 #include "../Engine/RenderPasses/QuantaSpherePass.h"
 #include "../Engine/RenderPasses/ImguiOverlayPass.h"
 #include "../Engine/Renderer/MeshProcessor.h"
+#include "../Engine/Renderer/MeshGenerator.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
@@ -40,6 +41,7 @@ std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
 MaterialSimulation* materialSimulationPass;
 MeshProcessor* meshProcessor;
+MeshGenerator* meshGenerator;
 EmitterSystem* emitterSystem;
 
 uint32_t currentFrame = 0;
@@ -1407,7 +1409,7 @@ void QTDoughApplication::RunMainGameLoop()
         {
             static int simWarmupFrames = 0;
             ++simWarmupFrames;
-            if (simWarmupFrames >= 500)
+            if (simWarmupFrames >= 60)
             {
                 simulationWarmupDone = true;
                 if (editorState.IsEditor())
@@ -1524,10 +1526,13 @@ void QTDoughApplication::ComputePhysics()
     }
 }
 
+void QTDoughApplication::Refresh()
+{
+    meshProcessor->Refresh();
+}
+
 void QTDoughApplication::DrawFrame()
 {
-
-
     //Aquire the rendered image.
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -1575,6 +1580,8 @@ void QTDoughApplication::DrawFrame()
 
     if (computeWaitResult == VK_SUCCESS)
     {
+
+        Refresh();
         ConsumeReadback(currentFrame);
     }
     else
@@ -1652,7 +1659,6 @@ void QTDoughApplication::DrawFrame()
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-    //meshProcessor->Refresh();
 }
 
 
@@ -2239,6 +2245,10 @@ void QTDoughApplication::InitVulkan()
     meshProcessor = new MeshProcessor();
     meshProcessor->InitMeshProcessor();
     meshProcessor->SetInstance(meshProcessor);
+
+    meshGenerator = new MeshGenerator();
+    meshGenerator->InitMeshGenerator();
+    meshGenerator->SetInstance(meshGenerator);
 
     //Create Material Sim.
     materialSimulationPass = new MaterialSimulation();
@@ -5331,6 +5341,8 @@ void QTDoughApplication::ConsumeReadback(uint32_t currentFrame) {
     {
         computePassStack[i]->ConsumeReadback(currentFrame);
     }
+
+    meshGenerator->GeneratePlane();
 }
 
 void QTDoughApplication::CreateQuadBuffers() {

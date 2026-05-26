@@ -3950,12 +3950,8 @@ void VoxelizerPass::ConsumeReadback(uint32_t currentFrame)
         }
     }
 
-    meshProc->Refresh();
-    uint32_t totalCountOffset = 0;
-    for_each(BrushVerticesCount.begin(), BrushVerticesCount.end(), [&](uint32_t count) {
-        meshProc->AppendToVerticesSoup(meshingVertexBuffers[currentFrame], count, currentFrame, totalCountOffset);
-        totalCountOffset += count;
-    });
+    meshProc->AppendToVerticesSoup(meshingVertexBuffers[currentFrame], BrushVerticesCount, currentFrame);
+
 
 }
 

@@ -2,6 +2,7 @@
 #include <atomic>
 #include "../../Application/QTDoughApplication.h"
 #include "../Renderer/UnigmaRenderingManager.h"
+#define MAX_MESH_INSTANCES 16384
 
 class MeshProcessor
 {
@@ -11,8 +12,10 @@ class MeshProcessor
 		void InitMeshProcessor();
 		void MeshProcessor::AppendToVerticesSoup(std::vector<Vertex>& incomingVertices);
 		void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, uint32_t count, uint32_t frame, uint32_t srcOffset);
+		void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, std::vector<uint32_t> counts, uint32_t frame);
 		void MeshProcessor::Refresh();
-		VkBuffer& MeshProcessor::GetFullVertices(uint32_t currentFrame);
+		VkBuffer& GetVerticesGPUBuffer(uint32_t currentFrame);
+		VkBuffer& GetVerticesOffsetsGPUBuffer(uint32_t currentFrame);
 		const std::vector<std::tuple<int, int>>& GetVerticesCountOffset();
 
 		static MeshProcessor* instance;
@@ -45,8 +48,11 @@ class MeshProcessor
 		//Vulkan memory things.
 		uint32_t VertexMaxCount = 524286; //2^19 - 2. Max number of vertices for GPU side triangle soup. Recalc depending on settings.
 
-		std::vector<VkBuffer> vertexSoupBuffer;
-		std::vector<VkDeviceMemory> vertexSoupMemory;
+		VkBuffer vertexSoupBuffer[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+		VkDeviceMemory vertexSoupMemory[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+
+		VkBuffer vertexOffsetsBuffers[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
+		VkDeviceMemory vertexOffsetsMemories[QTDoughApplication::MAX_FRAMES_IN_FLIGHT];
 
 	private:
 		void UpdateVertexSoup();

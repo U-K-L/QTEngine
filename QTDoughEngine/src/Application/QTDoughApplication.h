@@ -396,6 +396,7 @@ private:
     void CreateCompute();
     void CreateShaderStorageBuffers();
     void RunMainGameLoop();
+    void Refresh();
     void DrawFrame();
     void ComputePhysics();
     void CreateSyncObjects();
