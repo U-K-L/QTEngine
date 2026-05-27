@@ -30,6 +30,7 @@
 #include "../Engine/Renderer/UnigmaTexture.h"
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
 #include "../Engine/Core/UnigmaGameObject.h"
+#include "../Engine/Renderer/MeshGenerator.h"
 
 #include <array>
 #include <chrono>
@@ -311,6 +312,8 @@ public:
     void UpdateGlobalDescriptorSet();
     void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame);
     void ConsumeReadback(uint32_t currentFrame);
+    void FeedMeshProcessor(uint32_t currentFrame);
+
     //void DebugPrintParticles(uint32_t currentFrame);
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -323,6 +326,7 @@ public:
     void EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback);
     void CreateGlobalSamplers(uint32_t samplerCount);
     void ReadbackBufferData(VkBuffer srcBuffer, VkDeviceSize size, void* pDstData, VkDeviceSize srcOffset);
+    void PushMeshGenerator(MeshGenerator* meshGenerator);
 
     void StartRecording(const char* path, uint32_t fps);
     void StopRecording();
@@ -396,7 +400,8 @@ private:
     void CreateCompute();
     void CreateShaderStorageBuffers();
     void RunMainGameLoop();
-    void Refresh();
+    void RefreshMeshProcessor();
+    void RefreshMeshGenerators();
     void DrawFrame();
     void ComputePhysics();
     void CreateSyncObjects();

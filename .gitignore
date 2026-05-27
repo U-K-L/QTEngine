@@ -406,3 +406,6 @@ FodyWeavers.xsd
 ExternalLibs/
 
 QTDoughEngine/Assets/
+
+QTDoughEngine/build.bat
+QTDoughEngine/qtdough_log.txt

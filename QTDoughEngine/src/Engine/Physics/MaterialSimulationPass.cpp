@@ -25,6 +25,9 @@ void MaterialSimulation::InitMaterialSim()
 	InitLeptons();
 	InitMaterialGrid();
 	CreateStorageBuffers();
+
+	meshGenerator = new MeshGenerator();
+	meshGenerator->InitMeshGenerator();
 }
 
 void MaterialSimulation::InitMaterialGrid()
@@ -431,6 +434,13 @@ void MaterialSimulation::CreateSortPipelines()
 	std::cout << "MaterialSimulation sort pipelines created." << std::endl;
 }
 
+void MaterialSimulation::Update()
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	
+	app->PushMeshGenerator(meshGenerator);
+}
+
 void MaterialSimulation::DispatchTileSort(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
@@ -602,7 +612,6 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	ReadBackMaterialGridSDF();
 	ReadBackBrushMatricies();
 	//ReadBackMaterialGridFull(); //Make this on demand.
-
 }
 
 void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer)

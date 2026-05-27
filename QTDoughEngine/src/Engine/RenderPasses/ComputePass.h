@@ -101,4 +101,5 @@ public:
     virtual void CreateTriangleSoup();
     virtual void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame);
     virtual void ConsumeReadback(uint32_t currentFrame);
+    virtual void FeedMeshProcessor(uint32_t currentFrame);
 };

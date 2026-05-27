@@ -39,7 +39,7 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10388.4 GFLOPS
+  Compute throughput: 10299.1 GFLOPS
   Memory bandwidth:   236.272 GB/s
   Selected quality level: Medium (2)
 ========================
@@ -200,10 +200,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 00000212D15EE040
-quanta[0]: 00000212D151C710
-quanta[1]: 00000212D151BC20
-quanta[2]: 00000212D151C8A0
+emitterEventBuffer: 000002A8423B4E70
+quanta[0]: 000002A87632E860
+quanta[1]: 000002A842307120
+quanta[2]: 000002A842307440
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -237,7 +237,7 @@ Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
 Brush resolution and ID: 22 , 128
-Brush creation took: 11 milliseconds
+Brush creation took: 7 milliseconds
 Brushes Processed: 4
 Total Voxels Created: 77594624
 Estimated Particles Created: 9699328
@@ -264,7 +264,10 @@ Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
 Brush resolution and ID: 22 , 128
-Brush creation took: 10 milliseconds
+Brush creation took: 9 milliseconds
 Brushes Processed: 4
 Total Voxels Created: 77594624
 Estimated Particles Created: 9699328
+Quitting program.
+Cleaning up...
+[CRASH] Unhandled exception 0xc0000005 at address 0x00007FF96DB5E589

@@ -18,7 +18,6 @@
 #include "../Engine/RenderPasses/QuantaSpherePass.h"
 #include "../Engine/RenderPasses/ImguiOverlayPass.h"
 #include "../Engine/Renderer/MeshProcessor.h"
-#include "../Engine/Renderer/MeshGenerator.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
@@ -35,13 +34,13 @@ UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 std::vector<ComputePass*> computePassStack;
 std::vector<RayTracerPass*> rayTracePassStack;
+std::vector<MeshGenerator*> meshGeneratorStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
 MaterialSimulation* materialSimulationPass;
 MeshProcessor* meshProcessor;
-MeshGenerator* meshGenerator;
 EmitterSystem* emitterSystem;
 
 uint32_t currentFrame = 0;
@@ -1526,9 +1525,17 @@ void QTDoughApplication::ComputePhysics()
     }
 }
 
-void QTDoughApplication::Refresh()
+void QTDoughApplication::RefreshMeshProcessor()
 {
     meshProcessor->Refresh();
+}
+
+void QTDoughApplication::RefreshMeshGenerators()
+{
+    //Refresh all the mesh generators, not only after consume is stack popped.
+    for_each(meshGeneratorStack.begin(), meshGeneratorStack.end(), [](MeshGenerator* generator){
+        generator->Refresh(); 
+    });
 }
 
 void QTDoughApplication::DrawFrame()
@@ -1545,7 +1552,7 @@ void QTDoughApplication::DrawFrame()
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
-
+    RefreshMeshGenerators();
     UpdateGlobalDescriptorSet();
 
     VkSubmitInfo submitInfo{};
@@ -1580,9 +1587,9 @@ void QTDoughApplication::DrawFrame()
 
     if (computeWaitResult == VK_SUCCESS)
     {
-
-        Refresh();
+        RefreshMeshProcessor();
         ConsumeReadback(currentFrame);
+        FeedMeshProcessor(currentFrame);
     }
     else
     {
@@ -2226,6 +2233,11 @@ void QTDoughApplication::AddPasses()
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;
 }
 
+void QTDoughApplication::PushMeshGenerator(MeshGenerator* meshGenerator)
+{
+    meshGeneratorStack.push_back(meshGenerator);
+}
+
 void QTDoughApplication::InitVulkan()
 {
 
@@ -2246,9 +2258,8 @@ void QTDoughApplication::InitVulkan()
     meshProcessor->InitMeshProcessor();
     meshProcessor->SetInstance(meshProcessor);
 
-    meshGenerator = new MeshGenerator();
-    meshGenerator->InitMeshGenerator();
-    meshGenerator->SetInstance(meshGenerator);
+    //meshGenerator = new MeshGenerator();
+    //meshGenerator->InitMeshGenerator();
 
     //Create Material Sim.
     materialSimulationPass = new MaterialSimulation();
@@ -4112,6 +4123,9 @@ void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t i
 
 void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
+    MaterialSimulation* matSim = MaterialSimulation::instance;
+    matSim->Update();
+    
     for (int i = 0; i < computePassStack.size(); i++)
     {
         //Check for sdfpass.
@@ -4128,6 +4142,9 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
     {
         rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
+
+    for (MeshGenerator* meshGenerator : meshGeneratorStack)
+        meshGenerator->Dispatch(commandBuffer, imageIndex);
 }
 
 void QTDoughApplication::CreateCommandBuffers()
@@ -5342,7 +5359,26 @@ void QTDoughApplication::ConsumeReadback(uint32_t currentFrame) {
         computePassStack[i]->ConsumeReadback(currentFrame);
     }
 
-    meshGenerator->GeneratePlane();
+    for (int i = 0; i < meshGeneratorStack.size(); i++)
+    {
+        meshGeneratorStack[i]->ConsumeReadback(currentFrame);
+    }
+}
+
+void QTDoughApplication::FeedMeshProcessor(uint32_t currentFrame)
+{
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+        computePassStack[i]->FeedMeshProcessor(currentFrame);
+    }
+
+    //Consumed, so pop from the stack.
+    while (!meshGeneratorStack.empty())
+    {
+        MeshGenerator* meshGenerator = meshGeneratorStack.back();
+        meshGeneratorStack.pop_back();
+        meshGenerator->FeedMeshProcessor(currentFrame);
+    }
 }
 
 void QTDoughApplication::CreateQuadBuffers() {

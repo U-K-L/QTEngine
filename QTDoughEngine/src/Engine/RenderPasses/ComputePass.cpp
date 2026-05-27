@@ -777,6 +777,11 @@ void ComputePass::ConsumeReadback(uint32_t currentFrame)
 
 }
 
+void ComputePass::FeedMeshProcessor(uint32_t currentFrame)
+{
+    
+}
+
 void ComputePass::CreateMaterials() {
     material.Clean();
 }

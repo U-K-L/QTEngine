@@ -3950,9 +3950,14 @@ void VoxelizerPass::ConsumeReadback(uint32_t currentFrame)
         }
     }
 
+
+
+}
+
+void VoxelizerPass::FeedMeshProcessor(uint32_t currentFrame)
+{
+    MeshProcessor* meshProc = MeshProcessor::instance;
     meshProc->AppendToVerticesSoup(meshingVertexBuffers[currentFrame], BrushVerticesCount, currentFrame);
-
-
 }
 
 int VoxelizerPass::AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,

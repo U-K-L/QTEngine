@@ -1,8 +1,7 @@
 #include "MeshGenerator.h"
 #include "MeshProcessor.h"
 #include "../Physics/MaterialSimulationPass.h"
-
-MeshGenerator* MeshGenerator::instance = nullptr;
+#include "../../Application/QTDoughApplication.h"
 
 MeshGenerator::MeshGenerator()
 {
@@ -19,15 +18,41 @@ void MeshGenerator::InitMeshGenerator()
 	CreateVertexBuffers();
 }
 
+void MeshGenerator::Refresh()
+{
+	vertexCounts.clear();
+}
+
+void MeshGenerator::Dispatch(VkCommandBuffer cmd, uint32_t frame)
+{
+	GeneratePlane();
+}
+
+void MeshGenerator::ConsumeReadback(uint32_t currentFrame)
+{
+	//This is for indirect rendering.
+}
+
+void MeshGenerator::FeedMeshProcessor(uint32_t currentFrame)
+{
+	///We have our vertex soup, and we feed it to the larger vertex soup to be processed.
+	//We'll wait for all the other guys like us to finish as well!
+	MeshProcessor *meshProcessor = MeshProcessor::instance;
+	meshProcessor->AppendToVerticesSoup(vertexSoupBuffer[currentFrame], vertexCounts, currentFrame);
+}
+
 void MeshGenerator::GeneratePlane()
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 	MeshProcessor *meshProcessor = MeshProcessor::instance;
 	uint32_t currentFrame = app->currentFrame;
 
+	uint32_t numOfVertices = 6;
+	vertexCounts.push_back(numOfVertices);
+
 	VkBuffer quadBuf = VK_NULL_HANDLE;
 	VkDeviceMemory quadMem = VK_NULL_HANDLE;
-	VkDeviceSize quadBytes = sizeof(Vertex) * 6;
+	VkDeviceSize quadBytes = sizeof(Vertex) * numOfVertices;
 	void* quadMapped = nullptr;
 
 	app->CreateBuffer(quadBytes,
@@ -39,9 +64,7 @@ void MeshGenerator::GeneratePlane()
 
 	vkMapMemory(app->_logicalDevice, quadMem, 0, quadBytes, 0, &quadMapped);
 
-	glm::vec3 c(0.0f);
-	if (MaterialSimulation::instance && MaterialSimulation::instance->brushMatricies.size() > 22)
-		c = glm::vec3(MaterialSimulation::instance->brushMatricies[22].bCentroid);
+	glm::vec3 c(0.0f, 0.0f, 2.0f);
 
 	const glm::vec4 nUp   = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 	const glm::vec4 white = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
@@ -69,9 +92,21 @@ void MeshGenerator::GeneratePlane()
 
 	memcpy(quadMapped, verts, sizeof(verts));
 
-	std::vector<uint32_t> vertexCounts = { 6 };
+	VkCommandBuffer commandBuffer = app->BeginSingleTimeCommands();
 
-	meshProcessor->AppendToVerticesSoup(quadBuf, vertexCounts, currentFrame);
+	VkBufferCopy vertRegion{};
+	vertRegion.srcOffset = 0;
+	vertRegion.dstOffset = 0; //This will change because multiple copies can occur in one generator???
+	vertRegion.size = quadBytes;
+
+	vkCmdCopyBuffer(
+	commandBuffer,
+	quadBuf,
+	vertexSoupBuffer[currentFrame],
+	1,
+	&vertRegion);
+
+	app->EndSingleTimeCommands(commandBuffer);
 }
 
 void MeshGenerator::CreateVertexBuffers()
@@ -107,5 +142,21 @@ void MeshGenerator::CreateVertexBuffers()
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			vertexOffsetsBuffers[i],
 			vertexOffsetsMemories[i]);
+
+		app->CreateBuffer(
+			sizeof(uint32_t),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			vertexCountBuffers[i],
+			vertexCountMemories[i]);
+
+		app->CreateBuffer(
+			sizeof(uint32_t),
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			rbVertexCountBuffers[i],
+			rbVertexCountMemories[i]);
 	}
 }

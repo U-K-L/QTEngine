@@ -60,7 +60,7 @@ QTDoughApplication qtDoughApp;
 SDL_Window* QTSDLWindow;
 SDL_Surface* _screenSurface = NULL;
 int SCREEN_WIDTH = 1280;
-int SCREEN_HEIGHT = 1024;
+int SCREEN_HEIGHT = 720;
 
 void RunQTDough()
 {

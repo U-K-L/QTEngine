@@ -16,6 +16,7 @@ void MeshProcessor::InitMeshProcessor()
 {
 	vertexSoup = std::vector<Vertex>();
 	CreateVertexBuffers();
+	RefreshVertexSoup();
 }
 
 //Comes from various generators that appends to the general soup.
@@ -73,6 +74,10 @@ void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, std::vector
 	uint32_t preExistingVerticesCount = 0;
 	uint32_t srcCounts = 0;
 
+	uint32_t totalCount = 0;
+	for (uint32_t c : counts) totalCount += c;
+	if (totalCount == 0) return;
+
 	std::for_each(vertexCountsOffsets.begin(), vertexCountsOffsets.end(), [&](std::tuple<int, int> countOffset) {
 		preExistingVerticesCount += get<0>(countOffset);
 	});
@@ -99,7 +104,7 @@ void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, std::vector
 	offsetRegion.dstOffset = offsetOffsets;
 	offsetRegion.size = counts.size() * sizeof(uint32_t);
 
-	//Copy buffers on GPU -> GPU.
+	//Copy buffers onto the GPU.
 	vkCmdCopyBuffer(
 		commandBuffer,
 		incomingVertices,
@@ -115,15 +120,6 @@ void MeshProcessor::AppendToVerticesSoup(VkBuffer& incomingVertices, std::vector
 		offsetRegion.size,
 		absOffsets.data()
 	);
-
-	/*
-	vkCmdCopyBuffer(
-		commandBuffer,
-		verticesOffsets,
-		vertexOffsetsBuffers[frame],
-		1,
-		&offsetRegion);
-	*/
 
 	app->EndSingleTimeCommands(commandBuffer);
 }

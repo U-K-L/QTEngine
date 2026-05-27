@@ -287,6 +287,7 @@ public:
     void BindSetsNormal(VkCommandBuffer cmd, uint32_t curFrame);
     void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame) override;
     void ConsumeReadback(uint32_t currentFrame) override;
+    void FeedMeshProcessor(uint32_t currentFrame) override;
     int AddBrush(uint32_t type, glm::vec3 position, glm::vec3 scale, int resolution,
                   float blend = 0.0225f, float smoothness = 0.1f, uint32_t opcode = 0,
                   int density = 3, float stiffness = 1.0f);

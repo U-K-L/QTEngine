@@ -2,6 +2,7 @@
 #include <atomic>
 #include "../../Application/QTDoughApplication.h"
 #include "../Renderer/UnigmaMaterial.h"
+#include "../Renderer/MeshGenerator.h"
 
 #define QUANTA_COUNT 2097152 //Only changes per official build. 
 
@@ -101,6 +102,7 @@ class MaterialSimulation
 	public:
 		MaterialSimulation();
 		~MaterialSimulation();
+		void Update();
 		static MaterialSimulation* instance;
 		int pendingCollapseBrushIndex = -1;
 
@@ -284,6 +286,8 @@ class MaterialSimulation
 		VkPipeline leptonPropagatePipeline = VK_NULL_HANDLE;
 
 		uint32_t dispatchesCount = 0;
+
+		MeshGenerator* meshGenerator; 
 };
 
 
