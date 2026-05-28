@@ -92,7 +92,7 @@ class UnigmaExporter(bpy.types.Operator):
 
             # Custom properties (e.g., Midtone)
             custom_properties = {}
-            outlineNames = ["Midtone", "Highlight", "Shadow", "InnerOutlineColor", "OuterOutlineColor", "smoothRefract", "absorption"]
+            outlineNames = ["Midtone", "Highlight", "Shadow", "InnerOutlineColor", "OuterOutlineColor"]
             for prop_name, prop_value in obj.items():
                 if prop_name not in outlineNames:
                     continue

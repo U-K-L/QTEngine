@@ -5,9 +5,6 @@
 #include "UnigmaGameManager.h"
 #include <fstream>
 
-#include "../Physics/UnigmaPhysicsManager.h"
-
-
 using json = nlohmann::json;
 
 UnigmaScene::UnigmaScene()
@@ -20,9 +17,6 @@ UnigmaScene::~UnigmaScene()
 
 void UnigmaScene::Update()
 {
-	//float simulationTime = 1.0f / 24.0f;
-	//physicsScene->simulate(simulationTime);
-	//physicsScene->fetchResults(true);
 }
 
 void UnigmaScene::Start()
@@ -134,11 +128,6 @@ void UnigmaScene::CreateScene()
 
 	std::cout << "Creating scene: " << Name << std::endl;
 
-	//PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
-	//sceneDesc.gravity = PxVec3(0.0f, 0.0f, -9.81f);
-	//sceneDesc.cpuDispatcher = gPhysicsDispatcher;
-	//sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-	//physicsScene = gPhysics->createScene(sceneDesc);
 	/*
 	UnigmaGameManager* gameManager = UnigmaGameManager::instance;
 	//Create a camera.
@@ -160,11 +149,4 @@ void UnigmaScene::CreateScene()
 void UnigmaScene::CleanUpScene()
 {
 	std::cout << "Cleaning up scene named: " << Name << std::endl;
-	// in your cleanup, before gPhysicsDispatcher->release()�
-	//if (physicsScene)
-	//{
-	//	physicsScene->release();
-	//	physicsScene = nullptr;
-	//}
-
 }

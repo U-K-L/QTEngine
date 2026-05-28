@@ -17,8 +17,6 @@ custom_property_defaults = {
     "Shadow": (1.0, 1.0, 1.0, 1.0),
     "InnerOutlineColor": (0.01, 0.01, 0.01, 1.0),
     "OuterOutlineColor": (0.01, 0.01, 0.01, 1.0),
-    "smoothRefract": (0.0125, 0.05, 0.0, 1.5),
-    "absorption": (0.6, 0.6, 0.6, 0.6),
 }
 
 custom_properties = {
@@ -26,9 +24,7 @@ custom_properties = {
     "Highlight": FloatVectorProperty(name="Highlight", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
     "Shadow": FloatVectorProperty(name="Shadow", default=(1.0, 1.0, 1.0, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
     "InnerOutlineColor": FloatVectorProperty(name="Inner Outline Color", default=(0.01, 0.01, 0.01, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
-    "OuterOutlineColor": FloatVectorProperty(name="Outer Outline Color", default=(0.01, 0.01, 0.01, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0),
-    "smoothRefract": FloatVectorProperty(name="smoothRefract", default=(0.0125, 0.05, 0.0, 1.5), size=4),
-    "absorption": FloatVectorProperty(name="absorption", default=(0.6, 0.6, 0.6, 0.6), size=4),
+    "OuterOutlineColor": FloatVectorProperty(name="Outer Outline Color", default=(0.01, 0.01, 0.01, 1.0), size=4, subtype='COLOR', min=0.0, max=1.0)
 }
 
 class OBJECT_OT_AddCustomProperties(bpy.types.Operator):
@@ -63,8 +59,6 @@ class OBJECT_PT_unigma_panel(bpy.types.Panel):
             layout.prop(obj, "Shadow")
             layout.prop(obj, "InnerOutlineColor")
             layout.prop(obj, "OuterOutlineColor")
-            layout.prop(obj, "smoothRefract")
-            layout.prop(obj, "absorption")
 
 def menu_func(self, context):
     self.layout.operator(OBJECT_OT_AddCustomProperties.bl_idname)
