@@ -16,6 +16,8 @@ MeshGenerator::~MeshGenerator()
 void MeshGenerator::InitMeshGenerator()
 {
 	CreateVertexBuffers();
+	CreateComputeDescriptorSetLayout();
+	CreateDescriptorPool();
 }
 
 void MeshGenerator::Refresh()
@@ -160,3 +162,52 @@ void MeshGenerator::CreateVertexBuffers()
 			rbVertexCountMemories[i]);
 	}
 }
+
+void MeshGenerator::CreateComputeDescriptorSetLayout()
+{
+	std::vector<VkDescriptorSetLayoutBinding> bindings{};
+
+	bindings.resize(MeshGeneratorBindingsCount);
+
+	for (uint32_t i = 0; i < bindings.size(); i++)
+	{
+		bindings[i].binding = i;
+		bindings[i].descriptorCount = 1;
+		bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		bindings[i].pImmutableSamplers = nullptr;
+		bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	}
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(QTDoughApplication::instance->_logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("MeshGenerator: failed to create descriptor set layout!");
+	}
+}
+
+void MeshGenerator::CreateDescriptorPool()
+{
+	VkDevice device = QTDoughApplication::instance->_logicalDevice;
+	uint32_t buffersInFlight = QTDoughApplication::MAX_FRAMES_IN_FLIGHT;
+
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSize.descriptorCount = MeshGeneratorBindingsCount * buffersInFlight;
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.maxSets = buffersInFlight;
+
+	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("MaterialSimulation: failed to create descriptor pool!");
+	}
+}
+
+

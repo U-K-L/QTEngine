@@ -22,6 +22,8 @@ class MeshGenerator
 
 	protected:
 		void CreateVertexBuffers();
+		virtual void CreateComputeDescriptorSetLayout();
+		virtual void CreateDescriptorPool();
 
 		VkBuffer vertexSoupBuffer[2];
 		VkDeviceMemory vertexSoupMemory[2];
@@ -38,4 +40,9 @@ class MeshGenerator
 		VkBuffer vertexOffsetsBuffers[2];
 		VkDeviceMemory vertexOffsetsMemories[2];
 		std::vector<uint32_t> vertexCounts;
+
+		uint32_t MeshGeneratorBindingsCount = 2;
+		VkDescriptorPool descriptorPool;
+		std::vector<VkDescriptorSet> descriptorSets;
+		VkDescriptorSetLayout descriptorSetLayout;
 };
