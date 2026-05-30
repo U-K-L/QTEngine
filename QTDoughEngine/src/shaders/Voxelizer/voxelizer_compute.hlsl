@@ -641,8 +641,6 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     Brushes[index].center.xyz = center;
     Brushes[index].isDirty = 0;
     Brushes[index].isDeformed = 0;
-    if(index == 22)
-        Brushes[index].isDeformed = 1;
     Brushes[index].invModel = inverse(Brushes[index].model);
     Brushes[index].aabbmax.xyz = maxBounds;
     Brushes[index].aabbmin.xyz = minBounds;
@@ -656,7 +654,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
 
     float3 closesVert = 0;
     
-    if (brush.type == PrimMesh)
+    if (brush.type != PrimSphere)
     {
         for (uint i = brush.vertexOffset; i < brush.vertexOffset + brush.vertexCount; i += 3)
         {
@@ -2436,8 +2434,9 @@ float ComputePhi(uint index, uint brushId)
     float dens = voxelsL1Out[index].density;
     float phi;
     
-    if(brushId == 22)
-        phi = CalculateMetaballPhi(dens);
+    //TODO: change via material. Remove the splat, both are splotters
+    if(Brushes[brushId].type == 2) //Splat, remove later.
+        phi = CalculateMetaballPhi(dens, brushId);
     else
         phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     return phi;
@@ -2861,7 +2860,6 @@ void main(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint gIndex 
         return;
 
     }
-    
         
     if (sampleLevelL == 23.0f)
     {

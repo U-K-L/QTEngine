@@ -309,7 +309,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     uint brushIdx = (uint) quanta.information.x - 1;
     Brush brush = Brushes[brushIdx];
     
-    if (quanta.mana.w < 0.01f && brush.isDeformed == 0 && pc.viewMode != 1 && pc.viewMode != 6) //Unexcited, fade away, store as triangle mesh.
+    bool splatting = brush.type == 2;
+    bool earlyExit = quanta.mana.w < 0.01f && brush.isDeformed == 0 && pc.viewMode != 1 && pc.viewMode != 6 && !splatting;
+    if (earlyExit) //Unexcited, fade away, store as triangle mesh.
         return;
     //int brushIndex = max(particle.particleIDs.x - 1, 0);
     //if(particle.particleIDs.x >= 0)
@@ -340,7 +342,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
 
     float distanceMod = 1.0f;
-    float sigma = h * 2.75;//brush.smoothness; // Controls the spread of the Gaussian
+    float sigma = h * 2.75 * brush.smoothness; // Controls the spread of the Gaussian
     float amplitude = materialMod; // Can be a particle attribute
     float radiusParticleSpacing = 6 * 0.35f * materialMod;
     
@@ -354,9 +356,6 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
 
     if(!inAABB)
         sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
-    
-    if (brushIdx == 22)
-        supportMod = brush.smoothness;
     
     float supportWS = sigma * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
@@ -463,7 +462,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
                 InterlockedExchange(voxelsL1Out[flatIndex].brushId, quanta.information.x-1, dummy);
 
-                if (quanta.mana.w < 0.05f)
+                if (quanta.mana.w < 0.05f && !splatting)
                     continue;
 
                 float3 mbLocalPos;

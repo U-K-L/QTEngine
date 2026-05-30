@@ -18,6 +18,8 @@ void MeshGenerator::InitMeshGenerator()
 	CreateVertexBuffers();
 	CreateComputeDescriptorSetLayout();
 	CreateDescriptorPool();
+	CreateComputeDescriptorSets();
+	//CreateComputePipeline();
 }
 
 void MeshGenerator::Refresh()
@@ -139,6 +141,13 @@ void MeshGenerator::CreateVertexBuffers()
 			vertexSoupMemory[i]);
 
 		app->CreateBuffer(
+			vertexBufferSize,
+			usage,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			processedVertexBuffer[i],
+			processedVertexMemory[i]);
+
+		app->CreateBuffer(
 			vertexOffsetMaxSize,
 			usage,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -163,11 +172,69 @@ void MeshGenerator::CreateVertexBuffers()
 	}
 }
 
+void MeshGenerator::CreateComputeDescriptorSets()
+{
+	// Binding 0: Vertices In (read)
+	// Binding 1: Vertices Out (write)
+
+	VkDevice device = QTDoughApplication::instance->_logicalDevice;
+	uint32_t buffersInFlight = QTDoughApplication::MAX_FRAMES_IN_FLIGHT;
+
+	std::vector<VkDescriptorSetLayout> layouts(buffersInFlight, descriptorSetLayout);
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = buffersInFlight;
+	allocInfo.pSetLayouts = layouts.data();
+
+	descriptorSets.resize(buffersInFlight);
+	if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("MeshGeenerator: failed to allocate descriptor sets!");
+	}
+
+	//Will eventually bind quanta and the grid, leave alone for now.
+	//uint64_t quantaBufferSize = sizeof(Quanta) * QUANTA_COUNT;
+	uint64_t vertexBufferSize = sizeof(Vertex) * VertexCapacity;
+
+	for (uint32_t i = 0; i < buffersInFlight; i++)
+	{
+		VkDescriptorBufferInfo verticesInfo{};
+		verticesInfo.buffer = vertexSoupBuffer[i];
+		verticesInfo.offset = 0;
+		verticesInfo.range = vertexBufferSize;
+
+		VkDescriptorBufferInfo processedVerticesInfo{};
+		processedVerticesInfo.buffer = processedVertexBuffer[i];
+		processedVerticesInfo.offset = 0;
+		processedVerticesInfo.range = vertexBufferSize;
+
+
+		std::array<VkWriteDescriptorSet, MESH_GENERATOR_BINDINGS_COUNT> writes{};
+		VkDescriptorBufferInfo* bufferInfos[] = {
+			&verticesInfo, &processedVerticesInfo
+		};
+
+		for (uint32_t b = 0; b < writes.size(); b++)
+		{
+			writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			writes[b].dstSet = descriptorSets[i];
+			writes[b].dstBinding = b;
+			writes[b].dstArrayElement = 0;
+			writes[b].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			writes[b].descriptorCount = 1;
+			writes[b].pBufferInfo = bufferInfos[b];
+		}
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+	}
+}
+
 void MeshGenerator::CreateComputeDescriptorSetLayout()
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings{};
 
-	bindings.resize(MeshGeneratorBindingsCount);
+	bindings.resize(MESH_GENERATOR_BINDINGS_COUNT);
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -196,7 +263,7 @@ void MeshGenerator::CreateDescriptorPool()
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = MeshGeneratorBindingsCount * buffersInFlight;
+	poolSize.descriptorCount = MESH_GENERATOR_BINDINGS_COUNT * buffersInFlight;
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -210,4 +277,79 @@ void MeshGenerator::CreateDescriptorPool()
 	}
 }
 
+
+void MeshGenerator::CreateComputePipeline()
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	//TODO create the plane shader here.
+	auto shaderCode = readFile("src/shaders/materialsim.spv");
+	VkShaderModule shaderModule = app->CreateShaderModule(shaderCode);
+
+	VkPipelineShaderStageCreateInfo stageInfo{};
+	stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	stageInfo.module = shaderModule;
+	stageInfo.pName = "main";
+
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(PushConsts);
+
+	std::array<VkDescriptorSetLayout, 2> layouts = {
+		app->globalDescriptorSetLayout,
+		descriptorSetLayout
+	};
+
+	VkPipelineLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+	layoutInfo.pSetLayouts = layouts.data();
+	layoutInfo.pushConstantRangeCount = 1;
+	layoutInfo.pPushConstantRanges = &pushConstantRange;
+
+	if (vkCreatePipelineLayout(app->_logicalDevice, &layoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("MeshGenerator: failed to create pipeline layout!");
+	}
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.layout = pipelineLayout;
+	pipelineInfo.stage = stageInfo;
+
+	if (vkCreateComputePipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS)
+	{
+		throw std::runtime_error("MeshGenerator: failed to create compute pipeline!");
+	}
+
+	vkDestroyShaderModule(app->_logicalDevice, shaderModule, nullptr);
+	//CreateComputePipelineFromSPV("matsim_collapse", collapsePipeline);
+}
+
+void MeshGenerator::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	auto shaderCode = readFile("src/shaders/" + spvName + ".spv");
+	VkShaderModule shaderModule = app->CreateShaderModule(shaderCode);
+
+	VkPipelineShaderStageCreateInfo stageInfo{};
+	stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	stageInfo.module = shaderModule;
+	stageInfo.pName = "main";
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.layout = pipelineLayout;
+	pipelineInfo.stage = stageInfo;
+
+	if (vkCreateComputePipelines(app->_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline) != VK_SUCCESS)
+	{
+		throw std::runtime_error("MeshGenerator: failed to create sort pipeline: " + spvName);
+	}
+
+	vkDestroyShaderModule(app->_logicalDevice, shaderModule, nullptr);
+}
 

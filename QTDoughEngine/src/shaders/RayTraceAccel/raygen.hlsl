@@ -448,8 +448,9 @@ void main()
         finalColor = accumulateLight(p, surface, camPos);
     
     float materialPhase = 0;
-    //Replace with phase it's in. Which can be per voxel/"triangle"
-    if(firstHitSurface.normal.w == 22)
+    //Replace with phase it's in. Which can be per voxel/"triangle" Makes white outline for liquids
+    //TODO: CHANGE TO MATERIAL.
+    if(Brushes[firstHitSurface.normal.w].type == 2)
         materialPhase = 1;
     else
         materialPhase = 0;
