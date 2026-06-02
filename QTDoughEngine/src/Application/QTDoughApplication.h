@@ -372,6 +372,7 @@ public:
 
     //Voxel settings.
     glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024, 256);
+    glm::vec4 worldSDFCenter = glm::vec4(0, 0, 2, 0);
 
 
 

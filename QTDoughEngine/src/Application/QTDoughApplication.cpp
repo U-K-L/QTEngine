@@ -737,6 +737,18 @@ void QTDoughApplication::SetupEngineGUI()
             }
         }
 
+        if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
+            && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
+        {
+            static bool trackBrushAABB = false;
+            ImGui::Checkbox("Track Brush (AABB follows brush position)", &trackBrushAABB);
+            if (trackBrushAABB)
+            {
+                UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[editorState.selectedBrushIndex];
+                worldSDFCenter = glm::vec4(obj->_transform.position, 0.0f);
+            }
+        }
+
         // --- Components ---
         if (ImGui::CollapsingHeader("Components", ImGuiTreeNodeFlags_DefaultOpen))
         {

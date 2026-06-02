@@ -338,6 +338,7 @@ void SDFPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFrame) {
     pc.voxelResolution.y = app->WORLD_SDF_RESOLUTION.y;
     pc.voxelResolution.z = app->WORLD_SDF_RESOLUTION.z;
     pc.voxelResolution.w = 0;
+    pc.aabbCenter = app->worldSDFCenter;
 
     vkCmdPushConstants(
         commandBuffer,

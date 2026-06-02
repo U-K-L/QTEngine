@@ -1013,7 +1013,8 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     PushConsts pc{};
     pc.lod = 0;
     pc.triangleCount = 0;
-    pc.voxelResolution = app->WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::ivec4(app->WORLD_SDF_RESOLUTION, 0);
+    pc.aabbCenter = app->worldSDFCenter;
 
     vkCmdPushConstants(
         commandBuffer,

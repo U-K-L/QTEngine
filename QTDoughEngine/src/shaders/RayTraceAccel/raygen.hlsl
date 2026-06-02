@@ -40,7 +40,11 @@ struct PushConsts
 {
     float lod;
     uint triangleCount;
-    int3 voxelResolution;
+    int4 voxelResolution;
+    float4 aabbCenter;
+    float supportMultiplier;
+    int viewMode;
+    int countOnly;
 };
 
 cbuffer Constants : register(b2, space0)
@@ -73,11 +77,11 @@ float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 
 float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -89,11 +93,11 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 
 float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -106,7 +110,7 @@ float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 
 float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize();
     
@@ -114,9 +118,9 @@ float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
     
     float3 voxelSize = sceneSize / voxelGridRes;
 
-    if (any(pos < -halfScene) || any(pos > halfScene))
+    if (any(pos - pc.aabbCenter.xyz < -halfScene) || any(pos - pc.aabbCenter.xyz > halfScene))
         return DEFUALT_EMPTY_SPACE;
-    
+
     return TrilinearSampleSDFTexture(pos, sampleLevel);
 }
 
@@ -261,8 +265,8 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
         float dist = samplePotentialField(p.position.xyz).x;
         float tol = 0.025f;
             
-        float3 bmin = -GetDCAABBSize() * 0.25f;
-        float3 bmax = GetDCAABBSize() * 0.25f;
+        float3 bmin = pc.aabbCenter.xyz - GetDCAABBSize() * 0.25f;
+        float3 bmax = pc.aabbCenter.xyz + GetDCAABBSize() * 0.25f;
         float tHit;
         bool centerOfInterest = RayAABB(p.position.xyz, p.direction.xyz, bmin, bmax, tHit);
             

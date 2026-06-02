@@ -2579,6 +2579,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     if(dispatchCount > 1)
 	{
+        return;
         // Zero the position buffer so un-emitted slots are degenerate triangles.
         vkCmdFillBuffer(commandBuffer, meshingPositionBuffers[currentFrame % QTDoughApplication::MAX_FRAMES_IN_FLIGHT], 0, sizeof(float) * 4 * VertexMaxCount, 0);
         VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
@@ -3062,7 +3063,7 @@ void VoxelizerPass::DispatchBrushCreation(VkCommandBuffer commandBuffer, uint32_
     pc.lod = 8;
     pc.triangleCount = lodLevel;
     pc.voxelResolution = glm::vec4(QTDoughApplication::instance->WORLD_SDF_RESOLUTION.x, QTDoughApplication::instance->WORLD_SDF_RESOLUTION.y, QTDoughApplication::instance->WORLD_SDF_RESOLUTION.z, 0);
-    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.aabbCenter = glm::vec4(0, 0, 2, 0);
     pc.supportMultiplier = supportMultiplier;
     pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
@@ -3318,7 +3319,7 @@ void VoxelizerPass::DispatchTile(VkCommandBuffer commandBuffer, uint32_t current
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
     pc.voxelResolution = glm::vec4(QTDoughApplication::instance->WORLD_SDF_RESOLUTION.x, QTDoughApplication::instance->WORLD_SDF_RESOLUTION.y, QTDoughApplication::instance->WORLD_SDF_RESOLUTION.z, 0);
-    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.aabbCenter = app->worldSDFCenter;
     pc.supportMultiplier = supportMultiplier;
     pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
 
@@ -3485,7 +3486,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
     pc.lod = static_cast<float>(lodLevel);
     pc.triangleCount = static_cast<uint32_t>(vertices.size() / 3);
     pc.voxelResolution = glm::vec4(QTDoughApplication::instance->WORLD_SDF_RESOLUTION.x, QTDoughApplication::instance->WORLD_SDF_RESOLUTION.y, QTDoughApplication::instance->WORLD_SDF_RESOLUTION.z, 0);
-    pc.aabbCenter = glm::vec4(0, 0, 0, 0);
+    pc.aabbCenter = app->worldSDFCenter;
     pc.supportMultiplier = supportMultiplier;
     pc.viewMode = (int)QTDoughApplication::instance->editorState.viewMode;
     pc.countOnly = countOnly ? 1 : 0;

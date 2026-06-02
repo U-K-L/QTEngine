@@ -43,7 +43,7 @@ PSOutput main(PSInput i)
     float3 N    = normalize(hitP - i.center);
 
     float  NdotL  = saturate(dot(N, -light[0].direction));
-    float3 albedo = globalObjMaterials[i.matId].Midtone.rgb;
+    float3 albedo = 1.0f;//globalObjMaterials[i.matId].Midtone.rgb;
     float3 col    = albedo * NdotL * light[0].emission.rgb;
 
     float4 clipHit = mul(proj, mul(view, float4(hitP, 1.0f)));

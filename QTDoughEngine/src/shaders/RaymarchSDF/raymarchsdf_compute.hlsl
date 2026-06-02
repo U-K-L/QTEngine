@@ -69,6 +69,7 @@ struct PushConsts
     float lod;
     uint triangleCount;
     int3 voxelResolution;
+    float4 aabbCenter;
 };
 
 [[vk::push_constant]]
@@ -191,7 +192,7 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -276,7 +277,7 @@ float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
     float3 voxelGridRes = voxelSceneBounds.xyz;
     float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -592,9 +593,9 @@ float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
     
     float3 voxelSize = sceneSize / voxelGridRes;
 
-    if (any(pos < -halfScene) || any(pos > halfScene))
+    if (any(pos - pc.aabbCenter.xyz < -halfScene) || any(pos - pc.aabbCenter.xyz > halfScene))
         return DEFUALT_EMPTY_SPACE;
-    
+
     return TrilinearSampleSDFTexture(pos, sampleLevel);
 }
 
@@ -780,7 +781,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         closesSDF = min(closesSDF, currentSDF);
 
                 
-        bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
+        bool inAABB = PointInAABB(pos, pc.aabbCenter.xyz - GetDCAABBSize() * 0.5, pc.aabbCenter.xyz + GetDCAABBSize() * 0.5);
         
         bool canTerminate =
         (closesSDF.x < minDistReturn) && !inAABB;

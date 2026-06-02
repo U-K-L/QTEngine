@@ -913,9 +913,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //Get the voxel position.
     float3 voxelSize = sceneSize / voxelGridRes;
     float3 halfScene = sceneSize * 0.5f;
-    
-    float3 center = ((float3) fullDTid + 0.5f) * voxelSize - halfScene;
-    
+
+    float3 center = ((float3) fullDTid + 0.5f) * voxelSize - halfScene + pc.aabbCenter.xyz;
+
     /*
     //Early out camera rejection AABB.
     bool inAABB = PointInAABB(center, -GetSceneSize() * 0.25, GetSceneSize() * 0.25);
@@ -1662,7 +1662,7 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     //Fetch the 8 corner values in the WORLD SDF.
     float3 worldUVW0 = (minLocal + halfScene) / (2.0f * halfScene);
     int3 baseTexel = int3(worldUVW0 * voxelSceneBounds.xyz);
-    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelSceneBounds);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelSceneBounds);
 
     int3 cellTexelMip = aabbMinTexelMip + int3(DTid);
     
@@ -1734,7 +1734,7 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
     
-    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelRes);
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -1760,8 +1760,8 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
         // Get corner's integer offset (0,0,0), (1,0,0), (0,1,0), etc.
         int3 cornerOffset = int3((i & 1), (i & 2) >> 1, (i & 4) >> 2);
         int3 cornerTexel = aabbMinTexelMip + cellCoord + cornerOffset;
-        
-        cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene;
+
+        cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene + pc.aabbCenter.xyz;
         cornerSDFs[i] = Read3D(mipLevel, cornerTexel).x;
     }
 
@@ -1897,7 +1897,7 @@ float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
     float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
     
-    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelRes);
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -1923,8 +1923,8 @@ float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
         // Get corner's integer offset (0,0,0), (1,0,0), (0,1,0), etc.
         int3 cornerOffset = int3((i & 1), (i & 2) >> 1, (i & 4) >> 2);
         int3 cornerTexel = aabbMinTexelMip + cellCoord + cornerOffset;
-        
-        cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene;
+
+        cornerPositions[i] = ((float3(cornerTexel)) * voxelSize) - halfScene + pc.aabbCenter.xyz;
         cornerSDFs[i] = Read3D(mipLevel, cornerTexel).x;
     }
 
@@ -2095,17 +2095,17 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     
     float4 voxelL1Res = GetVoxelResolutionL1();
     int index = Flatten3D(DTid, voxelL1Res.xyz);
-    float activeValue = Read3D(1, DTid); //voxelsL1Out[index].dc;
-    
-    int3 aabbMinTexelMip = floor(((aabbMinWS + halfScene) / sceneSize) * voxelRes);
-    
+    float activeValue = Read3D(1, DTid);
+
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelRes);
+
 
     int3 baseTexel = aabbMinTexelMip + DTid;
-    
+
     float3 worldSDFDivisor = (pc.voxelResolution.xyz / voxelL1Res.xyz);
     int3 DTidL1 = DTid / worldSDFDivisor;
-    
-    int3 l1Texel = floor(((aabbMinWS + halfScene) / sceneSize) * voxelL1Res.xyz) + DTidL1;
+
+    int3 l1Texel = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelL1Res.xyz) + DTidL1;
 
 
     

@@ -75,7 +75,7 @@ float ReadWorldSDF(float3 worldPos)
     float voxelSize = WORLD_SDF_BOUNDS / pc.voxelResolution.x;
 
     // Convert world position to integer texture coordinates
-    int3 texCoord = int3(floor((worldPos + worldHalfExtent) / voxelSize));
+    int3 texCoord = int3(floor((worldPos - pc.aabbCenter.xyz + worldHalfExtent) / voxelSize));
 
     // Bounds check to ensure we don't sample outside the volume
     if (any(texCoord < 0) || any(texCoord >= pc.voxelResolution.x))
@@ -355,7 +355,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
 
     if(!inAABB)
-        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
+        return;//sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
     
     float supportWS = sigma * supportMod * distanceMod * 0.25f; //triangle count == resolution.
     
@@ -407,9 +407,13 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float3 minPos = position - supportWS;
     float3 maxPos = position + supportWS;
 
-    int3 minVoxel = floor((minPos + halfScene) / voxelSize);
-    int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
-    
+    int3 minVoxel = floor((minPos - pc.aabbCenter.xyz + halfScene) / voxelSize);
+    int3 maxVoxel = floor((maxPos - pc.aabbCenter.xyz + halfScene) / voxelSize);
+
+    int3 voxelResI = int3(voxelRes);
+    minVoxel = clamp(minVoxel, int3(0, 0, 0), voxelResI - 1);
+    maxVoxel = clamp(maxVoxel, int3(0, 0, 0), voxelResI - 1);
+
     //minVoxel = max(minVoxel, -30);
     //maxVoxel = min(maxVoxel, 30);
     
@@ -430,7 +434,7 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 int3 res = int3(voxelRes);
 
                 // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
-                float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
+                float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene + pc.aabbCenter.xyz;
                 
                 float3 diffWS = worldPos - position;
                 float squaredDist = dot(diffWS, diffWS);
@@ -460,6 +464,8 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 uint dummy;
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
+                
+                //TODO: The last particle to touch this cell wins? Might want to change that.
                 InterlockedExchange(voxelsL1Out[flatIndex].brushId, quanta.information.x-1, dummy);
 
                 if (quanta.mana.w < 0.05f && !splatting)

@@ -39,6 +39,7 @@ public:
     };
 
     //Lower detail voxel.
+    //TODO: Dramatically compact this, might be able to get it to 8-12 bytes.
     struct VoxelL1 {
         int distance;
         uint32_t density;
@@ -114,8 +115,8 @@ public:
         int countOnly;
     };
 
-    glm::vec3 dcAABBSize = glm::vec3(32.0f, 32.0f, 8.0f);
-    glm::vec3 sceneSize  = glm::vec3(64.0f, 64.0f, 16.0f); // mirrors GetSceneSize() in ShaderHelpers.hlsl
+    glm::vec3 dcAABBSize = glm::vec3(16.0f, 16.0f, 4.0f);
+    glm::vec3 sceneSize  = glm::vec3(32.0f, 32.0f, 8.0f); // mirrors GetSceneSize() in ShaderHelpers.hlsl
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL15 = 256;
