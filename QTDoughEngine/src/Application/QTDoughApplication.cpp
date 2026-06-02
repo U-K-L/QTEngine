@@ -5496,10 +5496,10 @@ void QTDoughApplication::Cleanup()
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
     vkDestroyRenderPass(_logicalDevice, renderPass, nullptr);
-    vkDestroyInstance(_vkInstance, nullptr);
     vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
     vkDestroyDevice(_logicalDevice, nullptr);
     vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
+    vkDestroyInstance(_vkInstance, nullptr);
     SDL_DestroyWindow(QTSDLWindow);
     SDL_Quit();
 }

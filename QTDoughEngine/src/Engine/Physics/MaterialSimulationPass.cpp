@@ -540,12 +540,12 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	DispatchP2G(commandBuffer);
 
 	// Convert accumulator (int) to materialGrid (float).
-	DispatchAccumConvert(commandBuffer);
+	//DispatchAccumConvert(commandBuffer);
 
 	// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
-	DispatchBrushAccum(commandBuffer);
+	//DispatchBrushAccum(commandBuffer);
 
-	if(dispatchesCount < 2)
+	if(dispatchesCount >= 8 && dispatchesCount < 10)
 	{
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
 		{
@@ -567,7 +567,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	}
 	//DispatchWaveFunctionCollapse(commandBuffer);
 
-	// Order beat: collapse + brush assign for a single requested brush.
+	/*
 	if (pendingCollapseBrushIndex >= 0)
 	{
 		VoxelizerPass* voxelizer = VoxelizerPass::instance;
@@ -598,7 +598,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 		}
 		pendingCollapseBrushIndex = -1;
 	}
-
+*/
 	DispatchDiffusion(commandBuffer);
 
 	//Out -> Read.
@@ -609,8 +609,8 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	dispatchesCount += 1;
 
 	//Load grid.
-	ReadBackMaterialGridSDF();
-	ReadBackBrushMatricies();
+	//ReadBackMaterialGridSDF();
+	//ReadBackBrushMatricies();
 	//ReadBackMaterialGridFull(); //Make this on demand.
 }
 
