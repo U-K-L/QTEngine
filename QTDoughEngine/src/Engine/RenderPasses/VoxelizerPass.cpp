@@ -2579,7 +2579,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
     if(dispatchCount > 1)
 	{
-        return;
+        //return;
         // Zero the position buffer so un-emitted slots are degenerate triangles.
         vkCmdFillBuffer(commandBuffer, meshingPositionBuffers[currentFrame % QTDoughApplication::MAX_FRAMES_IN_FLIGHT], 0, sizeof(float) * 4 * VertexMaxCount, 0);
         VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
