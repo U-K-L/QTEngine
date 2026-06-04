@@ -3609,8 +3609,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if (lodLevel == 50)
     {
-        glm::vec3 aabbVoxels = dcAABBSize * glm::vec3(QTDoughApplication::instance->WORLD_SDF_RESOLUTION) / sceneSize;
-        res = glm::ivec3(glm::ceil(aabbVoxels));
+        res = QTDoughApplication::instance->WORLD_SDF_RESOLUTION / 2;
         pc.triangleCount = 0;
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
