@@ -303,7 +303,6 @@ void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
-    v.jacobian = 0;
     v.isoPhi = 0;
 
     voxelsL1Out[vindex] = v;
@@ -963,6 +962,9 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     uint ioffset = tileIndex * TILE_MAX_BRUSHES + 0;
     minId = voxelsL1Out[index].brushId; //BrushesIndices[ioffset];
     
+    //In reality the SDF only appears during the isophi stage.
+    //There's really no raw SDF ever shown? So this can be removed.
+    //Also consider that we can likely remove the initial SDF generation entirely.
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -995,22 +997,6 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     }
 
-    //Sum the distoration field.
-    int kernelSize = 0;
-    float distortionFieldSum = 0;
-
-    
-    for(int l = -kernelSize; l <= kernelSize; l++)
-        for(int j = -kernelSize; j <= kernelSize; j++)
-            for(int k = -kernelSize; k <= kernelSize; k++)
-            {
-                int3 dtid = fullDTid + int3(l, j, k);
-                dtid = dtid / worldSDFDivisor;
-                uint index = Flatten3D(dtid, voxelSceneBoundsl1);
-                distortionFieldSum += clamp(voxelsL1Out[index].jacobian, 0, 1);
-
-            }
-    
     DTL1 = clamp(DTL1, int3(0, 0, 0), int3(voxelSceneBoundsl1) - 1);
 
     /*
@@ -1136,35 +1122,15 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     }
 
    
-    //Sum the distoration field to determine how much neighbors have been deformed.
-    float distortionFieldSum = 0;
-    int kernelSize = 2;
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
-    
-    for (int l = -kernelSize; l <= kernelSize; l++)
-        for (int j = -kernelSize; j <= kernelSize; j++)
-            for (int k = -kernelSize; k <= kernelSize; k++)
-            {
-                int3 dtid = DTid + int3(l, j, k);
-                dtid = dtid / worldSDFDivisor;
-                uint index = Flatten3D(dtid, voxelSceneBoundsl1);
-                distortionFieldSum += clamp(voxelsL1Out[index].jacobian, 0, 1);
 
-            }
-    
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
 
 
     voxelsL1Out[index].brushId = minId;
 
-    
-    float sdfVal = voxelsL1Out[index].isoPhi;
-    //sdfVal = min(sdfVal, sdfVal);
-    //Write3DDist(0, DTid, sdfVal); // Consider particles.
-    if (distortionFieldSum > 0.0f)
-        Write3DDist(1, fullDTid, sdfVal); // Consider particles.
-    else
-        Write3DDist(1, fullDTid, minDist); // Ignore particle contribution.
+
+    Write3DDist(1, fullDTid, minDist); // Ignore particle contribution.
     
     
 }
@@ -1635,7 +1601,7 @@ void FindActiveCellsBrush(uint3 DTid : SV_DispatchThreadID)
     }
     
     //Set Active cell.
-    voxelsL1Out[flatIndex].dc = 1;
+    //voxelsL1Out[flatIndex].dc = 1;
 }
 
 void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
@@ -2116,9 +2082,6 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
         return;
     }
     
-    float distortionFieldSum = 0;
-    
-    
     uint indexField = Flatten3D(l1Texel, voxelL1Res.xyz);
     uint brushIndex = voxelsL1Out[indexField].brushId;
     
@@ -2127,30 +2090,6 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     //if (brush.isDeformed == false)
     //    return;
     
-    //Sum the distoration field.
-    //mesh
-    if(brush.type == 0 && pc.viewMode != 6)
-    {
-    
-        int kernelSize = 3;
-    
-        for (int l = -kernelSize; l <= kernelSize; l++)
-            for (int j = -kernelSize; j <= kernelSize; j++)
-                for (int k = -kernelSize; k <= kernelSize; k++)
-                {
-                    int3 dtid = DTid + int3(l, j, k);
-                    uint indexField = Flatten3D(dtid, voxelL1Res.xyz);
-                    distortionFieldSum += clamp(voxelsL1Out[indexField].jacobian, 0, 1);
-
-                }
-        distortionFieldSum /= (pow(3, kernelSize + 1));
-
-        bool isInBand = distortionFieldSum > 0.01f;
-        if (distortionFieldSum > 0.09f)
-            if (!isInBand)
-                return;
-    }
-
     //Check Every single face.
     int offSet = 1;
     
@@ -2242,6 +2181,7 @@ bool ReadL1DistanceAt(float3 worldPos, out float distL1)
     return true;
 }
 
+/*
 bool ReadDeformingField(float3 worldPos)
 {
     int3 c;
@@ -2251,7 +2191,7 @@ bool ReadDeformingField(float3 worldPos)
     {
         return true;
     }
-    
+
     return false;
 }
 
@@ -2279,6 +2219,7 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
         return true;
     return false;
 }
+*/
 
 //Add the default static mesh to the dual contouring vertex list.
 void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThreadID, uint brushID)
@@ -2505,7 +2446,6 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
-    v.jacobian = voxelsL1Out[index].jacobian;
     v.isoPhi = c;
 
     voxelsL1Out[index] = v;
@@ -2527,7 +2467,6 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
-    v.jacobian = 0;
     v.isoPhi = c;
 
     voxelsL1Out[index] = v;

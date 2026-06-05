@@ -438,7 +438,7 @@ void MaterialSimulation::Update()
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 	
-	app->PushMeshGenerator(meshGenerator);
+	//app->PushMeshGenerator(meshGenerator);
 }
 
 void MaterialSimulation::DispatchTileSort(VkCommandBuffer commandBuffer)

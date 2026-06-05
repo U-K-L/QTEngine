@@ -89,8 +89,8 @@ struct VoxelL1
     uint density;
     uint brushId;
     float isoPhi;
-    float jacobian;
-    uint dc;
+    //float jacobian;
+    //uint dc;
 };
 
 struct Mat3x3_16

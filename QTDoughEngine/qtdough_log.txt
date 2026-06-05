@@ -39,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10324.4 GFLOPS
-  Memory bandwidth:   237.02 GB/s
+  Compute throughput: 10318.1 GFLOPS
+  Memory bandwidth:   206.575 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -104,7 +104,7 @@ Creating compute pipeline
 Creating compute pipeline
 Creating compute pipeline
 Compute pipeline created
-Memory of voxels in L1: 768 MB
+Memory of voxels in L1: 512 MB
 Memory of voxels in L2: 64 MB
 Memory of voxels in L3: 8 MB
 Size of voxel: 32 bytes
@@ -119,7 +119,7 @@ Texture Loaded Name Final Token: SkyboxBorder
 Texture Loaded Name: Assets/Textures/NoiseAndGrain.png
 Texture Loaded Name Final Token: NoiseAndGrain
 Memory of 3D Textures WORLD SDF: 64 MB
-Memory of 3D Textures in L1: 768 MB
+Memory of 3D Textures in L1: 512 MB
 Memory of 3D Textures in L2: 64 MB
 Memory of 3D Textures in L3: 8 MB
 Textures created
@@ -199,10 +199,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000002687C6BC720
-quanta[0]: 000002683079E0C0
-quanta[1]: 000002687C5F58B0
-quanta[2]: 000002687C5F66C0
+emitterEventBuffer: 00000279F7748A60
+quanta[0]: 00000279F74B3CA0
+quanta[1]: 00000279F74B2E90
+quanta[2]: 00000279F74B3E30
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -235,7 +235,7 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 10 milliseconds
+Brush creation took: 56 milliseconds
 Brushes Processed: 3
 Total Voxels Created: 75497472
 Estimated Particles Created: 9437184
@@ -261,7 +261,7 @@ Brush resolution and ID: 18 , 128
 Brush resolution and ID: 19 , 128
 Brush resolution and ID: 20 , 256
 Brush resolution and ID: 21 , 256
-Brush creation took: 6 milliseconds
+Brush creation took: 95 milliseconds
 Brushes Processed: 3
 Total Voxels Created: 75497472
 Estimated Particles Created: 9437184

@@ -271,7 +271,7 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
         bool centerOfInterest = RayAABB(p.position.xyz, p.direction.xyz, bmin, bmax, tHit);
             
         if (dist >= abs(DEFUALT_EMPTY_SPACE - tol) || centerOfInterest == false)
-            ds *= 16.0f;
+            ds *= 64.0f;
 
 
         ray.Origin = p.position;

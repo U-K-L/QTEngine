@@ -45,8 +45,8 @@ public:
         uint32_t density;
         uint32_t brushId;
         float isoPhi;
-        float jacobian;
-        uint32_t dc;
+        //float jacobian;
+        //uint32_t dc;
     };
 
     //Struct of brushes. Most brushes are meshes with a model matrix. However, analytical brushes can be provided as well.
@@ -115,8 +115,8 @@ public:
         int countOnly;
     };
 
-    glm::vec3 dcAABBSize = glm::vec3(32.0f, 32.0f, 8.0f);
-    glm::vec3 sceneSize  = glm::vec3(32.0f, 32.0f, 8.0f); // mirrors GetSceneSize() in ShaderHelpers.hlsl
+    glm::vec3 dcAABBSize = glm::vec3(24.0f, 24.0f, 6.0f);
+    glm::vec3 sceneSize  = glm::vec3(48.0f, 48.0f, 12.0f); // mirrors GetSceneSize() in ShaderHelpers.hlsl
     int VOXEL_COUNTL1 = 1; //Set in the creation of the pass.
     int VOXEL_RESOLUTIONL1 = 512; //This is the resolution of the 3D texture. n^3
     int VOXEL_RESOLUTIONL15 = 256;
