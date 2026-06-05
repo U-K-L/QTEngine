@@ -960,7 +960,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     float deformationField = 0;
     uint ioffset = tileIndex * TILE_MAX_BRUSHES + 0;
-    minId = voxelsL1Out[index].brushId; //BrushesIndices[ioffset];
+    minId = voxelsL2In[L1CoordToL2Index(uint3(DTL1))].brushId; //BrushesIndices[ioffset];
     
     //In reality the SDF only appears during the isophi stage.
     //There's really no raw SDF ever shown? So this can be removed.
@@ -1028,7 +1028,8 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     Write3DDist(0, fullDTid, sdfVal); // Consider particles.
     
-    voxelsL1Out[index].brushId = minId;
+    uint _unusedBrushExchange;
+    InterlockedExchange(voxelsL2Out[L1CoordToL2Index(uint3(DTL1))].brushId, minId, _unusedBrushExchange);
     /*
     float t = time*0.0001f;
     float3 wave = float3(sin(t), cos(t) * 8, sin(t)) * 2.5f;
@@ -1127,7 +1128,8 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
 
 
-    voxelsL1Out[index].brushId = minId;
+    uint _unusedBrushExchangeL2;
+    InterlockedExchange(voxelsL2Out[L1CoordToL2Index(uint3(DTL1))].brushId, minId, _unusedBrushExchangeL2);
 
 
     Write3DDist(1, fullDTid, minDist); // Ignore particle contribution.
@@ -2083,7 +2085,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
     
     uint indexField = Flatten3D(l1Texel, voxelL1Res.xyz);
-    uint brushIndex = voxelsL1Out[indexField].brushId;
+    uint brushIndex = voxelsL2In[L1CoordToL2Index(uint3(l1Texel))].brushId;
     
     Brush brush = Brushes[brushIndex];
     
@@ -2428,8 +2430,8 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
         return;
 
     uint flatIndex = Flatten3D(DTid, voxelRes);
-    float c = ComputePhi(flatIndex, voxelsL1Out[flatIndex].brushId);
-    
+    float c = ComputePhi(flatIndex, voxelsL2In[L1CoordToL2Index(DTid)].brushId);
+
 
     voxelsL1Out[flatIndex].isoPhi = c;
 }
@@ -2440,9 +2442,9 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz ));
     uint index = Flatten3D(idVoxel, voxelRes);
-    
-    float c = ComputePhi(index, voxelsL1Out[index].brushId);
-    
+
+    float c = ComputePhi(index, voxelsL2In[L1CoordToL2Index(uint3(idVoxel))].brushId);
+
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
@@ -2461,8 +2463,8 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     
     int3 idVoxel = DTid * (voxelRes / (pc.voxelResolution.xyz));
     uint index = Flatten3D(idVoxel, voxelRes);
-    
-    float c = ComputePhi(index, voxelsL1Out[index].brushId);
+
+    float c = ComputePhi(index, voxelsL2In[L1CoordToL2Index(uint3(idVoxel))].brushId);
     
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;

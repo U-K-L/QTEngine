@@ -13,11 +13,13 @@
 #define VOXEL_RESOLUTIONL1 512.0f
 #define SCENE_BOUNDSL1 16.0f
 
-#define VOXEL_RESOLUTIONL2 128.0f
+#define VOXEL_RESOLUTIONL2 256.0f
 #define SCENE_BOUNDSL2 16.0f
 
-#define VOXEL_RESOLUTIONL3 64.0f
+#define VOXEL_RESOLUTIONL3 128.0f
 #define SCENE_BOUNDSL3 16.0f
+
+#define VOXEL_RESOLUTIONL4 64.0f
 
 #define TILE_MAX_BRUSHES 64.0f
 #define TILE_SIZE 8.0f
@@ -87,10 +89,7 @@ struct VoxelL1
 {
     int distance;
     uint density;
-    uint brushId;
     float isoPhi;
-    //float jacobian;
-    //uint dc;
 };
 
 struct Mat3x3_16
@@ -287,7 +286,13 @@ float2 GetVoxelResolution(float sampleLevel)
 
 float4 GetVoxelResolutionL1()
 {
-    return float4(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f, 1.0f);
+    return float4(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL3, 1.0f);
+
+}
+
+float4 GetVoxelResolutionL2()
+{
+    return float4(VOXEL_RESOLUTIONL2, VOXEL_RESOLUTIONL2, VOXEL_RESOLUTIONL4, 1.0f);
 
 }
 
@@ -295,6 +300,12 @@ float4 GetVoxelResolutionL1(int3 voxelRes)
 {
     float3 res = float3(voxelRes.x / 2.0f, voxelRes.y / 2.0f, voxelRes.z / 2.0f);
     return float4(res.x, res.y, res.z, 1.0f);
+}
+
+uint L1CoordToL2Index(uint3 l1Coord)
+{
+    uint3 c = l1Coord >> 1u;
+    return c.x + c.y * uint(VOXEL_RESOLUTIONL2) + c.z * uint(VOXEL_RESOLUTIONL2) * uint(VOXEL_RESOLUTIONL2);
 }
 
 float GetSampleLevel(float3 pos, float3 camPos)

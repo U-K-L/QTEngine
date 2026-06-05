@@ -434,7 +434,7 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
                 
                 //TODO: The last particle to touch this cell wins? Might want to change that.
-                InterlockedExchange(voxelsL1Out[flatIndex].brushId, quanta.information.x-1, dummy);
+                InterlockedExchange(voxelsL2Out[L1CoordToL2Index(uint3(voxelIndex))].brushId, quanta.information.x-1, dummy);
 
                 if (quanta.mana.w < 0.05f && !splatting)
                     continue;

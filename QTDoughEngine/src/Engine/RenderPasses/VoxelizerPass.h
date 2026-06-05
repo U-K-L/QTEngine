@@ -43,10 +43,7 @@ public:
     struct VoxelL1 {
         int distance;
         uint32_t density;
-        uint32_t brushId;
         float isoPhi;
-        //float jacobian;
-        //uint32_t dc;
     };
 
     //Struct of brushes. Most brushes are meshes with a model matrix. However, analytical brushes can be provided as well.
