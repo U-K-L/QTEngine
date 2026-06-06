@@ -540,10 +540,10 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	DispatchP2G(commandBuffer);
 
 	// Convert accumulator (int) to materialGrid (float).
-	//DispatchAccumConvert(commandBuffer);
+	DispatchAccumConvert(commandBuffer);
 
 	// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
-	//DispatchBrushAccum(commandBuffer);
+	DispatchBrushAccum(commandBuffer);
 
 	if(dispatchesCount >= 8 && dispatchesCount < 10)
 	{

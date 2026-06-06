@@ -89,7 +89,7 @@ struct VoxelL1
 {
     int distance;
     uint density;
-    float isoPhi;
+    //float isoPhi;
 };
 
 struct Mat3x3_16

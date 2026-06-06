@@ -303,7 +303,7 @@ void InitVoxelData(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
-    v.isoPhi = 0;
+    //v.isoPhi = 0;
 
     voxelsL1Out[vindex] = v;
     
@@ -941,7 +941,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
 
     float3 voxelSceneBoundsl1 = GetVoxelResolutionL1();
     uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
-    float sdfVal = voxelsL1Out[index].isoPhi;
+    float sdfVal = Read3D(0, DTid); //voxelsL1Out[index].isoPhi;
 
     if(pc.viewMode == 6) //material
     {
@@ -965,6 +965,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     //In reality the SDF only appears during the isophi stage.
     //There's really no raw SDF ever shown? So this can be removed.
     //Also consider that we can likely remove the initial SDF generation entirely.
+    /*
     for (uint i = 0; i < brushCount; i++)
     {
         uint offset = tileIndex * TILE_MAX_BRUSHES + i;
@@ -996,7 +997,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         
 
     }
-
+*/
     DTL1 = clamp(DTL1, int3(0, 0, 0), int3(voxelSceneBoundsl1) - 1);
 
     /*
@@ -2349,7 +2350,7 @@ float GetPhi(uint3 index)
     float3 voxelRes = GetVoxelResolutionL1().xyz;
     uint flatIndex = Flatten3D(index, voxelRes);
     
-    float phi = voxelsL1In[flatIndex].isoPhi;
+    float phi = Read3D(0, index);//voxelsL1In[flatIndex].isoPhi;
 
     return phi;
 }
@@ -2419,7 +2420,7 @@ void SmoothGrid(uint3 DTid : SV_DispatchThreadID)
     float outv = sum / 27.0f;
 
     uint flatIndex = Flatten3D(DTid, voxelRes);
-    voxelsL1Out[flatIndex].isoPhi = outv;
+    //voxelsL1Out[flatIndex].isoPhi = outv;
 }
 
 [numthreads(8, 8, 8)]
@@ -2433,7 +2434,7 @@ void SetSmoothGrid(uint3 DTid : SV_DispatchThreadID)
     float c = ComputePhi(flatIndex, voxelsL2In[L1CoordToL2Index(DTid)].brushId);
 
 
-    voxelsL1Out[flatIndex].isoPhi = c;
+    //voxelsL1Out[flatIndex].isoPhi = c;
 }
 
 void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
@@ -2448,11 +2449,11 @@ void ClearVoxelData(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
-    v.isoPhi = c;
+    //v.isoPhi = c;
 
     voxelsL1Out[index] = v;
     Write3DDist(1, DTid, 0);
-    Write3DDist(0, DTid, 0);
+    Write3DDist(0, DTid, c);
 }
 
 void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
@@ -2469,10 +2470,11 @@ void ClearVoxelDataInit(uint3 DTid : SV_DispatchThreadID)
     VoxelL1 v;
     v.distance = DEFUALT_EMPTY_SPACE;
     v.density = 0;
-    v.isoPhi = c;
+    //v.isoPhi = c;
 
     voxelsL1Out[index] = v;
     Write3DDist(1, DTid, 0);
+    Write3DDist(0, DTid, c);
 }
 
 // --- Tiled gather-based particle SDF ---

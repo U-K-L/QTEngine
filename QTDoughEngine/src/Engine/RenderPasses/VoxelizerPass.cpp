@@ -2596,10 +2596,10 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 24); //Clear.
         DispatchTile(commandBuffer, currentFrame, 5); //Clear Count.
         //DispatchBrushDeformation(commandBuffer, currentFrame, 1);
-        DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
+        //DispatchTile(commandBuffer, currentFrame, 0); //Tile generation.
         //DispatchTile(commandBuffer, currentFrame, 8); //Control Particles.
         //DispatchParticlesTiled(commandBuffer, currentFrame); //Tiled gather particle SDF.
-        DispatchTile(commandBuffer, currentFrame, 2);
+        DispatchTile(commandBuffer, currentFrame, 2); //Particles.
 
         // Rolling occupancy check: N brushes per frame.
         if (!brushes.empty())
@@ -2690,7 +2690,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
             vkCmdPipelineBarrier2(commandBuffer, &depInfoBack);
         }
-        DispatchLOD(commandBuffer, currentFrame, 1);
+        //DispatchLOD(commandBuffer, currentFrame, 1);
 
         DispatchLOD(commandBuffer, currentFrame, 40);
 
@@ -2970,6 +2970,23 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         DispatchLOD(commandBuffer, currentFrame, 13, true);
         */
         IDDispatchIteration = (IDDispatchIteration + 1) % requiredIterations;
+
+        if(dispatchCount == 20)
+        {
+
+            for(size_t i = 0; i < brushes.size(); i++)
+            {
+                Brush& brush = brushes[i];
+                int brushId = brush.id;
+                std::string key = "brush_" + std::to_string(brushId);
+                Unigma3DTexture& volumeTexture = app->textures3D[key];
+                vkFreeMemory(app->_logicalDevice, volumeTexture.u_imageMemory, nullptr);
+                app->textures3D.erase(key);
+            }
+
+
+            
+        }
     }
 
     /*
