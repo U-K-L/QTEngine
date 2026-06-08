@@ -5,10 +5,10 @@ RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 
 cbuffer UniformBufferObject : register(b0, space1)
 {
-    float4x4 model; // Model matrix
-    float4x4 view; // View matrix
-    float4x4 proj; // Projection matrix
-    float4 texelSize;
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+    float4 texelSize; // xy = 1/width, 1/height
     float isOrtho;
 }
 
@@ -65,7 +65,7 @@ RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord)
 {
-    return gBindless3D[textureIndex].Load(int4(coord, 0)).x;
+    return gBindless3D[textureIndex].Load(int4(coord, 0)).x * SDF_MAX;
 }
 
 float ReadWorldSDF(float3 worldPos)
@@ -392,7 +392,9 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
     float disp = length(position - initialPosition);
     
     float invsigma = 1.0f / (2.0f * sigma * sigma);
-    
+
+    float linearDepth = quanta.resonance.w;
+
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
         for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
@@ -429,12 +431,12 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
                 int distanceContribution = (int) round(sd * (float) guassContribution);
 
 
-                uint dummy;
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
-                
-                //TODO: The last particle to touch this cell wins? Might want to change that.
-                InterlockedExchange(voxelsL2Out[L1CoordToL2Index(uint3(voxelIndex))].brushId, quanta.information.x-1, dummy);
+
+                //Atomic depth-keyed attribution: id rides the depth in one packed min.
+                uint packedBrush = PackBrushDepth((uint)(quanta.information.x - 1), linearDepth);
+                InterlockedMin(voxelsL2Out[L1CoordToL2Index(uint3(voxelIndex))].brushId, packedBrush);
 
                 if (quanta.mana.w < 0.05f && !splatting)
                     continue;

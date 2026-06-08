@@ -1648,7 +1648,7 @@ void VoxelizerPass::Create3DTextures()
 
     VkFormat sdfFormat = app->FindSupportedFormat(
         {
-            VK_FORMAT_R16_SFLOAT
+            VK_FORMAT_R8_SNORM
         },
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
@@ -1656,7 +1656,7 @@ void VoxelizerPass::Create3DTextures()
 
     VkFormat brushSdfFormat = app->FindSupportedFormat(
         {
-            VK_FORMAT_R16_SFLOAT
+            VK_FORMAT_R8_SNORM
         },
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
@@ -2690,7 +2690,7 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 
             vkCmdPipelineBarrier2(commandBuffer, &depInfoBack);
         }
-        //DispatchLOD(commandBuffer, currentFrame, 1);
+        DispatchLOD(commandBuffer, currentFrame, 1);
 
         DispatchLOD(commandBuffer, currentFrame, 40);
 
@@ -3527,7 +3527,7 @@ void VoxelizerPass::DispatchLOD(VkCommandBuffer commandBuffer, uint32_t currentF
 
     if(lodLevel > 0 && lodLevel < 8)
 	{
-		res = res / (int)(pow(2, lodLevel - 1));
+		res = QTDoughApplication::instance->WORLD_SDF_RESOLUTION;// / (int)(pow(2, lodLevel - 1));
         groupCountX = (res.x + 7) / 8;
         groupCountY = (res.y + 7) / 8;
         groupCountZ = (res.z + 7) / 8;
@@ -4073,7 +4073,7 @@ void VoxelizerPass::CreateBrushTextures(int brushIndex)
     Brush& brush = brushes[brushIndex];
 
     VkFormat brushSdfFormat = app->FindSupportedFormat(
-        { VK_FORMAT_R16_SFLOAT },
+        { VK_FORMAT_R8_SNORM },
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
     );

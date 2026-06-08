@@ -16,7 +16,7 @@ struct Mat3x3_16 {
 //Compact, w values may store arbitrary different results.
 struct Quanta {
 	glm::vec4 position; //The position this quanta is currently in. w is mass.
-	glm::vec4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating.
+	glm::vec4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating. w is distance from the observer.
 	glm::ivec4 information; //Hashed ledger, maps to a lookup, a larger ledger.
 	glm::vec4 mana; //Potential energy. xyz is velocity, w energy.
 };

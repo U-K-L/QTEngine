@@ -1,5 +1,15 @@
 #include "../Helpers/ShaderHelpers.hlsl"
 
+cbuffer UniformBufferObject : register(b0, space1)
+{
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+    float4 texelSize; // xy = 1/width, 1/height
+    float isOrtho;
+}
+
+
 cbuffer Constants : register(b2, space0)
 {
     float deltaTime;
@@ -85,5 +95,42 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     }
     else
         q.position.xyz = worldPos;
+    
+
+    float4 clip = mul(view, float4(worldPos, 1.0));
+
+    float3 ndc = clip.xyz / clip.w;
+
+    float2 uv = ndc.xy * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y; 
+
+    //Distance from observer:
+    float4x4 invProj = inverse(proj);
+    float4x4 invView = inverse(view);
+
+    float4 viewPos = mul(invProj, float4(uv.x, uv.y, 0, 1));
+
+    float3 perspectiveRayDir = normalize(mul((float3x3) invView, normalize(viewPos.xyz)));
+    float3 perspectiveRayOrigin = mul(invView, float4(0, 0, 0, 1)).xyz;
+
+    float3 orthoRayOrigin = mul(invView, float4(viewPos.xyz, 1.0)).xyz;
+    float3 orthoRayDir = normalize(mul((float3x3) invView, float3(0, 0, -1)));
+
+    float3 ro = lerp(perspectiveRayOrigin, orthoRayOrigin, isOrtho);
+
+    float linearDepth = distance(worldPos.xyz, ro);
+
+    q.resonance.w = linearDepth;
+
+    if (ndc.x < -1.0 || ndc.x > 1.0 ||
+        ndc.y < -1.0 || ndc.y > 1.0 ||
+        ndc.z <  0.0 || ndc.z > 1.0)
+    {
+        q.resonance.w = 99999;
+    }
+
+    if (clip.w <= 0.0)
+        q.resonance.w = 99999; // behind camera
+
     quantaOut[globalIndex] = q;
 }

@@ -29,6 +29,8 @@
 
 #define DEFUALT_EMPTY_SPACE 2.0f
 
+#define SDF_MAX 2.0f
+
 #define CAGE_VERTS 26
 
 #define MAX_BRUSHES 8192
@@ -37,6 +39,25 @@
 
 #define DENSITY_SCALE 1048576.0f
 #define FIXED_POINT_SCALE 1024
+
+// Packed depth-keyed brush attribution: voxelsL2.brushId holds [depth:19 | id:13].
+// One InterlockedMin keeps id atomic with the winning depth. Empty == low 13 bits all set.
+#define BRUSH_ID_BITS 13
+#define BRUSH_ID_MASK 0x1FFFu
+#define BRUSH_DEPTH_MAX 0x7FFFFu // 19 bits
+#define BRUSH_PACKED_EMPTY 0xFFFFFFFFu
+#define MAX_BRUSH_DEPTH 256.0f
+
+uint PackBrushDepth(uint brushId, float linearDepth)
+{
+    uint q = (uint) round(saturate(linearDepth / MAX_BRUSH_DEPTH) * BRUSH_DEPTH_MAX);
+    return (q << BRUSH_ID_BITS) | (brushId & BRUSH_ID_MASK);
+}
+
+uint UnpackBrushId(uint packed)
+{
+    return packed & BRUSH_ID_MASK; // BRUSH_ID_MASK == none
+}
 
 #define NO_LABEL 16777215  // safe max exact int
 float NO_LABELF()

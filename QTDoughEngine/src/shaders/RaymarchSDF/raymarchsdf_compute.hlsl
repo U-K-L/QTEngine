@@ -79,7 +79,7 @@ PushConsts pc;
 
 float Read3D(uint textureIndex, int3 coord)
 {
-    return gBindless3D[textureIndex].Load(int4(coord, 0));
+    return gBindless3D[textureIndex].Load(int4(coord, 0)).x * SDF_MAX;
 }
 
 float Read3DMip(uint textureIndex, int3 coord, int level)
