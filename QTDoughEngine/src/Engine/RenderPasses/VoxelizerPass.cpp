@@ -2713,12 +2713,6 @@ void VoxelizerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         //Finalize Mesh.
         DispatchLOD(commandBuffer, currentFrame, 100);
 
-        //Mips
-        DispatchLOD(commandBuffer, currentFrame, 2);
-        DispatchLOD(commandBuffer, currentFrame, 3);
-        DispatchLOD(commandBuffer, currentFrame, 4);
-        DispatchLOD(commandBuffer, currentFrame, 5);
-
 
 
 

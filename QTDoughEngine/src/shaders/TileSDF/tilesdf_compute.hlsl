@@ -434,12 +434,12 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
 
-                //Atomic depth-keyed attribution: id rides the depth in one packed min.
-                uint packedBrush = PackBrushDepth((uint)(quanta.information.x - 1), linearDepth);
-                InterlockedMin(voxelsL2Out[L1CoordToL2Index(uint3(voxelIndex))].brushId, packedBrush);
-
                 if (quanta.mana.w < 0.05f && !splatting)
                     continue;
+
+                //Atomic depth-keyed attribution: id rides the depth in one packed min.
+                uint packedBrush = PackBrushDepth((uint)(clamp(quanta.information.x - 1, 0, 9999)), linearDepth);
+                InterlockedMin(voxelsL2Out[L1CoordToL2Index(uint3(voxelIndex))].brushId, packedBrush);
 
                 float3 mbLocalPos;
                 int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);

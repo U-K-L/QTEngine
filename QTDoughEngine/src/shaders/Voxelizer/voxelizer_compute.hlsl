@@ -933,7 +933,7 @@ float ComputePhi(uint index, uint brushId)
     if(Brushes[brushId].type == 2) //Splat, remove later.
         phi = CalculateMetaballPhi(dens, brushId);
     else
-        phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
+    phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     return clamp(phi, -SDF_MAX, SDF_MAX);
 
     //return CalculateMetaballPhi(voxelsL1Out[index].density);
@@ -1045,7 +1045,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
     {
         int3 DTL1 = DTid / worldSDFDivisor;
         uint index = Flatten3D(DTL1, voxelSceneBoundsl1);
-        float sdfVal = ComputePhi(index, UnpackBrushId(voxelsL2In[L1CoordToL2Index(uint3(DTL1))].brushId));
+        float sdfVal = ComputePhi(index, UnpackBrushId(voxelsL2Out[L1CoordToL2Index(uint3(DTL1))].brushId));
         Write3DDist(0, DTid, sdfVal);
         return;
     }
@@ -1064,7 +1064,7 @@ void WriteToWorldSDF(uint3 DTid : SV_DispatchThreadID)
         int3 offs = int3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
         int3 corner = clamp(l1Floor + offs, int3(0, 0, 0), l1Max);
         uint idx = Flatten3D(corner, voxelSceneBoundsl1);
-        phi[i] = ComputePhi(idx, UnpackBrushId(voxelsL2In[L1CoordToL2Index(uint3(corner))].brushId));
+        phi[i] = ComputePhi(idx, UnpackBrushId(voxelsL2Out[L1CoordToL2Index(uint3(corner))].brushId));
     }
 
     float p00 = lerp(phi[0], phi[1], t.x);
@@ -2123,7 +2123,12 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     }
     
     uint indexField = Flatten3D(l1Texel, voxelL1Res.xyz);
-    uint brushIndex = UnpackBrushId(voxelsL2In[L1CoordToL2Index(uint3(l1Texel))].brushId);
+    uint packedBrushId = voxelsL2Out[L1CoordToL2Index(uint3(l1Texel))].brushId;
+
+    if(packedBrushId == BRUSH_PACKED_EMPTY)
+        return;
+    
+    uint brushIndex = UnpackBrushId(voxelsL2Out[L1CoordToL2Index(uint3(l1Texel))].brushId);
     
     Brush brush = Brushes[brushIndex];
     
