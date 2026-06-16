@@ -245,8 +245,8 @@ int main(int argc, char* args[]) {
 
     //Clean up and delete threads.
     std::cout << "Cleaning up..." << std::endl;
-    //if (QTDoughEngine->thread.joinable())
-    //    QTDoughEngine->thread.join();
+    if (QTDoughEngine->thread.joinable())
+        QTDoughEngine->thread.join();
     UNEndProgram();
     FreeLibrary(unigmaNative);
     unigmaNative = nullptr;

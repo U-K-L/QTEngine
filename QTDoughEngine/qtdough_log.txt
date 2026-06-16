@@ -1,5 +1,5 @@
 Scene Loaded!
-Model Information and Material Size: 21
+Model Information and Material Size: 1
 Houston we're running the renderer!!!
 validation layer: windows_get_device_registry_files: GUID for 6 is not SoftwareComponent skipping
 validation layer: Searching for ICD drivers named .\igvk64.dll
@@ -39,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10427.1 GFLOPS
-  Memory bandwidth:   206.331 GB/s
+  Compute throughput: 10280.2 GFLOPS
+  Memory bandwidth:   206.088 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -123,30 +123,7 @@ Memory of 3D Textures in L1: 256 MB
 Memory of 3D Textures in L2: 128 MB
 Memory of 3D Textures in L3: 8 MB
 Textures created
-Brush 0 batchID=1 new texture pair [5, 6]
-Brush 1 shares batch 1 texture pair [5, 6]
-Brush 2 shares batch 1 texture pair [5, 6]
-Brush 3 shares batch 1 texture pair [5, 6]
-Brush 4 shares batch 1 texture pair [5, 6]
-Brush 5 shares batch 1 texture pair [5, 6]
-Brush 6 shares batch 1 texture pair [5, 6]
-Brush 7 shares batch 1 texture pair [5, 6]
-Brush 8 shares batch 1 texture pair [5, 6]
-Brush 9 shares batch 1 texture pair [5, 6]
-Brush 10 shares batch 1 texture pair [5, 6]
-Brush 11 shares batch 1 texture pair [5, 6]
-Brush 12 shares batch 1 texture pair [5, 6]
-Brush 13 shares batch 1 texture pair [5, 6]
-Brush 14 shares batch 1 texture pair [5, 6]
-Brush 15 shares batch 1 texture pair [5, 6]
-Brush 16 shares batch 1 texture pair [5, 6]
-Brush 17 shares batch 1 texture pair [5, 6]
-Brush 18 shares batch 1 texture pair [5, 6]
-Brush 19 shares batch 1 texture pair [5, 6]
-Brush 20 batchID=0 new texture pair [7, 8]
-Brush 21 batchID=0 new texture pair [9, 10]
-Brush 22 batchID=0 new texture pair [11, 12]
-Brush 23 batchID=0 new texture pair [13, 14]
+Brush 0 batchID=0 new texture pair [5, 6]
 Textures created2
 Created 3D texture for world SDF level 0 with resolution: 512
 Created 3D texture for world SDF level 1 with resolution: 256
@@ -157,9 +134,9 @@ Textures creat2ed2
 Creating Uniform Buffers
 Created Uniform Buffers
 Creating Shader Storage Buffers VoxelizerPass
-Vertex count: 27684
-Vertex size: 1328832
-vertexBuffer memReq.size = 1328832
+Vertex count: 36
+Vertex size: 1728
+vertexBuffer memReq.size = 1728
 Voxel L1 Storage Buffers created
 VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
 Shader Storage Buffers created
@@ -201,10 +178,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 00000222507F7780
-quanta[0]: 0000022206CA43D0
-quanta[1]: 0000022206CA3F20
-quanta[2]: 0000022206CA40B0
+emitterEventBuffer: 0000019FD4EAF8A0
+quanta[0]: 0000019F826D38B0
+quanta[1]: 0000019F826D43A0
+quanta[2]: 0000019F826D4E90
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -215,59 +192,16 @@ Created Command Buffer
 Allocated compute command buffers
 Started pool info imgui
 Started pool info imgui
-Brush resolution and ID: 0 , 128
-Brush resolution and ID: 1 , 128
-Brush resolution and ID: 2 , 128
-Brush resolution and ID: 3 , 128
-Brush resolution and ID: 4 , 128
-Brush resolution and ID: 5 , 128
-Brush resolution and ID: 6 , 128
-Brush resolution and ID: 7 , 128
-Brush resolution and ID: 8 , 128
-Brush resolution and ID: 9 , 128
-Brush resolution and ID: 10 , 128
-Brush resolution and ID: 11 , 128
-Brush resolution and ID: 12 , 128
-Brush resolution and ID: 13 , 128
-Brush resolution and ID: 14 , 128
-Brush resolution and ID: 15 , 128
-Brush resolution and ID: 16 , 128
-Brush resolution and ID: 17 , 128
-Brush resolution and ID: 18 , 128
-Brush resolution and ID: 19 , 128
-Brush resolution and ID: 20 , 256
-Brush resolution and ID: 21 , 256
-Brush resolution and ID: 22 , 128
-Brush resolution and ID: 23 , 128
-Brush creation took: 11 milliseconds
-Brushes Processed: 5
-Total Voxels Created: 79691776
-Estimated Particles Created: 9961472
-Brush resolution and ID: 0 , 128
-Brush resolution and ID: 1 , 128
-Brush resolution and ID: 2 , 128
-Brush resolution and ID: 3 , 128
-Brush resolution and ID: 4 , 128
-Brush resolution and ID: 5 , 128
-Brush resolution and ID: 6 , 128
-Brush resolution and ID: 7 , 128
-Brush resolution and ID: 8 , 128
-Brush resolution and ID: 9 , 128
-Brush resolution and ID: 10 , 128
-Brush resolution and ID: 11 , 128
-Brush resolution and ID: 12 , 128
-Brush resolution and ID: 13 , 128
-Brush resolution and ID: 14 , 128
-Brush resolution and ID: 15 , 128
-Brush resolution and ID: 16 , 128
-Brush resolution and ID: 17 , 128
-Brush resolution and ID: 18 , 128
-Brush resolution and ID: 19 , 128
-Brush resolution and ID: 20 , 256
-Brush resolution and ID: 21 , 256
-Brush resolution and ID: 22 , 128
-Brush resolution and ID: 23 , 128
-Brush creation took: 18 milliseconds
-Brushes Processed: 5
-Total Voxels Created: 79691776
-Estimated Particles Created: 9961472
+Brush resolution and ID: 0 , 64
+Brush creation took: 9 milliseconds
+Brushes Processed: 1
+Total Voxels Created: 262144
+Estimated Particles Created: 32768
+Brush resolution and ID: 0 , 64
+Brush creation took: 2 milliseconds
+Brushes Processed: 1
+Total Voxels Created: 262144
+Estimated Particles Created: 32768
+Quitting program.
+Cleaning up...
+[CRASH] Unhandled exception 0xc0000005 at address 0x00007FFE3350E589

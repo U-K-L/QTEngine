@@ -1,7 +1,11 @@
 
+#define FIXED_DELTA_TIME 0.0033
 #define PI 3.14159265359
 
 #define IDENTITY_MATRIX float4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+
+#define IDENTITY_MATRIX3_3 float3x3(1, 0, 0, 0, 1, 0, 0, 0, 1)
+
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
@@ -47,6 +51,10 @@
 #define BRUSH_DEPTH_MAX 0x7FFFFu // 19 bits
 #define BRUSH_PACKED_EMPTY 0xFFFFFFFFu
 #define MAX_BRUSH_DEPTH 256.0f
+
+//CHANGE PER MATERIAL GRID SIZE
+//256x256x64 RES. 32x32x8 SCENE SIZE
+#define INERTIA_TENSOR_INVERSE float3x3(256, 0, 0, 0, 256, 0, 0, 0, 256)
 
 uint PackBrushDepth(uint brushId, float linearDepth)
 {
@@ -130,8 +138,8 @@ struct Quanta
 
 struct QuantaDeformation
 {
-    Mat3x3_16 DeffGrad;
-    Mat3x3_16 AffVel;
+    float3x3 DeffGrad;
+    float3x3 AffVel;
 };
 
 struct MaterialGridPoint
@@ -258,6 +266,11 @@ float3 GetDCAABBSize()
 float3 GetSceneSize()
 {
     return float3(48, 48, 12);
+}
+
+float3 GetMaterialSceneSize()
+{
+    return float3(32, 32, 8);
 }
 
 int3 GetMaterialGridSize()
@@ -680,7 +693,35 @@ float4x4 inverse(float4x4 m)
     return ret;
 }
 
+float3x3 inverse(float3x3 m)
+{
+    float n11 = m[0][0], n12 = m[1][0], n13 = m[2][0];
+    float n21 = m[0][1], n22 = m[1][1], n23 = m[2][1];
+    float n31 = m[0][2], n32 = m[1][2], n33 = m[2][2];
 
+    float t11 = n22 * n33 - n23 * n32;
+    float t12 = n13 * n32 - n12 * n33;
+    float t13 = n12 * n23 - n13 * n22;
+
+    float det = n11 * t11 + n21 * t12 + n31 * t13;
+    float idet = 1.0f / det;
+
+    float3x3 ret;
+
+    ret[0][0] = t11 * idet;
+    ret[0][1] = (n23 * n31 - n21 * n33) * idet;
+    ret[0][2] = (n21 * n32 - n22 * n31) * idet;
+
+    ret[1][0] = t12 * idet;
+    ret[1][1] = (n11 * n33 - n13 * n31) * idet;
+    ret[1][2] = (n12 * n31 - n11 * n32) * idet;
+
+    ret[2][0] = t13 * idet;
+    ret[2][1] = (n13 * n21 - n11 * n23) * idet;
+    ret[2][2] = (n11 * n22 - n12 * n21) * idet;
+
+    return ret;
+}
 
 float LinearizeDepth(float depth)
 {
@@ -1007,7 +1048,31 @@ float3 RandomUnitVector(float3 pos, float seed)
     return normalize(v);
 }
 
+float3x3 Outer(float3 a, float3 b)
+{
+    return float3x3(
+        a.x * b.x, a.x * b.y, a.x * b.z,
+        a.y * b.x, a.y * b.y, a.y * b.z,
+        a.z * b.x, a.z * b.y, a.z * b.z
+    );
+}
 
+
+float3x3 ComputePiolaStress(float3x3 F, float mu, float lambda)
+{
+    float J = determinant(F);
+
+    float3x3 FinvT = transpose(inverse(F));
+
+    return mu * (F - FinvT)
+         + lambda * log(max(J, 1e-6f)) * FinvT;
+}
+
+
+float3x3 ComputeStress(float3x3 F, float mu, float lambda)
+{
+    return ComputePiolaStress(F, mu, lambda);
+}
 
         //-----------------------------------
     // 26-VERTEX CANONICAL CAGE

@@ -399,6 +399,8 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_accum_convert", accumConvertPipeline);
 	CreateComputePipelineFromSPV("matsim_brush_accum", brushAccumPipeline);
 	CreateComputePipelineFromSPV("lepton_propagate", leptonPropagatePipeline);
+	CreateComputePipelineFromSPV("matsim_refresh_grid", refreshGridPipeline);
+	CreateComputePipelineFromSPV("matsim_grid_resolve", gridResolvePipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -516,25 +518,16 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	QTDoughApplication* app = QTDoughApplication::instance;
 
 	// Copy matching SDF mip into materialGrid before P2G.
-	DispatchSDFDownsample(commandBuffer);
+	//DispatchSDFDownsample(commandBuffer); //Change this later on, no longer a direct downscale.
 
 
 	// Sort quantas into tiles before simulation.
 	DispatchTileSort(commandBuffer);
 
-	// Sort leptons into tiles (after propagation updated positions).
+	// Sort leptons into tiles
 	DispatchLeptonTileSort(commandBuffer);
 
-	// Lepton propagation: march leptons through field, reads In writes Out.
-	DispatchLeptonPropagate(commandBuffer);
-
-	DispatchSimulateQuarks(commandBuffer);
-
-	// G2P gather — transfer grid values back to particles.
-	DispatchG2P(commandBuffer);
-
-	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
-	DispatchLeptonP2G(commandBuffer);
+	DispatchRefreshGrid(commandBuffer);
 
 	// Quanta P2G — scatter quanta mass/momentum into materialGridAccumulator and brushAccumulator.
 	DispatchP2G(commandBuffer);
@@ -542,9 +535,31 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Convert accumulator (int) to materialGrid (float).
 	DispatchAccumConvert(commandBuffer);
 
+	//Additional forces enter here.
+	DispatchGridResolve(commandBuffer);
+
+	// G2P gather transfer grid values back to particles.
+	DispatchG2P(commandBuffer);
+
+	/*
+	// Lepton propagation: march leptons through field, reads In writes Out.
+	DispatchLeptonPropagate(commandBuffer);
+
+
+	//DispatchSimulateQuarks(commandBuffer); //Use this for a different purpose.
+
+
+
+	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
+	DispatchLeptonP2G(commandBuffer);
+
+
+
+
+
 	// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
 	DispatchBrushAccum(commandBuffer);
-
+	*/
 	if(dispatchesCount >= 8 && dispatchesCount < 10)
 	{
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
@@ -555,7 +570,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 
 	if (dispatchesCount < 60 * 6)
 	{
-		// Wave Function Collapse — dispatches only for brushes flagged isCollapsing.
+		// Wave Function Collapse - dispatches only for brushes flagged isCollapsing.
 		//DispatchWaveFunctionCollapse(commandBuffer);
 
 		// Collapse Fill — per-voxel claim of quanta into brush density grid.
@@ -834,6 +849,20 @@ void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 
+	vkCmdFillBuffer(commandBuffer, materialGridAccumBuffer, 0, accumBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, brushAccumBuffer, 0, brushAccumBufferSize, 0);
+
+	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	clearBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	clearDep.memoryBarrierCount = 1;
+	clearDep.pMemoryBarriers = &clearBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, p2gPipeline);
 
 	VkDescriptorSet sets[] = {
@@ -849,7 +878,7 @@ void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
-	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	uint32_t groupCount = QUANTA_COUNT / 512;
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
@@ -1192,6 +1221,78 @@ void MaterialSimulation::DispatchDiffusion(VkCommandBuffer commandBuffer)
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	// Dispatch per grid cell: materialGridSize / numthreads(8,8,8).
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchRefreshGrid(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, refreshGridPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchGridResolve(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gridResolvePipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
 	vkCmdDispatch(commandBuffer,
 		materialGridSize.x / 8,
 		materialGridSize.y / 8,
@@ -1552,7 +1653,28 @@ void MaterialSimulation::CreateStorageBuffers()
 			brushMatriciesBuffers[i], brushMatriciesMemory[i]);
 	}
 
-	// Deformation (DeffGrad, AffVel) — double buffered ping-pong.
+	// Deformation (DeffGrad, AffVel) — double buffered ping-pong. Seed DeffGrad to identity, AffVel to zero.
+	std::vector<QuantaDeformation> deformInit(QUANTA_COUNT);
+	QuantaDeformation identityDeform{};
+	identityDeform.DeffGrad.r0 = glm::vec4(1, 0, 0, 0);
+	identityDeform.DeffGrad.r1 = glm::vec4(0, 1, 0, 0);
+	identityDeform.DeffGrad.r2 = glm::vec4(0, 0, 1, 0);
+	identityDeform.AffVel.r0 = glm::vec4(0);
+	identityDeform.AffVel.r1 = glm::vec4(0);
+	identityDeform.AffVel.r2 = glm::vec4(0);
+	std::fill(deformInit.begin(), deformInit.end(), identityDeform);
+
+	VkBuffer deformStagingBuffer;
+	VkDeviceMemory deformStagingMemory;
+	app->CreateBuffer(deformationMemorySize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		deformStagingBuffer, deformStagingMemory);
+
+	void* deformData;
+	vkMapMemory(app->_logicalDevice, deformStagingMemory, 0, deformationMemorySize, 0, &deformData);
+	memcpy(deformData, deformInit.data(), deformationMemorySize);
+	vkUnmapMemory(app->_logicalDevice, deformStagingMemory);
+
 	deformationStorageBuffers.resize(2);
 	deformationStorageMemory.resize(2);
 	for (uint32_t i = 0; i < 2; i++)
@@ -1561,7 +1683,11 @@ void MaterialSimulation::CreateStorageBuffers()
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			deformationStorageBuffers[i], deformationStorageMemory[i]);
+		app->CopyBuffer(deformStagingBuffer, deformationStorageBuffers[i], deformationMemorySize);
 	}
+
+	vkDestroyBuffer(app->_logicalDevice, deformStagingBuffer, nullptr);
+	vkFreeMemory(app->_logicalDevice, deformStagingMemory, nullptr);
 
 	// --- Lepton tile sort buffers ---
 	uint64_t leptonIdsSize = sizeof(uint32_t) * leptonMaxSize;

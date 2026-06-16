@@ -1424,7 +1424,7 @@ void QTDoughApplication::RunMainGameLoop()
             {
                 simulationWarmupDone = true;
                 if (editorState.IsEditor())
-                    simulationPaused = true;
+                    simulationPaused = false;
             }
         }
 
@@ -5473,18 +5473,6 @@ void QTDoughApplication::Cleanup()
     vkDestroyImage(_logicalDevice, textureImage, nullptr);
     vkFreeMemory(_logicalDevice, textureImageMemory, nullptr);
 
-
-    vkDestroyImageView(_logicalDevice, textureImageView, nullptr);
-
-    vkDestroyImage(_logicalDevice, textureImage, nullptr);
-    vkFreeMemory(_logicalDevice, textureImageMemory, nullptr);
-
-    for (auto framebuffer : swapChainFramebuffers) {
-        vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
-    }
-    for (auto imageView : swapChainImageViews) {
-        vkDestroyImageView(_logicalDevice, imageView, nullptr);
-    }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphores[i], nullptr);
@@ -5496,7 +5484,6 @@ void QTDoughApplication::Cleanup()
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
     vkDestroyRenderPass(_logicalDevice, renderPass, nullptr);
-    vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
     vkDestroyDevice(_logicalDevice, nullptr);
     vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
     vkDestroyInstance(_vkInstance, nullptr);

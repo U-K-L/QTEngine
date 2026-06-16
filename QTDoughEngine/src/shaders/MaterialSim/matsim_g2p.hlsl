@@ -20,7 +20,7 @@ struct PushConsts
     float pad2;
 } pc;
 
-// Set 1 bindings — MaterialSimulation buffers.
+// Set 1 bindings MaterialSimulation buffers.
 StructuredBuffer<Quanta>              quantaIn    : register(t0,  space1);
 RWStructuredBuffer<Quanta>            quantaOut   : register(u1,  space1);
 StructuredBuffer<Quanta>              quantaRead  : register(t2,  space1);
@@ -48,31 +48,31 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     // Use tile-sorted index for cache coherence.
     uint qIdx = quantaIds[globalIndex];
-    Quanta q = quantaOut[qIdx];
+    Quanta quanta = quantaIn[qIdx];
 
     // Skip inactive particles.
-    if (q.position.w < 1.0f)
+    if (quanta.position.w < 1.0f)
     {
-        quantaOut[qIdx] = q;
+        quantaOut[qIdx] = quanta;
         return;
     }
 
     // --- Grid constants ---
-    float3 sceneSize = GetSceneSize();                    // (64, 64, 16)
+    float3 sceneSize = GetMaterialSceneSize(); 
     float3 halfScene = sceneSize * 0.5f;
     int3 gridRes = GetMaterialGridSize();
-    float3 cellSize  = sceneSize / float3(gridRes);       // (0.25, 0.25, 0.25)
+    float3 cellSize  = sceneSize / float3(gridRes);
 
     // --- World-space position ---
-    float3 pos = q.position.xyz;
-    int brushId = q.information.x - 1;
+    float3 pos = quanta.position.xyz;
+    int brushId = quanta.information.x - 1;
     if (brushId >= 0)
         pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
 
     // --- Quadratic B-spline base cell and weights ---
-    float3 gs   = (pos + halfScene) / cellSize;
-    int3   base = int3(floor(gs - 0.5f));
-    float3 fx   = gs - float3(base);
+    float3 gs = (pos + halfScene) / cellSize;
+    int3 base = int3(floor(gs - 0.5f));
+    float3 fx = gs - float3(base);
 
     float wx[3], wy[3], wz[3];
     wx[0] = 0.5f * (1.5f - fx.x) * (1.5f - fx.x);
@@ -89,7 +89,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     // --- 27-cell stencil loop ---
     float weightSum = 0;
-    float manaSum = 0;
+    float3 velocitySum = 0;
+    float3x3 B = 0.0f;
     [unroll]
     for (int i = 0; i < 3; i++)
     {
@@ -99,23 +100,48 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
             [unroll]
             for (int k = 0; k < 3; k++)
             {
-                int3 cellCoord = base + int3(i, j, k);
+                int3 cellCoordinate = base + int3(i, j, k);
 
-                if (any(cellCoord < 0) || any(cellCoord >= gridRes))
+                if (any(cellCoordinate < 0) || any(cellCoordinate >= gridRes))
                     continue;
 
                 float weight = wx[i] * wy[j] * wz[k];
-                int idx = Flatten3D(cellCoord, gridRes);
+                int idx = Flatten3D(cellCoordinate, gridRes);
+                float3 nodePos = float3(cellCoordinate) * cellSize - halfScene;
+                float3 dx = nodePos - pos;
 
-                manaSum += weight * materialGrid[idx].fieldValues.y;
+                float nodeMass = materialGrid[idx].massMomentum.w;
+                if (nodeMass <= 0.0f)
+                    continue;
+
+                float3 velocity = materialGrid[idx].massMomentum.xyz / nodeMass;
+
+                velocitySum += weight * velocity;
+                B += weight * Outer(velocity, dx);
                 weightSum += weight;
             }
         }
     }
-    
+    float3x3 C = mul(B, INERTIA_TENSOR_INVERSE);
+
+
+    float3x3 F = deformIn[qIdx].DeffGrad;
+    float3x3 Fnew = mul(IDENTITY_MATRIX3_3 + FIXED_DELTA_TIME * C, F);
+    deformOut[qIdx].AffVel = C;
+    deformOut[qIdx].DeffGrad = Fnew;
+
+    quanta.mana.xyz = velocitySum;
+
+    float3 posNew = pos + FIXED_DELTA_TIME * velocitySum;
+
+    float4 localPos = mul(Brushes[brushId].invModel, float4(posNew, 1.0f));
+    quanta.position.xyz = localPos.xyz;
+
+/*
     q.mana.w += ((manaSum / weightSum) - q.mana.w) * deltaTime * 0.1f;
     q.mana.w = clamp(q.mana.w, 0.0f, 10000.0f);
     if(q.mana.w > 0.01f) // excited!
         q.information.z += 1; //Ledger.
-    quantaOut[qIdx] = q;
+*/
+    quantaOut[qIdx] = quanta;
 }

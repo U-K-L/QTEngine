@@ -2125,11 +2125,28 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     uint indexField = Flatten3D(l1Texel, voxelL1Res.xyz);
     uint packedBrushId = voxelsL2Out[L1CoordToL2Index(uint3(l1Texel))].brushId;
 
-    if(packedBrushId == BRUSH_PACKED_EMPTY)
-        return;
-    
-    uint brushIndex = UnpackBrushId(voxelsL2Out[L1CoordToL2Index(uint3(l1Texel))].brushId);
-    
+    //Coarse L2 attribution can lag the SDF active band at a moving edge, leaving a                                  
+    //surface cell unattributed for a frame. Borrow the nearest valid neighbor rather                                
+    //than dropping the cell, which shows up as flickering missing triangles.                                        
+    if (packedBrushId == BRUSH_PACKED_EMPTY)                                                                         
+    {                                                                                                                
+        int3 l2Coord = int3(l1Texel) >> 1;                                                                           
+        int l2Res = (int) VOXEL_RESOLUTIONL2;                                                                        
+        for (int dz = -1; dz <= 1; ++dz)                                                                             
+            for (int dy = -1; dy <= 1; ++dy)                                                                             
+                for (int dx = -1; dx <= 1; ++dx)                                                                             
+                {                                                                                                            
+                    int3 nc = l2Coord + int3(dx, dy, dz);                                                                    
+                    if (any(nc < 0) || any(nc >= l2Res))                                                                     
+                    continue;                                                                                            
+                    uint nIdx = nc.x + nc.y * l2Res + nc.z * l2Res * l2Res;                                                  
+                    packedBrushId = min(packedBrushId, voxelsL2Out[nIdx].brushId);                                           
+                }                                                                                                            
+        if (packedBrushId == BRUSH_PACKED_EMPTY)                                                                     
+            return;                                                                                                  
+    }                                                                                                                
+    uint brushIndex = UnpackBrushId(packedBrushId); 
+        
     Brush brush = Brushes[brushIndex];
     
     //if (brush.isDeformed == false)

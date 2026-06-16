@@ -136,6 +136,8 @@ class MaterialSimulation
 		void DispatchLeptonPropagate(VkCommandBuffer commandBuffer);
 		void DispatchSDFDownsample(VkCommandBuffer commandBuffer); //Copy matching SDF mip into materialGrid.
 		void DispatchDiffusion(VkCommandBuffer commandBuffer); //Diffusion step: reads materialGrid In, writes materialGrid Out.
+		void DispatchRefreshGrid(VkCommandBuffer commandBuffer);
+		void DispatchGridResolve(VkCommandBuffer commandBuffer);
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -277,6 +279,8 @@ class MaterialSimulation
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
 		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
+		VkPipeline refreshGridPipeline = VK_NULL_HANDLE;
+		VkPipeline gridResolvePipeline = VK_NULL_HANDLE;
 
 		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;
