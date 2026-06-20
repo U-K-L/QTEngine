@@ -39,12 +39,12 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10280.2 GFLOPS
-  Memory bandwidth:   206.088 GB/s
+  Compute throughput: 10420.6 GFLOPS
+  Memory bandwidth:   206.983 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
-Required size for Deformation is: 201326592
+Required size for Deformation is: 301989888
 Quanta initialized: 203x203x51 (2101659 grid points, step=0.31498m)
 Required size for Leptons is: 4194304
 Leptons lattice: 64x64x16 (65536 grid points, step=1)
@@ -178,10 +178,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 0000019FD4EAF8A0
-quanta[0]: 0000019F826D38B0
-quanta[1]: 0000019F826D43A0
-quanta[2]: 0000019F826D4E90
+emitterEventBuffer: 00000188C01C0E00
+quanta[0]: 00000188EF2CF720
+quanta[1]: 00000188EF2CFBD0
+quanta[2]: 00000188C00EBF40
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -193,12 +193,12 @@ Allocated compute command buffers
 Started pool info imgui
 Started pool info imgui
 Brush resolution and ID: 0 , 64
-Brush creation took: 9 milliseconds
+Brush creation took: 0 milliseconds
 Brushes Processed: 1
 Total Voxels Created: 262144
 Estimated Particles Created: 32768
 Brush resolution and ID: 0 , 64
-Brush creation took: 2 milliseconds
+Brush creation took: 0 milliseconds
 Brushes Processed: 1
 Total Voxels Created: 262144
 Estimated Particles Created: 32768

@@ -20,7 +20,6 @@ struct PushConsts
     float pad2;
 } pc;
 
-// Set 1 bindings MaterialSimulation buffers.
 StructuredBuffer<Quanta>              quantaIn    : register(t0,  space1);
 RWStructuredBuffer<Quanta>            quantaOut   : register(u1,  space1);
 StructuredBuffer<Quanta>              quantaRead  : register(t2,  space1);
@@ -46,30 +45,26 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     if (globalIndex >= QUANTA_COUNT)
         return;
 
-    // Use tile-sorted index for cache coherence.
     uint qIdx = quantaIds[globalIndex];
     Quanta quanta = quantaIn[qIdx];
 
-    // Skip inactive particles.
     if (quanta.position.w < 1.0f)
     {
         quantaOut[qIdx] = quanta;
+        deformOut[qIdx] = deformIn[qIdx];
         return;
     }
 
-    // --- Grid constants ---
-    float3 sceneSize = GetMaterialSceneSize(); 
+    float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5f;
     int3 gridRes = GetMaterialGridSize();
     float3 cellSize  = sceneSize / float3(gridRes);
 
-    // --- World-space position ---
     float3 pos = quanta.position.xyz;
     int brushId = quanta.information.x - 1;
     if (brushId >= 0)
         pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
 
-    // --- Quadratic B-spline base cell and weights ---
     float3 gs = (pos + halfScene) / cellSize;
     int3 base = int3(floor(gs - 0.5f));
     float3 fx = gs - float3(base);
@@ -87,8 +82,6 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     wz[1] = 0.75f - (fx.z - 1.0f) * (fx.z - 1.0f);
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
 
-    // --- 27-cell stencil loop ---
-    float weightSum = 0;
     float3 velocitySum = 0;
     float3x3 B = 0.0f;
     [unroll]
@@ -118,33 +111,16 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
                 velocitySum += weight * velocity;
                 B += weight * Outer(velocity, dx);
-                weightSum += weight;
             }
         }
     }
     float3x3 C = mul(B, INERTIA_TENSOR_INVERSE);
 
-
-    float3x3 F = deformIn[qIdx].DeffGrad;
-    float3x3 Fnew = mul(IDENTITY_MATRIX3_3 + pc.dt * C, F);
+    deformOut[qIdx].DeffGrad = deformIn[qIdx].DeffGrad;
     deformOut[qIdx].AffVel = C;
-    deformOut[qIdx].DeffGrad = Fnew;
+    deformOut[qIdx].CandidateDeff = pc.dt * C;
 
     quanta.mana.xyz = velocitySum;
 
-    float3 posNew = pos + pc.dt * velocitySum;
-
-    float4 localPos = mul(Brushes[brushId].invModel, float4(posNew, 1.0f));
-    quanta.position.xyz = localPos.xyz;
-
-    quanta.mana.w = clamp(length(quanta.mana.xyz), 0.0f, 10000.0f);
-    //if(quanta.mana.w > 0.01f) // excited!
-        quanta.information.z += 1; //Ledger.
-/*
-    q.mana.w += ((manaSum / weightSum) - q.mana.w) * deltaTime * 0.1f;
-    q.mana.w = clamp(q.mana.w, 0.0f, 10000.0f);
-    if(q.mana.w > 0.01f) // excited!
-        q.information.z += 1; //Ledger.
-*/
     quantaOut[qIdx] = quanta;
 }

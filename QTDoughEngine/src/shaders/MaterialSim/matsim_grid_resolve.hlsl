@@ -15,7 +15,7 @@ struct PushConsts
     int tileGridY;
     int tileGridZ;
     int brushIndex;
-    float pad0;
+    float dt;
     float pad1;
     float pad2;
 } pc;
@@ -39,7 +39,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3 velocity = materialGrid[cellId].massMomentum.xyz / mass;
 
-    velocity += FIXED_DELTA_TIME * float3(0.0f, 0.0f, -9.8f);
+    velocity += pc.dt * float3(0.0f, 0.0f, -9.8f);
 
     float floorZ = 0.0f;
     float collisionBand = cellSize.z * 4.0f;
@@ -61,5 +61,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         velocity += (vnNew - vn) * n; 
     }
 
+    //Velocity clamp.
+    velocity = clamp(velocity, -1.0f, 1.0f);
     materialGrid[cellId].massMomentum.xyz = velocity * mass;
 }

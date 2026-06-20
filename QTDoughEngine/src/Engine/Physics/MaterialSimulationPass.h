@@ -24,6 +24,7 @@ struct Quanta {
 struct QuantaDeformation {
 	Mat3x3_16 DeffGrad;
 	Mat3x3_16 AffVel;
+	Mat3x3_16 CandidateDeff;
 };
 
 struct MaterialGridPoint {
@@ -138,6 +139,10 @@ class MaterialSimulation
 		void DispatchDiffusion(VkCommandBuffer commandBuffer); //Diffusion step: reads materialGrid In, writes materialGrid Out.
 		void DispatchRefreshGrid(VkCommandBuffer commandBuffer);
 		void DispatchGridResolve(VkCommandBuffer commandBuffer);
+		void DispatchSolveConstraints(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMP2G(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMG2P(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMIntegrate(VkCommandBuffer commandBuffer);
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -245,13 +250,20 @@ class MaterialSimulation
 
 		uint32_t currentFrame = 0;
 
+		float dt = 0.033f;
+		int numSubsteps = 13; //Make this always an odd number.
+		float subDt = dt / numSubsteps;
+
+		bool usePBMPM = false;
+		int iterationCount = 4;
+
 		struct PushConsts {
 			float particleSize;
 			int tileGridX;
 			int tileGridY;
 			int tileGridZ;
 			int brushIndex;
-			float pad0;
+			float dt;
 			float pad1;
 			float pad2;
 		};
@@ -281,6 +293,10 @@ class MaterialSimulation
 		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
 		VkPipeline refreshGridPipeline = VK_NULL_HANDLE;
 		VkPipeline gridResolvePipeline = VK_NULL_HANDLE;
+		VkPipeline solveConstraintsPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmP2GPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmG2PPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmIntegratePipeline = VK_NULL_HANDLE;
 
 		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;

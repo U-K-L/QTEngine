@@ -140,6 +140,7 @@ struct QuantaDeformation
 {
     float3x3 DeffGrad;
     float3x3 AffVel;
+    float3x3 CandidateDeff;
 };
 
 struct MaterialGridPoint
@@ -1046,6 +1047,15 @@ float3 RandomUnitVector(float3 pos, float seed)
     );
 
     return normalize(v);
+}
+
+float3x3 PolarRotation(float3x3 F)
+{
+    float3x3 R = F;
+    [unroll]
+    for (int i = 0; i < 8; i++)
+        R = 0.5f * (R + transpose(inverse(R)));
+    return R;
 }
 
 float3x3 Outer(float3 a, float3 b)

@@ -57,21 +57,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 cellSize = sceneSize / float3(gridResolution);
 
     float mass = 0.1f;//quanta.position.w;
-    float3x3 AffineVelocity = deformIn[globalIndex].AffVel; //Particle affine velocity.
-    float3x3 DefformationF = deformIn[globalIndex].DeffGrad;
 
-    //modifiable ----------
-    float E = 12888.0f;
-    float nu = 0.25f;
-    float particlesPerCell = 1.0f;
-
-    float mu = E / (2.0f * (1.0f + nu));
-    float lambda = E * nu / ((1.0f + nu) * (1.0f - 2.0f * nu));
-    float cellVolume = cellSize.x * cellSize.y * cellSize.z;
-    float volume0 = cellVolume / particlesPerCell;
-    //----------------
-
-    float3x3 stressTensor = ComputeStress(DefformationF, mu, lambda); //Changable models.
+    // PB-MPM: affine comes from the candidate displacement being solved, C = D / dt.
+    float3x3 AffineVelocity = deformIn[globalIndex].CandidateDeff / pc.dt;
 
     // --- World-space position ---
     float3 quantaPosition = quanta.position.xyz;
@@ -96,12 +84,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
     wz[0] = 0.5f * (1.5f - fx.z) * (1.5f - fx.z);
     wz[1] = 0.75f - (fx.z - 1.0f) * (fx.z - 1.0f);
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
-    
+
     //Averaged position (world space).
     int posX = (int) round(quantaPosition.x * FIXED_POINT_SCALE);
     int posY = (int) round(quantaPosition.y * FIXED_POINT_SCALE);
     int posZ = (int) round(quantaPosition.z * FIXED_POINT_SCALE);
-    
+
     if (brushId >= 0 && brushId < MAX_BRUSHES)
     {
         int dummyVal;
@@ -111,7 +99,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         InterlockedAdd(brushAccumulator[brushId].posSumZ, posZ, dummyVal);
     }
 
-    // --- 27-cell stencil: scatter mass onto accumulator
+    // --- 27-cell stencil: scatter mass/momentum onto accumulator (no explicit stress force) ---
     [unroll]
     for (int i = 0; i < 3; i++)
     {
@@ -134,26 +122,19 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
                 float3 velocityCell = quanta.mana.xyz + mul(AffineVelocity, dx);
 
-                float3 elasticTerm = mul(INERTIA_TENSOR_INVERSE,mul(stressTensor,mul(transpose(DefformationF), dx)));
-                
-                float3 forceCell = -weight * volume0 * elasticTerm;
-
                 float massCell = weight * mass;
                 float3 momentumCell = massCell * velocityCell;
 
-                float3 momentumCellStar = momentumCell + pc.dt * forceCell;
-                
                 int massContributionFixedPoint = (int)round(massCell * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointX = (int)round(momentumCellStar.x * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointY = (int)round(momentumCellStar.y * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointZ = (int)round(momentumCellStar.z * FIXED_POINT_SCALE);
+                int momentumContributionFixedPointX = (int)round(momentumCell.x * FIXED_POINT_SCALE);
+                int momentumContributionFixedPointY = (int)round(momentumCell.y * FIXED_POINT_SCALE);
+                int momentumContributionFixedPointZ = (int)round(momentumCell.z * FIXED_POINT_SCALE);
 
                 int dummy;
                 InterlockedAdd(accumulator[cellId].massMomentum.x, momentumContributionFixedPointX, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.y, momentumContributionFixedPointY, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.z, momentumContributionFixedPointZ, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.w, massContributionFixedPoint, dummy);
-
             }
         }
     }

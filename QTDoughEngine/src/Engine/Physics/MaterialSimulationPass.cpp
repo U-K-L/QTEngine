@@ -209,15 +209,15 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		materialGridInfo.offset = 0;
 		materialGridInfo.range = materialMemorySize;
 
-		// Binding 9: Deformation In (read) — ping-pong matches quanta.
+		// Binding 9: Deformation In — single-buffered (candidate read/written in place).
 		VkDescriptorBufferInfo deformInInfo{};
-		deformInInfo.buffer = deformationStorageBuffers[inIdx];
+		deformInInfo.buffer = deformationStorageBuffers[0];
 		deformInInfo.offset = 0;
 		deformInInfo.range = deformationMemorySize;
 
-		// Binding 10: Deformation Out (write).
+		// Binding 10: Deformation Out — same single buffer as In.
 		VkDescriptorBufferInfo deformOutInfo{};
-		deformOutInfo.buffer = deformationStorageBuffers[outIdx];
+		deformOutInfo.buffer = deformationStorageBuffers[0];
 		deformOutInfo.offset = 0;
 		deformOutInfo.range = deformationMemorySize;
 
@@ -401,6 +401,10 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("lepton_propagate", leptonPropagatePipeline);
 	CreateComputePipelineFromSPV("matsim_refresh_grid", refreshGridPipeline);
 	CreateComputePipelineFromSPV("matsim_grid_resolve", gridResolvePipeline);
+	CreateComputePipelineFromSPV("matsim_solve_constraints", solveConstraintsPipeline);
+	CreateComputePipelineFromSPV("pbmpm_p2g", pbmpmP2GPipeline);
+	CreateComputePipelineFromSPV("pbmpm_g2p", pbmpmG2PPipeline);
+	CreateComputePipelineFromSPV("pbmpm_integrate", pbmpmIntegratePipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -515,6 +519,8 @@ void MaterialSimulation::DispatchTileSort(VkCommandBuffer commandBuffer)
 
 void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 {
+	usePBMPM = true;
+	iterationCount = 2;
 	QTDoughApplication* app = QTDoughApplication::instance;
 
 	// Copy matching SDF mip into materialGrid before P2G.
@@ -527,19 +533,44 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Sort leptons into tiles
 	DispatchLeptonTileSort(commandBuffer);
 
-	DispatchRefreshGrid(commandBuffer);
+	if (usePBMPM)
+	{
+		for (int it = 0; it < iterationCount; it++)
+		{
+			DispatchRefreshGrid(commandBuffer);
+			DispatchSolveConstraints(commandBuffer);
+			DispatchPBMPMP2G(commandBuffer);
+			DispatchAccumConvert(commandBuffer);
+			DispatchGridResolve(commandBuffer);
+			DispatchPBMPMG2P(commandBuffer);
+			currentFrame = 1 - currentFrame;
+		}
+		DispatchPBMPMIntegrate(commandBuffer);
+	}
+	else
+	{
+		for (int s = 0; s < numSubsteps; s++)
+		{
+			DispatchRefreshGrid(commandBuffer);
 
-	// Quanta P2G — scatter quanta mass/momentum into materialGridAccumulator and brushAccumulator.
-	DispatchP2G(commandBuffer);
+			DispatchSolveConstraints(commandBuffer);
 
-	// Convert accumulator (int) to materialGrid (float).
-	DispatchAccumConvert(commandBuffer);
+			// Quanta P2G — scatter quanta mass/momentum into materialGridAccumulator and brushAccumulator.
+			DispatchP2G(commandBuffer);
 
-	//Additional forces enter here.
-	DispatchGridResolve(commandBuffer);
+			// Convert accumulator (int) to materialGrid (float).
+			DispatchAccumConvert(commandBuffer);
 
-	// G2P gather transfer grid values back to particles.
-	DispatchG2P(commandBuffer);
+			//Additional forces enter here.
+			DispatchGridResolve(commandBuffer);
+
+			// G2P gather transfer grid values back to particles.
+			DispatchG2P(commandBuffer);
+
+				if (s < numSubsteps - 1)
+					currentFrame = 1 - currentFrame;
+		}
+	}
 
 	/*
 	// Lepton propagation: march leptons through field, reads In writes Out.
@@ -845,6 +876,125 @@ void MaterialSimulation::DispatchBrushFill(VkCommandBuffer commandBuffer, int br
 	voxelizer->brushes[brushIndex].isCollapsing = 0; // Clear collapsing flag so next dispatch doesn't redo this fill.
 }
 
+void MaterialSimulation::DispatchPBMPMP2G(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdFillBuffer(commandBuffer, materialGridAccumBuffer, 0, accumBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, brushAccumBuffer, 0, brushAccumBufferSize, 0);
+
+	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	clearBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	clearDep.memoryBarrierCount = 1;
+	clearDep.pMemoryBarriers = &clearBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmP2GPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMG2P(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmG2PPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMIntegrate(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmIntegratePipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
 void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
@@ -876,6 +1026,7 @@ void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 	pc.tileGridX = Field.FieldSize.x / TileSize.x;
 	pc.tileGridY = Field.FieldSize.y / TileSize.y;
 	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	uint32_t groupCount = QUANTA_COUNT / 512;
@@ -910,6 +1061,7 @@ void MaterialSimulation::DispatchG2P(VkCommandBuffer commandBuffer)
 	pc.tileGridX = Field.FieldSize.x / TileSize.x;
 	pc.tileGridY = Field.FieldSize.y / TileSize.y;
 	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
@@ -1291,12 +1443,48 @@ void MaterialSimulation::DispatchGridResolve(VkCommandBuffer commandBuffer)
 	pc.tileGridX = Field.FieldSize.x / TileSize.x;
 	pc.tileGridY = Field.FieldSize.y / TileSize.y;
 	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	vkCmdDispatch(commandBuffer,
 		materialGridSize.x / 8,
 		materialGridSize.y / 8,
 		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchSolveConstraints(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, solveConstraintsPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
 	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
