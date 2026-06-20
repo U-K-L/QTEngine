@@ -39,8 +39,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 10420.6 GFLOPS
-  Memory bandwidth:   206.983 GB/s
+  Compute throughput: 10267.6 GFLOPS
+  Memory bandwidth:   237.772 GB/s
   Selected quality level: Medium (2)
 ========================
 Required size for Quanta is: 134217728
@@ -178,10 +178,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 00000188C01C0E00
-quanta[0]: 00000188EF2CF720
-quanta[1]: 00000188EF2CFBD0
-quanta[2]: 00000188C00EBF40
+emitterEventBuffer: 00000256E4FC8290
+quanta[0]: 0000025694680870
+quanta[1]: 0000025694680D20
+quanta[2]: 00000256E4EFA500
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -192,16 +192,16 @@ Created Command Buffer
 Allocated compute command buffers
 Started pool info imgui
 Started pool info imgui
-Brush resolution and ID: 0 , 64
+Brush resolution and ID: 0 , 256
 Brush creation took: 0 milliseconds
 Brushes Processed: 1
-Total Voxels Created: 262144
-Estimated Particles Created: 32768
-Brush resolution and ID: 0 , 64
+Total Voxels Created: 16777216
+Estimated Particles Created: 2097152
+Brush resolution and ID: 0 , 256
 Brush creation took: 0 milliseconds
 Brushes Processed: 1
-Total Voxels Created: 262144
-Estimated Particles Created: 32768
+Total Voxels Created: 16777216
+Estimated Particles Created: 2097152
 Quitting program.
 Cleaning up...
 [CRASH] Unhandled exception 0xc0000005 at address 0x00007FFE3350E589

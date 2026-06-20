@@ -62,6 +62,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     }
 
     //Velocity clamp.
-    velocity = clamp(velocity, -1.0f, 1.0f);
+    velocity = clamp(velocity, -15.0f, 15.0f);
     materialGrid[cellId].massMomentum.xyz = velocity * mass;
 }

@@ -126,6 +126,8 @@ public:
         float supportMultiplier;
         int viewMode;
         int countOnly;
+        glm::vec4 sceneSize;
+        glm::vec4 dcAABBSize;
     };
 
 

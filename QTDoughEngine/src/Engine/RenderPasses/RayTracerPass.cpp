@@ -1015,6 +1015,8 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     pc.triangleCount = 0;
     pc.voxelResolution = glm::ivec4(app->WORLD_SDF_RESOLUTION, 0);
     pc.aabbCenter = app->worldSDFCenter;
+    pc.sceneSize = glm::vec4(VoxelizerPass::instance->sceneSize, 0.0f);
+    pc.dcAABBSize = glm::vec4(VoxelizerPass::instance->dcAABBSize, 0.0f);
 
     vkCmdPushConstants(
         commandBuffer,

@@ -110,6 +110,8 @@ public:
         float supportMultiplier;
         int viewMode;
         int countOnly;
+        glm::vec4 sceneSize = glm::vec4(48.0f, 48.0f, 12.0f, 0.0f);
+        glm::vec4 dcAABBSize = glm::vec4(24.0f, 24.0f, 6.0f, 0.0f);
     };
 
     glm::vec3 dcAABBSize = glm::vec3(24.0f, 24.0f, 6.0f);

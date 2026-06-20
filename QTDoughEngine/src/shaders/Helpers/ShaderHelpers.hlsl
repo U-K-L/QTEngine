@@ -269,6 +269,29 @@ float3 GetSceneSize()
     return float3(48, 48, 12);
 }
 
+float3 GetDCAABBSize(int LOD)
+{
+    float3 sceneSize = float3(24, 24, 6);
+    if(LOD == 0)
+        return sceneSize * 0.5f;
+    else if(LOD == 1)
+        return sceneSize;
+    else
+        return sceneSize * 2.0f;
+    
+}
+
+float3 GetSceneSize(int LOD)
+{
+    float3 sceneSize = float3(48, 48, 12);
+    if (LOD == 0)
+        return sceneSize * 0.5f;
+    else if (LOD == 1)
+        return sceneSize;
+    else
+        return sceneSize * 2.0f;
+}
+
 float3 GetMaterialSceneSize()
 {
     return float3(32, 32, 8);

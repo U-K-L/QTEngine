@@ -70,6 +70,11 @@ struct PushConsts
     uint triangleCount;
     int3 voxelResolution;
     float4 aabbCenter;
+    float supportMultiplier;
+    int viewMode;
+    int countOnly;
+    float4 sceneSize;
+    float4 dcAABBSize;
 };
 
 [[vk::push_constant]]
@@ -190,7 +195,7 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = pc.sceneSize.xyz; //voxelSceneBounds.w;
     
     float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
@@ -275,7 +280,7 @@ float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 {
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = pc.sceneSize.xyz; //voxelSceneBounds.w;
     
     float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
@@ -587,7 +592,7 @@ float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     
     float3 halfScene = sceneSize * 0.5f;
     
@@ -781,7 +786,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         closesSDF = min(closesSDF, currentSDF);
 
                 
-        bool inAABB = PointInAABB(pos, pc.aabbCenter.xyz - GetDCAABBSize() * 0.5, pc.aabbCenter.xyz + GetDCAABBSize() * 0.5);
+        bool inAABB = PointInAABB(pos, pc.aabbCenter.xyz - pc.dcAABBSize.xyz * 0.5, pc.aabbCenter.xyz + pc.dcAABBSize.xyz * 0.5);
         
         bool canTerminate =
         (closesSDF.x < minDistReturn) && !inAABB;
@@ -941,7 +946,7 @@ float3 turboColor(float t)
 
 float4 SampleMaterialGridSDF(float3 pos)
 {
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 halfScene = sceneSize * 0.5;
     int3 gridRes = int3(256, 256, 64);
 
@@ -971,7 +976,7 @@ float3 CentralDifferenceNormalMaterialGrid(float3 p)
 
 float4 MaterialGridMarch(float3 ro, float3 rd, inout float4 materialPoint)
 {
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 cellSize = sceneSize / float3(256, 256, 64);
     float minStep = min(cellSize.x, min(cellSize.y, cellSize.z)) * 0.1;
 

@@ -27,6 +27,9 @@ struct PushConsts
     float4 aabbCenter;
     float supportMultiplier;
     int viewMode;
+    int countOnly;
+    float4 sceneSize;
+    float4 dcAABBSize;
 };
 
 [[vk::push_constant]]
@@ -164,7 +167,7 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
 float SampleSDF(float3 worldPos, int mipLevel)
 {
     float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz);
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
 
     // Convert world position to continuous texel coordinates
@@ -342,7 +345,7 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
     //We need the size of the window, which we call scene size.
     //We need the voxel size to perform calculations, that's just the window / resolution.
     float3 voxelRes = GetVoxelResolutionL1().xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 voxelSize = sceneSize / voxelRes;
     float3 halfScene = sceneSize * 0.5f;
     //There's no aliasing so x=y=z, for speed we pick x.
@@ -361,7 +364,7 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
     //Secondly, we have a smaller slice of that moving scene window, this is a higher fidelity slice.
     //We want the higher fidelity slice to have more guassian compute.
 
-    float3 aabbSceneSize = GetDCAABBSize(); //Our AABB centered. Let's say 16,16,4....
+    float3 aabbSceneSize = pc.dcAABBSize.xyz; //Our AABB centered. Let's say 16,16,4....
     float3 aabbHalf = aabbSceneSize * 0.5; // 8,8,2.
     float3 minCorner = pc.aabbCenter - aabbHalf; // (2,0,0)-(8,8,2) = (-6,-8,-2) 
     float3 maxCorner = pc.aabbCenter + aabbHalf; // (2,0,0)+(8,8,2) = (10,8,2)
@@ -582,8 +585,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //brush.aabbmax = maxBounds;
     //brush.aabbmin = minBounds;
     
-    float3 worldHalfExtent = GetSceneSize() * 0.5f;
-    float3 voxelSize = GetSceneSize() / pc.voxelResolution.xyz;
+    float3 worldHalfExtent = pc.sceneSize.xyz * 0.5f;
+    float3 voxelSize = pc.sceneSize.xyz / pc.voxelResolution.xyz;
     float3 tileWorldSize = GetTileSize(pc.voxelResolution.xyz) * voxelSize;
     int3 numOfTilesDim = (pc.voxelResolution.xyz / GetTileSize(pc.voxelResolution.xyz));
     

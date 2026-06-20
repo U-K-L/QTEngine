@@ -37,6 +37,8 @@ struct PushConsts
     float supportMultiplier;
     int viewMode;
     int countOnly;
+    float4 sceneSize;
+    float4 dcAABBSize;
 };
 
 [[vk::push_constant]]
@@ -721,7 +723,7 @@ void CreateBrush(uint3 DTid : SV_DispatchThreadID)
     if (sdf < 0.0f && all((DTid.xyz % blockSize) == 0))
     {
         float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
-        float3 sceneSize = GetSceneSize();
+        float3 sceneSize = pc.sceneSize.xyz;
     
         float3 voxelSize = sceneSize / voxelRes;
         float3 halfScene = sceneSize * 0.5f;
@@ -755,7 +757,7 @@ void CreateParticles(uint3 DTid : SV_DispatchThreadID)
 {
 
     float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     
     float3 voxelSize = sceneSize / voxelRes;
     float3 halfScene = sceneSize * 0.5f;
@@ -1087,7 +1089,7 @@ void WriteToWorldSDFL2(uint3 DTid : SV_DispatchThreadID)
     //Calculate the position of this voxel.
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(2.0f, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
    
     int3 regionRes = voxelGridRes / 2;
     int3 regionOffset = (voxelGridRes - regionRes) / 2;
@@ -1513,7 +1515,7 @@ void CookBrush(uint3 DTid : SV_DispatchThreadID)
 float SampleSDF(float3 worldPos, int mipLevel)
 {
     float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz);
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
 
     // Convert world position to continuous texel coordinates
@@ -1648,19 +1650,19 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
 {
     int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
-    float3 halfSceneAABB = (GetDCAABBSize()) * 0.5f;
+    float3 halfSceneAABB = (pc.dcAABBSize.xyz) * 0.5f;
     float3 minAABB = -halfSceneAABB;
     float3 maxAABB =  halfSceneAABB;
     float3 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
     float3 uvw = ((float3) DTid + 0.5f) / GetVoxelResolutionL1(pc.voxelResolution.xyz).xyz;
     float3 minLocal = lerp(minAABB, maxAABB, uvw) + aabbCenterWS;
     
-    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
+    float3 aabbMinWS = aabbCenterWS - 0.5 * pc.dcAABBSize.xyz;
     
     //Read the second mip map.
 
 
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 halfScene = sceneSize * 0.5f;
     
 
@@ -1668,7 +1670,7 @@ void FindActiveCellsWorld(uint3 DTid : SV_DispatchThreadID)
     //Fetch the 8 corner values in the WORLD SDF.
     float3 worldUVW0 = (minLocal + halfScene) / (2.0f * halfScene);
     int3 baseTexel = int3(worldUVW0 * voxelSceneBounds.xyz);
-    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelSceneBounds);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * pc.dcAABBSize.xyz) / sceneSize * voxelSceneBounds);
 
     int3 cellTexelMip = aabbMinTexelMip + int3(DTid);
     
@@ -1733,14 +1735,14 @@ float3 CalculateDualVertexGradient(int3 cellCoord, float mipLevel)
     Brush brush = Brushes[0];
     
     float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
-    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
+    float3 aabbMinWS = aabbCenterWS - 0.5 * pc.dcAABBSize.xyz;
 
     float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
     
-    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelRes);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * pc.dcAABBSize.xyz) / sceneSize * voxelRes);
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -1896,14 +1898,14 @@ float3 CalculateDualVertexCentroid(int3 cellCoord, float mipLevel)
 float3 CalculateDualVertexCentroidWorld(int3 cellCoord, float mipLevel)
 {
     float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
-    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
+    float3 aabbMinWS = aabbCenterWS - 0.5 * pc.dcAABBSize.xyz;
 
     float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 voxelSize = sceneSize.xyz / voxelRes.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
     
-    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelRes);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * pc.dcAABBSize.xyz) / sceneSize * voxelRes);
 
     //Need edges so we can average out particle among all edges.
     int edges[12][2] =
@@ -2093,8 +2095,8 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
 
     int mipLevel = 0;
     float3 aabbCenterWS = pc.aabbCenter.xyz; //float3(2, 2, 0);
-    float3 aabbMinWS = aabbCenterWS - 0.5 * GetDCAABBSize();
-    float3 sceneSize = GetSceneSize();
+    float3 aabbMinWS = aabbCenterWS - 0.5 * pc.dcAABBSize.xyz;
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 halfScene = sceneSize * 0.5f;
     float3 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz).xyz;
 
@@ -2103,7 +2105,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     int index = Flatten3D(DTid, voxelL1Res.xyz);
     float activeValue = Read3D(1, DTid);
 
-    int3 aabbMinTexelMip = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelRes);
+    int3 aabbMinTexelMip = floor((halfScene - 0.5 * pc.dcAABBSize.xyz) / sceneSize * voxelRes);
 
 
     int3 baseTexel = aabbMinTexelMip + DTid;
@@ -2111,7 +2113,7 @@ void DualContour(uint3 DTid : SV_DispatchThreadID)
     float3 worldSDFDivisor = (pc.voxelResolution.xyz / voxelL1Res.xyz);
     int3 DTidL1 = DTid / worldSDFDivisor;
 
-    int3 l1Texel = floor((halfScene - 0.5 * GetDCAABBSize()) / sceneSize * voxelL1Res.xyz) + DTidL1;
+    int3 l1Texel = floor((halfScene - 0.5 * pc.dcAABBSize.xyz) / sceneSize * voxelL1Res.xyz) + DTidL1;
 
 
     
@@ -2204,7 +2206,7 @@ bool WorldPosToL1Index(float3 worldPos, out int3 coordL1, out uint idxL1)
 {
     // World SDF bounds (same physical box for all mips)
     float4 worldInfo = GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution.xyz); // x = WORLD_SDF_RES, y = worldSize
-    float3 halfScene = GetSceneSize() * 0.5f;
+    float3 halfScene = pc.sceneSize.xyz * 0.5f;
 
     // Normalize to [0,1]
     float3 uvw = (worldPos + halfScene) / (2.0f * halfScene);
@@ -2413,7 +2415,7 @@ void ParticlesSDF_Tiled(uint3 DTid, uint localIdx)
 {
     float3 voxelRes = GetVoxelResolutionL1().xyz;
 
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 voxelSize = sceneSize / voxelRes;
     float3 halfScene = sceneSize * 0.5f;
     float3 worldPos  = (float3(DTid) + 0.5f) * voxelSize - halfScene;
@@ -2514,7 +2516,7 @@ void P2GFast(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint3 LT 
     
     //Setup world position.
     float3 voxelRes = GetVoxelResolutionL1().xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 voxelSize = sceneSize / voxelRes;
     float3 halfScene = sceneSize * 0.5f;
     

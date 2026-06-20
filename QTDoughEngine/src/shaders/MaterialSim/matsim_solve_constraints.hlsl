@@ -33,7 +33,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     QuantaDeformation deform = deformIn[globalIndex];
 
-    float beta = 0.5f;
+    float beta = 0.125f;
 
     float3x3 Fquanta = deform.DeffGrad;
     float3x3 Dquanta = deform.CandidateDeff;
@@ -50,6 +50,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     Dquanta = mul(inverse(Fquanta), mul(Avol, beta) + mul((1.0f - beta), Ashape)) - IDENTITY_MATRIX3_3;
 
     deform.CandidateDeff = Dquanta;
-    
+
     deformOut[globalIndex] = deform;
 }

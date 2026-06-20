@@ -143,6 +143,9 @@ class MaterialSimulation
 		void DispatchPBMPMP2G(VkCommandBuffer commandBuffer);
 		void DispatchPBMPMG2P(VkCommandBuffer commandBuffer);
 		void DispatchPBMPMIntegrate(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMP2C(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMC2G(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMC2P(VkCommandBuffer commandBuffer);
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
@@ -256,6 +259,7 @@ class MaterialSimulation
 
 		bool usePBMPM = false;
 		int iterationCount = 4;
+		bool useCenterHop = false;
 
 		struct PushConsts {
 			float particleSize;
@@ -297,6 +301,9 @@ class MaterialSimulation
 		VkPipeline pbmpmP2GPipeline = VK_NULL_HANDLE;
 		VkPipeline pbmpmG2PPipeline = VK_NULL_HANDLE;
 		VkPipeline pbmpmIntegratePipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmP2CPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmC2GPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmC2PPipeline = VK_NULL_HANDLE;
 
 		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;
