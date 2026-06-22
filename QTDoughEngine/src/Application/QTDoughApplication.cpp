@@ -36,6 +36,8 @@ std::vector<ComputePass*> computePassStack;
 std::vector<RayTracerPass*> rayTracePassStack;
 std::vector<MeshGenerator*> meshGeneratorStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
+PFN_vkCmdBeginDebugUtilsLabelEXT pfnVkCmdBeginDebugUtilsLabelEXT = nullptr;
+PFN_vkCmdEndDebugUtilsLabelEXT pfnVkCmdEndDebugUtilsLabelEXT = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
@@ -4750,6 +4752,8 @@ void QTDoughApplication::CreateInstance()
         throw std::runtime_error("failed to create instance!");
     }
 
+    pfnVkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(_vkInstance, "vkCmdBeginDebugUtilsLabelEXT");
+    pfnVkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(_vkInstance, "vkCmdEndDebugUtilsLabelEXT");
 }
 
 bool QTDoughApplication::CheckValidationLayerSupport() {

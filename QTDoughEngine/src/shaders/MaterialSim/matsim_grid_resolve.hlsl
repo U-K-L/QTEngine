@@ -22,6 +22,12 @@ struct PushConsts
 
 RWStructuredBuffer<MaterialGridPoint> materialGrid : register(u8, space1);
 
+float SampleGridSDF(int3 coord, int3 gridRes)
+{
+    coord = clamp(coord, int3(0, 0, 0), gridRes - 1);
+    return materialGrid[Flatten3D(coord, gridRes)].fieldValues.x;
+}
+
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
@@ -31,6 +37,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float mass = materialGrid[cellId].massMomentum.w;
     if (mass <= 0.0f)
         return;
+
+    int3 ci = int3(DTid);
+    float sdf = materialGrid[cellId].fieldValues.x;
+
+    float dX = SampleGridSDF(ci + int3(1, 0, 0), gridRes) - SampleGridSDF(ci - int3(1, 0, 0), gridRes);
+    float dY = SampleGridSDF(ci + int3(0, 1, 0), gridRes) - SampleGridSDF(ci - int3(0, 1, 0), gridRes);
+    float dZ = SampleGridSDF(ci + int3(0, 0, 1), gridRes) - SampleGridSDF(ci - int3(0, 0, 1), gridRes);
+    float3 sdfNormal = normalize(float3(dX, dY, dZ) + 1e-6);
+    materialGrid[cellId].normal.xyz = sdfNormal;
 
     float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5f;
@@ -58,7 +73,24 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         float vnNew = vn * damp;
 
-        velocity += (vnNew - vn) * n; 
+        velocity += (vnNew - vn) * n;
+    }
+
+
+    // General case: collide against the implicit SDF surface.
+    float phiSDF = sdf;
+    float vnSDF = dot(velocity, sdfNormal);
+
+    if (phiSDF <= collisionBand && vnSDF < 0.0f)
+    {
+        float contactBand = saturate(1.0f - phiSDF / collisionBand);
+
+        float normalDamping = 0.15f;
+        float damp = lerp(1.0f, normalDamping, contactBand);
+
+        float vnNew = vnSDF * damp;
+
+        velocity += (vnNew - vnSDF) * sdfNormal;
     }
 
     //Velocity clamp.

@@ -171,6 +171,7 @@ struct BrushAccumulator
 struct BrushMatrix
 {
 	float4 bCentroid; //xyz is pos, w is count.
+    float4 velocity;
 };
 
 struct Lepton
@@ -1070,6 +1071,11 @@ float3 RandomUnitVector(float3 pos, float seed)
     );
 
     return normalize(v);
+}
+
+float QuantizeDown(float x, float step)
+{
+    return floor(x / step) * step;
 }
 
 float3x3 PolarRotation(float3x3 F)

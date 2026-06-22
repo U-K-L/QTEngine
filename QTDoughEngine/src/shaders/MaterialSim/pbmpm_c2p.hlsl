@@ -64,6 +64,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     int brushId = quanta.information.x - 1;
     if (brushId >= 0)
         pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
+        
 
     float3 gsc = (pos + halfScene) / cellSize - 0.5f;
     int3 base = int3(floor(gsc));

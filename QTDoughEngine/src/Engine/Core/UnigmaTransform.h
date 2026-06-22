@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <iostream>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 struct UnigmaTransform
 {
 	glm::mat4 transformMatrix;
@@ -23,6 +24,15 @@ struct UnigmaTransform
 				transformMatrix[i][j] = rObjTransform[i * 4 + j];
 			}
 		}
+		return *this;
+	}
+
+	UnigmaTransform& operator=(glm::mat4 rObjTransform) {
+		glm::vec3 decomposedSkew;
+		glm::vec4 decomposedPerspective;
+		glm::quat decomposedRotation;
+		glm::decompose(rObjTransform, scale, decomposedRotation, position, decomposedSkew, decomposedPerspective);
+		rotation = glm::eulerAngles(decomposedRotation);
 		return *this;
 	}
 

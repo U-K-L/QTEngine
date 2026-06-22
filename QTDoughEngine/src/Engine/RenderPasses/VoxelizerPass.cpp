@@ -2024,9 +2024,9 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 
         if (model != brushes[i].model)
         {
-            brushes[i].model = model;
-            brushes[i].invModel = glm::inverse(model);
-            brushes[i].isDirty = 0;
+            //brushes[i].model = model;
+            //brushes[i].invModel = glm::inverse(model);
+            //brushes[i].isDirty = 0;
         }
     }
 

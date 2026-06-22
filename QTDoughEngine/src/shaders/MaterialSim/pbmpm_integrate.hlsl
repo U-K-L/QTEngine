@@ -25,6 +25,7 @@ RWStructuredBuffer<Quanta> quantaOut : register(u1, space1);
 StructuredBuffer<Brush> Brushes : register(t7, space1);
 StructuredBuffer<QuantaDeformation> deformIn : register(t9, space1);
 RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
+RWStructuredBuffer<BrushAccumulator> brushAccumulator : register(u24, space1);
 
 [numthreads(512, 1, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
@@ -57,10 +58,34 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3 posNew = pos + pc.dt * quanta.mana.xyz;
 
+    //posNew.x = QuantizeDown(posNew.x, 0.01f);
+    //posNew.y = QuantizeDown(posNew.y, 0.01f);
+    //posNew.z = QuantizeDown(posNew.z, 0.01f);
+
+
+        
+    //Averaged position (world space).
+    int posX = (int) round(posNew.x * FIXED_POINT_SCALE);
+    int posY = (int) round(posNew.y * FIXED_POINT_SCALE);
+    int posZ = (int) round(posNew.z * FIXED_POINT_SCALE);
+
+    if (brushId >= 0 && brushId < MAX_BRUSHES)
+    {
+        int dummyVal;
+        InterlockedAdd(brushAccumulator[brushId].count, 1, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].posSumX, posX, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].posSumY, posY, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].posSumZ, posZ, dummyVal);
+    }
+
+
+/*
     if (brushId >= 0)
         quanta.position.xyz = mul(Brushes[brushId].invModel, float4(posNew, 1.0f)).xyz;
     else
         quanta.position.xyz = posNew;
+
+*/
 
     deformOut[globalIndex].DeffGrad = Fstar;
     deformOut[globalIndex].AffVel = deformIn[globalIndex].AffVel;

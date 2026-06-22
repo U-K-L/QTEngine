@@ -83,6 +83,7 @@ struct UnigmaField
 struct BrushMatrix
 {
 	glm::vec4 bCentroid; //xyz is pos, w is count.
+	glm::vec4 velocity;
 };
 
 //Used for atomics, must be in fixed point format.
@@ -157,7 +158,7 @@ class MaterialSimulation
 		void ReadBackQuantaFull();
 		void ReadBackMaterialGridFull();
 		void ReadBackMaterialGridSDF();
-		void ReadBackBrushMatricies();
+		void ReadBackBrushMatricies(VkCommandBuffer commandBuffer);
 		void SerializeMaterialGridText(const std::string& path);
 		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
 		int RayCast(Photon& photon, int informationDepth=0);
@@ -244,6 +245,9 @@ class MaterialSimulation
 		std::vector<BrushMatrix> brushMatricies;
 		std::vector<VkBuffer> brushMatriciesBuffers;
 		std::vector<VkDeviceMemory> brushMatriciesMemory;
+		VkBuffer brushMatriciesReadbackBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory brushMatriciesReadbackMemory = VK_NULL_HANDLE;
+		void* brushMatriciesReadbackMapped = nullptr;
 
 		VkBuffer brushAccumBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory brushAccumMemory = VK_NULL_HANDLE;

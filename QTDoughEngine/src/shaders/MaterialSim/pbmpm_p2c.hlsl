@@ -107,6 +107,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(accumulator[cellId].massMomentum.y, momY, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.z, momZ, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.w, massFixed, dummy);
+
+                float h = cellSize.x;
+                float radiusParticleSpacing = 2.0f * 0.35f;
+                float sd = length(dx) - radiusParticleSpacing * h;
+                int sdFixed = (int) round(sd * massCell * FIXED_POINT_SCALE);
+                InterlockedAdd(accumulator[cellId].fieldValues.x, sdFixed, dummy);
             }
         }
     }

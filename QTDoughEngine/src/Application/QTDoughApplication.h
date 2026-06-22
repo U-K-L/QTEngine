@@ -28,6 +28,34 @@
 #include <stack>
 #include "UnigmaBlend.h"
 #include "../Engine/Renderer/UnigmaTexture.h"
+
+// GPU debug labels (Nsight / RenderDoc). Requires VK_EXT_debug_utils (enabled at instance).
+// Extension entry points are loaded via vkGetInstanceProcAddr in InitVulkan.
+extern PFN_vkCmdBeginDebugUtilsLabelEXT pfnVkCmdBeginDebugUtilsLabelEXT;
+extern PFN_vkCmdEndDebugUtilsLabelEXT pfnVkCmdEndDebugUtilsLabelEXT;
+
+inline void BeginGpuLabel(VkCommandBuffer cmd, const char* name)
+{
+	if (!pfnVkCmdBeginDebugUtilsLabelEXT)
+		return;
+	VkDebugUtilsLabelEXT label{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+	label.pLabelName = name;
+	pfnVkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+}
+
+inline void EndGpuLabel(VkCommandBuffer cmd)
+{
+	if (!pfnVkCmdEndDebugUtilsLabelEXT)
+		return;
+	pfnVkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+struct GpuLabelScope
+{
+	VkCommandBuffer cmd;
+	GpuLabelScope(VkCommandBuffer c, const char* name) : cmd(c) { BeginGpuLabel(c, name); }
+	~GpuLabelScope() { EndGpuLabel(cmd); }
+};
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
 #include "../Engine/Core/UnigmaGameObject.h"
 #include "../Engine/Renderer/MeshGenerator.h"
