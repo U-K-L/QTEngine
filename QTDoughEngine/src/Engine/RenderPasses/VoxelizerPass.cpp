@@ -1788,7 +1788,7 @@ void VoxelizerPass::Create3DTextures()
 glm::ivec3 VoxelizerPass::SetVoxelGridSize()
 {
     QTDoughApplication* app = QTDoughApplication::instance;
-    int GameQualitySettings = app->GameQualityLevel;
+    int GameQualitySettings = 2;//app->GameQualityLevel;
     glm::ivec3 worldImageRes = glm::ivec3(1024, 1024, 256);
 
     //Start at highest resolution and work downwards. Note change this depending on user settings. 
