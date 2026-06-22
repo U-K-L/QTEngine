@@ -2016,6 +2016,7 @@ void VoxelizerPass::CreateImages() {
 
 void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 {
+    /*
     // Update CPU-side brushes first
     for (size_t i = 0; i < renderingObjects.size(); ++i)
     {
@@ -2024,11 +2025,12 @@ void VoxelizerPass::UpdateBrushesGPU(VkCommandBuffer commandBuffer)
 
         if (model != brushes[i].model)
         {
-            //brushes[i].model = model;
-            //brushes[i].invModel = glm::inverse(model);
-            //brushes[i].isDirty = 0;
+            brushes[i].model = model;
+            brushes[i].invModel = glm::inverse(model);
+            brushes[i].isDirty = 0;
         }
     }
+    */
 
     // Use vkCmdUpdateBuffer to update GPU buffer
     for (size_t i = 0; i < brushes.size(); ++i)

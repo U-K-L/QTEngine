@@ -681,14 +681,21 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	
 	//Set Brush transforms.
 	// Update CPU-side brushes first
+	IntergrateBodiesVelocity();
+}
+
+void MaterialSimulation::IntergrateBodiesVelocity()
+{
 	for (size_t i = 0; i < VoxelizerPass::instance->renderingObjects.size(); ++i)
 	{
-		std::cout << brushMatricies[i].velocity.z << std::endl;
+		UnigmaRenderingObject* renderBody = VoxelizerPass::instance->renderingObjects[i];
+
 		glm::vec3 velocity = brushMatricies[i].velocity;
-		VoxelizerPass::instance->renderingObjects[i]->_transform.position += velocity * dt;
-		VoxelizerPass::instance->renderingObjects[i]->_transform.UpdateTransform();
-		//Check if model has changed.
-		glm::mat4x4 model = VoxelizerPass::instance->renderingObjects[i]->_transform.GetModelMatrixBrush();
+
+		renderBody->_transform.position += velocity * dt;
+
+		renderBody->_transform.UpdateTransform();
+		glm::mat4x4 model = renderBody->_transform.GetModelMatrixBrush();
 
 		VoxelizerPass::instance->brushes[i].model = model;
 		VoxelizerPass::instance->brushes[i].invModel = glm::inverse(model);

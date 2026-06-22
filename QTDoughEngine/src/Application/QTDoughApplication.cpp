@@ -366,13 +366,15 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 {
 
     CameraMain = *UNGetCamera(0);
+    /* This application has ownership over ALL position information, game dll merely requests changes.
     if (!unigmaRenderingObjects[gObj->RenderID].gizmoControlled)
     {
         unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
         unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
         unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
     }
-
+    */
+    //ComputePhysics();
     //Update the shader game objects.
     gameObjectShaderDataArray[gObj->RenderID].Midtone = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Midtone"];
     gameObjectShaderDataArray[gObj->RenderID].Highlight = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Highlight"];
@@ -1418,19 +1420,7 @@ void QTDoughApplication::RunMainGameLoop()
 
     if (elapsedTime.count() >= 33)
     {
-        if (!simulationWarmupDone)
-        {
-            static int simWarmupFrames = 0;
-            ++simWarmupFrames;
-            if (simWarmupFrames >= 60)
-            {
-                simulationWarmupDone = true;
-                if (editorState.IsEditor())
-                    simulationPaused = false;
-            }
-        }
-
-        if (!simulationPaused || !simulationWarmupDone)
+        if (!simulationPaused)
             ComputePhysics();
     }
 
@@ -1442,13 +1432,6 @@ void QTDoughApplication::RunMainGameLoop()
     }
 
     DrawFrame();
-    if (GatherBlenderInfo() == 0)
-    {
-        //CameraToBlender();
-        //GetMeshDataAllObjects();
-    }
-
-    //RecreateResources();
 }
 
 void QTDoughApplication::ComputePhysics()

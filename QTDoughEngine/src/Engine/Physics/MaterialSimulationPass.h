@@ -160,6 +160,7 @@ class MaterialSimulation
 		void ReadBackMaterialGridSDF();
 		void ReadBackBrushMatricies(VkCommandBuffer commandBuffer);
 		void SerializeMaterialGridText(const std::string& path);
+		void MaterialSimulation::IntergrateBodiesVelocity();
 		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
 		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
