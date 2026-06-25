@@ -89,10 +89,8 @@ struct BrushMatrix
 //Used for atomics, must be in fixed point format.
 struct BrushAccumulator
 {
-	uint32_t count;
-	uint32_t posSumX;
-	uint32_t posSumY;
-	uint32_t posSumZ;
+	glm::ivec4 bcentroid;
+	glm::ivec4 velocity;
 };
 
 #define MAT_SIM_BINDINGS 25
@@ -131,6 +129,7 @@ class MaterialSimulation
 		void DispatchP2G(VkCommandBuffer commandBuffer); //Particle to Grid scatter.
 		void DispatchBrushAccum(VkCommandBuffer commandBuffer); //brushAccumulator -> brushMatricies.bCentroid.
 		void DispatchG2P(VkCommandBuffer commandBuffer); //Grid to Particle gather.
+		void DispatchProjectQuanta(VkCommandBuffer commandBuffer); //Per-quanta projection pass.
 		void InitLeptons();
 		void DispatchLeptonTileSort(VkCommandBuffer commandBuffer);
 		void DispatchLeptonP2G(VkCommandBuffer commandBuffer);
@@ -160,7 +159,7 @@ class MaterialSimulation
 		void ReadBackMaterialGridSDF();
 		void ReadBackBrushMatricies(VkCommandBuffer commandBuffer);
 		void SerializeMaterialGridText(const std::string& path);
-		void MaterialSimulation::IntergrateBodiesVelocity();
+		void MaterialSimulation::IntegrateBodiesVelocity();
 		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
 		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
@@ -298,6 +297,7 @@ class MaterialSimulation
 		VkPipeline p2gPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAccumPipeline = VK_NULL_HANDLE;
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;
+		VkPipeline projectQuantaPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
 		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
 		VkPipeline refreshGridPipeline = VK_NULL_HANDLE;

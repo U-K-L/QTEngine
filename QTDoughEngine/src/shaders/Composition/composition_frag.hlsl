@@ -177,7 +177,7 @@ float4 main(VSOutput i) : SV_Target
         return float4(rayNormalPass.xyz, 1.0f);
 
     if(pc.input == 6)
-        rayAlbedoPass.xyz += materialGridImage.xyz; //color.xyz += materialGridImage.xyz; //return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
+        return float4(materialGridImage.xyz, 1.0f); //color.xyz += materialGridImage.xyz; //return float4(materialGridImage.xyz, 1.0f) + float4(max(sdfNormalImage, normalImage).xyz, 1.0f);
     //return combineSDFRasterImage;
     //Compose the normals together, will be done in a different pass in the future.
     //return lerp(sdfNormalImage, normalImage, 0.85);

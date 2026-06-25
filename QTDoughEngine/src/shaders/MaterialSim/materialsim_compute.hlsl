@@ -56,7 +56,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     Quanta q = quantaIn[globalIndex];
     int brushId = q.information.x - 1;
     
-        
+    /*
     //Reset
     if (q.information.x > 0 && q.information.z > 0 && q.mana.w < 0.01f)
     {
@@ -72,30 +72,13 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         quantaOut[globalIndex] = q;
         return;
     }
-
-
-
-
+    */
     float3 worldPos = q.position.xyz;
     
     if (brushId >= 0)
         worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
-    
-    float3 gravity = float3(0, 0, -9.8f) * q.mana.w;
-    worldPos += gravity * deltaTime * 0.01f;
 
-    if (brushId >= 0)
-    {
-        q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
-
-        // If quanta left its brush AABB, unassign it.
-        float3 qUvw = (q.position.xyz - Brushes[brushId].aabbmin.xyz) / (Brushes[brushId].aabbmax.xyz - Brushes[brushId].aabbmin.xyz);
-        if (any(qUvw < 0.0f) || any(qUvw > 1.0f))
-            q.information.x = 0;
-    }
-    else
-        q.position.xyz = worldPos;
-    
+    q.position.xyz = worldPos;
 
     float4 clip = mul(view, float4(worldPos, 1.0));
 

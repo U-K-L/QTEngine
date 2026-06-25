@@ -97,20 +97,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     wz[1] = 0.75f - (fx.z - 1.0f) * (fx.z - 1.0f);
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
     
-    //Averaged position (world space).
-    int posX = (int) round(quantaPosition.x * FIXED_POINT_SCALE);
-    int posY = (int) round(quantaPosition.y * FIXED_POINT_SCALE);
-    int posZ = (int) round(quantaPosition.z * FIXED_POINT_SCALE);
-    
-    if (brushId >= 0 && brushId < MAX_BRUSHES)
-    {
-        int dummyVal;
-        InterlockedAdd(brushAccumulator[brushId].count, 1, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].posSumX, posX, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].posSumY, posY, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].posSumZ, posZ, dummyVal);
-    }
-
     // --- 27-cell stencil: scatter mass onto accumulator
     [unroll]
     for (int i = 0; i < 3; i++)

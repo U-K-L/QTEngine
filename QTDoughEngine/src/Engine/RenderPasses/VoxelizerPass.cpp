@@ -1552,6 +1552,8 @@ void VoxelizerPass::CreateBrushes()
 
         auto rayMask = gObj->GetComponentAttr<int>("RenderComp", "RayMask");
 
+        auto isKinematic = gObj->GetComponentAttr<bool>("UnigmaPhysicsComp", "IsKinematic");
+
         int imageIndex;
         if (batchID > 0 && batchTextureMap.count(batchID)) {
             imageIndex = batchTextureMap[batchID];
@@ -1594,6 +1596,8 @@ void VoxelizerPass::CreateBrushes()
         brush.particleRadius = 2.0f * (particleDens - 1);
         
         brush.isCollapsing = true;
+
+        brush.interactiveType = isKinematic;
 
 
         //Create the model matrix for the brush.

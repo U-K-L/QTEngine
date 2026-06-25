@@ -86,7 +86,7 @@ public:
         //Physics.
         float mass;
         uint32_t rayMask;
-        float pad2;
+        float interactiveType; // 0 == fully physical, 1 == kinematic.
         float pad3;
     };
 

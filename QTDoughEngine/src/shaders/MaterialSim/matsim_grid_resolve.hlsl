@@ -68,7 +68,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     {
         float contactBand = saturate(1.0f - phi / collisionBand);
 
-        float normalDamping = 0.15f;
+        float normalDamping = 0.05f;
         float damp = lerp(1.0f, normalDamping, contactBand);
 
         float vnNew = vn * damp;
@@ -90,10 +90,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         float vnNew = vnSDF * damp;
 
-        velocity += (vnNew - vnSDF) * sdfNormal;
+        //velocity += (vnNew - vnSDF) * sdfNormal;
     }
 
     //Velocity clamp.
     velocity = clamp(velocity, -15.0f, 15.0f);
     materialGrid[cellId].massMomentum.xyz = velocity * mass;
+
+    materialGrid[cellId].fieldValues.y += length(velocity);
 }

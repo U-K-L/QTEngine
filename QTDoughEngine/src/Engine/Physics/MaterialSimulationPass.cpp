@@ -390,6 +390,7 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_brush_assign", brushAssignPipeline);
 	CreateComputePipelineFromSPV("matsim_p2g", p2gPipeline);
 	CreateComputePipelineFromSPV("matsim_g2p", g2pPipeline);
+	CreateComputePipelineFromSPV("matsim_project_quanta", projectQuantaPipeline);
 	CreateComputePipelineFromSPV("matsim_sdf_downsample", sdfDownsamplePipeline);
 	CreateComputePipelineFromSPV("matsim_diffusion", diffusionPipeline);
 	CreateComputePipelineFromSPV("lepton_histogram", leptonHistogramPipeline);
@@ -533,91 +534,99 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Copy matching SDF mip into materialGrid before P2G.
 	//DispatchSDFDownsample(commandBuffer); //Change this later on, no longer a direct downscale.
 
-
-	// Sort quantas into tiles before simulation.
-	DispatchTileSort(commandBuffer);
-
-	// Sort leptons into tiles
-	DispatchLeptonTileSort(commandBuffer);
-
-	if (usePBMPM)
-	{
-		for (int it = 0; it < iterationCount; it++)
-		{
-			DispatchRefreshGrid(commandBuffer);
-			DispatchSolveConstraints(commandBuffer);
-			if (useCenterHop)
-			{
-				DispatchPBMPMP2C(commandBuffer);
-				DispatchPBMPMC2G(commandBuffer);
-				DispatchGridResolve(commandBuffer);
-				DispatchPBMPMC2P(commandBuffer);
-			}
-			else
-			{
-				DispatchPBMPMP2G(commandBuffer);
-				DispatchAccumConvert(commandBuffer);
-				DispatchGridResolve(commandBuffer);
-				DispatchPBMPMG2P(commandBuffer);
-			}
-			currentFrame = 1 - currentFrame;
-		}
-		DispatchPBMPMIntegrate(commandBuffer);
-	}
-	else
-	{
-		for (int s = 0; s < numSubsteps; s++)
-		{
-			DispatchRefreshGrid(commandBuffer);
-
-			DispatchSolveConstraints(commandBuffer);
-
-			// Quanta P2G — scatter quanta mass/momentum into materialGridAccumulator and brushAccumulator.
-			DispatchP2G(commandBuffer);
-
-			// Convert accumulator (int) to materialGrid (float).
-			DispatchAccumConvert(commandBuffer);
-
-			//Additional forces enter here.
-			DispatchGridResolve(commandBuffer);
-
-			// G2P gather transfer grid values back to particles.
-			DispatchG2P(commandBuffer);
-
-				if (s < numSubsteps - 1)
-					currentFrame = 1 - currentFrame;
-		}
-	}
-	// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
-	DispatchBrushAccum(commandBuffer);
-
-	ReadBackBrushMatricies(commandBuffer);
-
-	/*
-	// Lepton propagation: march leptons through field, reads In writes Out.
-	DispatchLeptonPropagate(commandBuffer);
-
-
-	//DispatchSimulateQuarks(commandBuffer); //Use this for a different purpose.
-
-
-
-	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
-	DispatchLeptonP2G(commandBuffer);
-
-
-
-
-
-
-	*/
-	if(dispatchesCount >= 8 && dispatchesCount < 10)
+	if (dispatchesCount >= 8 && dispatchesCount < 10)
 	{
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
 		{
 			DispatchBrushFill(commandBuffer, i); // -1 means fill for all brushes that need it.
 		}
 	}
+
+	if (dispatchesCount > 15)
+	{
+
+		DispatchSimulateQuarks(commandBuffer); //Use this for a different purpose.
+
+		// Sort quantas into tiles before simulation.
+		DispatchTileSort(commandBuffer);
+
+		// Sort leptons into tiles
+		DispatchLeptonTileSort(commandBuffer);
+		currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
+
+		if (usePBMPM)
+		{
+
+			for (int it = 0; it < iterationCount; it++)
+			{
+				//DispatchRefreshGrid(commandBuffer);
+				DispatchSolveConstraints(commandBuffer);
+				if (useCenterHop)
+				{
+					//DispatchPBMPMP2C(commandBuffer);
+					//DispatchPBMPMC2G(commandBuffer);
+					//DispatchGridResolve(commandBuffer);
+					//DispatchPBMPMC2P(commandBuffer);
+				}
+				else
+				{
+					DispatchPBMPMP2G(commandBuffer);
+					DispatchAccumConvert(commandBuffer);
+					DispatchGridResolve(commandBuffer);
+					DispatchPBMPMG2P(commandBuffer);
+				}
+				currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
+			}
+			//DispatchPBMPMIntegrate(commandBuffer);
+		}
+		else
+		{
+			for (int s = 0; s < numSubsteps; s++)
+			{
+				DispatchRefreshGrid(commandBuffer);
+
+				DispatchSolveConstraints(commandBuffer);
+
+				// Quanta P2G — scatter quanta mass/momentum into materialGridAccumulator and brushAccumulator.
+				DispatchP2G(commandBuffer);
+
+				// Convert accumulator (int) to materialGrid (float).
+				DispatchAccumConvert(commandBuffer);
+
+				//Additional forces enter here.
+				DispatchGridResolve(commandBuffer);
+
+				// G2P gather transfer grid values back to particles.
+				DispatchG2P(commandBuffer);
+
+					if (s < numSubsteps - 1)
+						currentFrame = 1 - currentFrame;
+			}
+		}
+		// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
+		//DispatchBrushAccum(commandBuffer);
+
+		DispatchProjectQuanta(commandBuffer);
+		//ReadBackBrushMatricies(commandBuffer);
+	}
+
+
+
+
+	/*
+	// Lepton propagation: march leptons through field, reads In writes Out.
+	DispatchLeptonPropagate(commandBuffer);
+
+
+	
+
+
+
+	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
+	DispatchLeptonP2G(commandBuffer);
+
+	*/
+
 
 	if (dispatchesCount < 60 * 6)
 	{
@@ -665,14 +674,19 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 		pendingCollapseBrushIndex = -1;
 	}
 */
-	DispatchDiffusion(commandBuffer);
 
+
+	//Needs finished results to do diffusion.
+	//DispatchDiffusion(commandBuffer);
 	//Out -> Read.
 	CopyOutToRead(commandBuffer);
 
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
-	currentFrame = 1 - currentFrame;
+	currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
 	dispatchesCount += 1;
+
+
+
 
 	//Load grid.
 	//ReadBackMaterialGridSDF();
@@ -681,24 +695,30 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	
 	//Set Brush transforms.
 	// Update CPU-side brushes first
-	IntergrateBodiesVelocity();
+	IntegrateBodiesVelocity();
 }
 
-void MaterialSimulation::IntergrateBodiesVelocity()
+void MaterialSimulation::IntegrateBodiesVelocity()
 {
 	for (size_t i = 0; i < VoxelizerPass::instance->renderingObjects.size(); ++i)
 	{
+		VoxelizerPass::Brush* brush = &VoxelizerPass::instance->brushes[i];
 		UnigmaRenderingObject* renderBody = VoxelizerPass::instance->renderingObjects[i];
-
 		glm::vec3 velocity = brushMatricies[i].velocity;
+		glm::vec3 centoridPosition = brushMatricies[i].bCentroid;
 
-		renderBody->_transform.position += velocity * dt;
+		if (brush->interactiveType == 0)
+		{
+			//renderBody->_transform.position = brushMatricies[i].bCentroid; //velocity * dt;
+			//renderBody->_transform.UpdateTransform();
+		}
 
-		renderBody->_transform.UpdateTransform();
+
+
 		glm::mat4x4 model = renderBody->_transform.GetModelMatrixBrush();
 
-		VoxelizerPass::instance->brushes[i].model = model;
-		VoxelizerPass::instance->brushes[i].invModel = glm::inverse(model);
+		brush->model = model;
+		brush->invModel = glm::inverse(model);
 	}
 }
 
@@ -718,13 +738,13 @@ void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer)
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	VkDescriptorSet sets[] = {
-		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
-		descriptorSets[currentFrame]
+		app->globalDescriptorSets[(currentFrame) % app->globalDescriptorSets.size()],
+		descriptorSets[(currentFrame) % app->globalDescriptorSets.size()]
 	};
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
 
-	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	uint32_t groupCount = QUANTA_COUNT / 512;
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	// Barrier between main sim and collapse pass.
@@ -1240,6 +1260,41 @@ void MaterialSimulation::DispatchG2P(VkCommandBuffer commandBuffer)
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchProjectQuanta(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, projectQuantaPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };

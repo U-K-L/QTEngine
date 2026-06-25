@@ -46,9 +46,12 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     uint qIdx = quantaIds[globalIndex];
-    Quanta quanta = quantaIn[qIdx];
+    Quanta quanta = quantaOut[qIdx];
+    int brushId = quanta.information.x - 1;
+    //if (brushId >= 0)
+    //    pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
 
-    if (quanta.position.w < 1.0f)
+    if (brushId < 0)
     {
         quantaOut[qIdx] = quanta;
         deformOut[qIdx] = deformIn[qIdx];
@@ -61,9 +64,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     float3 cellSize  = sceneSize / float3(gridRes);
 
     float3 pos = quanta.position.xyz;
-    int brushId = quanta.information.x - 1;
-    if (brushId >= 0)
-        pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
+
         
 
     float3 gsc = (pos + halfScene) / cellSize - 0.5f;

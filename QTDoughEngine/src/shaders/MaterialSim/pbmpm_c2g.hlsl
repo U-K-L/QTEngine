@@ -35,7 +35,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
     int nodeId = Flatten3D(node, gridRes);
 
     float4 momentumSum = 0.0f;
-    float energySum = 0.0f;
     float sdSum = 0.0f;
 
     [unroll]
@@ -58,13 +57,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 momentumSum.y += (float) accumulator[cellId].massMomentum.y;
                 momentumSum.z += (float) accumulator[cellId].massMomentum.z;
                 momentumSum.w += (float) accumulator[cellId].massMomentum.w;
-                energySum += (float) accumulator[cellId].fieldValues.y;
                 sdSum += (float) accumulator[cellId].fieldValues.x;
             }
         }
     }
 
     materialGrid[nodeId].massMomentum = (momentumSum * 0.125f) / FIXED_POINT_SCALE;
-    materialGrid[nodeId].fieldValues.y += (energySum * 0.125f / FIXED_POINT_SCALE) * deltaTime * 0.05f;
     materialGrid[nodeId].fieldValues.x = (momentumSum.w > 0.0f) ? (sdSum / momentumSum.w) : DEFUALT_EMPTY_SPACE;
 }

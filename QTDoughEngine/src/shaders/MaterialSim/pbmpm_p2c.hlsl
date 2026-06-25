@@ -60,8 +60,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3 quantaPosition = quanta.position.xyz;
     int brushId = quanta.information.x - 1;
-    if (brushId >= 0)
-        quantaPosition = mul(Brushes[brushId].model, float4(quantaPosition, 1.0f)).xyz;
+    //if (brushId >= 0)
+    //    quantaPosition = mul(Brushes[brushId].model, float4(quantaPosition, 1.0f)).xyz;
+
+    if (brushId < 0)
+        return;
 
     float3 gsc = (quantaPosition + halfScene) / cellSize - 0.5f;
     int3 base = int3(floor(gsc));
@@ -108,6 +111,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 InterlockedAdd(accumulator[cellId].massMomentum.z, momZ, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.w, massFixed, dummy);
 
+                //SDF collision field.
                 float h = cellSize.x;
                 float radiusParticleSpacing = 2.0f * 0.35f;
                 float sd = length(dx) - radiusParticleSpacing * h;

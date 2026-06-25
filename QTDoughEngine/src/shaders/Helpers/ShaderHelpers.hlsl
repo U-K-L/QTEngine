@@ -162,10 +162,8 @@ struct MaterialGridAccumulator
 
 struct BrushAccumulator
 {
-    uint count;
-    uint posSumX;
-    uint posSumY;
-    uint posSumZ;
+    int4 bcentroid;
+    int4 velocity;
 };
 
 struct BrushMatrix
@@ -226,7 +224,7 @@ struct Brush
     //Physics.
     float mass;
     uint rayMask;
-    float pad2;
+    float interactiveType;
     float pad3;
 };
 

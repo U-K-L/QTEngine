@@ -11,7 +11,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (b >= MAX_BRUSHES)
         return;
 
-    uint count = brushAccumulator[b].count;
+    uint count = brushAccumulator[b].bcentroid.w;
     if (count == 0)
     {
         brushMatricies[b].bCentroid = float4(0, 0, 0, 0);
@@ -20,12 +20,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float invScale = 1.0f / (float)FIXED_POINT_SCALE;
     float invCount = 1.0f / (float)count;
-    float cx = (float)(int)brushAccumulator[b].posSumX * invCount * invScale;
-    float cy = (float)(int)brushAccumulator[b].posSumY * invCount * invScale;
-    float cz = (float)(int)brushAccumulator[b].posSumZ * invCount * invScale;
+        
+    float3 bcentroid = (float3)brushAccumulator[b].bcentroid.xyz * invCount * invScale;
+    float3 velocity = (float3) brushAccumulator[b].velocity.xyz * invCount * invScale;
 
-    brushMatricies[b].bCentroid = float4(cx, cy, cz, (float)count);
+    brushMatricies[b].bCentroid = float4(bcentroid.xyz, count);
+    brushMatricies[b].velocity = float4(velocity.xyz, count);
 
+        
+    /*
     // Read the material grid at the brush centroid.
     float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5f;
@@ -61,5 +64,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
   
   float3 gv = (gm > 0.0f) ? (massMomentumSum.xyz / gm) : float3(0.0f, 0.0f, 0.0f);
 
-  brushMatricies[b].velocity = float4(gv, gm);
+  //brushMatricies[b].velocity = float4(gv, gm);
+    */
 }

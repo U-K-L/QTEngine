@@ -946,19 +946,20 @@ float3 turboColor(float t)
 
 float4 SampleMaterialGridSDF(float3 pos)
 {
-    float3 sceneSize = pc.sceneSize.xyz;
+    float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5;
-    int3 gridRes = int3(256, 256, 64);
+    int3 gridRes = GetMaterialGridSize();
 
     if (any(pos < -halfScene) || any(pos >= halfScene))
     {
-        return float4(DEFUALT_EMPTY_SPACE, 0, 0, 0);
+        return 0;
     }
 
+    // Continuous grid coord; -0.5 puts samples at cell centers for trilinear.
+    float3 gridPos = ((pos + halfScene) / sceneSize) * float3(gridRes) - 0.5f;
+    int3 base = int3(floor(gridPos));
 
-    float3 gridPos = ((pos + halfScene) / sceneSize) * float3(gridRes);
-    int3 coord = clamp(int3(floor(gridPos)), int3(0,0,0), gridRes - 1);
-    uint idx = Flatten3D(coord, gridRes); //coord.x + coord.y * gridRes.x + coord.z * gridRes.x * gridRes.y;
+    uint idx = Flatten3D(base, gridRes);
     return materialGrid[idx].fieldValues;
 }
 
@@ -976,9 +977,10 @@ float3 CentralDifferenceNormalMaterialGrid(float3 p)
 
 float4 MaterialGridMarch(float3 ro, float3 rd, inout float4 materialPoint)
 {
-    float3 sceneSize = pc.sceneSize.xyz;
-    float3 cellSize = sceneSize / float3(256, 256, 64);
-    float minStep = min(cellSize.x, min(cellSize.y, cellSize.z)) * 0.1;
+    // Same material scene size the grid was written with (see SampleMaterialGridSDF).
+    float3 sceneSize = GetMaterialSceneSize();
+    float3 cellSize = sceneSize / GetMaterialGridSize();
+    float minStep = min(cellSize.x, min(cellSize.y, cellSize.z)) * 0.01;
 
     float t = 0.0;
     int maxSteps = 10000;
@@ -989,16 +991,7 @@ float4 MaterialGridMarch(float3 ro, float3 rd, inout float4 materialPoint)
         float3 pos = ro + rd * t;
         float4 sdf = SampleMaterialGridSDF(pos);
 
-        heatMap += sdf.y * 0.1f;
-        
-        if (sdf.x < 0.01f)
-        {
-            float3 n = CentralDifferenceNormalMaterialGrid(pos);
-            float lighting = saturate(dot(n, normalize(float3(0.25, 0.0, 1.0))));
-            materialPoint = lighting;
-            return float4(heatMap, sdf.zw, 1.0f);
-
-        }
+        heatMap += sdf.y * 2.0f;
 
         t += minStep; //max(sdf, minStep);
     }
