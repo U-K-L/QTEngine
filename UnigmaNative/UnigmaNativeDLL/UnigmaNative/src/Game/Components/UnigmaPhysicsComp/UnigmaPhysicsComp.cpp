@@ -57,6 +57,12 @@ void UnigmaPhysicsComp::InitializeData(nlohmann::json& componentData)
 	{
 		useGravity = componentData["UseGravity"] == true;
 	}
+
+	if (componentData.contains("IsKinematic"))
+	{
+		isKinematic = componentData["IsKinematic"] == true;
+		SetValue<int>("IsKinematic", "bool", isKinematic);
+	}
 }
 
 void UnigmaPhysicsComp::Start()

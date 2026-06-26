@@ -58,13 +58,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3x3 AffineVelocity = deformIn[globalIndex].CandidateDeff / pc.dt;
 
-    float3 quantaPosition = quanta.position.xyz;
     int brushId = quanta.information.x - 1;
-    //if (brushId >= 0)
-    //    quantaPosition = mul(Brushes[brushId].model, float4(quantaPosition, 1.0f)).xyz;
 
     if (brushId < 0)
         return;
+
+    QuantaUnseal(quanta, Brushes[brushId]);
+
+    float3 quantaPosition = quanta.position.xyz;
+
 
     float3 gsc = (quantaPosition + halfScene) / cellSize - 0.5f;
     int3 base = int3(floor(gsc));

@@ -48,15 +48,11 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     uint qIdx = quantaIds[globalIndex];
     Quanta quanta = quantaOut[qIdx];
     int brushId = quanta.information.x - 1;
-    //if (brushId >= 0)
-    //    pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
 
     if (brushId < 0)
-    {
-        quantaOut[qIdx] = quanta;
-        deformOut[qIdx] = deformIn[qIdx];
         return;
-    }
+
+    QuantaUnseal(quanta, Brushes[brushId]);
 
     float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5f;
@@ -128,6 +124,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     deformOut[qIdx].CandidateDeff = pc.dt * C;
 
     quanta.mana.xyz = velocitySum;
+
+    QuantaSeal(quanta, Brushes[brushId]);
 
     quantaOut[qIdx] = quanta;
 }

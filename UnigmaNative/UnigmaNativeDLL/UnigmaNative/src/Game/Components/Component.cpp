@@ -10,9 +10,14 @@ Component::~Component()
 
 Value Component::GetAttribute(const char* componentAttribute)
 {
+	if (componentAttributes.contains(componentAttribute))
+	{
+		Value v = componentAttributes[std::string(componentAttribute)];
+		return v;
+	}
+	else
+		throw std::printf((std::string("ERROR GET ATTRIBUTE HAS No value found for: ") + std::string(componentAttribute)).c_str());
 
-	Value v = componentAttributes[std::string(componentAttribute)];
-	return v;
 }
 
 void Component::InitializeData(nlohmann::json& componentData)

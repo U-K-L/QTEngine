@@ -56,20 +56,17 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     Brush brush = Brushes[brushId];
 
-    if (brush.interactiveType == 1)
-    {
-        float3 positionLocal = mul(brush.invModel, float4(quanta.position.xyz, 1.0f)).xyz;
-        quanta.position.xyz = positionLocal;
-        quantaOut[globalIndex] = quanta;
-        return;
-    }
+    QuantaUnseal(quanta, brush);
+
 
     float3 centerVelocity = brushMatricies[brushId].velocity.xyz;
 
     //Linear projection.
-    float3 positionNew = quanta.position.xyz + pc.dt * float3(0,0,-9.8f);
+    float3 positionNew = quanta.position.xyz + pc.dt * centerVelocity;
 
     quanta.position.xyz = positionNew;
+
+    QuantaSeal(quanta, brush);
 
     quantaOut[globalIndex] = quanta;
 }

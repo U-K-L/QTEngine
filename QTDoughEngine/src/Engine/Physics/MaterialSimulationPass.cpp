@@ -545,28 +545,30 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	if (dispatchesCount > 15)
 	{
 
-		DispatchSimulateQuarks(commandBuffer); //Use this for a different purpose.
+		//DispatchSimulateQuarks(commandBuffer); //Use this for a different purpose.
 
 		// Sort quantas into tiles before simulation.
 		DispatchTileSort(commandBuffer);
 
 		// Sort leptons into tiles
 		DispatchLeptonTileSort(commandBuffer);
-		currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
+		//currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
 
 		if (usePBMPM)
 		{
 
+			subDt = dt;
+
 			for (int it = 0; it < iterationCount; it++)
 			{
-				//DispatchRefreshGrid(commandBuffer);
+				DispatchRefreshGrid(commandBuffer);
 				DispatchSolveConstraints(commandBuffer);
 				if (useCenterHop)
 				{
-					//DispatchPBMPMP2C(commandBuffer);
-					//DispatchPBMPMC2G(commandBuffer);
-					//DispatchGridResolve(commandBuffer);
-					//DispatchPBMPMC2P(commandBuffer);
+					DispatchPBMPMP2C(commandBuffer);
+					DispatchPBMPMC2G(commandBuffer);
+					DispatchGridResolve(commandBuffer);
+					DispatchPBMPMC2P(commandBuffer);
 				}
 				else
 				{
@@ -577,7 +579,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 				}
 				currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
 			}
-			//DispatchPBMPMIntegrate(commandBuffer);
+			DispatchPBMPMIntegrate(commandBuffer);
 		}
 		else
 		{
@@ -604,10 +606,10 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 			}
 		}
 		// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
-		//DispatchBrushAccum(commandBuffer);
+		DispatchBrushAccum(commandBuffer);
 
 		DispatchProjectQuanta(commandBuffer);
-		//ReadBackBrushMatricies(commandBuffer);
+		ReadBackBrushMatricies(commandBuffer);
 	}
 
 
@@ -707,6 +709,10 @@ void MaterialSimulation::IntegrateBodiesVelocity()
 		glm::vec3 velocity = brushMatricies[i].velocity;
 		glm::vec3 centoridPosition = brushMatricies[i].bCentroid;
 
+		std::cout << velocity.z << std::endl;
+
+		//renderBody->_transform.position += glm::vec3(0.02f, 0, 0);
+
 		if (brush->interactiveType == 0)
 		{
 			//renderBody->_transform.position = brushMatricies[i].bCentroid; //velocity * dt;
@@ -738,8 +744,8 @@ void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer)
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	VkDescriptorSet sets[] = {
-		app->globalDescriptorSets[(currentFrame) % app->globalDescriptorSets.size()],
-		descriptorSets[(currentFrame) % app->globalDescriptorSets.size()]
+		app->globalDescriptorSets[currentFrame],
+		descriptorSets[currentFrame]
 	};
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
@@ -998,7 +1004,7 @@ void MaterialSimulation::DispatchPBMPMC2G(VkCommandBuffer commandBuffer)
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmC2GPipeline);
 
 	VkDescriptorSet sets[] = {
-		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		app->globalDescriptorSets[currentFrame],
 		descriptorSets[currentFrame]
 	};
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);

@@ -36,13 +36,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     Quanta quanta = quantaIn[globalIndex];
 
-    if (quanta.position.w < 1.0f)
-    {
-        quantaOut[globalIndex] = quanta;
-        deformOut[globalIndex] = deformIn[globalIndex];
-        return;
-    }
-
     float3x3 F = deformIn[globalIndex].DeffGrad;
     float3x3 D = deformIn[globalIndex].CandidateDeff;
 
@@ -51,13 +44,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (determinant(Fstar) <= 0.0f)
         Fstar = IDENTITY_MATRIX3_3;
 
-    float3 pos = quanta.position.xyz;
+
     int brushId = quanta.information.x - 1;
-    
+
+
     if (brushId >= 0)
     {
-        
-        //pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
+        QuantaUnseal(quanta, Brushes[brushId]);
+
+        float3 pos = quanta.position.xyz;
         
         int posX = (int) round(pos.x * FIXED_POINT_SCALE);
         int posY = (int) round(pos.y * FIXED_POINT_SCALE);

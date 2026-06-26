@@ -43,5 +43,6 @@ public:
 	float dynamicFriction = 0.5f;
 	float restitution = 0.6f;
 	float denisty = 1.0f;
+	bool isKinematic;
 	bool useGravity = true;
 };

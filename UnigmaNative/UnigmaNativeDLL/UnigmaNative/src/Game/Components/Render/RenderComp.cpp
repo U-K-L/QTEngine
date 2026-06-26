@@ -60,6 +60,8 @@ void RenderComp::InitializeData(nlohmann::json& componentData)
             primType = Mesh;
         else if (primTypeString == "Sphere")
             primType = Sphere;
+        else if (primTypeString == "Splat")
+            primType = Splat;
 
         SetValue<int>("Type", "int", primType);
     }

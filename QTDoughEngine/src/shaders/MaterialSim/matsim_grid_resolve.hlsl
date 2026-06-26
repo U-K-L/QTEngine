@@ -73,7 +73,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         float vnNew = vn * damp;
 
-        velocity += (vnNew - vn) * n;
+        //velocity += (vnNew - vn) * n;
     }
 
 

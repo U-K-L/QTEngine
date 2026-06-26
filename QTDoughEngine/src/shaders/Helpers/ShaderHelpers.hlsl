@@ -1111,6 +1111,31 @@ float3x3 ComputeStress(float3x3 F, float mu, float lambda)
     return ComputePiolaStress(F, mu, lambda);
 }
 
+
+//Handles quanta unpacking from compressed format.
+void QuantaUnseal(inout Quanta quanta, in Brush brush)
+{
+    //Get the world position.
+    float3 worldPosition = mul(brush.model, float4(quanta.position.xyz, 1.0f)).xyz;
+    quanta.position.xyz = worldPosition;
+}
+
+//Puts quanta back into compress format. Must be unsealed first.
+void QuantaSeal(inout Quanta quanta, in Brush brush)
+{
+    float3 localPosition = mul(brush.invModel, float4(quanta.position.xyz, 1.0f)).xyz;
+    quanta.position.xyz = localPosition;
+}
+
+
+
+
+
+
+
+
+
+
         //-----------------------------------
     // 26-VERTEX CANONICAL CAGE
     //-----------------------------------

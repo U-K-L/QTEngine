@@ -73,13 +73,12 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
     }
     */
-    float3 worldPos = q.position.xyz;
+
     
     if (brushId >= 0)
-        worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
+        QuantaUnseal(q, Brushes[brushId]);
 
-    q.position.xyz = worldPos;
-
+    float3 worldPos = q.position.xyz;
     float4 clip = mul(view, float4(worldPos, 1.0));
 
     float3 ndc = clip.xyz / clip.w;
@@ -114,6 +113,10 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     if (clip.w <= 0.0)
         q.resonance.w = 99999; // behind camera
+
+    if (brushId >= 0)
+        QuantaSeal(q, Brushes[brushId]);
+
 
     quantaOut[globalIndex] = q;
 }
