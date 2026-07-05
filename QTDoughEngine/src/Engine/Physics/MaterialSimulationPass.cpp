@@ -525,10 +525,6 @@ void MaterialSimulation::DispatchTileSort(VkCommandBuffer commandBuffer)
 
 void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 {
-	usePBMPM = true;
-	iterationCount = 1;
-	numSubsteps = 1;
-	useCenterHop = true;
 	QTDoughApplication* app = QTDoughApplication::instance;
 
 	// Copy matching SDF mip into materialGrid before P2G.
@@ -557,7 +553,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 		if (usePBMPM)
 		{
 
-			subDt = dt;
+			subDt = dt / iterationCount;
 
 			for (int it = 0; it < iterationCount; it++)
 			{
@@ -577,7 +573,8 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 					DispatchGridResolve(commandBuffer);
 					DispatchPBMPMG2P(commandBuffer);
 				}
-				currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
+				if (it < iterationCount - 1)
+					currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
 			}
 			DispatchPBMPMIntegrate(commandBuffer);
 		}
@@ -709,14 +706,20 @@ void MaterialSimulation::IntegrateBodiesVelocity()
 		glm::vec3 velocity = brushMatricies[i].velocity;
 		glm::vec3 centoridPosition = brushMatricies[i].bCentroid;
 
-		std::cout << velocity.z << std::endl;
+		/*
+		std::cout << 
+			" Velocity x: " << velocity.x << 
+			" Velocity y: " << velocity.y <<
+			" Velocity z: " << velocity.z <<
+		std::endl;
+		*/
 
-		//renderBody->_transform.position += glm::vec3(0.02f, 0, 0);
 
-		if (brush->interactiveType == 0)
+
+		if (brush->interactiveType == 1)
 		{
-			//renderBody->_transform.position = brushMatricies[i].bCentroid; //velocity * dt;
-			//renderBody->_transform.UpdateTransform();
+			renderBody->_transform.position +=  velocity * dt;
+			renderBody->_transform.UpdateTransform();
 		}
 
 

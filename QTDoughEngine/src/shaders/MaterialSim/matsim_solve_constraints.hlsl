@@ -35,7 +35,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3x3 Fquanta = deform.DeffGrad;
     float3x3 Dquanta = deform.CandidateDeff;
-
+    
     //Psi material map: Rigid body solver.
     //Fstar is our new deformation gradient. D is our candidate this timestep, F is our history, carried throughout the sim.
     float3x3 Fstar = mul(Fquanta, IDENTITY_MATRIX3_3 + Dquanta);
@@ -46,11 +46,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     //Now we want to solve for D, we rearrange the equation to get: Finv * A - I
     Dquanta = mul(inverse(Fquanta), A) - IDENTITY_MATRIX3_3;
-
-/*    
+    
+ 
     //Psi material map is Elastic only for now. This is a shape solver, instead of Piola stress.
     //-----------------------------
-    float beta = 0.125f;
+    /*
+    float beta = 0.0125f;
     float3x3 Fstar = mul(Fquanta, IDENTITY_MATRIX3_3 + Dquanta);
 
     float3x3 Ashape = PolarRotation(Fstar);
@@ -60,8 +61,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3x3 Avol = Fstar / pow(Fdeterminant, 1.0f / 3.0f);
 
     Dquanta = mul(inverse(Fquanta), mul(Avol, beta) + mul((1.0f - beta), Ashape)) - IDENTITY_MATRIX3_3;
+    */
     //-----------------------------
-*/
     deform.CandidateDeff = Dquanta;
     deformOut[globalIndex] = deform;
 }

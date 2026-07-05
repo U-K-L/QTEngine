@@ -34,10 +34,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (globalIndex >= QUANTA_COUNT)
         return;
 
-    Quanta quanta = quantaIn[globalIndex];
+    Quanta quanta = quantaOut[globalIndex];
 
-    float3x3 F = deformIn[globalIndex].DeffGrad;
-    float3x3 D = deformIn[globalIndex].CandidateDeff;
+    float3x3 F = deformOut[globalIndex].DeffGrad;
+    float3x3 D = deformOut[globalIndex].CandidateDeff;
 
     float3x3 Fstar = mul(F, IDENTITY_MATRIX3_3 + D);
 
@@ -52,29 +52,25 @@ void main(uint3 DTid : SV_DispatchThreadID)
     {
         QuantaUnseal(quanta, Brushes[brushId]);
 
-        float3 pos = quanta.position.xyz;
-        
-        int posX = (int) round(pos.x * FIXED_POINT_SCALE);
-        int posY = (int) round(pos.y * FIXED_POINT_SCALE);
-        int posZ = (int) round(pos.z * FIXED_POINT_SCALE);
-        
+        uint count = brushAccumulator[brushId].bcentroid.w;
+        float invScale = 1.0f / (float)FIXED_POINT_SCALE;
+        float invCount = 1.0f / (float)count;
+
+        float3 bcentroid = (float3)brushAccumulator[brushId].bcentroid.xyz * invCount * invScale;
+
+        float3 rs = quanta.position - bcentroid;
         int dummyVal;
-        InterlockedAdd(brushAccumulator[brushId].bcentroid.w, 1, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].bcentroid.x, posX, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].bcentroid.y, posY, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].bcentroid.z, posZ, dummyVal);
-        
-        float3 velocity = quanta.mana.xyz;
-        int velX = (int) round(velocity.x * FIXED_POINT_SCALE);
-        int velY = (int) round(velocity.y * FIXED_POINT_SCALE);
-        int velZ = (int) round(velocity.z * FIXED_POINT_SCALE);
-        
-        InterlockedAdd(brushAccumulator[brushId].velocity.w, 1, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].velocity.x, velX, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].velocity.y, velY, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].velocity.z, velZ, dummyVal);
+
+        int RX = (int)round(rs.x * FIXED_POINT_SCALE);
+        int RY = (int)round(rs.y * FIXED_POINT_SCALE);
+        int RZ = (int)round(rs.z * FIXED_POINT_SCALE);
+
+        float massQ = 0.1f; // change to per quanta property.
+        InterlockedAdd(brushAccumulator[brushId].inertia.w, massQ, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].inertia.x, RX, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].inertia.y, RY, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].inertia.z, RZ, dummyVal);
     }
-        
 
     //float3 posNew = pos + pc.dt * quanta.mana.xyz;
 

@@ -84,6 +84,7 @@ struct BrushMatrix
 {
 	glm::vec4 bCentroid; //xyz is pos, w is count.
 	glm::vec4 velocity;
+	glm::vec4 inertia;
 };
 
 //Used for atomics, must be in fixed point format.
@@ -91,6 +92,7 @@ struct BrushAccumulator
 {
 	glm::ivec4 bcentroid;
 	glm::ivec4 velocity;
+	glm::ivec4 inertia;
 };
 
 #define MAT_SIM_BINDINGS 25
@@ -258,11 +260,11 @@ class MaterialSimulation
 		uint32_t currentFrame = 0;
 
 		float dt = 0.033f;
-		int numSubsteps = 13; //Make this always an odd number.
+		int numSubsteps = 1; //Make this always an odd number.
 		float subDt = dt / numSubsteps;
 
-		bool usePBMPM = false;
-		int iterationCount = 4;
+		bool usePBMPM = true;
+		int iterationCount = 1;
 		bool useCenterHop = false;
 
 		struct PushConsts {

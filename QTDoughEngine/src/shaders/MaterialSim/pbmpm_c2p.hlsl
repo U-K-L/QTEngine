@@ -33,6 +33,7 @@ StructuredBuffer<QuantaDeformation>   deformIn    : register(t9,  space1);
 RWStructuredBuffer<QuantaDeformation> deformOut   : register(u10, space1);
 RWStructuredBuffer<float>             materialGridSDF : register(u11, space1);
 StructuredBuffer<VoxelL1>             voxelsL1    : register(t12, space1);
+RWStructuredBuffer<BrushAccumulator> brushAccumulator : register(u24, space1);
 
 #define GROUP_SIZE 512
 
@@ -73,6 +74,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     wz[0] = 1.0f - fx.z; wz[1] = fx.z;
 
     float3 velocitySum = 0;
+    float wsum = 0.0f;
     float3x3 B = 0.0f;
     float3x3 D = 0.0f;
     [unroll]
@@ -89,7 +91,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
                 float3 centerPos = (float3(centerCoord) + 0.5f) * cellSize - halfScene;
                 float3 dx = centerPos - pos;
 
-                float3 centerVel = 0;
+                float3 momSum = 0;
+                float massSum = 0.0f;
                 [unroll]
                 for (int a = 0; a < 2; a++)
                 {
@@ -106,18 +109,50 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
                             float nodeMass = materialGrid[idx].massMomentum.w;
                             if (nodeMass <= 0.0f)
                                 continue;
-                            centerVel += 0.125f * (materialGrid[idx].massMomentum.xyz / nodeMass);
+                            momSum += materialGrid[idx].massMomentum.xyz;
+                            massSum += nodeMass;
                         }
                     }
                 }
 
-                velocitySum += weight * centerVel;
-                B += weight * Outer(centerVel, dx);
+                if (massSum > 0.0f)
+                {
+                    float3 centerVel = momSum / massSum;
+                    velocitySum += weight * centerVel;
+                    B += weight * Outer(centerVel, dx);
+                    wsum += weight;
+                }
                 D += weight * Outer(dx, dx);
             }
         }
     }
+    if (wsum > 0.0f)
+        velocitySum /= wsum;
     float3x3 C = mul(B, inverse(D + IDENTITY_MATRIX3_3 * 1e-6f));
+
+    if (brushId >= 0)
+    {
+        int posX = (int)round(pos.x * FIXED_POINT_SCALE); //Expand Quanta include center mass.
+        int posY = (int)round(pos.y * FIXED_POINT_SCALE);
+        int posZ = (int)round(pos.z * FIXED_POINT_SCALE);
+
+        int dummyVal;
+        InterlockedAdd(brushAccumulator[brushId].bcentroid.w, 1, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].bcentroid.x, posX, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].bcentroid.y, posY, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].bcentroid.z, posZ, dummyVal);
+
+        float3 velocity = velocitySum;
+        int velX = (int)round(velocity.x * FIXED_POINT_SCALE);
+        int velY = (int)round(velocity.y * FIXED_POINT_SCALE);
+        int velZ = (int)round(velocity.z * FIXED_POINT_SCALE);
+
+        float massQ = 0.1f; // change to per quanta property.
+        InterlockedAdd(brushAccumulator[brushId].velocity.w, massQ, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].velocity.x, velX, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].velocity.y, velY, dummyVal);
+        InterlockedAdd(brushAccumulator[brushId].velocity.z, velZ, dummyVal);
+    }
 
     deformOut[qIdx].DeffGrad = deformIn[qIdx].DeffGrad;
     deformOut[qIdx].AffVel = C;

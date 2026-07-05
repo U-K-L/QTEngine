@@ -47,7 +47,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
             for (int k = 0; k < 2; k++)
             {
                 int3 centerCoord = node - int3(1, 1, 1) + int3(i, j, k);
-
+                 
                 if (any(centerCoord < 0) || any(centerCoord >= gridRes))
                     continue;
 
@@ -62,6 +62,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
         }
     }
 
-    materialGrid[nodeId].massMomentum = (momentumSum * 0.125f) / FIXED_POINT_SCALE;
+    materialGrid[nodeId].massMomentum = (momentumSum * 0.125f) / FIXED_POINT_SCALE_GRID;
     materialGrid[nodeId].fieldValues.x = (momentumSum.w > 0.0f) ? (sdSum / momentumSum.w) : DEFUALT_EMPTY_SPACE;
 }

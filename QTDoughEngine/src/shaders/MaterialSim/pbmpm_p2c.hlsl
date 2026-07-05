@@ -56,7 +56,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float mass = 0.1f;
 
-    float3x3 AffineVelocity = deformIn[globalIndex].CandidateDeff / pc.dt;
+    float3x3 AffineVelocity = deformOut[globalIndex].CandidateDeff / pc.dt;
 
     int brushId = quanta.information.x - 1;
 
@@ -98,14 +98,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 float3 dx = centerPos - quantaPosition;
 
                 float3 velocityCell = quanta.mana.xyz + mul(AffineVelocity, dx);
+                velocityCell = select(abs(velocityCell) < 1e-3f, 0.0f, velocityCell);
 
                 float massCell = weight * mass;
                 float3 momentumCell = massCell * velocityCell;
 
-                int massFixed = (int) round(massCell * FIXED_POINT_SCALE);
-                int momX = (int) round(momentumCell.x * FIXED_POINT_SCALE);
-                int momY = (int) round(momentumCell.y * FIXED_POINT_SCALE);
-                int momZ = (int) round(momentumCell.z * FIXED_POINT_SCALE);
+                int massFixed = (int) round(massCell * FIXED_POINT_SCALE_GRID);
+                int momX = (int) round(momentumCell.x * FIXED_POINT_SCALE_GRID);
+                int momY = (int) round(momentumCell.y * FIXED_POINT_SCALE_GRID);
+                int momZ = (int) round(momentumCell.z * FIXED_POINT_SCALE_GRID);
 
                 int dummy;
                 InterlockedAdd(accumulator[cellId].massMomentum.x, momX, dummy);
@@ -117,7 +118,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 float h = cellSize.x;
                 float radiusParticleSpacing = 2.0f * 0.35f;
                 float sd = length(dx) - radiusParticleSpacing * h;
-                int sdFixed = (int) round(sd * massCell * FIXED_POINT_SCALE);
+                int sdFixed = (int) round(sd * massCell * FIXED_POINT_SCALE_GRID);
                 InterlockedAdd(accumulator[cellId].fieldValues.x, sdFixed, dummy);
             }
         }

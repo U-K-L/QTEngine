@@ -45,10 +45,16 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (globalIndex >= QUANTA_COUNT)
         return;
 
-    Quanta quanta = quantaIn[globalIndex];
+    Quanta quanta = quantaOut[globalIndex];
 
     if (quanta.position.w < 1.0f)
         return;
+
+    int brushId = quanta.information.x - 1;
+    if (brushId < 0)
+        return;
+
+    QuantaUnseal(quanta, Brushes[brushId]);
 
     // --- Grid constants ---
     float3 sceneSize = GetMaterialSceneSize();
@@ -59,13 +65,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float mass = 0.1f;//quanta.position.w;
 
     // PB-MPM: affine comes from the candidate displacement being solved, C = D / dt.
-    float3x3 AffineVelocity = deformIn[globalIndex].CandidateDeff / pc.dt;
+    float3x3 AffineVelocity = deformOut[globalIndex].CandidateDeff / pc.dt;
 
     // --- World-space position ---
     float3 quantaPosition = quanta.position.xyz;
-    int brushId = quanta.information.x - 1;
-    //if (brushId >= 0)
-    //    quantaPosition = mul(Brushes[brushId].model, float4(quantaPosition, 1.0f)).xyz;
 
     // --- Quadratic B-spline base cell and weights ---
     float3 gs = (quantaPosition + halfScene) / cellSize;
@@ -111,16 +114,23 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 float massCell = weight * mass;
                 float3 momentumCell = massCell * velocityCell;
 
-                int massContributionFixedPoint = (int)round(massCell * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointX = (int)round(momentumCell.x * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointY = (int)round(momentumCell.y * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointZ = (int)round(momentumCell.z * FIXED_POINT_SCALE);
+                int massContributionFixedPoint = (int)round(massCell * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointX = (int)round(momentumCell.x * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointY = (int)round(momentumCell.y * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointZ = (int)round(momentumCell.z * FIXED_POINT_SCALE_GRID);
 
                 int dummy;
                 InterlockedAdd(accumulator[cellId].massMomentum.x, momentumContributionFixedPointX, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.y, momentumContributionFixedPointY, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.z, momentumContributionFixedPointZ, dummy);
                 InterlockedAdd(accumulator[cellId].massMomentum.w, massContributionFixedPoint, dummy);
+
+                //SDF collision field.
+                float h = cellSize.x;
+                float radiusParticleSpacing = 2.0f * 0.35f;
+                float sd = length(dx) - radiusParticleSpacing * h;
+                int sdFixed = (int)round(sd * massCell * FIXED_POINT_SCALE_GRID);
+                InterlockedAdd(accumulator[cellId].fieldValues.x, sdFixed, dummy);
             }
         }
     }

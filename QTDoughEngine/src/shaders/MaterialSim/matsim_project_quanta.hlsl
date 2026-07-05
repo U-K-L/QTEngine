@@ -58,6 +58,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     QuantaUnseal(quanta, brush);
 
+    if (brush.interactiveType == 1)
+        return;
 
     float3 centerVelocity = brushMatricies[brushId].velocity.xyz;
 

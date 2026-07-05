@@ -57,23 +57,24 @@ void main(uint3 DTid : SV_DispatchThreadID)
     velocity += pc.dt * float3(0.0f, 0.0f, -9.8f);
 
     float floorZ = 0.0f;
-    float collisionBand = cellSize.z * 4.0f;
+    float collisionBand = cellSize.z * 2.0f;
 
     float3 n = float3(0.0f, 0.0f, 1.0f);
 
     float phi = nodePos.z - floorZ;
     float vn = dot(velocity, n);
 
-    if (phi <= collisionBand && vn < 0.0f)
+    if (phi <= collisionBand)
     {
         float contactBand = saturate(1.0f - phi / collisionBand);
 
-        float normalDamping = 0.05f;
-        float damp = lerp(1.0f, normalDamping, contactBand);
+        //if (vn < 0.0f)
+        //    velocity -= vn * contactBand * n;
 
-        float vnNew = vn * damp;
-
-        //velocity += (vnNew - vn) * n;
+        float friction = 0.4f;
+        float3 vt = velocity - dot(velocity, n) * n;
+        //velocity -= vt * friction * contactBand;
+        velocity = 0;
     }
 
 

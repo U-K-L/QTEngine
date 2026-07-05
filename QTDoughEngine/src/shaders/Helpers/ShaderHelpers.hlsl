@@ -43,6 +43,7 @@
 
 #define DENSITY_SCALE 1048576.0f
 #define FIXED_POINT_SCALE 1024
+#define FIXED_POINT_SCALE_GRID 65536
 
 // Packed depth-keyed brush attribution: voxelsL2.brushId holds [depth:19 | id:13].
 // One InterlockedMin keeps id atomic with the winning depth. Empty == low 13 bits all set.
@@ -164,12 +165,14 @@ struct BrushAccumulator
 {
     int4 bcentroid;
     int4 velocity;
+    int4 inertia;
 };
 
 struct BrushMatrix
 {
 	float4 bCentroid; //xyz is pos, w is count.
     float4 velocity;
+    float4 inertia;
 };
 
 struct Lepton
@@ -1127,13 +1130,15 @@ void QuantaSeal(inout Quanta quanta, in Brush brush)
     quanta.position.xyz = localPosition;
 }
 
-
-
-
-
-
-
-
+float3x3 CrossMatrix(float3 a)
+{
+    // C * v = cross(a, v)
+    return float3x3(
+        0.0f, -a.z, a.y,
+        a.z, 0.0f, -a.x,
+        -a.y, a.x, 0.0f
+    );
+}
 
 
         //-----------------------------------

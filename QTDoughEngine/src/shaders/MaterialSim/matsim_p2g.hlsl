@@ -129,10 +129,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
                 float3 momentumCellStar = momentumCell + pc.dt * forceCell;
                 
-                int massContributionFixedPoint = (int)round(massCell * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointX = (int)round(momentumCellStar.x * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointY = (int)round(momentumCellStar.y * FIXED_POINT_SCALE);
-                int momentumContributionFixedPointZ = (int)round(momentumCellStar.z * FIXED_POINT_SCALE);
+                int massContributionFixedPoint = (int)round(massCell * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointX = (int)round(momentumCellStar.x * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointY = (int)round(momentumCellStar.y * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointZ = (int)round(momentumCellStar.z * FIXED_POINT_SCALE_GRID);
 
                 int dummy;
                 InterlockedAdd(accumulator[cellId].massMomentum.x, momentumContributionFixedPointX, dummy);
