@@ -932,10 +932,12 @@ float ComputePhi(uint index, uint brushId)
     float phi;
 
     //TODO: change via material. Remove the splat, both are splotters
+    /*
     if(Brushes[brushId].type == 2) //Splat, remove later.
         phi = CalculateMetaballPhi(dens, brushId);
     else
-    phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
+    */
+        phi = CalculateSDFGaussDistance(voxelsL1Out[index].distance, voxelsL1Out[index].density);
     return clamp(phi, -SDF_MAX, SDF_MAX);
 
     //return CalculateMetaballPhi(voxelsL1Out[index].density);

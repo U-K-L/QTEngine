@@ -411,7 +411,7 @@ void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
                 
                 float3 diffWS = worldPos - position;
                 float squaredDist = dot(diffWS, diffWS);
-                
+
                 float expProxy = -squaredDist * invsigma;
 
                 float gaussianValue = amplitude * exp2(expProxy * 1.44269504089f);

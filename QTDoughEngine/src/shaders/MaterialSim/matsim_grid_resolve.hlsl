@@ -68,13 +68,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
     {
         float contactBand = saturate(1.0f - phi / collisionBand);
 
-        //if (vn < 0.0f)
-        //    velocity -= vn * contactBand * n;
+        if (vn < 0.0f)
+            velocity -= vn * contactBand * n;
 
         float friction = 0.4f;
         float3 vt = velocity - dot(velocity, n) * n;
-        //velocity -= vt * friction * contactBand;
-        velocity = 0;
+        velocity -= vt * friction * contactBand;
     }
 
 

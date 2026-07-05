@@ -264,7 +264,7 @@ class MaterialSimulation
 		float subDt = dt / numSubsteps;
 
 		bool usePBMPM = true;
-		int iterationCount = 1;
+		int iterationCount = 3;
 		bool useCenterHop = false;
 
 		struct PushConsts {

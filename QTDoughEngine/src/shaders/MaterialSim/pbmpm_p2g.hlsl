@@ -45,7 +45,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (globalIndex >= QUANTA_COUNT)
         return;
 
-    Quanta quanta = quantaOut[globalIndex];
+    Quanta quanta = quantaIn[globalIndex];
 
     if (quanta.position.w < 1.0f)
         return;

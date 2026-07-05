@@ -61,12 +61,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (brush.interactiveType == 1)
         return;
 
-    float3 centerVelocity = brushMatricies[brushId].velocity.xyz;
+    float3 pos = quanta.position.xyz;
 
-    //Linear projection.
-    float3 positionNew = quanta.position.xyz + pc.dt * centerVelocity;
+    float3 posNew = pos + pc.dt * quanta.mana.xyz;
 
-    quanta.position.xyz = positionNew;
+    quanta.position.xyz = posNew;
 
     QuantaSeal(quanta, brush);
 

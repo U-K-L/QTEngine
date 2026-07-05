@@ -47,14 +47,18 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
         return;
 
     uint qIdx = quantaIds[globalIndex];
-    Quanta quanta = quantaOut[qIdx];
-
-    if (quanta.position.w < 1.0f)
-        return;
+    Quanta quanta = quantaIn[qIdx];
 
     int brushId = quanta.information.x - 1;
-    if (brushId < 0)
+
+    // Skipped quanta must still be copied through: with the In/Out ping-pong,
+    // any slot not written this frame would carry two-frame-old state forward.
+    if (quanta.position.w < 1.0f || brushId < 0)
+    {
+        quantaOut[qIdx] = quanta;
+        deformOut[qIdx] = deformIn[qIdx];
         return;
+    }
 
     QuantaUnseal(quanta, Brushes[brushId]);
 
