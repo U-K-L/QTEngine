@@ -1,5 +1,7 @@
 #include "RayTracerPass.h"
 #include "VoxelizerPass.h"
+#include "../Physics/MaterialSimulationPass.h"
+#include "../Renderer/MeshProcessor.h"
 #include <random>
 
 static const uint32_t kMaxPrimsPerBLAS = 1u << 20;
@@ -699,11 +701,13 @@ void RayTracerPass::BuildBLAS_PerBrush(
     uint32_t vertexCount, VkDeviceSize vertexStride)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+    uint32_t maxInstancesCount = MAX_MESH_INSTANCES;
+
     auto& F = rtAS[frame];
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
 
-    if (F.perBrushBlas.size() < voxelizer->maxBrushCapacity)
-        F.perBrushBlas.resize(voxelizer->maxBrushCapacity);
+    if (F.perBrushBlas.size() < maxInstancesCount)
+        F.perBrushBlas.resize(maxInstancesCount);
 
     auto& B = F.perBrushBlas[brushIdx];
 
@@ -806,22 +810,36 @@ void RayTracerPass::BuildTLAS_MultiInstance(
     const VkTransformMatrixKHR& xform)
 {
     QTDoughApplication* app = QTDoughApplication::instance;
+    MeshProcessor* meshProcessor = MeshProcessor::instance;
+
+    auto& verticesCountOffset = meshProcessor->GetVerticesCountOffset();
+
     auto& F = rtAS[frame];
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
+    uint32_t maxInstancesCount = MAX_MESH_INSTANCES;
+    uint32_t rayMask = 0xFF;
 
     std::vector<VkAccelerationStructureInstanceKHR> instanceList;
-    instanceList.reserve(voxelizer->brushes.size());
-    for (size_t i = 0; i < voxelizer->brushes.size(); ++i)
+    instanceList.reserve(maxInstancesCount);
+    for (size_t i = 0; i < maxInstancesCount; ++i)
     {
-        if (i >= voxelizer->BrushVerticesCount.size() || voxelizer->BrushVerticesCount[i] == 0)
+        if (i >= verticesCountOffset.size())
+            continue;
+
+        uint32_t verticesCount = get<0>(verticesCountOffset[i]);
+        
+        if (verticesCount == 0)
             continue;
         if (i >= F.perBrushBlas.size() || F.perBrushBlas[i].blas == VK_NULL_HANDLE)
             continue;
 
+        if (voxelizer->brushes.size() > i)
+            rayMask = voxelizer->brushes[i].rayMask;
+
         VkAccelerationStructureInstanceKHR inst{};
         inst.transform = xform;
         inst.instanceCustomIndex = static_cast<uint32_t>(i) & 0xFFFFFF;
-        inst.mask = voxelizer->brushes[i].rayMask & 0xFF;
+        inst.mask = rayMask & 0xFF;
         inst.instanceShaderBindingTableRecordOffset = 0;
         inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
         inst.accelerationStructureReference = F.perBrushBlas[i].blasAddr;
@@ -834,7 +852,7 @@ void RayTracerPass::BuildTLAS_MultiInstance(
         return;
 
     const VkDeviceSize instancesBytes = sizeof(VkAccelerationStructureInstanceKHR) * instanceList.size();
-    const VkDeviceSize instanceBufferBytes = sizeof(VkAccelerationStructureInstanceKHR) * voxelizer->maxBrushCapacity;
+    const VkDeviceSize instanceBufferBytes = sizeof(VkAccelerationStructureInstanceKHR) * maxInstancesCount;
 
     if (F.instanceBuffer == VK_NULL_HANDLE) {
         app->CreateBuffer(
@@ -940,6 +958,9 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
 {
     QTDoughApplication* app = QTDoughApplication::instance;
     VoxelizerPass* voxelizer = VoxelizerPass::instance;
+    MeshProcessor* meshProc = MeshProcessor::instance;
+
+    auto& verticesCountOffset = meshProc->GetVerticesCountOffset();
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -955,36 +976,23 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    const uint32_t readIdx = (currentFrame + 1) % 2;
+    const uint32_t readIdx = (currentFrame + 1) % QTDoughApplication::MAX_FRAMES_IN_FLIGHT;
 
-    // Sync voxelizer's compute writes to meshingPositionBuffer with the per-brush BLAS reads.
-    VkBufferMemoryBarrier mpBarrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-    mpBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    mpBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-    mpBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    mpBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    mpBarrier.buffer = voxelizer->meshingPositionBuffers[readIdx];
-    mpBarrier.offset = 0;
-    mpBarrier.size = VK_WHOLE_SIZE;
-
-    vkCmdPipelineBarrier(commandBuffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-        0, 0, nullptr, 1, &mpBarrier, 0, nullptr);
-
-    // Build per-brush BLASes over each brush's slice of meshingPositionBuffer.
-    const VkDeviceSize vertexStride = sizeof(float) * 4;
-    for (size_t i = 0; i < voxelizer->brushes.size(); ++i)
+    uint32_t maxInstancesCount = MAX_MESH_INSTANCES;
+    const VkDeviceSize vertexStride = sizeof(Vertex);
+    for (size_t i = 0; i < maxInstancesCount; ++i)
     {
-        if (i >= voxelizer->BrushVerticesCount.size())
+        if (i >= verticesCountOffset.size())
             break;
-        uint32_t vertexCount = voxelizer->BrushVerticesCount[i];
+        uint32_t vertexCount = get<0>(verticesCountOffset[i]);
         if (vertexCount == 0)
             continue;
-        VkDeviceSize vertexOffset = static_cast<VkDeviceSize>(voxelizer->BrushVertexOffsets[i]) * vertexStride;
+        VkDeviceSize vertexOffset = static_cast<VkDeviceSize>(get<1>(verticesCountOffset[i])) * vertexStride;
+
         BuildBLAS_PerBrush(commandBuffer, currentFrame, static_cast<uint32_t>(i),
-            voxelizer->meshingPositionBuffers[readIdx], vertexOffset, vertexCount, vertexStride);
+            meshProc->GetVerticesGPUBuffer(readIdx), vertexOffset, vertexCount, vertexStride);
     }
+
     BuildTLAS_MultiInstance(commandBuffer, currentFrame);
 
     VkAccelerationStructureKHR tlasForFrame = rtAS[currentFrame].tlas;
@@ -1005,7 +1013,10 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     PushConsts pc{};
     pc.lod = 0;
     pc.triangleCount = 0;
-    pc.voxelResolution = voxelizer->WORLD_SDF_RESOLUTION;
+    pc.voxelResolution = glm::ivec4(app->WORLD_SDF_RESOLUTION, 0);
+    pc.aabbCenter = app->worldSDFCenter;
+    pc.sceneSize = glm::vec4(VoxelizerPass::instance->sceneSize, 0.0f);
+    pc.dcAABBSize = glm::vec4(VoxelizerPass::instance->dcAABBSize, 0.0f);
 
     vkCmdPushConstants(
         commandBuffer,
@@ -1020,7 +1031,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     );
 
     VkDescriptorBufferInfo vbInfo{};
-    vbInfo.buffer = voxelizer->meshingVertexBuffers[readIdx];
+    vbInfo.buffer = meshProc->GetVerticesGPUBuffer(readIdx);
     vbInfo.offset = 0;
     vbInfo.range = VK_WHOLE_SIZE;
 
@@ -1034,7 +1045,7 @@ void RayTracerPass::Dispatch(VkCommandBuffer commandBuffer, uint32_t currentFram
     vkUpdateDescriptorSets(app->_logicalDevice, 1, &vbWrite, 0, nullptr);
 
     VkDescriptorBufferInfo bvoInfo{};
-    bvoInfo.buffer = voxelizer->brushVertexOffsetsBuffers[readIdx];
+    bvoInfo.buffer = meshProc->GetVerticesOffsetsGPUBuffer(readIdx);
     bvoInfo.offset = 0;
     bvoInfo.range = VK_WHOLE_SIZE;
 

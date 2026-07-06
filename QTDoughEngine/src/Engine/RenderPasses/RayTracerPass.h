@@ -121,8 +121,13 @@ public:
     struct PushConsts {
         float lod;
         uint32_t triangleCount;
-        glm::ivec3 voxelResolution;
-        glm::vec3 aabbCenter;
+        glm::ivec4 voxelResolution;
+        glm::vec4 aabbCenter;
+        float supportMultiplier;
+        int viewMode;
+        int countOnly;
+        glm::vec4 sceneSize;
+        glm::vec4 dcAABBSize;
     };
 
 

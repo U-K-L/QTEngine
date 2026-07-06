@@ -10,6 +10,8 @@ struct GameObjectShaderData
     float4 Midtone;
     float4 Highlight;
     float4 Shadow;
+    float4 smoothRefract;
+    float4 absorption;
 };
 
 struct GPULight
@@ -18,14 +20,24 @@ struct GPULight
     float3 direction;
 };
 
+float4 absorptionFunc(float4 absorptionRate)
+{
+    float k = 1.155f;
+    return exp2(-k * absorptionRate);
+
+}
+
 float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, inout Photon photon, in Surface surface, in GPULight light)
 {
+    float diffuseLobeEnergy = 1.0f - material.smoothRefract.z;
+    float specularLobeEnergy = material.smoothRefract.z;
+    
     //Pick based on normals.
     float3 normal = surface.normal.xyz;
     
     float3 toLight = -light.direction.xyz; //light.direction - surface.position.xyz;
     float4 Le = light.emission;
-    float3 viewDir = -photon.direction;
+    float3 viewDir = -photon.direction.xyz;
     float3 betweenVec = normalize(toLight + viewDir);
     
     float NdotL = saturate(dot(normal, toLight));
@@ -45,7 +57,7 @@ float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, inout Photon
 
     float rim = rimIntensity; // * _RimLightColor;
     
-    float4 finalSpecular = 1.0f - (specular + rim + rimBloom)*10;
+    float4 finalSpecular = 1.0f - (specular + rim + rimBloom);
     
     float4 mid = material.Midtone * 1.0725f;
     float4 shad = material.Shadow * 1.0725f;
@@ -58,16 +70,52 @@ float4 UnigmaBRDFDirectionalLight(in GameObjectShaderData material, inout Photon
     float4 BRDF = max(midTones, shadows);
     BRDF = max(BRDF, highlights);
     
+    //Refractance.
+    float3 I = normalize(photon.direction.xyz);
+    float3 N = normalize(normal);
+
+    if (dot(I, N) > 0.0f)
+        N = -N;
+
+    float n1 = photon.direction.w;
+    float n2 = material.smoothRefract.w;
+    
+    float eta = n1 / n2;
+    float3 refractedDir = refract(I, N, eta);
+    
+    float ndotv = saturate(dot(normalize(N), normalize(-I)));
+
+    float iridescence = pow(1.0f - ndotv, 2.0f);
+
+    float phase = 0.2f * 40.0f + iridescence * 6.28318f;
+
+    float3 filmColor = 0.5f + 0.5f * cos(phase + float3(0.0f, 2.094f, 4.188f));
+    
+    //float fresnel = pow(1.0f - ndotv, 5.0f);
+
+    float3 iridescentSpecular = lerp(1.0f, filmColor, material.smoothRefract.y);
+    
+    float4 specularColor = float4(iridescentSpecular, 1.0f);
     //Reflectance.
-    float roughness = 0.05f; // Add to material struct.
+    //float roughness = 0.05f; // Add to material struct.
     float3 specularReflect = reflect(photon.direction.xyz, normal);
-    float3 smoothReflect = lerp(specularReflect, normal, roughness); //Replace with diffuse direction.
-    photon.direction.xyz = smoothReflect;
+    //float3 smoothReflect = lerp(specularReflect, normal, roughness); //Replace with diffuse direction.
     
-    //Calculate energy loss. PER MATERIAL TODO.
-    photon.mana *= 0.75f; //material.absorption;
+    //Probability of it reflecting or going into the material.
+    //Use this when full probability is inserted with denoiser.
+    //float fresenelCoeff = 0.5f;
     
-    return BRDF + finalSpecular;
+    photon.direction.xyz = lerp(refractedDir, specularReflect, material.smoothRefract.x); //Hack for now.
+
+    
+    //Calculate energy loss.
+    photon.mana = photon.mana * absorptionFunc(material.absorption);
+    
+    float4 diffuseLobe = BRDF * diffuseLobeEnergy;
+    float4 specularLobe = specularColor * specularLobeEnergy;
+    
+    return BRDF.w * (diffuseLobe + specularLobe) * photon.mana;
+
 }
 
 float4 UnigmaBRDF(in GameObjectShaderData material, in Photon photon, in Surface surface, in GPULight light)

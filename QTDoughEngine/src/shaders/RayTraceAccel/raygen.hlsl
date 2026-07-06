@@ -40,7 +40,13 @@ struct PushConsts
 {
     float lod;
     uint triangleCount;
-    int3 voxelResolution;
+    int4 voxelResolution;
+    float4 aabbCenter;
+    float supportMultiplier;
+    int viewMode;
+    int countOnly;
+    float4 sceneSize;
+    float4 dcAABBSize;
 };
 
 cbuffer Constants : register(b2, space0)
@@ -56,7 +62,7 @@ PushConsts pc;
 
 float Read3D(uint textureIndex, int3 coord)
 {
-    return gBindless3D[textureIndex].Load(int4(coord, 0));
+    return gBindless3D[textureIndex].Load(int4(coord, 0)).x * SDF_MAX;
 }
 
 float Read3DMip(uint textureIndex, int3 coord, int level)
@@ -73,11 +79,11 @@ float2 GetVoxelValueTexture(int textureId, int3 coord, float sampleLevel)
 
 float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = pc.sceneSize.xyz; //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -89,11 +95,11 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 
 float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = pc.sceneSize.xyz; //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -106,17 +112,17 @@ float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 
 float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
-    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
+    float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution.xyz);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     
     float3 halfScene = sceneSize * 0.5f;
     
     float3 voxelSize = sceneSize / voxelGridRes;
 
-    if (any(pos < -halfScene) || any(pos > halfScene))
+    if (any(pos - pc.aabbCenter.xyz < -halfScene) || any(pos - pc.aabbCenter.xyz > halfScene))
         return DEFUALT_EMPTY_SPACE;
-    
+
     return TrilinearSampleSDFTexture(pos, sampleLevel);
 }
 
@@ -169,7 +175,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface)
         closesSDF = min(closesSDF, currentSDF);
 
                 
-        bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
+        bool inAABB = PointInAABB(pos, -pc.dcAABBSize.xyz * 0.5, pc.dcAABBSize.xyz * 0.5);
         
         bool canTerminate =
         (closesSDF.x < minDistReturn);// && !inAABB;
@@ -245,6 +251,7 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
         TraceRay(tlas, 0, mask, 0, 1, 0, ray, p);
         if (p.color.w > -1)
         {
+           
             surface.normal = p.color;
             return;
         }
@@ -253,20 +260,20 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
 
         TraverseGeodesic(p, ray.Origin);
             
-            //Incremental step.
+        //Incremental step.
         float ds = Propagation_Step_Length;
         ds *= 0.125f;
-            //take larger steps in empty space.
+        //take larger steps in empty space.
         float dist = samplePotentialField(p.position.xyz).x;
         float tol = 0.025f;
             
-        float3 bmin = -GetDCAABBSize() * 0.25f;
-        float3 bmax = GetDCAABBSize() * 0.25f;
+        float3 bmin = pc.aabbCenter.xyz - pc.dcAABBSize.xyz * 0.25f;
+        float3 bmax = pc.aabbCenter.xyz + pc.dcAABBSize.xyz * 0.25f;
         float tHit;
         bool centerOfInterest = RayAABB(p.position.xyz, p.direction.xyz, bmin, bmax, tHit);
             
         if (dist >= abs(DEFUALT_EMPTY_SPACE - tol) || centerOfInterest == false)
-            ds *= 16.0f;
+            ds *= 64.0f;
 
 
         ray.Origin = p.position;
@@ -274,6 +281,7 @@ void photonMarch(inout Photon p, inout Surface surface, int mask = 0xFF, int max
         ray.TMax = ds;
 
     }
+    p.direction.w = 1.0f;
 
 }
 
@@ -284,7 +292,7 @@ float4 ExcitePhoton(in Photon photon)
     probingPhoton.direction = photon.direction;
     probingPhoton.position = photon.position;
     probingPhoton.color = -1;
-    probingPhoton.mana = -1;
+    probingPhoton.mana = 1.0f;
     
     //Dummy surface
     Surface dummySurface;
@@ -302,10 +310,11 @@ float4 ExcitePhoton(in Photon photon)
     //Can I reach light? In otherwords, will this miss?
     photonMarch(probingPhoton, dummySurface, 0xFF, 16);
     
-    //Replace with material soon.
-    float4 absorption = (1.0f - (dummySurface.normal.w > -1))*0.3f + 0.7f; //dummySurface.material.absorption;
-    
-    return Le * absorption;
+    float4 absorbed = 1.0f;
+    if (dummySurface.normal.w > -1)
+        absorbed = absorptionFunc( 0.2285f * globalObjMaterials[(uint) (dummySurface.normal.w)].absorption);
+
+    return Le * absorbed;
     
 }
 
@@ -316,9 +325,9 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
     p.mana = ExcitePhoton(p);
     
     //Fire away! Multiple shots.
-    int samples = 4;
+    int samples = 8;
     float norm = 1.0f / (1.0f - exp2(-(float) samples));
-    float pdfWeight = (exp2(-(float) (0 + 1)) * norm) * p.mana.w;
+    float pdfWeight = p.mana.w;
     for (int i = 0; i < samples; i++)
     {   
         //Initial Pass.
@@ -336,10 +345,11 @@ float4 accumulateLight(inout Photon p, in Surface surface, float3 camPos, bool r
         if (p.mana.w < 0.001f) //DEAD.
             break;
         
-        p.mana = pdfWeight * ExcitePhoton(p);
+        p.mana *= ExcitePhoton(p);
         
         //Ensures it always sums to the mana availible, can go above 1, which causes bloom in HDR.
-        pdfWeight = (exp2(-(float) (i + 1)) * norm) * p.mana.w;
+        //(exp2(-(float) (i + 1)) * norm)
+        pdfWeight =  p.mana.w;
         
         photonMarch(p, surface, 0xFF, 8);
         if (surface.normal.w >= 0)
@@ -397,7 +407,7 @@ void main()
     p.mana = 0.0f;
     p.position = float4(ro, 0);
     p.color = float4(0, 0, 0, 0);
-    p.direction = float4(rd, 0);
+    p.direction = float4(rd, 1.0f);
     
     GameObjectShaderData material;
     material.Midtone = float4(0.90, 0.9, 0.78, 1.0);
@@ -418,8 +428,8 @@ void main()
     float4 finalColor = 0;
     
     //Get the main center of the world by which triangle based ray tracing is done.
-    float3 bmin = -GetDCAABBSize() * 0.5f;
-    float3 bmax = GetDCAABBSize() * 0.5f;
+    float3 bmin = -pc.dcAABBSize.xyz * 0.5f;
+    float3 bmax = pc.dcAABBSize.xyz * 0.5f;
     bool rayHitAABB = true; //RayAABB(ro, rd, bmin, bmax, tHit); TEMP OFF.
     
     
@@ -442,10 +452,18 @@ void main()
     
     if (surfaceHit)
         finalColor = accumulateLight(p, surface, camPos);
+    
+    float materialPhase = 0;
+    //Replace with phase it's in. Which can be per voxel/"triangle" Makes white outline for liquids
+    //TODO: CHANGE TO MATERIAL.
+    if(Brushes[firstHitSurface.normal.w].type == 2)
+        materialPhase = 1;
+    else
+        materialPhase = 0;
 
     
     gBindlessStorage[albedoHandle][pixel] = float4(finalColor.xyz, 1.0f-visibility.x);
     gBindlessStorage[normalHandle][pixel] = float4(firstHitSurface.normal.xyz, depthMapped);
-    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, firstHitSurface.normal.w);
-
+    //gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, firstHitSurface.normal.w);
+    gBindlessStorage[positionHandle][pixel] = float4(p.position.xyz, materialPhase);
 }

@@ -3,12 +3,8 @@
 #include "UnigmaGameObject.h"
 #include "../Rendering/UnigmaCamera.h"
 #include <SDL.h>
-#include "PxPhysicsAPI.h"
-#include "PxScene.h"
 #include "../json/json.hpp"
 
-
-using namespace physx;
 class UnigmaScene
 {
 	public:
@@ -23,7 +19,6 @@ class UnigmaScene
 	void LoadJSON(std::string scenePath);
 	void CleanUpScene();
 
-	PxScene* physicsScene;
 	uint32_t Index;
 	std::vector<uint32_t> GameObjectsIndex;
 	UnigmaGameObject camera;

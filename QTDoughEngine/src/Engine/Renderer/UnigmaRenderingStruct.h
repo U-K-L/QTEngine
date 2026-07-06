@@ -17,6 +17,7 @@ struct Vertex {
 	glm::vec4 color = glm::vec4(1.0f);              // Default color (white)
 	glm::vec4 texCoord = glm::vec4(0.0f);
 	glm::vec4 normal = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f); // Default normal (pointing along +Z axis)
+    glm::ivec4 quantaIds; //The 4 celled quanta IDs.
 
 	bool operator==(const Vertex& other) const {
 		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;

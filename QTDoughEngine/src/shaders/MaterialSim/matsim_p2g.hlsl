@@ -15,7 +15,7 @@ struct PushConsts
     int tileGridY;
     int tileGridZ;
     int brushIndex;
-    float pad0;
+    float dt;
     float pad1;
     float pad2;
 } pc;
@@ -35,36 +35,52 @@ RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
 
 RWStructuredBuffer<MaterialGridAccumulator> accumulator : register(u21, space1);
 
-[numthreads(8, 8, 8)]
-void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
+RWStructuredBuffer<BrushAccumulator> brushAccumulator : register(u24, space1);
+
+[numthreads(512, 1, 1)]
+void main(uint3 DTid : SV_DispatchThreadID)
 {
-    uint localIndex = GTid.x + GTid.y * 8 + GTid.z * 64;
-    uint globalIndex = Gid.x * 512 + localIndex;
+    uint globalIndex = DTid.x;
 
     if (globalIndex >= QUANTA_COUNT)
         return;
 
-    Quanta q = quantaIn[globalIndex];
+    Quanta quanta = quantaIn[globalIndex];
 
-    if (q.position.w < 1.0f)
+    if (quanta.position.w < 1.0f)
         return;
 
-    float mass = q.position.w;
-
     // --- Grid constants ---
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5f;
-    int3 gridRes = GetMaterialGridSize();
-    float3 cellSize = sceneSize / float3(gridRes);
+    int3 gridResolution = GetMaterialGridSize();
+    float3 cellSize = sceneSize / float3(gridResolution);
+
+    float mass = 0.1f;//quanta.position.w;
+    float3x3 AffineVelocity = deformIn[globalIndex].AffVel; //Particle affine velocity.
+    float3x3 DefformationF = deformIn[globalIndex].DeffGrad;
+
+    //modifiable ----------
+    float E = 12888.0f;
+    float nu = 0.25f;
+    float particlesPerCell = 1.0f;
+
+    float mu = E / (2.0f * (1.0f + nu));
+    float lambda = E * nu / ((1.0f + nu) * (1.0f - 2.0f * nu));
+    float cellVolume = cellSize.x * cellSize.y * cellSize.z;
+    float volume0 = cellVolume / particlesPerCell;
+    //----------------
+
+    float3x3 stressTensor = ComputeStress(DefformationF, mu, lambda); //Changable models.
 
     // --- World-space position ---
-    float3 pos = q.position.xyz;
-    int brushId = q.information.x - 1;
+    float3 quantaPosition = quanta.position.xyz;
+    int brushId = quanta.information.x - 1;
     if (brushId >= 0)
-        pos = mul(Brushes[brushId].model, float4(pos, 1.0f)).xyz;
+        quantaPosition = mul(Brushes[brushId].model, float4(quantaPosition, 1.0f)).xyz;
 
     // --- Quadratic B-spline base cell and weights ---
-    float3 gs = (pos + halfScene) / cellSize;
+    float3 gs = (quantaPosition + halfScene) / cellSize;
     int3 base = int3(floor(gs - 0.5f));
     float3 fx = gs - float3(base);
 
@@ -80,8 +96,8 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     wz[0] = 0.5f * (1.5f - fx.z) * (1.5f - fx.z);
     wz[1] = 0.75f - (fx.z - 1.0f) * (fx.z - 1.0f);
     wz[2] = 0.5f * (fx.z - 0.5f) * (fx.z - 0.5f);
-
-    // --- 27-cell stencil: scatter mass onto accumulator ---
+    
+    // --- 27-cell stencil: scatter mass onto accumulator
     [unroll]
     for (int i = 0; i < 3; i++)
     {
@@ -91,24 +107,38 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
             [unroll]
             for (int k = 0; k < 3; k++)
             {
-                int3 cellCoord = base + int3(i, j, k);
+                int3 cellCoordinate = base + int3(i, j, k); // node offset.
 
-                if (any(cellCoord < 0) || any(cellCoord >= gridRes))
+                if (any(cellCoordinate < 0) || any(cellCoordinate >= gridResolution))
                     continue;
 
+                int cellId = Flatten3D(cellCoordinate, gridResolution);
                 float weight = wx[i] * wy[j] * wz[k];
-                int idx = Flatten3D(cellCoord, gridRes);
 
-                int massContribution = (int)round(weight * mass * FIXED_POINT_SCALE);
-                int momX = (int)round(weight * mass * q.mana.x * FIXED_POINT_SCALE);
-                int momY = (int)round(weight * mass * q.mana.y * FIXED_POINT_SCALE);
-                int momZ = (int)round(weight * mass * q.mana.z * FIXED_POINT_SCALE);
+                float3 nodePos = float3(cellCoordinate) * cellSize - halfScene;
+                float3 dx = nodePos - quantaPosition;
+
+                float3 velocityCell = quanta.mana.xyz + mul(AffineVelocity, dx);
+
+                float3 elasticTerm = mul(INERTIA_TENSOR_INVERSE,mul(stressTensor,mul(transpose(DefformationF), dx)));
+                
+                float3 forceCell = -weight * volume0 * elasticTerm;
+
+                float massCell = weight * mass;
+                float3 momentumCell = massCell * velocityCell;
+
+                float3 momentumCellStar = momentumCell + pc.dt * forceCell;
+                
+                int massContributionFixedPoint = (int)round(massCell * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointX = (int)round(momentumCellStar.x * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointY = (int)round(momentumCellStar.y * FIXED_POINT_SCALE_GRID);
+                int momentumContributionFixedPointZ = (int)round(momentumCellStar.z * FIXED_POINT_SCALE_GRID);
 
                 int dummy;
-                InterlockedAdd(accumulator[idx].massMomentum.x, momX, dummy);
-                InterlockedAdd(accumulator[idx].massMomentum.y, momY, dummy);
-                InterlockedAdd(accumulator[idx].massMomentum.z, momZ, dummy);
-                InterlockedAdd(accumulator[idx].massMomentum.w, massContribution, dummy);
+                InterlockedAdd(accumulator[cellId].massMomentum.x, momentumContributionFixedPointX, dummy);
+                InterlockedAdd(accumulator[cellId].massMomentum.y, momentumContributionFixedPointY, dummy);
+                InterlockedAdd(accumulator[cellId].massMomentum.z, momentumContributionFixedPointZ, dummy);
+                InterlockedAdd(accumulator[cellId].massMomentum.w, massContributionFixedPoint, dummy);
 
             }
         }

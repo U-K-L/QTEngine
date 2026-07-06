@@ -36,4 +36,5 @@ void UnigmaRenderingManager::CreateLightObject(UnigmaGameObject& gameObject)
 
 
 	Lights.push_back(lightObject);
+
 }

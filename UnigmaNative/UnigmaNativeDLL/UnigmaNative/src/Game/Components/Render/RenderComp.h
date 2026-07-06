@@ -34,6 +34,7 @@ public:
 	{
 		Mesh,
 		Sphere,
+		Splat
 	};
 
 	enum ParticleDensity

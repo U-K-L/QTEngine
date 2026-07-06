@@ -171,7 +171,7 @@ float4 main(VSOutput i) : SV_Target
     float depthFiniteDifference1 = abs(depth3 - depth2);
     
     float edgeDepth = sqrt(pow(depthFiniteDifference0, 2) + pow(depthFiniteDifference1, 2)) * 2;
-    edgeDepth = edgeDepth > _DepthThreshold ? 1 : 0;
+    edgeDepth = edgeDepth + edgePos > _DepthThreshold ? 1 : 0;
     //edgeDepth *= 1.0 - step(depthImage.r, 0.9999);
     
     //Combine the lines. most outter overrides most inner.

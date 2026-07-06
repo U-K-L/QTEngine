@@ -28,8 +28,37 @@
 #include <stack>
 #include "UnigmaBlend.h"
 #include "../Engine/Renderer/UnigmaTexture.h"
+
+// GPU debug labels (Nsight / RenderDoc). Requires VK_EXT_debug_utils (enabled at instance).
+// Extension entry points are loaded via vkGetInstanceProcAddr in InitVulkan.
+extern PFN_vkCmdBeginDebugUtilsLabelEXT pfnVkCmdBeginDebugUtilsLabelEXT;
+extern PFN_vkCmdEndDebugUtilsLabelEXT pfnVkCmdEndDebugUtilsLabelEXT;
+
+inline void BeginGpuLabel(VkCommandBuffer cmd, const char* name)
+{
+	if (!pfnVkCmdBeginDebugUtilsLabelEXT)
+		return;
+	VkDebugUtilsLabelEXT label{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+	label.pLabelName = name;
+	pfnVkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+}
+
+inline void EndGpuLabel(VkCommandBuffer cmd)
+{
+	if (!pfnVkCmdEndDebugUtilsLabelEXT)
+		return;
+	pfnVkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+struct GpuLabelScope
+{
+	VkCommandBuffer cmd;
+	GpuLabelScope(VkCommandBuffer c, const char* name) : cmd(c) { BeginGpuLabel(c, name); }
+	~GpuLabelScope() { EndGpuLabel(cmd); }
+};
 #include "../Engine/Renderer/UnigmaRenderingStruct.h"
 #include "../Engine/Core/UnigmaGameObject.h"
+#include "../Engine/Renderer/MeshGenerator.h"
 
 #include <array>
 #include <chrono>
@@ -120,7 +149,8 @@ struct GameObjectShaderData
     glm::vec4 Midtone;
     glm::vec4 Highlight;
     glm::vec4 Shadow;
-
+    glm::vec4 smoothRefract;
+    glm::vec4 absorption;
 };
 
 static std::vector<char> readFile(const std::string& filename) {
@@ -278,7 +308,7 @@ public:
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     VkVertexInputBindingDescription getBindingDescription();
     std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
-    const int MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<VkDynamicState> dynamicStates = {
     VK_DYNAMIC_STATE_VIEWPORT,
     VK_DYNAMIC_STATE_SCISSOR
@@ -308,7 +338,10 @@ public:
     void CreateGlobalDescriptorSet();
     void CreateGlobalDescriptorSetLayout();
     void UpdateGlobalDescriptorSet();
-    void ReadBackGPUData();
+    void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame);
+    void ConsumeReadback(uint32_t currentFrame);
+    void FeedMeshProcessor(uint32_t currentFrame);
+
     //void DebugPrintParticles(uint32_t currentFrame);
     void LoadTexture(const std::string& filename);
     void CompositePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -321,6 +354,7 @@ public:
     void EndSingleTimeCommandsAsync(uint32_t currentFrame, VkCommandBuffer commandBuffer, std::function<void()> callback);
     void CreateGlobalSamplers(uint32_t samplerCount);
     void ReadbackBufferData(VkBuffer srcBuffer, VkDeviceSize size, void* pDstData, VkDeviceSize srcOffset);
+    void PushMeshGenerator(MeshGenerator* meshGenerator);
 
     void StartRecording(const char* path, uint32_t fps);
     void StopRecording();
@@ -364,6 +398,10 @@ public:
     int GameQualityLevel = 0;
     int GeneratedMeshSmoothness = 0;
 
+    //Voxel settings.
+    glm::ivec3 WORLD_SDF_RESOLUTION = glm::ivec3(1024, 1024, 256);
+    glm::vec4 worldSDFCenter = glm::vec4(0, 0, 0, 0);
+
 
 
 private:
@@ -391,6 +429,8 @@ private:
     void CreateCompute();
     void CreateShaderStorageBuffers();
     void RunMainGameLoop();
+    void RefreshMeshProcessor();
+    void RefreshMeshGenerators();
     void DrawFrame();
     void ComputePhysics();
     void CreateSyncObjects();

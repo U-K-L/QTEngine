@@ -1,5 +1,15 @@
 #include "../Helpers/ShaderHelpers.hlsl"
 
+cbuffer UniformBufferObject : register(b0, space1)
+{
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+    float4 texelSize; // xy = 1/width, 1/height
+    float isOrtho;
+}
+
+
 cbuffer Constants : register(b2, space0)
 {
     float deltaTime;
@@ -46,7 +56,7 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     Quanta q = quantaIn[globalIndex];
     int brushId = q.information.x - 1;
     
-        
+    /*
     //Reset
     if (q.information.x > 0 && q.information.z > 0 && q.mana.w < 0.01f)
     {
@@ -57,33 +67,56 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
     }
     
     //Skip.
-    if (q.position.w < 1 || q.mana.w < 0.01)
+    if ((q.position.w < 1 || q.mana.w < 0.01))
     {
         quantaOut[globalIndex] = q;
         return;
     }
+    */
 
-
-
+    
+    if (brushId >= 0)
+        QuantaUnseal(q, Brushes[brushId]);
 
     float3 worldPos = q.position.xyz;
-    
-    if (brushId >= 0)
-        worldPos = mul(Brushes[brushId].model, float4(q.position.xyz, 1.0f)).xyz;
-    
-    float3 gravity = float3(0, 0, -9.8f) * q.mana.w;
-    worldPos += gravity * deltaTime * 0.01f;
-    
-    if (brushId >= 0)
-    {
-        q.position.xyz = mul(Brushes[brushId].invModel, float4(worldPos, 1.0f)).xyz;
+    float4 clip = mul(view, float4(worldPos, 1.0));
 
-        // If quanta left its brush AABB, unassign it.
-        float3 qUvw = (q.position.xyz - Brushes[brushId].aabbmin.xyz) / (Brushes[brushId].aabbmax.xyz - Brushes[brushId].aabbmin.xyz);
-        if (any(qUvw < 0.0f) || any(qUvw > 1.0f))
-            q.information.x = 0;
+    float3 ndc = clip.xyz / clip.w;
+
+    float2 uv = ndc.xy * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y; 
+
+    //Distance from observer:
+    float4x4 invProj = inverse(proj);
+    float4x4 invView = inverse(view);
+
+    float4 viewPos = mul(invProj, float4(uv.x, uv.y, 0, 1));
+
+    float3 perspectiveRayDir = normalize(mul((float3x3) invView, normalize(viewPos.xyz)));
+    float3 perspectiveRayOrigin = mul(invView, float4(0, 0, 0, 1)).xyz;
+
+    float3 orthoRayOrigin = mul(invView, float4(viewPos.xyz, 1.0)).xyz;
+    float3 orthoRayDir = normalize(mul((float3x3) invView, float3(0, 0, -1)));
+
+    float3 ro = lerp(perspectiveRayOrigin, orthoRayOrigin, isOrtho);
+
+    float linearDepth = distance(worldPos.xyz, ro);
+
+    q.resonance.w = linearDepth;
+
+    if (ndc.x < -1.0 || ndc.x > 1.0 ||
+        ndc.y < -1.0 || ndc.y > 1.0 ||
+        ndc.z <  0.0 || ndc.z > 1.0)
+    {
+        q.resonance.w = 99999;
     }
-    else
-        q.position.xyz = worldPos;
+
+    if (clip.w <= 0.0)
+        q.resonance.w = 99999; // behind camera
+
+    if (brushId >= 0)
+        QuantaSeal(q, Brushes[brushId]);
+
+
     quantaOut[globalIndex] = q;
 }

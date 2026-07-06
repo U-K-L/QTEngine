@@ -59,16 +59,7 @@ public:
     std::vector<std::vector<Particle>> frameReadbackData;
     std::vector<UnigmaRenderingObject*> GameObjects;
 
-    //Compute vertex with significantly less data to compact to meaningful data.
-    struct ComputeVertex
-	{
-		glm::vec4 position;
-        glm::vec4 normal;
-		glm::vec4 texCoord;
-	};
-
-
-    std::vector<ComputeVertex> vertices;     // Vertex Soup
+    std::vector<Vertex> vertices;     // Vertex Soup
     std::vector<uint32_t> indices; // Index Soup
     std::vector<glm::uvec3> triangleIndices; // Triangle indices
     VkBuffer vertexBuffer;
@@ -99,5 +90,7 @@ public:
     virtual void DebugCompute(uint32_t currentFrame);
     virtual void UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t currentImage, uint32_t currentFrame, UnigmaCameraStruct& CameraMain);
     virtual void CreateTriangleSoup();
-    virtual void ReadBackGPUData();
+    virtual void ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame);
+    virtual void ConsumeReadback(uint32_t currentFrame);
+    virtual void FeedMeshProcessor(uint32_t currentFrame);
 };

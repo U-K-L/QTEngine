@@ -39,10 +39,12 @@ void ComputePass::CreateTriangleSoup()
 
         for (auto& vertex : renderingObjects[i]->_renderer.vertices)
         {
-            ComputeVertex computeVertex;
-            computeVertex.position = glm::vec4(vertex.pos.x, vertex.pos.y, vertex.pos.z, 1.0f);
+            Vertex computeVertex;
+            computeVertex.pos = glm::vec4(vertex.pos.x, vertex.pos.y, vertex.pos.z, 1.0f);
+            computeVertex.color = vertex.color;
             computeVertex.texCoord = glm::vec4(vertex.texCoord);
             computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
+            computeVertex.quantaIds = glm::ivec4(-1); // Unassigned until the vertex-quanta pass claims them.
 
 
             vertices.push_back(computeVertex);
@@ -59,7 +61,7 @@ void ComputePass::CreateTriangleSoup()
     }
 
 
-    VkDeviceSize vertexSize = sizeof(ComputeVertex) * vertices.size();
+    VkDeviceSize vertexSize = sizeof(Vertex) * vertices.size();
     VkDeviceSize indexSize = sizeof(glm::uvec3) * (indices.size() / 3); // each triangle = 1 glm::uvec3
 
     std::cout << "Vertex count: " << vertices.size() << std::endl;
@@ -190,8 +192,8 @@ void ComputePass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t cu
 
         for (auto& vertex : renderingObjects[i]->_renderer.vertices)
         {
-            ComputeVertex computeVertex;
-            computeVertex.position = model * glm::vec4(vertex.pos, 1.0f);
+            Vertex computeVertex;
+            computeVertex.pos = model * glm::vec4(vertex.pos, 1.0f);
             computeVertex.texCoord = glm::vec4(vertex.texCoord, 0.0f, 0.0f);
             computeVertex.normal = glm::vec4(normalMatrix * vertex.normal, 0.0f); // use normal matrix
 
@@ -200,7 +202,7 @@ void ComputePass::UpdateUniformBuffer(VkCommandBuffer commandBuffer, uint32_t cu
     }
     */
 
-    VkDeviceSize vertexBufferSize = sizeof(ComputeVertex) * vertices.size();
+    VkDeviceSize vertexBufferSize = sizeof(Vertex) * vertices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
     app->CreateBuffer(vertexBufferSize,
@@ -767,9 +769,19 @@ void ComputePass::DebugCompute(uint32_t currentFrame)
         });
 }
 
-void ComputePass::ReadBackGPUData()
+void ComputePass::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame)
 {
 
+}
+
+void ComputePass::ConsumeReadback(uint32_t currentFrame)
+{
+
+}
+
+void ComputePass::FeedMeshProcessor(uint32_t currentFrame)
+{
+    
 }
 
 void ComputePass::CreateMaterials() {

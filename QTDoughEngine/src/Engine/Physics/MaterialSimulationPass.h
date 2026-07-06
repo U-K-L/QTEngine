@@ -2,6 +2,7 @@
 #include <atomic>
 #include "../../Application/QTDoughApplication.h"
 #include "../Renderer/UnigmaMaterial.h"
+#include "../Renderer/MeshGenerator.h"
 
 #define QUANTA_COUNT 2097152 //Only changes per official build. 
 
@@ -14,8 +15,9 @@ struct Mat3x3_16 {
 //The particle that emerges from the field.
 //Compact, w values may store arbitrary different results.
 struct Quanta {
+	glm::vec4 canonicalPosition;
 	glm::vec4 position; //The position this quanta is currently in. w is mass.
-	glm::vec4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating.
+	glm::vec4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating. w is distance from the observer.
 	glm::ivec4 information; //Hashed ledger, maps to a lookup, a larger ledger.
 	glm::vec4 mana; //Potential energy. xyz is velocity, w energy.
 };
@@ -23,6 +25,7 @@ struct Quanta {
 struct QuantaDeformation {
 	Mat3x3_16 DeffGrad;
 	Mat3x3_16 AffVel;
+	Mat3x3_16 CandidateDeff;
 };
 
 struct MaterialGridPoint {
@@ -77,12 +80,32 @@ struct UnigmaField
 	float* MaterialGridSDFData; // mapped pointer for quick CPU read/write access to SDF data.
 };
 
+//Used for aggregated brush information such as centroids.
+struct BrushMatrix
+{
+	glm::vec4 bCentroid; //xyz is pos, w is count.
+	glm::vec4 velocity;
+	glm::vec4 inertia;
+};
+
+//Used for atomics, must be in fixed point format.
+struct BrushAccumulator
+{
+	glm::ivec4 bcentroid;
+	glm::ivec4 velocity;
+	glm::ivec4 inertia;
+};
+
+#define MAT_SIM_BINDINGS 26
+
+
 class MaterialSimulation
 {
 
 	public:
 		MaterialSimulation();
 		~MaterialSimulation();
+		void Update();
 		static MaterialSimulation* instance;
 		int pendingCollapseBrushIndex = -1;
 
@@ -95,7 +118,7 @@ class MaterialSimulation
 		void InitQuanta();
 		void InitMaterialGrid();
 		void InitComputeWorkload(); //eg descriptors, layouts, etc. Calls all below in order.
-		void CreateComputeDescriptorSetLayout();
+		void CreateComputeDescriptorSetLayout(const uint32_t bindingCount);
 		void CreateDescriptorPool();
 		void CreateComputeDescriptorSets();
 		void CreateComputePipeline();
@@ -106,8 +129,11 @@ class MaterialSimulation
 		void DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer); //Per-brush collapse after sim.
 		void DispatchCollapseFill(VkCommandBuffer commandBuffer); //Per-voxel fill: claim quanta into brush density grid.
 		void DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex); //Direct per-brush quanta assignment on creation.
+		void DispatchBrushAssignVertexQuanta(VkCommandBuffer commandBuffer, int brushIndex);
 		void DispatchP2G(VkCommandBuffer commandBuffer); //Particle to Grid scatter.
+		void DispatchBrushAccum(VkCommandBuffer commandBuffer); //brushAccumulator -> brushMatricies.bCentroid.
 		void DispatchG2P(VkCommandBuffer commandBuffer); //Grid to Particle gather.
+		void DispatchProjectQuanta(VkCommandBuffer commandBuffer); //Per-quanta projection pass.
 		void InitLeptons();
 		void DispatchLeptonTileSort(VkCommandBuffer commandBuffer);
 		void DispatchLeptonP2G(VkCommandBuffer commandBuffer);
@@ -115,9 +141,19 @@ class MaterialSimulation
 		void DispatchLeptonPropagate(VkCommandBuffer commandBuffer);
 		void DispatchSDFDownsample(VkCommandBuffer commandBuffer); //Copy matching SDF mip into materialGrid.
 		void DispatchDiffusion(VkCommandBuffer commandBuffer); //Diffusion step: reads materialGrid In, writes materialGrid Out.
+		void DispatchRefreshGrid(VkCommandBuffer commandBuffer);
+		void DispatchGridResolve(VkCommandBuffer commandBuffer);
+		void DispatchSolveConstraints(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMP2G(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMG2P(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMIntegrate(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMP2C(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMC2G(VkCommandBuffer commandBuffer);
+		void DispatchPBMPMC2P(VkCommandBuffer commandBuffer);
 		void CopyOutToRead(VkCommandBuffer commandBuffer); //Copies Out buffer to READ buffer after sim.
 		void CleanUp();
 		void InitQuantaPositions();
+		void CreateGPUResources();
 		void CreateStorageBuffers();
 		void SerializeQuantaBlob(const std::string& path);
 		void SerializeQuantaText(const std::string& path);
@@ -125,9 +161,9 @@ class MaterialSimulation
 		void ReadBackQuantaFull();
 		void ReadBackMaterialGridFull();
 		void ReadBackMaterialGridSDF();
-		void DispatchQuantaCount(VkCommandBuffer commandBuffer);
-		void ReadBackQuantaCount();
+		void ReadBackBrushMatricies(VkCommandBuffer commandBuffer);
 		void SerializeMaterialGridText(const std::string& path);
+		void MaterialSimulation::IntegrateBodiesVelocity();
 		void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer);
 		int RayCast(Photon& photon, int informationDepth=0);
 		void ScreenToWorldRay(float pixelX, float pixelY, glm::vec3& outOrigin, glm::vec3& outDirection);
@@ -139,10 +175,7 @@ class MaterialSimulation
 		std::atomic<bool> readbackInProgress{false};
 		std::atomic<bool> materialGridReadbackInProgress{false};
 		std::atomic<bool> materialGridSDFReadbackInProgress{false};
-		std::atomic<bool> quantaCountReadbackInProgress{false};
-		bool quantaCountReady = false;
-		bool quantaCountDispatched = false;
-		std::vector<uint32_t> brushQuantaCounts;
+		std::atomic<bool> brushMatriciesReadbackInProgress{false};
 		static const uint32_t MAX_BRUSH_COUNT = 256;
 		UnigmaField Field; //Underlying field of everything.
 
@@ -213,9 +246,28 @@ class MaterialSimulation
 		VkDeviceMemory materialGridAccumMemory = VK_NULL_HANDLE;
 		uint64_t accumBufferSize;
 
+		std::vector<BrushMatrix> brushMatricies;
+		std::vector<VkBuffer> brushMatriciesBuffers;
+		std::vector<VkDeviceMemory> brushMatriciesMemory;
+		VkBuffer brushMatriciesReadbackBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory brushMatriciesReadbackMemory = VK_NULL_HANDLE;
+		void* brushMatriciesReadbackMapped = nullptr;
+
+		VkBuffer brushAccumBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory brushAccumMemory = VK_NULL_HANDLE;
+		uint64_t brushAccumBufferSize;
+
 		uint64_t materialMemorySize;
 
 		uint32_t currentFrame = 0;
+
+		float dt = 0.033f;
+		int numSubsteps = 1; //Make this always an odd number.
+		float subDt = dt / numSubsteps;
+
+		bool usePBMPM = true;
+		int iterationCount = 3;
+		bool useCenterHop = false;
 
 		struct PushConsts {
 			float particleSize;
@@ -223,7 +275,7 @@ class MaterialSimulation
 			int tileGridY;
 			int tileGridZ;
 			int brushIndex;
-			float pad0;
+			float dt;
 			float pad1;
 			float pad2;
 		};
@@ -243,16 +295,26 @@ class MaterialSimulation
 		// Wave Function Collapse — brush access for quanta gather/snap.
 		VkBuffer brushesBuffer = VK_NULL_HANDLE;
 		VkBuffer voxelL1Buffer = VK_NULL_HANDLE;
+		VkBuffer meshVertexBuffer = VK_NULL_HANDLE; //Shared pre-process brush vertex soup (ComputePass::CreateTriangleSoup).
 		VkPipeline collapsePipeline = VK_NULL_HANDLE;
 		VkPipeline collapseFillPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAssignPipeline = VK_NULL_HANDLE;
+		VkPipeline brushAssignVertexQuantaPipeline = VK_NULL_HANDLE;
 		VkPipeline p2gPipeline = VK_NULL_HANDLE;
+		VkPipeline brushAccumPipeline = VK_NULL_HANDLE;
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;
+		VkPipeline projectQuantaPipeline = VK_NULL_HANDLE;
 		VkPipeline sdfDownsamplePipeline = VK_NULL_HANDLE;
 		VkPipeline diffusionPipeline = VK_NULL_HANDLE;
-		VkPipeline quantaCountPipeline = VK_NULL_HANDLE;
-		VkBuffer brushQuantaCountBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory brushQuantaCountMemory = VK_NULL_HANDLE;
+		VkPipeline refreshGridPipeline = VK_NULL_HANDLE;
+		VkPipeline gridResolvePipeline = VK_NULL_HANDLE;
+		VkPipeline solveConstraintsPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmP2GPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmG2PPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmIntegratePipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmP2CPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmC2GPipeline = VK_NULL_HANDLE;
+		VkPipeline pbmpmC2PPipeline = VK_NULL_HANDLE;
 
 		VkPipeline leptonHistogramPipeline = VK_NULL_HANDLE;
 		VkPipeline leptonPrefixSumPipeline = VK_NULL_HANDLE;
@@ -262,6 +324,8 @@ class MaterialSimulation
 		VkPipeline leptonPropagatePipeline = VK_NULL_HANDLE;
 
 		uint32_t dispatchesCount = 0;
+
+		MeshGenerator* meshGenerator; 
 };
 
 

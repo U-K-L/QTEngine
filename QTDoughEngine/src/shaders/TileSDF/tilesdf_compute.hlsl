@@ -5,10 +5,10 @@ RWTexture2D<float4> gBindlessStorage[] : register(u3, space0);
 
 cbuffer UniformBufferObject : register(b0, space1)
 {
-    float4x4 model; // Model matrix
-    float4x4 view; // View matrix
-    float4x4 proj; // Projection matrix
-    float4 texelSize;
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+    float4 texelSize; // xy = 1/width, 1/height
     float isOrtho;
 }
 
@@ -27,6 +27,9 @@ struct PushConsts
     float4 aabbCenter;
     float supportMultiplier;
     int viewMode;
+    int countOnly;
+    float4 sceneSize;
+    float4 dcAABBSize;
 };
 
 [[vk::push_constant]]
@@ -43,7 +46,7 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Vertex> vertexBuffer : register(t8, space1);
 RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
 RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
@@ -65,7 +68,7 @@ RWStructuredBuffer<MaterialBrushPoint> materialBrushPoints : register(u23, space
 // Filtered read using normalized coordinates and mipmaps
 float Read3D(uint textureIndex, int3 coord)
 {
-    return gBindless3D[textureIndex].Load(int4(coord, 0)).x;
+    return gBindless3D[textureIndex].Load(int4(coord, 0)).x * SDF_MAX;
 }
 
 float ReadWorldSDF(float3 worldPos)
@@ -75,7 +78,7 @@ float ReadWorldSDF(float3 worldPos)
     float voxelSize = WORLD_SDF_BOUNDS / pc.voxelResolution.x;
 
     // Convert world position to integer texture coordinates
-    int3 texCoord = int3(floor((worldPos + worldHalfExtent) / voxelSize));
+    int3 texCoord = int3(floor((worldPos - pc.aabbCenter.xyz + worldHalfExtent) / voxelSize));
 
     // Bounds check to ensure we don't sample outside the volume
     if (any(texCoord < 0) || any(texCoord >= pc.voxelResolution.x))
@@ -164,7 +167,7 @@ float3 getAABBWorld(uint vertexOffset, uint vertexCount,
 float SampleSDF(float3 worldPos, int mipLevel)
 {
     float4 voxelRes = GetVoxelResolutionWorldSDFArbitrary(mipLevel + 1, pc.voxelResolution.xyz);
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     float3 halfScene = sceneSize.xyz * 0.5f;
 
     // Convert world position to continuous texel coordinates
@@ -288,126 +291,100 @@ float3 SwirlSphereDanceWS(
 }
 
 
-
-void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
+//Does the scatter into the grid to allow particles to form implicit surfaces.
+//This mostly does the visual component, although some other critical properties are splatted here.
+//Potential Field Splat.
+void PotentialFieldParticleSplat(uint3 DTid : SV_DispatchThreadID)
 {
-    //Move to world space if connected to a brush.
-    Quanta quanta = quantaBuffer[DTid.x];
-    
+    //-------------------
+    // Initialize the Quanta we want to scatter, check if its valid.
+    //-------------------
 
-    
-    float materialMod = 1.0f;
-    float supportMod = pc.supportMultiplier;
-    //emulate material for air.
-    if(quanta.information.x == 0)
-    {
-        materialMod = 0.001f;
-        supportMod = 2;
-    }
-    
-    
+    //Scatter approach. Let's get the quanta in this thread and scatter its data across the potential field.
+    Quanta quanta = quantaBuffer[DTid.x];
+
+    //Now we get the brush associated with this quanta for a ton of material properties later on.
     uint brushIdx = (uint) quanta.information.x - 1;
     Brush brush = Brushes[brushIdx];
-    
-    if (quanta.mana.w < 0.01f && brush.isDeformed == 0 && pc.viewMode != 1 && pc.viewMode != 6) //Unexcited, fade away, store as triangle mesh.
-        return;
-    //int brushIndex = max(particle.particleIDs.x - 1, 0);
-    //if(particle.particleIDs.x >= 0)
-    //    brushIndex = particle.particleIDs.x-1;
-    
-    //Brush brush = Brushes[brushIndex];
-    
-    /*
-    if (particle.position.w < 1)
+
+    //Materials can have different amplitudes for the implicit surfaces.
+    //This acts as a modification for that. For now, it simply turns on air properties or not.
+    float materialAmplitudeMod = 1.0f;
+    float supportMod = pc.supportMultiplier;
+
+    //Emulate material for air. Basically makes it invisible and cost nothing.
+    if(quanta.information.x == 0)
     {
-        
-        particlesL1Out[DTid.x].position.xyz = randPos(DTid.x + time) * GetSceneSize()*0.5;
-        particlesL1Out[DTid.x].position.w = 1;
-        particlesL1Out[DTid.x].initPosition = particle.position;
-        particlesL1Out[DTid.x].particleIDs.x = 0;
-
-        return;
+        materialAmplitudeMod = 0.001f;
+        supportMod = 2;
     }
-    */
-    
-    
-    float3 voxelRes = GetVoxelResolutionL1().xyz; ///GetVoxelResolutionWorldSDFArbitrary(1.0f, pc.voxelResolution).xyz;
-    float3 sceneSize = GetSceneSize();
-    
-    float3 voxelSize = sceneSize / voxelRes;
-    float3 halfScene = sceneSize * 0.5f;
-    
-    float h = max(voxelSize.x, max(voxelSize.y, voxelSize.z));
 
-    float distanceMod = 1.0f;
-    float sigma = h * 2.75;//brush.smoothness; // Controls the spread of the Gaussian
-    float amplitude = materialMod; // Can be a particle attribute
-    float radiusParticleSpacing = 6 * 0.35f * materialMod;
-    
+    //Splatting type means it does not do a deformation check, always appears as guassian splat.
+    //This is good for bodies that are already freely moving material such as gasses and liquids.
+    //Note, this is an entire brush check, but in most cases it is in patches, see later on code.
+    bool splatting = brush.type == 2;
 
+    //Our first exit, all these conditions must be true for an early skip.
+    //1. The particle is not exicted. Particles excite from mana. If there's no excitation the particle is dead / frozen.
+    //2. The brush is NOT deformed. Note, deformed means the entire brush is in a deformed state, not just partially.
+    //3. There are viewmodes that show the splat no matter what, if those view modes aren't on, evaluate the above conditions.
+    //4. Splatting type isn't enforced.
+    bool earlyExit = quanta.mana.w < 0.01f && brush.isDeformed == 0 && pc.viewMode != 1 && pc.viewMode != 6 && !splatting;
+    if (earlyExit) //Unexcited, fade away, store as triangle mesh.
+        return;
+
+    //-------------------
+    // Initialize our world space and position, do the math to get the right position in the scene.
+    //-------------------
+
+    //Get the position for this quanta, which is in local space, transform to world space.
     float3 position = quanta.position.xyz;
     position = mul(brush.model, float4(position, 1.0f)).xyz;
     
-    float3 aabbscenesize = GetDCAABBSize();
-    float3 aabb = float3(aabbscenesize.x, aabbscenesize.y, sceneSize.z);
-    bool inAABB = PointInAABB(position, -aabb * 0.5, aabb * 0.5);
+    //We need the resolution of the slidding window, which changes via the settings.
+    //We need the size of the window, which we call scene size.
+    //We need the voxel size to perform calculations, that's just the window / resolution.
+    float3 voxelRes = GetVoxelResolutionL1().xyz;
+    float3 sceneSize = pc.sceneSize.xyz;
+    float3 voxelSize = sceneSize / voxelRes;
+    float3 halfScene = sceneSize * 0.5f;
+    //There's no aliasing so x=y=z, for speed we pick x.
+    float h = voxelSize.x;
+    
+        
+    //Now we get the values for the implicit surface, the size of the splat.
+    float distanceMod = 1.0f; //TEST AND TODO: Make it fade with distance?
+    float sigma = h * 2.75 * brush.smoothness; // Controls the spread of the Gaussian
+    float amplitude = materialAmplitudeMod;
+    float radiusParticleSpacing = 6 * 0.35f * materialAmplitudeMod; //How much space between each particle splat. TODO: This is critical to change per resolution.
 
+
+    //There are two cutoffs to consider.
+    //First is that we have an entire world. What is shown of the world depends entirely on the scene size.
+    //Secondly, we have a smaller slice of that moving scene window, this is a higher fidelity slice.
+    //We want the higher fidelity slice to have more guassian compute.
+
+    float3 aabbSceneSize = pc.dcAABBSize.xyz; //Our AABB centered. Let's say 16,16,4....
+    float3 aabbHalf = aabbSceneSize * 0.5; // 8,8,2.
+    float3 minCorner = pc.aabbCenter - aabbHalf; // (2,0,0)-(8,8,2) = (-6,-8,-2) 
+    float3 maxCorner = pc.aabbCenter + aabbHalf; // (2,0,0)+(8,8,2) = (10,8,2)
+
+    bool inAABB = PointInAABB(position, minCorner, maxCorner);
     if(!inAABB)
-        sigma *=  1.0f / distance(position, pc.aabbCenter.xyz);
+        return;
     
     float supportWS = sigma * supportMod * distanceMod * 0.25f; //triangle count == resolution.
-    
-    float speed = 0.001f;
-    float timeX = time * speed;
-    
-    float3 direction = normalize(position - float3(0, 0, 0));
 
-
-    //if(particle.particleIDs.x > 0)
-    //    position = mul(brush.model, float4(position, 1.0f)).xyz;
-    
-    /*
-    float3 positionOld = position;
-
-
-    
-    float distFromHeat = 1 / pow(length(position - float3(1.5, 0, 0)), 2);
-    
-    float t = time * 0.001f; // your existing speed scaling
-    float3 centerWS = mul(brush.model, float4(0, 0, 0, 1)).xyz; // or any world-space pivot
-
-    float danceRadius = 20.0f;
-    */
-/*
-    position = SwirlSphereDanceWS(
-    position,
-    centerWS,
-    t,
-    deltaTime,
-    danceRadius,
-    23.5f,
-    20.0f,
-    1.6f
-);
-    */
-
-    /*
-    if(position.y > 0)
-        position += 0.66885f * (direction + float3(0, 0, -9.9)) * deltaTime;
-    */
-    
-    /*
-    if (particle.particleIDs.x == 0)
-    {
-        position = clamp(position + randPos(DTid.x + time) * deltaTime*100, -GetSceneSize() * 0.5f, GetSceneSize() * 0.5f);
-    }
-    */
     float3 minPos = position - supportWS;
     float3 maxPos = position + supportWS;
 
-    int3 minVoxel = floor((minPos + halfScene) / voxelSize);
-    int3 maxVoxel = floor((maxPos + halfScene) / voxelSize);
-    
+    int3 minVoxel = floor((minPos - pc.aabbCenter.xyz + halfScene) / voxelSize);
+    int3 maxVoxel = floor((maxPos - pc.aabbCenter.xyz + halfScene) / voxelSize);
+
+    int3 voxelResI = int3(voxelRes);
+    minVoxel = clamp(minVoxel, int3(0, 0, 0), voxelResI - 1);
+    maxVoxel = clamp(maxVoxel, int3(0, 0, 0), voxelResI - 1);
+
     //minVoxel = max(minVoxel, -30);
     //maxVoxel = min(maxVoxel, 30);
     
@@ -418,7 +395,9 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
     float disp = length(position - initialPosition);
     
     float invsigma = 1.0f / (2.0f * sigma * sigma);
-    
+
+    float linearDepth = quanta.resonance.w;
+
     for (int z = minVoxel.z; z <= maxVoxel.z; ++z)
         for (int y = minVoxel.y; y <= maxVoxel.y; ++y)
             for (int x = minVoxel.x; x <= maxVoxel.x; ++x)
@@ -428,11 +407,11 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 int3 res = int3(voxelRes);
 
                 // worldPos = (VoxelIndex + 0.5) * VoxelSize - HalfScene
-                float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene;
+                float3 worldPos = (float3(voxelIndex) + 0.5f) * voxelSize - halfScene + pc.aabbCenter.xyz;
                 
                 float3 diffWS = worldPos - position;
                 float squaredDist = dot(diffWS, diffWS);
-                
+
                 float expProxy = -squaredDist * invsigma;
 
                 float gaussianValue = amplitude * exp2(expProxy * 1.44269504089f);
@@ -455,13 +434,15 @@ void ParticlesSDF(uint3 DTid : SV_DispatchThreadID)
                 int distanceContribution = (int) round(sd * (float) guassContribution);
 
 
-                uint dummy;
                 InterlockedAdd(voxelsL1Out[flatIndex].density, guassContribution);
                 InterlockedAdd(voxelsL1Out[flatIndex].distance, distanceContribution);
-                InterlockedExchange(voxelsL1Out[flatIndex].brushId, quanta.information.x-1, dummy);
 
-                if (quanta.mana.w < 0.05f)
+                if (quanta.mana.w < 0.05f && !splatting)
                     continue;
+
+                //Atomic depth-keyed attribution: id rides the depth in one packed min.
+                uint packedBrush = PackBrushDepth((uint)(clamp(quanta.information.x - 1, 0, 9999)), linearDepth);
+                InterlockedMin(voxelsL2Out[L1CoordToL2Index(uint3(voxelIndex))].brushId, packedBrush);
 
                 float3 mbLocalPos;
                 int mbpIdx = WorldToMaterialBrushIndex(worldPos, brush, brushIdx, mbLocalPos);
@@ -555,7 +536,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     
     if (level == 2.0f)
     {
-        ParticlesSDF(DTid);
+        PotentialFieldParticleSplat(DTid);
         return;
     }
     
@@ -604,8 +585,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     //brush.aabbmax = maxBounds;
     //brush.aabbmin = minBounds;
     
-    float3 worldHalfExtent = GetSceneSize() * 0.5f;
-    float3 voxelSize = GetSceneSize() / pc.voxelResolution.xyz;
+    float3 worldHalfExtent = pc.sceneSize.xyz * 0.5f;
+    float3 voxelSize = pc.sceneSize.xyz / pc.voxelResolution.xyz;
     float3 tileWorldSize = GetTileSize(pc.voxelResolution.xyz) * voxelSize;
     int3 numOfTilesDim = (pc.voxelResolution.xyz / GetTileSize(pc.voxelResolution.xyz));
     

@@ -16,15 +16,15 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     // View mode from editor UI tabs (or fallback to keyboard shortcuts)
     pc.input = (int)app->editorState.viewMode;
 
-    if (GetKeyState('1') & 0x8000)      { pc.input = (int)ViewModes::Render; app->editorState.viewMode = ViewModes::Render; }
-    else if (GetKeyState('2') & 0x8000) { pc.input = (int)ViewModes::SDF; app->editorState.viewMode = ViewModes::SDF; }
-    else if (GetKeyState('3') & 0x8000) { pc.input = (int)ViewModes::Normals; app->editorState.viewMode = ViewModes::Normals; }
-    else if (GetKeyState('4') & 0x8000) { pc.input = 3; app->editorState.viewMode = ViewModes::Normals; }
-    else if (GetKeyState('5') & 0x8000) { pc.input = (int)ViewModes::Albedo; app->editorState.viewMode = ViewModes::Albedo; }
-    else if (GetKeyState('6') & 0x8000) { pc.input = 5; app->editorState.viewMode = ViewModes::Albedo; }
-    else if (GetKeyState('7') & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
-    else if (GetKeyState('8') & 0x8000) { pc.input = (int)ViewModes::MaterialBrush; app->editorState.viewMode = ViewModes::MaterialBrush; }
-    else if (GetKeyState('9') & 0x8000) { pc.input = (int)ViewModes::Quanta; app->editorState.viewMode = ViewModes::Quanta; }
+    if (GetKeyState(VK_F1) & 0x8000)      { pc.input = (int)ViewModes::Render; app->editorState.viewMode = ViewModes::Render; }
+    else if (GetKeyState(VK_F2) & 0x8000) { pc.input = (int)ViewModes::SDF; app->editorState.viewMode = ViewModes::SDF; }
+    else if (GetKeyState(VK_F3) & 0x8000) { pc.input = (int)ViewModes::Normals; app->editorState.viewMode = ViewModes::Normals; }
+    else if (GetKeyState(VK_F4) & 0x8000) { pc.input = 3; app->editorState.viewMode = ViewModes::Normals; }
+    else if (GetKeyState(VK_F5) & 0x8000) { pc.input = (int)ViewModes::Albedo; app->editorState.viewMode = ViewModes::Albedo; }
+    else if (GetKeyState(VK_F6) & 0x8000) { pc.input = 5; app->editorState.viewMode = ViewModes::Albedo; }
+    else if (GetKeyState(VK_F7) & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
+    else if (GetKeyState(VK_F8) & 0x8000) { pc.input = (int)ViewModes::MaterialBrush; app->editorState.viewMode = ViewModes::MaterialBrush; }
+    else if (GetKeyState(VK_F9) & 0x8000) { pc.input = (int)ViewModes::Quanta; app->editorState.viewMode = ViewModes::Quanta; }
 
     RenderPassObject::Render(commandBuffer, imageIndex, currentFrame, &app->frameOutputView);
 }

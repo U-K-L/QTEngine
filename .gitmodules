@@ -1,0 +1,3 @@
+[submodule "QTEngine"]
+	path = QTEngine
+	url = https://github.com/U-K-L/QTEngine.git

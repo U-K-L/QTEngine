@@ -25,6 +25,9 @@ void MaterialSimulation::InitMaterialSim()
 	InitLeptons();
 	InitMaterialGrid();
 	CreateStorageBuffers();
+
+	meshGenerator = new MeshGenerator();
+	meshGenerator->InitMeshGenerator();
 }
 
 void MaterialSimulation::InitMaterialGrid()
@@ -46,41 +49,26 @@ void MaterialSimulation::InitComputeWorkload()
 	// Wire brush buffer from VoxelizerPass (created during CreateShaderStorageBuffers).
 	brushesBuffer = VoxelizerPass::instance->brushesStorageBuffers;
 	voxelL1Buffer = VoxelizerPass::instance->voxelL1StorageBuffers[0];
+	meshVertexBuffer = VoxelizerPass::instance->vertexBuffer;
 
-	CreateComputeDescriptorSetLayout();
-	CreateDescriptorPool();
-	CreateComputeDescriptorSets();
-	CreateComputePipeline();
+	CreateGPUResources();
+
 	std::cout << "MaterialSimulation compute workload initialized." << std::endl;
 }
 
-void MaterialSimulation::CreateComputeDescriptorSetLayout()
+void MaterialSimulation::CreateGPUResources()
 {
-	// Binding 0: Quanta In (read)
-	// Binding 1: Quanta Out (write)
-	// Binding 2: Quanta Read (read)
-	// Binding 3: QuantaIds
-	// Binding 4: TileCounts
-	// Binding 5: TileOffsets
-	// Binding 6: TileCursor
-	// Binding 7: Brushes (read)
-	// Binding 8: MaterialGrid (read/write)
-	// Binding 9: Deformation In (read)
-	// Binding 10: Deformation Out (write)
-	// Binding 11: MaterialGridSDF (write, contiguous floats)
-	// Binding 12: VoxelL1 (read)
-	// Binding 13: Lepton In (read)
-	// Binding 14: Lepton Out (write)
-	// Binding 15: Lepton Read (read)
-	// Binding 16: LeptonIds
-	// Binding 17: LeptonTileCounts
-	// Binding 18: LeptonTileOffsets
-	// Binding 19: LeptonTileCursor
-	// Binding 20: MaterialGrid Out (write, diffusion ping-pong)
-	// Binding 21: MaterialGrid Accumulator (int, atomic P2G scatter)
-	// Binding 22: BrushQuantaCounts (atomic counter per brush)
+	CreateComputeDescriptorSetLayout(MAT_SIM_BINDINGS);
+	CreateDescriptorPool();
+	CreateComputeDescriptorSets();
+	CreateComputePipeline();
+}
 
-	std::array<VkDescriptorSetLayoutBinding, 23> bindings{};
+void MaterialSimulation::CreateComputeDescriptorSetLayout(uint32_t bindingCount)
+{
+	std::vector<VkDescriptorSetLayoutBinding> bindings{};
+
+	bindings.resize(bindingCount);
 
 	for (uint32_t i = 0; i < bindings.size(); i++)
 	{
@@ -105,17 +93,17 @@ void MaterialSimulation::CreateComputeDescriptorSetLayout()
 void MaterialSimulation::CreateDescriptorPool()
 {
 	VkDevice device = QTDoughApplication::instance->_logicalDevice;
-	uint32_t frameCount = 3; // Triple buffered.
+	uint32_t buffersInFlight = 3; // Triple buffered.
 
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = 23 * frameCount; // 23 bindings per set.
+	poolSize.descriptorCount = MAT_SIM_BINDINGS * buffersInFlight; // 23 bindings per set.
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = 1;
 	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = frameCount;
+	poolInfo.maxSets = buffersInFlight;
 
 	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 	{
@@ -125,17 +113,44 @@ void MaterialSimulation::CreateDescriptorPool()
 
 void MaterialSimulation::CreateComputeDescriptorSets()
 {
-	VkDevice device = QTDoughApplication::instance->_logicalDevice;
-	uint32_t frameCount = 3;
+	// Binding 0: Quanta In (read)
+	// Binding 1: Quanta Out (write)
+	// Binding 2: Quanta Read (read)
+	// Binding 3: QuantaIds
+	// Binding 4: TileCounts
+	// Binding 5: TileOffsets
+	// Binding 6: TileCursor
+	// Binding 7: Brushes (read)
+	// Binding 8: MaterialGrid (read/write)
+	// Binding 9: Deformation In (read)
+	// Binding 10: Deformation Out (write)
+	// Binding 11: MaterialGridSDF (write, contiguous floats)
+	// Binding 12: VoxelL1 (read)
+	// Binding 13: Lepton In (read)
+	// Binding 14: Lepton Out (write)
+	// Binding 15: Lepton Read (read)
+	// Binding 16: LeptonIds
+	// Binding 17: LeptonTileCounts
+	// Binding 18: LeptonTileOffsets
+	// Binding 19: LeptonTileCursor
+	// Binding 20: MaterialGrid Out (write, diffusion ping-pong)
+	// Binding 21: MaterialGrid Accumulator (int, atomic P2G scatter)
+	// Binding 22: (unused)
+	// Binding 23: BrushMatricies (published per-brush centroids, per-frame ping-pong)
+	// Binding 24: BrushAccumulator (per-brush atomic accumulator: count + posSumX/Y/Z)
+	// Binding 25: Pre-process brush vertex soup (RW, Vertex with quantaIDs, from VoxelizerPass)
 
-	std::vector<VkDescriptorSetLayout> layouts(frameCount, descriptorSetLayout);
+	VkDevice device = QTDoughApplication::instance->_logicalDevice;
+	uint32_t buffersInFlight = 3;
+
+	std::vector<VkDescriptorSetLayout> layouts(buffersInFlight, descriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = frameCount;
+	allocInfo.descriptorSetCount = buffersInFlight;
 	allocInfo.pSetLayouts = layouts.data();
 
-	descriptorSets.resize(frameCount);
+	descriptorSets.resize(buffersInFlight);
 	if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("MaterialSimulation: failed to allocate descriptor sets!");
@@ -143,7 +158,7 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 
 	uint64_t quantaBufferSize = sizeof(Quanta) * QUANTA_COUNT;
 
-	for (uint32_t i = 0; i < frameCount; i++)
+	for (uint32_t i = 0; i < buffersInFlight; i++)
 	{
 		// Ping-pong: even frames 0=In 1=Out, odd frames 1=In 0=Out.
 		uint32_t inIdx = (i % 2 == 0) ? 0 : 1;
@@ -196,15 +211,15 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		materialGridInfo.offset = 0;
 		materialGridInfo.range = materialMemorySize;
 
-		// Binding 9: Deformation In (read) — ping-pong matches quanta.
+		// Binding 9: Deformation In — single-buffered (candidate read/written in place).
 		VkDescriptorBufferInfo deformInInfo{};
-		deformInInfo.buffer = deformationStorageBuffers[inIdx];
+		deformInInfo.buffer = deformationStorageBuffers[0];
 		deformInInfo.offset = 0;
 		deformInInfo.range = deformationMemorySize;
 
-		// Binding 10: Deformation Out (write).
+		// Binding 10: Deformation Out — same single buffer as In.
 		VkDescriptorBufferInfo deformOutInfo{};
-		deformOutInfo.buffer = deformationStorageBuffers[outIdx];
+		deformOutInfo.buffer = deformationStorageBuffers[0];
 		deformOutInfo.offset = 0;
 		deformOutInfo.range = deformationMemorySize;
 
@@ -262,7 +277,7 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		leptonTileCursorInfo.offset = 0;
 		leptonTileCursorInfo.range = VK_WHOLE_SIZE;
 
-		// Binding 20: MaterialGrid Out (write, diffusion ping-pong).
+		// Binding 20: MaterialGrid Out.
 		VkDescriptorBufferInfo materialGridOutInfo{};
 		materialGridOutInfo.buffer = materialGridStorageBuffers[outIdx];
 		materialGridOutInfo.offset = 0;
@@ -274,13 +289,31 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		materialGridAccumInfo.offset = 0;
 		materialGridAccumInfo.range = accumBufferSize;
 
-		// Binding 22: BrushQuantaCounts (single buffer, per-brush atomic counters).
-		VkDescriptorBufferInfo brushQuantaCountInfo{};
-		brushQuantaCountInfo.buffer = brushQuantaCountBuffer;
-		brushQuantaCountInfo.offset = 0;
-		brushQuantaCountInfo.range = sizeof(uint32_t) * MAX_BRUSH_COUNT;
+		// Binding 22: unused
+		VkDescriptorBufferInfo unusedInfo22{};
+		unusedInfo22.buffer = brushMatriciesBuffers[i];
+		unusedInfo22.offset = 0;
+		unusedInfo22.range = sizeof(BrushMatrix) * MAX_BRUSH_COUNT;
 
-		std::array<VkWriteDescriptorSet, 23> writes{};
+		// Binding 23: BrushMatricies (per-frame-in-flight ping-pong, published centroids).
+		VkDescriptorBufferInfo brushMatriciesInfo{};
+		brushMatriciesInfo.buffer = brushMatriciesBuffers[i];
+		brushMatriciesInfo.offset = 0;
+		brushMatriciesInfo.range = sizeof(BrushMatrix) * MAX_BRUSH_COUNT;
+
+		// Binding 24: BrushAccumulator (single buffer, per-brush atomic accumulator).
+		VkDescriptorBufferInfo brushAccumInfo{};
+		brushAccumInfo.buffer = brushAccumBuffer;
+		brushAccumInfo.offset = 0;
+		brushAccumInfo.range = brushAccumBufferSize;
+
+		// Binding 25: Shared pre-process brush vertex soup (single buffer, no ping-pong).
+		VkDescriptorBufferInfo meshVertexInfo{};
+		meshVertexInfo.buffer = meshVertexBuffer;
+		meshVertexInfo.offset = 0;
+		meshVertexInfo.range = VK_WHOLE_SIZE;
+
+		std::array<VkWriteDescriptorSet, MAT_SIM_BINDINGS> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
 			&quantaIdsInfo, &tileCountsInfo, &tileOffsetsInfo, &tileCursorInfo,
@@ -292,7 +325,10 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 			&leptonIdsInfo, &leptonTileCountsInfo, &leptonTileOffsetsInfo, &leptonTileCursorInfo,
 			&materialGridOutInfo,
 			&materialGridAccumInfo,
-			&brushQuantaCountInfo
+			&unusedInfo22,
+			&brushMatriciesInfo,
+			&brushAccumInfo,
+			&meshVertexInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -361,8 +397,10 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_collapse", collapsePipeline);
 	CreateComputePipelineFromSPV("matsim_collapse_fill", collapseFillPipeline);
 	CreateComputePipelineFromSPV("matsim_brush_assign", brushAssignPipeline);
+	CreateComputePipelineFromSPV("matsim_brush_assign_vertex_quanta", brushAssignVertexQuantaPipeline);
 	CreateComputePipelineFromSPV("matsim_p2g", p2gPipeline);
 	CreateComputePipelineFromSPV("matsim_g2p", g2pPipeline);
+	CreateComputePipelineFromSPV("matsim_project_quanta", projectQuantaPipeline);
 	CreateComputePipelineFromSPV("matsim_sdf_downsample", sdfDownsamplePipeline);
 	CreateComputePipelineFromSPV("matsim_diffusion", diffusionPipeline);
 	CreateComputePipelineFromSPV("lepton_histogram", leptonHistogramPipeline);
@@ -370,8 +408,17 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("lepton_scatter", leptonScatterPipeline);
 	CreateComputePipelineFromSPV("lepton_p2g", leptonP2GPipeline);
 	CreateComputePipelineFromSPV("matsim_accum_convert", accumConvertPipeline);
+	CreateComputePipelineFromSPV("matsim_brush_accum", brushAccumPipeline);
 	CreateComputePipelineFromSPV("lepton_propagate", leptonPropagatePipeline);
-	CreateComputePipelineFromSPV("matsim_quanta_count", quantaCountPipeline);
+	CreateComputePipelineFromSPV("matsim_refresh_grid", refreshGridPipeline);
+	CreateComputePipelineFromSPV("matsim_grid_resolve", gridResolvePipeline);
+	CreateComputePipelineFromSPV("matsim_solve_constraints", solveConstraintsPipeline);
+	CreateComputePipelineFromSPV("pbmpm_p2g", pbmpmP2GPipeline);
+	CreateComputePipelineFromSPV("pbmpm_g2p", pbmpmG2PPipeline);
+	CreateComputePipelineFromSPV("pbmpm_integrate", pbmpmIntegratePipeline);
+	CreateComputePipelineFromSPV("pbmpm_p2c", pbmpmP2CPipeline);
+	CreateComputePipelineFromSPV("pbmpm_c2g", pbmpmC2GPipeline);
+	CreateComputePipelineFromSPV("pbmpm_c2p", pbmpmC2PPipeline);
 }
 
 void MaterialSimulation::CreateComputePipelineFromSPV(const std::string& spvName, VkPipeline& outPipeline)
@@ -405,6 +452,13 @@ void MaterialSimulation::CreateSortPipelines()
 	CreateComputePipelineFromSPV("matsim_prefixsum", prefixSumPipeline);
 	CreateComputePipelineFromSPV("matsim_scatter", scatterPipeline);
 	std::cout << "MaterialSimulation sort pipelines created." << std::endl;
+}
+
+void MaterialSimulation::Update()
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	
+	//app->PushMeshGenerator(meshGenerator);
 }
 
 void MaterialSimulation::DispatchTileSort(VkCommandBuffer commandBuffer)
@@ -458,6 +512,8 @@ void MaterialSimulation::DispatchTileSort(VkCommandBuffer commandBuffer)
 	passDep.memoryBarrierCount = 1;
 	passDep.pMemoryBarriers = &passBarrier;
 
+	GpuLabelScope _lbl(commandBuffer, "TileSort");
+
 	// Pass 1: Histogram.
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, histogramPipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
@@ -482,40 +538,117 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	QTDoughApplication* app = QTDoughApplication::instance;
 
 	// Copy matching SDF mip into materialGrid before P2G.
-	DispatchSDFDownsample(commandBuffer);
+	//DispatchSDFDownsample(commandBuffer); //Change this later on, no longer a direct downscale.
 
-
-	// Sort quantas into tiles before simulation.
-	DispatchTileSort(commandBuffer);
-
-	// Sort leptons into tiles (after propagation updated positions).
-	DispatchLeptonTileSort(commandBuffer);
-
-	// Lepton propagation: march leptons through field, reads In writes Out.
-	DispatchLeptonPropagate(commandBuffer);
-
-	DispatchSimulateQuarks(commandBuffer);
-
-	// G2P gather — transfer grid values back to particles.
-	DispatchG2P(commandBuffer);
-
-	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
-	DispatchLeptonP2G(commandBuffer);
-
-	// Convert accumulator (int) to materialGrid (float).
-	DispatchAccumConvert(commandBuffer);
-
-	if(dispatchesCount < 2)
+	if (dispatchesCount >= 8 && dispatchesCount < 10)
 	{
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
 		{
 			DispatchBrushFill(commandBuffer, i); // -1 means fill for all brushes that need it.
 		}
+
+		// Sort quanta into tiles so the vertex assign has a valid acceleration structure.
+		DispatchTileSort(commandBuffer);
+
+		//Assign Quanta to SRC.
+		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
+		{
+			DispatchBrushAssignVertexQuanta(commandBuffer, i);
+		}
 	}
+
+	if (dispatchesCount > 15)
+	{
+
+		//DispatchSimulateQuarks(commandBuffer); //Use this for a different purpose.
+
+		// Sort quantas into tiles before simulation.
+		DispatchTileSort(commandBuffer);
+
+		// Sort leptons into tiles
+		DispatchLeptonTileSort(commandBuffer);
+		//currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
+
+		if (usePBMPM)
+		{
+
+			subDt = dt / iterationCount;
+
+			for (int it = 0; it < iterationCount; it++)
+			{
+				DispatchRefreshGrid(commandBuffer);
+				DispatchSolveConstraints(commandBuffer);
+				if (useCenterHop)
+				{
+					DispatchPBMPMP2C(commandBuffer);
+					DispatchPBMPMC2G(commandBuffer);
+					DispatchGridResolve(commandBuffer);
+					DispatchPBMPMC2P(commandBuffer);
+				}
+				else
+				{
+					DispatchPBMPMP2G(commandBuffer);
+					DispatchAccumConvert(commandBuffer);
+					DispatchGridResolve(commandBuffer);
+					DispatchPBMPMG2P(commandBuffer);
+				}
+				if (it < iterationCount - 1)
+					currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
+			}
+			DispatchPBMPMIntegrate(commandBuffer);
+		}
+		else
+		{
+			for (int s = 0; s < numSubsteps; s++)
+			{
+				DispatchRefreshGrid(commandBuffer);
+
+				DispatchSolveConstraints(commandBuffer);
+
+				// Quanta P2G — scatter quanta mass/momentum into materialGridAccumulator and brushAccumulator.
+				DispatchP2G(commandBuffer);
+
+				// Convert accumulator (int) to materialGrid (float).
+				DispatchAccumConvert(commandBuffer);
+
+				//Additional forces enter here.
+				DispatchGridResolve(commandBuffer);
+
+				// G2P gather transfer grid values back to particles.
+				DispatchG2P(commandBuffer);
+
+					if (s < numSubsteps - 1)
+						currentFrame = 1 - currentFrame;
+			}
+		}
+		// Convert brushAccumulator (int) to brushMatricies.bCentroid (float4).
+		DispatchBrushAccum(commandBuffer);
+
+		DispatchProjectQuanta(commandBuffer);
+		ReadBackBrushMatricies(commandBuffer);
+	}
+
+
+
+
+	/*
+	// Lepton propagation: march leptons through field, reads In writes Out.
+	DispatchLeptonPropagate(commandBuffer);
+
+
+	
+
+
+
+	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
+	DispatchLeptonP2G(commandBuffer);
+
+	*/
+
 
 	if (dispatchesCount < 60 * 6)
 	{
-		// Wave Function Collapse — dispatches only for brushes flagged isCollapsing.
+		// Wave Function Collapse - dispatches only for brushes flagged isCollapsing.
 		//DispatchWaveFunctionCollapse(commandBuffer);
 
 		// Collapse Fill — per-voxel claim of quanta into brush density grid.
@@ -527,7 +660,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	}
 	//DispatchWaveFunctionCollapse(commandBuffer);
 
-	// Order beat: collapse + brush assign for a single requested brush.
+	/*
 	if (pendingCollapseBrushIndex >= 0)
 	{
 		VoxelizerPass* voxelizer = VoxelizerPass::instance;
@@ -558,39 +691,63 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 		}
 		pendingCollapseBrushIndex = -1;
 	}
+*/
 
-	DispatchDiffusion(commandBuffer);
 
+	//Needs finished results to do diffusion.
+	//DispatchDiffusion(commandBuffer);
 	//Out -> Read.
 	CopyOutToRead(commandBuffer);
 
-	// Editor-only: auto-count quanta per brush once all brushes are created and filled.
-	if (QTDoughApplication::instance->editorState.IsEditor() && !quantaCountReady
-		&& dispatchesCount > 60)
-	{
-		VoxelizerPass* vox = VoxelizerPass::instance;
-		if (vox && vox->incrementalBrushJobs.empty() && !vox->brushes.empty())
-		{
-			if (!quantaCountDispatched)
-			{
-				DispatchQuantaCount(commandBuffer);
-				quantaCountDispatched = true;
-			}
-			else if (!quantaCountReadbackInProgress.load())
-			{
-				ReadBackQuantaCount();
-			}
-		}
-	}
-
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
-	currentFrame = 1 - currentFrame;
+	currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
 	dispatchesCount += 1;
 
+
+
+
 	//Load grid.
-	ReadBackMaterialGridSDF();
+	//ReadBackMaterialGridSDF();
 	//ReadBackMaterialGridFull(); //Make this on demand.
 
+	
+	//Set Brush transforms.
+	// Update CPU-side brushes first
+	IntegrateBodiesVelocity();
+}
+
+void MaterialSimulation::IntegrateBodiesVelocity()
+{
+	for (size_t i = 0; i < VoxelizerPass::instance->renderingObjects.size(); ++i)
+	{
+		VoxelizerPass::Brush* brush = &VoxelizerPass::instance->brushes[i];
+		UnigmaRenderingObject* renderBody = VoxelizerPass::instance->renderingObjects[i];
+		glm::vec3 velocity = brushMatricies[i].velocity;
+		glm::vec3 centoridPosition = brushMatricies[i].bCentroid;
+
+		/*
+		std::cout << 
+			" Velocity x: " << velocity.x << 
+			" Velocity y: " << velocity.y <<
+			" Velocity z: " << velocity.z <<
+		std::endl;
+		*/
+
+
+
+		//if (brush->interactiveType == 1)
+		//{
+			renderBody->_transform.position +=  velocity * dt;
+			renderBody->_transform.UpdateTransform();
+		//}
+
+
+
+		glm::mat4x4 model = renderBody->_transform.GetModelMatrixBrush();
+
+		brush->model = model;
+		brush->invModel = glm::inverse(model);
+	}
 }
 
 void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer)
@@ -609,13 +766,13 @@ void MaterialSimulation::DispatchSimulateQuarks(VkCommandBuffer commandBuffer)
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	VkDescriptorSet sets[] = {
-		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		app->globalDescriptorSets[currentFrame],
 		descriptorSets[currentFrame]
 	};
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
 
-	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	uint32_t groupCount = QUANTA_COUNT / 512;
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	// Barrier between main sim and collapse pass.
@@ -809,9 +966,317 @@ void MaterialSimulation::DispatchBrushFill(VkCommandBuffer commandBuffer, int br
 	voxelizer->brushes[brushIndex].isCollapsing = 0; // Clear collapsing flag so next dispatch doesn't redo this fill.
 }
 
+void MaterialSimulation::DispatchBrushAssignVertexQuanta(VkCommandBuffer commandBuffer, int brushIndex)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+	if (!voxelizer || brushIndex < 0 || brushIndex >= static_cast<int>(voxelizer->brushes.size()))
+		return;
+
+	// Prior fill/sort compute writes must be visible before this pass reads them.
+	VkMemoryBarrier2 fillBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	fillBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	fillBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	fillBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	fillBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo fillDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	fillDep.memoryBarrierCount = 1;
+	fillDep.pMemoryBarriers = &fillBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &fillDep);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, brushAssignVertexQuantaPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.brushIndex = brushIndex;
+
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t res = voxelizer->brushes[brushIndex].vertexCount;
+	uint32_t groups = (res + 7) / 8;
+	vkCmdDispatch(commandBuffer, groups, 1, 1);
+}
+
+void MaterialSimulation::DispatchPBMPMP2C(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdFillBuffer(commandBuffer, materialGridAccumBuffer, 0, accumBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, brushAccumBuffer, 0, brushAccumBufferSize, 0);
+
+	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	clearBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	clearDep.memoryBarrierCount = 1;
+	clearDep.pMemoryBarriers = &clearBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
+	GpuLabelScope _lbl(commandBuffer, "P2C");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmP2CPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMC2G(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "C2G");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmC2GPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMC2P(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "C2P");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmC2PPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMP2G(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdFillBuffer(commandBuffer, materialGridAccumBuffer, 0, accumBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, brushAccumBuffer, 0, brushAccumBufferSize, 0);
+
+	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	clearBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	clearDep.memoryBarrierCount = 1;
+	clearDep.pMemoryBarriers = &clearBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &clearDep);
+
+	GpuLabelScope _lbl(commandBuffer, "P2G");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmP2GPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMG2P(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "G2P");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmG2PPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchPBMPMIntegrate(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "Integrate");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pbmpmIntegratePipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = dt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
 void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdFillBuffer(commandBuffer, materialGridAccumBuffer, 0, accumBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, brushAccumBuffer, 0, brushAccumBufferSize, 0);
+
+	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	clearBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	clearBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	clearBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo clearDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	clearDep.memoryBarrierCount = 1;
+	clearDep.pMemoryBarriers = &clearBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &clearDep);
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, p2gPipeline);
 
@@ -826,9 +1291,10 @@ void MaterialSimulation::DispatchP2G(VkCommandBuffer commandBuffer)
 	pc.tileGridX = Field.FieldSize.x / TileSize.x;
 	pc.tileGridY = Field.FieldSize.y / TileSize.y;
 	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
-	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	uint32_t groupCount = QUANTA_COUNT / 512;
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
@@ -860,9 +1326,45 @@ void MaterialSimulation::DispatchG2P(VkCommandBuffer commandBuffer)
 	pc.tileGridX = Field.FieldSize.x / TileSize.x;
 	pc.tileGridY = Field.FieldSize.y / TileSize.y;
 	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
 
 	uint32_t groupCount = QUANTA_COUNT / 512; // 8x8x8 = 512 threads per group.
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchProjectQuanta(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, projectQuantaPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
 	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
@@ -925,6 +1427,8 @@ void MaterialSimulation::DispatchLeptonTileSort(VkCommandBuffer commandBuffer)
 	passDep.memoryBarrierCount = 1;
 	passDep.pMemoryBarriers = &passBarrier;
 
+	GpuLabelScope _lbl(commandBuffer, "LeptonTileSort");
+
 	// Pass 1: Histogram.
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, leptonHistogramPipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
@@ -950,6 +1454,7 @@ void MaterialSimulation::DispatchLeptonP2G(VkCommandBuffer commandBuffer)
 
 	// Zero accumulator buffer before scatter.
 	vkCmdFillBuffer(commandBuffer, materialGridAccumBuffer, 0, accumBufferSize, 0);
+	vkCmdFillBuffer(commandBuffer, brushAccumBuffer, 0, brushAccumBufferSize, 0);
 
 	VkMemoryBarrier2 clearBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
 	clearBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
@@ -996,6 +1501,8 @@ void MaterialSimulation::DispatchAccumConvert(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 
+	GpuLabelScope _lbl(commandBuffer, "AccumConvert");
+
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, accumConvertPipeline);
 
 	VkDescriptorSet sets[] = {
@@ -1021,6 +1528,40 @@ void MaterialSimulation::DispatchAccumConvert(VkCommandBuffer commandBuffer)
 	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchBrushAccum(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, brushAccumPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = (MAX_BRUSH_COUNT + 63) / 64;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT;
 
 	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
 	dep.memoryBarrierCount = 1;
@@ -1065,7 +1606,7 @@ void MaterialSimulation::DispatchLeptonPropagate(VkCommandBuffer commandBuffer)
 void MaterialSimulation::DispatchSDFDownsample(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
-	glm::ivec3 baseRes = VoxelizerPass::instance->WORLD_SDF_RESOLUTION;
+	glm::ivec3 baseRes = app->WORLD_SDF_RESOLUTION;
 
 	// Find which mip matches materialGridSize exactly (quality can change at runtime)
 	uint32_t texID = 0;
@@ -1120,6 +1661,8 @@ void MaterialSimulation::DispatchDiffusion(VkCommandBuffer commandBuffer)
 {
 	QTDoughApplication* app = QTDoughApplication::instance;
 
+	GpuLabelScope _lbl(commandBuffer, "Diffusion");
+
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, diffusionPipeline);
 
 	VkDescriptorSet sets[] = {
@@ -1140,6 +1683,120 @@ void MaterialSimulation::DispatchDiffusion(VkCommandBuffer commandBuffer)
 		materialGridSize.x / 8,
 		materialGridSize.y / 8,
 		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchRefreshGrid(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "RefreshGrid");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, refreshGridPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchGridResolve(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "GridResolve");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gridResolvePipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	vkCmdDispatch(commandBuffer,
+		materialGridSize.x / 8,
+		materialGridSize.y / 8,
+		materialGridSize.z / 8);
+
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+}
+
+void MaterialSimulation::DispatchSolveConstraints(VkCommandBuffer commandBuffer)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+
+	GpuLabelScope _lbl(commandBuffer, "SolveConstraints");
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, solveConstraintsPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.dt = subDt;
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t groupCount = QUANTA_COUNT / 512;
+	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
 	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
 	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -1477,14 +2134,54 @@ void MaterialSimulation::CreateStorageBuffers()
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		materialGridAccumBuffer, materialGridAccumMemory);
 
-	// BrushQuantaCounts — small buffer for per-brush quanta counting (editor only).
-	brushQuantaCounts.resize(MAX_BRUSH_COUNT, 0);
-	app->CreateBuffer(sizeof(uint32_t) * MAX_BRUSH_COUNT,
+	// BrushAccumulator — per-brush atomic accumulator (count + fixed-point posSumX/Y/Z), single buffer, zeroed each frame.
+	brushAccumBufferSize = sizeof(BrushAccumulator) * MAX_BRUSH_COUNT;
+	app->CreateBuffer(brushAccumBufferSize,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		brushQuantaCountBuffer, brushQuantaCountMemory);
+		brushAccumBuffer, brushAccumMemory);
 
-	// Deformation (DeffGrad, AffVel) — double buffered ping-pong.
+	// BrushMatricies — published per-brush centroid (and future aggregates), per-frame-in-flight ping-pong.
+	brushMatricies.resize(MAX_BRUSH_COUNT, BrushMatrix{});
+	brushMatriciesBuffers.resize(3);
+	brushMatriciesMemory.resize(3);
+	for (uint32_t i = 0; i < 3; i++)
+	{
+		app->CreateBuffer(sizeof(BrushMatrix) * MAX_BRUSH_COUNT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			brushMatriciesBuffers[i], brushMatriciesMemory[i]);
+	}
+
+	// Persistent host-visible readback target for brush centroids (filled in-command-buffer, read next frame).
+	app->CreateBuffer(sizeof(BrushMatrix) * MAX_BRUSH_COUNT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		brushMatriciesReadbackBuffer, brushMatriciesReadbackMemory);
+	vkMapMemory(app->_logicalDevice, brushMatriciesReadbackMemory, 0, sizeof(BrushMatrix) * MAX_BRUSH_COUNT, 0, &brushMatriciesReadbackMapped);
+
+	// Deformation (DeffGrad, AffVel) — double buffered ping-pong. Seed DeffGrad to identity, AffVel to zero.
+	std::vector<QuantaDeformation> deformInit(QUANTA_COUNT);
+	QuantaDeformation identityDeform{};
+	identityDeform.DeffGrad.r0 = glm::vec4(1, 0, 0, 0);
+	identityDeform.DeffGrad.r1 = glm::vec4(0, 1, 0, 0);
+	identityDeform.DeffGrad.r2 = glm::vec4(0, 0, 1, 0);
+	identityDeform.AffVel.r0 = glm::vec4(0);
+	identityDeform.AffVel.r1 = glm::vec4(0);
+	identityDeform.AffVel.r2 = glm::vec4(0);
+	std::fill(deformInit.begin(), deformInit.end(), identityDeform);
+
+	VkBuffer deformStagingBuffer;
+	VkDeviceMemory deformStagingMemory;
+	app->CreateBuffer(deformationMemorySize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		deformStagingBuffer, deformStagingMemory);
+
+	void* deformData;
+	vkMapMemory(app->_logicalDevice, deformStagingMemory, 0, deformationMemorySize, 0, &deformData);
+	memcpy(deformData, deformInit.data(), deformationMemorySize);
+	vkUnmapMemory(app->_logicalDevice, deformStagingMemory);
+
 	deformationStorageBuffers.resize(2);
 	deformationStorageMemory.resize(2);
 	for (uint32_t i = 0; i < 2; i++)
@@ -1493,7 +2190,11 @@ void MaterialSimulation::CreateStorageBuffers()
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			deformationStorageBuffers[i], deformationStorageMemory[i]);
+		app->CopyBuffer(deformStagingBuffer, deformationStorageBuffers[i], deformationMemorySize);
 	}
+
+	vkDestroyBuffer(app->_logicalDevice, deformStagingBuffer, nullptr);
+	vkFreeMemory(app->_logicalDevice, deformStagingMemory, nullptr);
 
 	// --- Lepton tile sort buffers ---
 	uint64_t leptonIdsSize = sizeof(uint32_t) * leptonMaxSize;
@@ -1711,96 +2412,6 @@ void MaterialSimulation::ReadBackQuantaFull()
 	});
 }
 
-void MaterialSimulation::DispatchQuantaCount(VkCommandBuffer commandBuffer)
-{
-	QTDoughApplication* app = QTDoughApplication::instance;
-	uint64_t countBufferSize = sizeof(uint32_t) * MAX_BRUSH_COUNT;
-
-	// Zero the count buffer.
-	vkCmdFillBuffer(commandBuffer, brushQuantaCountBuffer, 0, countBufferSize, 0);
-
-	VkMemoryBarrier2 zeroBarrier{};
-	zeroBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-	zeroBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-	zeroBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-	zeroBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-	zeroBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
-
-	VkDependencyInfo zeroDep{};
-	zeroDep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-	zeroDep.memoryBarrierCount = 1;
-	zeroDep.pMemoryBarriers = &zeroBarrier;
-	vkCmdPipelineBarrier2(commandBuffer, &zeroDep);
-
-	// Bind pipeline and descriptors.
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, quantaCountPipeline);
-
-	VkDescriptorSet sets[] = {
-		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
-		descriptorSets[currentFrame]
-	};
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
-
-	PushConsts pc{};
-	pc.particleSize = 1.0f;
-	pc.tileGridX = Field.FieldSize.x / TileSize.x;
-	pc.tileGridY = Field.FieldSize.y / TileSize.y;
-	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
-	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
-
-	uint32_t groupCount = (QUANTA_COUNT + 63) / 64;
-	vkCmdDispatch(commandBuffer, groupCount, 1, 1);
-
-	// Barrier: compute -> transfer for readback.
-	VkMemoryBarrier2 countBarrier{};
-	countBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-	countBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-	countBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-	countBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-	countBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-
-	VkDependencyInfo countDep{};
-	countDep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-	countDep.memoryBarrierCount = 1;
-	countDep.pMemoryBarriers = &countBarrier;
-	vkCmdPipelineBarrier2(commandBuffer, &countDep);
-}
-
-void MaterialSimulation::ReadBackQuantaCount()
-{
-	if (quantaCountReadbackInProgress.exchange(true))
-		return;
-
-	QTDoughApplication* app = QTDoughApplication::instance;
-	uint64_t countBufferSize = sizeof(uint32_t) * MAX_BRUSH_COUNT;
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingMemory;
-	app->CreateBuffer(countBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingMemory);
-
-	VkCommandBuffer cmd = app->BeginSingleTimeCommands();
-
-	VkBufferCopy region{};
-	region.size = countBufferSize;
-	vkCmdCopyBuffer(cmd, brushQuantaCountBuffer, stagingBuffer, 1, &region);
-
-	app->EndSingleTimeCommandsAsync(currentFrame, cmd, [this, app, stagingBuffer, stagingMemory, countBufferSize]() {
-		void* mapped = nullptr;
-		vkMapMemory(app->_logicalDevice, stagingMemory, 0, countBufferSize, 0, &mapped);
-		memcpy(brushQuantaCounts.data(), mapped, countBufferSize);
-		vkUnmapMemory(app->_logicalDevice, stagingMemory);
-
-		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-
-		std::cout << "Quanta count readback done." << std::endl;
-		quantaCountReady = true;
-		quantaCountReadbackInProgress = false;
-	});
-}
-
 void MaterialSimulation::SurveyTemperature()
 {
 	static std::mt19937 rng(42);
@@ -1943,6 +2554,30 @@ void MaterialSimulation::ReadBackMaterialGridSDF()
 		//std::cout << "Done materialGridSDF readback. Took " << readbackMs << " ms." << std::endl;
 		materialGridSDFReadbackInProgress = false;
 	});
+}
+
+void MaterialSimulation::ReadBackBrushMatricies(VkCommandBuffer commandBuffer)
+{
+	uint64_t bufferSize = sizeof(BrushMatrix) * MAX_BRUSH_COUNT;
+
+	memcpy(brushMatricies.data(), brushMatriciesReadbackMapped, bufferSize);
+
+	// Record this frame's copy: the centroids BrushAccum just wrote (index = currentFrame,
+	// pre-flip) into the persistent host buffer, ordered after the compute write.
+	VkMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+
+	VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dep.memoryBarrierCount = 1;
+	dep.pMemoryBarriers = &barrier;
+	vkCmdPipelineBarrier2(commandBuffer, &dep);
+
+	VkBufferCopy region{};
+	region.size = bufferSize;
+	vkCmdCopyBuffer(commandBuffer, brushMatriciesBuffers[currentFrame], brushMatriciesReadbackBuffer, 1, &region);
 }
 
 int MaterialSimulation::RayCast(Photon &photon, int informationDepth)

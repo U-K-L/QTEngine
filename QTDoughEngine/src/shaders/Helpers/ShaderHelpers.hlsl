@@ -1,7 +1,11 @@
 
+#define FIXED_DELTA_TIME 0.0033
 #define PI 3.14159265359
 
 #define IDENTITY_MATRIX float4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+
+#define IDENTITY_MATRIX3_3 float3x3(1, 0, 0, 0, 1, 0, 0, 0, 1)
+
 
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
@@ -13,11 +17,13 @@
 #define VOXEL_RESOLUTIONL1 512.0f
 #define SCENE_BOUNDSL1 16.0f
 
-#define VOXEL_RESOLUTIONL2 128.0f
+#define VOXEL_RESOLUTIONL2 256.0f
 #define SCENE_BOUNDSL2 16.0f
 
-#define VOXEL_RESOLUTIONL3 64.0f
+#define VOXEL_RESOLUTIONL3 128.0f
 #define SCENE_BOUNDSL3 16.0f
+
+#define VOXEL_RESOLUTIONL4 64.0f
 
 #define TILE_MAX_BRUSHES 64.0f
 #define TILE_SIZE 8.0f
@@ -27,6 +33,8 @@
 
 #define DEFUALT_EMPTY_SPACE 2.0f
 
+#define SDF_MAX 2.0f
+
 #define CAGE_VERTS 26
 
 #define MAX_BRUSHES 8192
@@ -35,6 +43,30 @@
 
 #define DENSITY_SCALE 1048576.0f
 #define FIXED_POINT_SCALE 1024
+#define FIXED_POINT_SCALE_GRID 65536
+
+// Packed depth-keyed brush attribution: voxelsL2.brushId holds [depth:19 | id:13].
+// One InterlockedMin keeps id atomic with the winning depth. Empty == low 13 bits all set.
+#define BRUSH_ID_BITS 13
+#define BRUSH_ID_MASK 0x1FFFu
+#define BRUSH_DEPTH_MAX 0x7FFFFu // 19 bits
+#define BRUSH_PACKED_EMPTY 0xFFFFFFFFu
+#define MAX_BRUSH_DEPTH 256.0f
+
+//CHANGE PER MATERIAL GRID SIZE
+//256x256x64 RES. 32x32x8 SCENE SIZE
+#define INERTIA_TENSOR_INVERSE float3x3(256, 0, 0, 0, 256, 0, 0, 0, 256)
+
+uint PackBrushDepth(uint brushId, float linearDepth)
+{
+    uint q = (uint) round(saturate(linearDepth / MAX_BRUSH_DEPTH) * BRUSH_DEPTH_MAX);
+    return (q << BRUSH_ID_BITS) | (brushId & BRUSH_ID_MASK);
+}
+
+uint UnpackBrushId(uint packed)
+{
+    return packed & BRUSH_ID_MASK; // BRUSH_ID_MASK == none
+}
 
 #define NO_LABEL 16777215  // safe max exact int
 float NO_LABELF()
@@ -87,10 +119,7 @@ struct VoxelL1
 {
     int distance;
     uint density;
-    uint brushId;
-    float isoPhi;
-    float jacobian;
-    uint dc;
+    //float isoPhi;
 };
 
 struct Mat3x3_16
@@ -102,6 +131,7 @@ struct Mat3x3_16
 
 struct Quanta
 {
+    float4 canonicalPosition;
     float4 position; //The position this quanta is currently in.
     float4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating.
     int4 information; //Hashed ledger, maps to a lookup, a larger ledger.
@@ -110,8 +140,9 @@ struct Quanta
 
 struct QuantaDeformation
 {
-    Mat3x3_16 DeffGrad;
-    Mat3x3_16 AffVel;
+    float3x3 DeffGrad;
+    float3x3 AffVel;
+    float3x3 CandidateDeff;
 };
 
 struct MaterialGridPoint
@@ -129,6 +160,20 @@ struct MaterialGridAccumulator
     int4 massMomentum;
     int4 velocity;
     int4 normal;
+};
+
+struct BrushAccumulator
+{
+    int4 bcentroid;
+    int4 velocity;
+    int4 inertia;
+};
+
+struct BrushMatrix
+{
+	float4 bCentroid; //xyz is pos, w is count.
+    float4 velocity;
+    float4 inertia;
 };
 
 struct Lepton
@@ -183,7 +228,7 @@ struct Brush
     //Physics.
     float mass;
     uint rayMask;
-    float pad2;
+    float interactiveType;
     float pad3;
 };
 
@@ -193,14 +238,8 @@ struct Vertex
     float4 color;
     float4 texCoord;
     float4 normal;
+    int4 quantaIDs;
 };
-
-struct ComputeVertex
-{
-    float4 position; // 16 bytes
-    float4 normal; // 16 bytes
-    float4 texCoord; // 16 bytes
-}; // Total: 48 bytes
 
 float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 {
@@ -219,12 +258,40 @@ float GetTileSize(int3 voxelRes)
 
 float3 GetDCAABBSize()
 {
-    return float3(32, 32, 8);
+    return float3(24, 24, 6);
 }
 
 float3 GetSceneSize()
 {
-    return float3(64, 64, 16);
+    return float3(48, 48, 12);
+}
+
+float3 GetDCAABBSize(int LOD)
+{
+    float3 sceneSize = float3(24, 24, 6);
+    if(LOD == 0)
+        return sceneSize * 0.5f;
+    else if(LOD == 1)
+        return sceneSize;
+    else
+        return sceneSize * 2.0f;
+    
+}
+
+float3 GetSceneSize(int LOD)
+{
+    float3 sceneSize = float3(48, 48, 12);
+    if (LOD == 0)
+        return sceneSize * 0.5f;
+    else if (LOD == 1)
+        return sceneSize;
+    else
+        return sceneSize * 2.0f;
+}
+
+float3 GetMaterialSceneSize()
+{
+    return float3(32, 32, 8);
 }
 
 int3 GetMaterialGridSize()
@@ -274,7 +341,13 @@ float2 GetVoxelResolution(float sampleLevel)
 
 float4 GetVoxelResolutionL1()
 {
-    return float4(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1 / 4.0f, 1.0f);
+    return float4(VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL1, VOXEL_RESOLUTIONL3, 1.0f);
+
+}
+
+float4 GetVoxelResolutionL2()
+{
+    return float4(VOXEL_RESOLUTIONL2, VOXEL_RESOLUTIONL2, VOXEL_RESOLUTIONL4, 1.0f);
 
 }
 
@@ -282,6 +355,12 @@ float4 GetVoxelResolutionL1(int3 voxelRes)
 {
     float3 res = float3(voxelRes.x / 2.0f, voxelRes.y / 2.0f, voxelRes.z / 2.0f);
     return float4(res.x, res.y, res.z, 1.0f);
+}
+
+uint L1CoordToL2Index(uint3 l1Coord)
+{
+    uint3 c = l1Coord >> 1u;
+    return c.x + c.y * uint(VOXEL_RESOLUTIONL2) + c.z * uint(VOXEL_RESOLUTIONL2) * uint(VOXEL_RESOLUTIONL2);
 }
 
 float GetSampleLevel(float3 pos, float3 camPos)
@@ -635,7 +714,35 @@ float4x4 inverse(float4x4 m)
     return ret;
 }
 
+float3x3 inverse(float3x3 m)
+{
+    float n11 = m[0][0], n12 = m[1][0], n13 = m[2][0];
+    float n21 = m[0][1], n22 = m[1][1], n23 = m[2][1];
+    float n31 = m[0][2], n32 = m[1][2], n33 = m[2][2];
 
+    float t11 = n22 * n33 - n23 * n32;
+    float t12 = n13 * n32 - n12 * n33;
+    float t13 = n12 * n23 - n13 * n22;
+
+    float det = n11 * t11 + n21 * t12 + n31 * t13;
+    float idet = 1.0f / det;
+
+    float3x3 ret;
+
+    ret[0][0] = t11 * idet;
+    ret[0][1] = (n23 * n31 - n21 * n33) * idet;
+    ret[0][2] = (n21 * n32 - n22 * n31) * idet;
+
+    ret[1][0] = t12 * idet;
+    ret[1][1] = (n11 * n33 - n13 * n31) * idet;
+    ret[1][2] = (n12 * n31 - n11 * n32) * idet;
+
+    ret[2][0] = t13 * idet;
+    ret[2][1] = (n13 * n21 - n11 * n23) * idet;
+    ret[2][2] = (n11 * n22 - n12 * n21) * idet;
+
+    return ret;
+}
 
 float LinearizeDepth(float depth)
 {
@@ -962,6 +1069,76 @@ float3 RandomUnitVector(float3 pos, float seed)
     return normalize(v);
 }
 
+float QuantizeDown(float x, float step)
+{
+    return floor(x / step) * step;
+}
+
+float3x3 PolarRotation(float3x3 F)
+{
+    float3x3 R = F;
+    [unroll]
+    for (int i = 0; i < 8; i++)
+        R = 0.5f * (R + transpose(inverse(R)));
+    return R;
+}
+
+float3x3 Outer(float3 a, float3 b)
+{
+    return float3x3(
+        a.x * b.x, a.x * b.y, a.x * b.z,
+        a.y * b.x, a.y * b.y, a.y * b.z,
+        a.z * b.x, a.z * b.y, a.z * b.z
+    );
+}
+
+
+float3x3 ComputePiolaStress(float3x3 F, float mu, float lambda)
+{
+    float J = determinant(F);
+
+    float3x3 FinvT = transpose(inverse(F));
+
+    return mu * (F - FinvT)
+         + lambda * log(max(J, 1e-6f)) * FinvT;
+}
+
+
+float3x3 ComputeStress(float3x3 F, float mu, float lambda)
+{
+    return ComputePiolaStress(F, mu, lambda);
+}
+
+
+//Handles quanta unpacking from compressed format.
+void QuantaUnseal(inout Quanta quanta, in Brush brush)
+{
+    //Get the world position.
+    float3 worldPosition = mul(brush.model, float4(quanta.position.xyz, 1.0f)).xyz;
+    float3 worldPositionCanon = mul(brush.model, float4(quanta.canonicalPosition.xyz, 1.0f)).xyz;
+    quanta.position.xyz = worldPosition;
+    quanta.canonicalPosition.xyz = worldPositionCanon;
+}
+
+//Puts quanta back into compress format. Must be unsealed first.
+void QuantaSeal(inout Quanta quanta, in Brush brush)
+{
+    float3 localPosition = mul(brush.invModel, float4(quanta.position.xyz, 1.0f)).xyz;
+    quanta.position.xyz = localPosition;
+
+    float3 localPositionCanon = mul(brush.invModel, float4(quanta.canonicalPosition.xyz, 1.0f)).xyz;
+    quanta.canonicalPosition.xyz = localPositionCanon;
+}
+
+float3x3 CrossMatrix(float3 a)
+{
+    // C * v = cross(a, v)
+    return float3x3(
+        0.0f, -a.z, a.y,
+        a.z, 0.0f, -a.x,
+        -a.y, a.x, 0.0f
+    );
+}
 
 
         //-----------------------------------

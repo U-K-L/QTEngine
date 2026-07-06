@@ -58,7 +58,7 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Vertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 StructuredBuffer<MaterialGridPoint> materialGrid : register(t22, space1);
 // For reading
@@ -69,6 +69,12 @@ struct PushConsts
     float lod;
     uint triangleCount;
     int3 voxelResolution;
+    float4 aabbCenter;
+    float supportMultiplier;
+    int viewMode;
+    int countOnly;
+    float4 sceneSize;
+    float4 dcAABBSize;
 };
 
 [[vk::push_constant]]
@@ -78,7 +84,7 @@ PushConsts pc;
 
 float Read3D(uint textureIndex, int3 coord)
 {
-    return gBindless3D[textureIndex].Load(int4(coord, 0));
+    return gBindless3D[textureIndex].Load(int4(coord, 0)).x * SDF_MAX;
 }
 
 float Read3DMip(uint textureIndex, int3 coord, int level)
@@ -189,9 +195,9 @@ float2 TrilinearSampleSDFTexture(float3 pos, float sampleLevel)
 {
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = pc.sceneSize.xyz; //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -274,9 +280,9 @@ float2 TrilinearSampleSDFTextureNormals(float3 pos, float sampleLevel)
 {
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize(); //voxelSceneBounds.w;
+    float3 sceneSize = pc.sceneSize.xyz; //voxelSceneBounds.w;
     
-    float3 gridPos = ((pos + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
+    float3 gridPos = ((pos - pc.aabbCenter.xyz + sceneSize * 0.5f) / sceneSize) * voxelGridRes;
     
     int3 base = int3(floor(gridPos));
     float3 fracVal = frac(gridPos); // interpolation weights
@@ -586,15 +592,15 @@ float2 SampleNormalSDFTexture(float3 pos, float sampleLevel)
 {
     float4 voxelSceneBounds = GetVoxelResolutionWorldSDFArbitrary(sampleLevel, pc.voxelResolution);
     float3 voxelGridRes = voxelSceneBounds.xyz;
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = pc.sceneSize.xyz;
     
     float3 halfScene = sceneSize * 0.5f;
     
     float3 voxelSize = sceneSize / voxelGridRes;
 
-    if (any(pos < -halfScene) || any(pos > halfScene))
+    if (any(pos - pc.aabbCenter.xyz < -halfScene) || any(pos - pc.aabbCenter.xyz > halfScene))
         return DEFUALT_EMPTY_SPACE;
-    
+
     return TrilinearSampleSDFTexture(pos, sampleLevel);
 }
 
@@ -654,7 +660,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     for (int j = 0; j < 6661; j++)
     {
         Voxel voxel = voxelsIn[minIndex];
-        ComputeVertex vert = vertexBuffer[j];
+        Vertex vert = vertexBuffer[j];
 
         float3 halfExtent = voxel.normalDensity.w * 0.5f;
         float3 voxelMin = voxel.positionDistance.xyz - halfExtent;
@@ -780,7 +786,7 @@ float4 FullMarch(float3 ro, float3 rd, float3 camPos, inout float4 surface, inou
         closesSDF = min(closesSDF, currentSDF);
 
                 
-        bool inAABB = PointInAABB(pos, -GetDCAABBSize() * 0.5, GetDCAABBSize() * 0.5);
+        bool inAABB = PointInAABB(pos, pc.aabbCenter.xyz - pc.dcAABBSize.xyz * 0.5, pc.aabbCenter.xyz + pc.dcAABBSize.xyz * 0.5);
         
         bool canTerminate =
         (closesSDF.x < minDistReturn) && !inAABB;
@@ -940,19 +946,20 @@ float3 turboColor(float t)
 
 float4 SampleMaterialGridSDF(float3 pos)
 {
-    float3 sceneSize = GetSceneSize();
+    float3 sceneSize = GetMaterialSceneSize();
     float3 halfScene = sceneSize * 0.5;
-    int3 gridRes = int3(256, 256, 64);
+    int3 gridRes = GetMaterialGridSize();
 
     if (any(pos < -halfScene) || any(pos >= halfScene))
     {
-        return float4(DEFUALT_EMPTY_SPACE, 0, 0, 0);
+        return 0;
     }
 
+    // Continuous grid coord; -0.5 puts samples at cell centers for trilinear.
+    float3 gridPos = ((pos + halfScene) / sceneSize) * float3(gridRes) - 0.5f;
+    int3 base = int3(floor(gridPos));
 
-    float3 gridPos = ((pos + halfScene) / sceneSize) * float3(gridRes);
-    int3 coord = clamp(int3(floor(gridPos)), int3(0,0,0), gridRes - 1);
-    uint idx = Flatten3D(coord, gridRes); //coord.x + coord.y * gridRes.x + coord.z * gridRes.x * gridRes.y;
+    uint idx = Flatten3D(base, gridRes);
     return materialGrid[idx].fieldValues;
 }
 
@@ -970,9 +977,10 @@ float3 CentralDifferenceNormalMaterialGrid(float3 p)
 
 float4 MaterialGridMarch(float3 ro, float3 rd, inout float4 materialPoint)
 {
-    float3 sceneSize = GetSceneSize();
-    float3 cellSize = sceneSize / float3(256, 256, 64);
-    float minStep = min(cellSize.x, min(cellSize.y, cellSize.z)) * 0.1;
+    // Same material scene size the grid was written with (see SampleMaterialGridSDF).
+    float3 sceneSize = GetMaterialSceneSize();
+    float3 cellSize = sceneSize / GetMaterialGridSize();
+    float minStep = min(cellSize.x, min(cellSize.y, cellSize.z)) * 0.01;
 
     float t = 0.0;
     int maxSteps = 10000;
@@ -983,16 +991,7 @@ float4 MaterialGridMarch(float3 ro, float3 rd, inout float4 materialPoint)
         float3 pos = ro + rd * t;
         float4 sdf = SampleMaterialGridSDF(pos);
 
-        heatMap += sdf.y * 0.1f;
-        
-        if (sdf.x < 0.01f)
-        {
-            float3 n = CentralDifferenceNormalMaterialGrid(pos);
-            float lighting = saturate(dot(n, normalize(float3(0.25, 0.0, 1.0))));
-            materialPoint = lighting;
-            return float4(heatMap, sdf.zw, 1.0f);
-
-        }
+        heatMap += sdf.y * 2.0f;
 
         t += minStep; //max(sdf, minStep);
     }

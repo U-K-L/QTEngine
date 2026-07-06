@@ -60,7 +60,7 @@ QTDoughApplication qtDoughApp;
 SDL_Window* QTSDLWindow;
 SDL_Surface* _screenSurface = NULL;
 int SCREEN_WIDTH = 1280;
-int SCREEN_HEIGHT = 1024;
+int SCREEN_HEIGHT = 720;
 
 void RunQTDough()
 {
@@ -245,8 +245,8 @@ int main(int argc, char* args[]) {
 
     //Clean up and delete threads.
     std::cout << "Cleaning up..." << std::endl;
-    //if (QTDoughEngine->thread.joinable())
-    //    QTDoughEngine->thread.join();
+    if (QTDoughEngine->thread.joinable())
+        QTDoughEngine->thread.join();
     UNEndProgram();
     FreeLibrary(unigmaNative);
     unigmaNative = nullptr;

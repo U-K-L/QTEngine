@@ -17,6 +17,7 @@
 #include "../Engine/RenderPasses/CombineSDFRasterPass.h"
 #include "../Engine/RenderPasses/QuantaSpherePass.h"
 #include "../Engine/RenderPasses/ImguiOverlayPass.h"
+#include "../Engine/Renderer/MeshProcessor.h"
 #include "../Engine/Physics/MaterialSimulationPass.h"
 #include "../Engine/Physics/Emitter.h"
 #include "../UnigmaNative/UnigmaNative.h"
@@ -33,11 +34,15 @@ UnigmaCameraStruct CameraMain;
 std::vector<RenderPassObject*> renderPassStack;
 std::vector<ComputePass*> computePassStack;
 std::vector<RayTracerPass*> rayTracePassStack;
+std::vector<MeshGenerator*> meshGeneratorStack;
 QTDoughApplication* QTDoughApplication::instance = nullptr;
+PFN_vkCmdBeginDebugUtilsLabelEXT pfnVkCmdBeginDebugUtilsLabelEXT = nullptr;
+PFN_vkCmdEndDebugUtilsLabelEXT pfnVkCmdEndDebugUtilsLabelEXT = nullptr;
 std::unordered_map<std::string, UnigmaTexture> textures;
 std::unordered_map<std::string, Unigma3DTexture> textures3D;
 
 MaterialSimulation* materialSimulationPass;
+MeshProcessor* meshProcessor;
 EmitterSystem* emitterSystem;
 
 uint32_t currentFrame = 0;
@@ -361,17 +366,21 @@ void QTDoughApplication::UpdateObjects(UnigmaRenderingStruct* renderObject, Unig
 {
 
     CameraMain = *UNGetCamera(0);
+    /* This application has ownership over ALL position information, game dll merely requests changes.
     if (!unigmaRenderingObjects[gObj->RenderID].gizmoControlled)
     {
         unigmaRenderingObjects[gObj->RenderID]._transform.position = gObj->transform.position;
         unigmaRenderingObjects[gObj->RenderID]._transform.rotation = gObj->transform.rotation;
         unigmaRenderingObjects[gObj->RenderID]._transform.UpdateTransform();
     }
-
+    */
+    //ComputePhysics();
     //Update the shader game objects.
     gameObjectShaderDataArray[gObj->RenderID].Midtone = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Midtone"];
     gameObjectShaderDataArray[gObj->RenderID].Highlight = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Highlight"];
     gameObjectShaderDataArray[gObj->RenderID].Shadow = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["Shadow"];
+    gameObjectShaderDataArray[gObj->RenderID].smoothRefract = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["smoothRefract"];
+    gameObjectShaderDataArray[gObj->RenderID].absorption = unigmaRenderingObjects[gObj->RenderID]._material.vectorProperties["absorption"];
 
 
     int lightSize = UNGetLightsSize();
@@ -664,9 +673,9 @@ void QTDoughApplication::SetupEngineGUI()
                 ImGui::Text("Dirty: %u", b.isDirty);
                 glm::vec3 pos = glm::vec3(b.model[3]);
                 ImGui::Text("Pos: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
-                if (materialSimulationPass->quantaCountReady && b.id < materialSimulationPass->brushQuantaCounts.size())
+                if (b.id >= 1 && (b.id - 1) < materialSimulationPass->brushMatricies.size())
                 {
-                    uint32_t count = materialSimulationPass->brushQuantaCounts[b.id];
+                    uint32_t count = (uint32_t)materialSimulationPass->brushMatricies[b.id - 1].bCentroid.w;
                     ImGui::Text("Quanta: %u", count);
                 }
             }
@@ -695,7 +704,12 @@ void QTDoughApplication::SetupEngineGUI()
                 {
                     glm::vec4 valBeforeWidget = val;
                     float col[4] = { val.x, val.y, val.z, val.w };
-                    if (ImGui::ColorEdit4(key.c_str(), col))
+                    bool edited = false;
+                    if (key == "smoothRefract" || key == "absorption")
+                        edited = ImGui::DragFloat4(key.c_str(), col, 0.01f);
+                    else
+                        edited = ImGui::ColorEdit4(key.c_str(), col);
+                    if (edited)
                     {
                         val = glm::vec4(col[0], col[1], col[2], col[3]);
                     }
@@ -724,6 +738,18 @@ void QTDoughApplication::SetupEngineGUI()
             else
             {
                 ImGui::TextDisabled("No object selected");
+            }
+        }
+
+        if (VoxelizerPass::instance && editorState.selectedBrushIndex >= 0
+            && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->renderingObjects.size())
+        {
+            static bool trackBrushAABB = false;
+            ImGui::Checkbox("Track Brush (AABB follows brush position)", &trackBrushAABB);
+            if (trackBrushAABB)
+            {
+                UnigmaRenderingObject* obj = VoxelizerPass::instance->renderingObjects[editorState.selectedBrushIndex];
+                worldSDFCenter = glm::vec4(obj->_transform.position, 0.0f);
             }
         }
 
@@ -776,7 +802,16 @@ void QTDoughApplication::SetupEngineGUI()
                             {
                                 float val = fit.value().get<float>();
                                 if (ImGui::DragFloat(label.c_str(), &val, 0.01f))
+                                {
                                     fit.value() = val;
+                                    if (compName == "RenderComp" && fieldName == "Smoothness"
+                                        && VoxelizerPass::instance
+                                        && editorState.selectedBrushIndex >= 0
+                                        && editorState.selectedBrushIndex < (int)VoxelizerPass::instance->brushes.size())
+                                    {
+                                        VoxelizerPass::instance->brushes[editorState.selectedBrushIndex].smoothness = val;
+                                    }
+                                }
                             }
                             else if (fit.value().is_number_integer())
                             {
@@ -1255,12 +1290,11 @@ void QTDoughApplication::SetupEngineGUI()
                                 editorState.selectedBrushIndex = (int)i;
                             }
                         }
-                        if (materialSimulationPass->quantaCountReady)
                         {
                             ImGui::Separator();
                             uint32_t used = 0;
-                            for (uint32_t c : materialSimulationPass->brushQuantaCounts)
-                                used += c;
+                            for (const auto& m : materialSimulationPass->brushMatricies)
+                                used += (uint32_t)m.bCentroid.w;
                             uint32_t free = QUANTA_COUNT - used;
                             float pct = 100.0f * (float)used / (float)QUANTA_COUNT;
                             ImGui::Text("Total: %u / %u (%.1f%%)", used, QUANTA_COUNT, pct);
@@ -1386,19 +1420,7 @@ void QTDoughApplication::RunMainGameLoop()
 
     if (elapsedTime.count() >= 33)
     {
-        // Auto-pause after 2s warmup in editor mode.
-        if (!simulationWarmupDone)
-        {
-            auto sinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - timeSinceApplication);
-            if (sinceStart.count() >= 2000)
-            {
-                simulationWarmupDone = true;
-                if (editorState.IsEditor())
-                    simulationPaused = true;
-            }
-        }
-
-        if (!simulationPaused || !simulationWarmupDone)
+        if (!simulationPaused)
             ComputePhysics();
     }
 
@@ -1410,13 +1432,6 @@ void QTDoughApplication::RunMainGameLoop()
     }
 
     DrawFrame();
-    if (GatherBlenderInfo() == 0)
-    {
-        //CameraToBlender();
-        //GetMeshDataAllObjects();
-    }
-
-    //RecreateResources();
 }
 
 void QTDoughApplication::ComputePhysics()
@@ -1507,10 +1522,21 @@ void QTDoughApplication::ComputePhysics()
     }
 }
 
+void QTDoughApplication::RefreshMeshProcessor()
+{
+    meshProcessor->Refresh();
+}
+
+void QTDoughApplication::RefreshMeshGenerators()
+{
+    //Refresh all the mesh generators, not only after consume is stack popped.
+    for_each(meshGeneratorStack.begin(), meshGeneratorStack.end(), [](MeshGenerator* generator){
+        generator->Refresh(); 
+    });
+}
+
 void QTDoughApplication::DrawFrame()
 {
-
-
     //Aquire the rendered image.
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -1523,7 +1549,7 @@ void QTDoughApplication::DrawFrame()
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
-
+    RefreshMeshGenerators();
     UpdateGlobalDescriptorSet();
 
     VkSubmitInfo submitInfo{};
@@ -1558,13 +1584,14 @@ void QTDoughApplication::DrawFrame()
 
     if (computeWaitResult == VK_SUCCESS)
     {
-        //Get data from previous frame.
-        ReadBackGPUData();
+        RefreshMeshProcessor();
+        ConsumeReadback(currentFrame);
+        FeedMeshProcessor(currentFrame);
     }
     else
     {
         std::cout << "DrawFrame: compute fence wait failed (VkResult=" << computeWaitResult
-                  << "), skipping readback." << std::endl;
+                  << ")." << std::endl;
     }
 
     // Write previous frame's bytes to ffmpeg
@@ -1635,6 +1662,7 @@ void QTDoughApplication::DrawFrame()
     //DebugCompute(currentFrame);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 }
 
 
@@ -2104,6 +2132,7 @@ void QTDoughApplication::UpdateUniformBuffer(uint32_t currentImage) {
     memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 */
+
 void QTDoughApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
@@ -2201,6 +2230,11 @@ void QTDoughApplication::AddPasses()
     std::cout << "Passes count: " << renderPassStack.size() << std::endl;
 }
 
+void QTDoughApplication::PushMeshGenerator(MeshGenerator* meshGenerator)
+{
+    meshGeneratorStack.push_back(meshGenerator);
+}
+
 void QTDoughApplication::InitVulkan()
 {
 
@@ -2216,6 +2250,14 @@ void QTDoughApplication::InitVulkan()
     CreateCommandPool();
     RunGPUBenchmark();
 
+    //Creating Mesh Processor.
+    meshProcessor = new MeshProcessor();
+    meshProcessor->InitMeshProcessor();
+    meshProcessor->SetInstance(meshProcessor);
+
+    //meshGenerator = new MeshGenerator();
+    //meshGenerator->InitMeshGenerator();
+
     //Create Material Sim.
     materialSimulationPass = new MaterialSimulation();
     materialSimulationPass->InitMaterialSim();
@@ -2225,6 +2267,7 @@ void QTDoughApplication::InitVulkan()
     emitterSystem = new EmitterSystem();
     emitterSystem->instance = emitterSystem;
     emitterSystem->InitEmitter();
+
 
     AddPasses();
 
@@ -4004,6 +4047,8 @@ void QTDoughApplication::RecordComputeCommandBuffer(VkCommandBuffer commandBuffe
 
     DispatchPasses(commandBuffer, currentFrame);
 
+    ReadBackGPUData(commandBuffer, currentFrame);
+
     /**
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline);
 
@@ -4075,6 +4120,9 @@ void QTDoughApplication::RenderObjects(VkCommandBuffer commandBuffer, uint32_t i
 
 void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
+    MaterialSimulation* matSim = MaterialSimulation::instance;
+    matSim->Update();
+    
     for (int i = 0; i < computePassStack.size(); i++)
     {
         //Check for sdfpass.
@@ -4091,6 +4139,9 @@ void QTDoughApplication::DispatchPasses(VkCommandBuffer commandBuffer, uint32_t 
     {
         rayTracePassStack[i]->Dispatch(commandBuffer, imageIndex);
     }
+
+    for (MeshGenerator* meshGenerator : meshGeneratorStack)
+        meshGenerator->Dispatch(commandBuffer, imageIndex);
 }
 
 void QTDoughApplication::CreateCommandBuffers()
@@ -4684,6 +4735,8 @@ void QTDoughApplication::CreateInstance()
         throw std::runtime_error("failed to create instance!");
     }
 
+    pfnVkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(_vkInstance, "vkCmdBeginDebugUtilsLabelEXT");
+    pfnVkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(_vkInstance, "vkCmdEndDebugUtilsLabelEXT");
 }
 
 bool QTDoughApplication::CheckValidationLayerSupport() {
@@ -5292,10 +5345,38 @@ VkExtent2D QTDoughApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
 
 }
 
-void QTDoughApplication::ReadBackGPUData() {
+void QTDoughApplication::ReadBackGPUData(VkCommandBuffer cmd, uint32_t currentFrame) {
     for (int i = 0; i < computePassStack.size(); i++)
     {
-        computePassStack[i]->ReadBackGPUData();
+        computePassStack[i]->ReadBackGPUData(cmd, currentFrame);
+    }
+}
+
+void QTDoughApplication::ConsumeReadback(uint32_t currentFrame) {
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+        computePassStack[i]->ConsumeReadback(currentFrame);
+    }
+
+    for (int i = 0; i < meshGeneratorStack.size(); i++)
+    {
+        meshGeneratorStack[i]->ConsumeReadback(currentFrame);
+    }
+}
+
+void QTDoughApplication::FeedMeshProcessor(uint32_t currentFrame)
+{
+    for (int i = 0; i < computePassStack.size(); i++)
+    {
+        computePassStack[i]->FeedMeshProcessor(currentFrame);
+    }
+
+    //Consumed, so pop from the stack.
+    while (!meshGeneratorStack.empty())
+    {
+        MeshGenerator* meshGenerator = meshGeneratorStack.back();
+        meshGeneratorStack.pop_back();
+        meshGenerator->FeedMeshProcessor(currentFrame);
     }
 }
 
@@ -5379,18 +5460,6 @@ void QTDoughApplication::Cleanup()
     vkDestroyImage(_logicalDevice, textureImage, nullptr);
     vkFreeMemory(_logicalDevice, textureImageMemory, nullptr);
 
-
-    vkDestroyImageView(_logicalDevice, textureImageView, nullptr);
-
-    vkDestroyImage(_logicalDevice, textureImage, nullptr);
-    vkFreeMemory(_logicalDevice, textureImageMemory, nullptr);
-
-    for (auto framebuffer : swapChainFramebuffers) {
-        vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
-    }
-    for (auto imageView : swapChainImageViews) {
-        vkDestroyImageView(_logicalDevice, imageView, nullptr);
-    }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphores[i], nullptr);
@@ -5402,10 +5471,9 @@ void QTDoughApplication::Cleanup()
     vkDestroyPipeline(_logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
     vkDestroyRenderPass(_logicalDevice, renderPass, nullptr);
-    vkDestroyInstance(_vkInstance, nullptr);
-    vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
     vkDestroyDevice(_logicalDevice, nullptr);
     vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
+    vkDestroyInstance(_vkInstance, nullptr);
     SDL_DestroyWindow(QTSDLWindow);
     SDL_Quit();
 }

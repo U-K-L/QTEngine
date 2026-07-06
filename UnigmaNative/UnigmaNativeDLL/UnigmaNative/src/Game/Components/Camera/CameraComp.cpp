@@ -234,7 +234,7 @@ void CameraComp::Update()
         float panSpeed = 0.01f;
         glm::vec3 cameraRight = camera->_transform.right();
         glm::vec3 cameraUp = camera->_transform.up();
-        glm::vec3 offset = cameraRight * (-static_cast<float>(dx) * panSpeed)
+        glm::vec3 offset = cameraRight * (-static_cast<float>(-dx) * panSpeed)
                          + cameraUp * (static_cast<float>(dy) * panSpeed);
         camera->setPosition(camera->position() + offset);
         orbitPivot += offset;
