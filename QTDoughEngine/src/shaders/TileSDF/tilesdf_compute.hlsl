@@ -46,7 +46,7 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Vertex> vertexBuffer : register(t8, space1);
 RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
 RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);

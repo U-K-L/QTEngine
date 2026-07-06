@@ -65,7 +65,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float3 posNew = pos + pc.dt * quanta.mana.xyz;
 
-    quanta.position.xyz = posNew;
+    float k = -0.25f;
+    float3 displacement = (posNew - quanta.canonicalPosition.xyz);
+    float3 springForce = k * displacement;
+
+    float l = distance(posNew, quanta.canonicalPosition.xyz);
+
+    quanta.position.xyz = lerp(posNew, quanta.canonicalPosition.xyz, saturate(l));
 
     QuantaSeal(quanta, brush);
 

@@ -53,6 +53,7 @@ public:
     {
         uint32_t type; 
         uint32_t vertexCount;
+        //Gives the offset where this vertices count start in the larger array.
         uint32_t vertexOffset;
         uint32_t resolution;
 
@@ -294,7 +295,7 @@ public:
     void CreateBrushTextures(int brushIndex);
     void DispatchBrushCreationIncremental(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     glm::ivec3 SetVoxelGridSize();
-    std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
+    std::vector<Triangle> ExtractTrianglesFromMeshFromTriplets(const std::vector<Vertex>& vertices, const std::vector<glm::uvec3>& triangleIndices);
 
     //Some fluid particles test. Move this to its own pass later on.
     int PARTICLE_COUNT = 2097152;

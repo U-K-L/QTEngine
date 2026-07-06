@@ -70,6 +70,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
     // --- World-space position ---
     float3 quantaPosition = quanta.position.xyz;
 
+    //Hooke:
+    float k = -0.25f;
+    float3 displacement = (quantaPosition- quanta.canonicalPosition.xyz);
+    float3 springForce = k * displacement;
+
     // --- Quadratic B-spline base cell and weights ---
     float3 gs = (quantaPosition + halfScene) / cellSize;
     int3 base = int3(floor(gs - 0.5f));
@@ -109,7 +114,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 float3 nodePos = float3(cellCoordinate) * cellSize - halfScene;
                 float3 dx = nodePos - quantaPosition;
 
-                float3 velocityCell = quanta.mana.xyz + mul(AffineVelocity, dx);
+                float3 velocityCell = quanta.mana.xyz + mul(AffineVelocity, dx) + springForce * pc.dt;
 
                 float massCell = weight * mass;
                 float3 momentumCell = massCell * velocityCell;

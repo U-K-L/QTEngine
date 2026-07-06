@@ -21,6 +21,7 @@ void MeshProcessor::InitMeshProcessor()
 
 //Comes from various generators that appends to the general soup.
 //Clears each frame.
+//Should be in world space vertex soup.
 void MeshProcessor::AppendToVerticesSoup(std::vector<Vertex>& incomingVertices)
 {
 	uint32_t offset = vertexSoup.size();

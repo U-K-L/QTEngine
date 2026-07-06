@@ -47,11 +47,11 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 52265.5 GFLOPS
-  Memory bandwidth:   4954.88 GB/s
+  Compute throughput: 51463.9 GFLOPS
+  Memory bandwidth:   4862.96 GB/s
   Selected quality level: Ultra (0)
 ========================
-Required size for Quanta is: 134217728
+Required size for Quanta is: 167772160
 Required size for Deformation is: 301989888
 Quanta initialized: 203x203x51 (2101659 grid points, step=0.31498m)
 Required size for Leptons is: 4194304
@@ -143,8 +143,8 @@ Creating Uniform Buffers
 Created Uniform Buffers
 Creating Shader Storage Buffers VoxelizerPass
 Vertex count: 36
-Vertex size: 1728
-vertexBuffer memReq.size = 1728
+Vertex size: 2880
+vertexBuffer memReq.size = 2880
 Voxel L1 Storage Buffers created
 VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
 Shader Storage Buffers created
@@ -186,10 +186,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000002889407BB20
-quanta[0]: 0000028893FBB440
-quanta[1]: 0000028893FBC570
-quanta[2]: 0000028893FB9370
+emitterEventBuffer: 000001899418A7C0
+quanta[0]: 0000018994082080
+quanta[1]: 0000018994083020
+quanta[2]: 00000189940842E0
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets

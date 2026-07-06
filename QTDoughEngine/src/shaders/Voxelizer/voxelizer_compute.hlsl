@@ -70,7 +70,7 @@ RWTexture3D<float> gBindless3DStorage[] : register(u5, space0);
 RWStructuredBuffer<Brush> Brushes : register(u9, space1);
 
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Vertex> vertexBuffer : register(t8, space1);
 
 StructuredBuffer<uint> BrushesIndices : register(t10, space1);
 RWStructuredBuffer<uint> TileBrushCounts : register(u11, space1);
@@ -2287,6 +2287,39 @@ bool ReadDeformingFieldKernel(float3 worldPos, int radius)
 }
 */
 
+//Gets the weighted position of displacement....
+float3 vertexCentroidWeightedPosition(in Vertex vertex)
+{
+    Quanta qL0 = quantaBuffer[vertex.quantaIDs.x];
+    Quanta qL1 = quantaBuffer[vertex.quantaIDs.y];
+    Quanta qL2 = quantaBuffer[vertex.quantaIDs.z];
+    Quanta qL3 = quantaBuffer[vertex.quantaIDs.w];
+    
+    float3 q0Position = qL0.position.xyz;
+    float3 q1Position = qL1.position.xyz;
+    float3 q2Position = qL2.position.xyz;
+    float3 q3Position = qL3.position.xyz;
+    
+    float3 q0CanonPosition = qL0.canonicalPosition.xyz;
+    float3 q1CanonPosition = qL1.canonicalPosition.xyz;
+    float3 q2CanonPosition = qL2.canonicalPosition.xyz;
+    float3 q3CanonPosition = qL3.canonicalPosition.xyz;
+    
+    float3 displacementL0 = q0Position - q0CanonPosition;
+    float3 displacementL1 = q1Position - q1CanonPosition;
+    float3 displacementL2 = q2Position - q2CanonPosition;
+    float3 displacementL3 = q3Position - q3CanonPosition;
+    
+    float3 displacementCentroid = displacementL0 * 0.25f +
+                                  displacementL1 * 0.25f +
+                                  displacementL2 * 0.25f +
+                                  displacementL3 * 0.25f;
+    
+    vertex.position.xyz += displacementCentroid;
+
+    return vertex.position.xyz;
+}
+
 //Add the default static mesh to the dual contouring vertex list.
 void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThreadID, uint brushID)
 {
@@ -2313,10 +2346,20 @@ void VertexMask(uint3 DTid : SV_DispatchThreadID, uint3 lThreadID : SV_GroupThre
     const uint i1 = baseSrc + 1;
     const uint i2 = baseSrc + 2;
     
+    //Load vertices.
+    Vertex v0 = vertexBuffer[i0];
+    Vertex v1 = vertexBuffer[i1];
+    Vertex v2 = vertexBuffer[i2];
+    
     // Load local positions
     float3 pL0 = vertexBuffer[i0].position.xyz;
     float3 pL1 = vertexBuffer[i1].position.xyz;
     float3 pL2 = vertexBuffer[i2].position.xyz;
+    
+    //Interpolate from quanta. Move this to a different dispatch that's per vertex....
+    pL0 = vertexCentroidWeightedPosition(v0);
+    pL1 = vertexCentroidWeightedPosition(v1);
+    pL2 = vertexCentroidWeightedPosition(v2);
 
     // World positions for field test
     float3 pW0 = mul(brush.model, float4(pL0, 1)).xyz;

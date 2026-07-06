@@ -49,6 +49,7 @@ void MaterialSimulation::InitComputeWorkload()
 	// Wire brush buffer from VoxelizerPass (created during CreateShaderStorageBuffers).
 	brushesBuffer = VoxelizerPass::instance->brushesStorageBuffers;
 	voxelL1Buffer = VoxelizerPass::instance->voxelL1StorageBuffers[0];
+	meshVertexBuffer = VoxelizerPass::instance->vertexBuffer;
 
 	CreateGPUResources();
 
@@ -137,6 +138,7 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 	// Binding 22: (unused)
 	// Binding 23: BrushMatricies (published per-brush centroids, per-frame ping-pong)
 	// Binding 24: BrushAccumulator (per-brush atomic accumulator: count + posSumX/Y/Z)
+	// Binding 25: Pre-process brush vertex soup (RW, Vertex with quantaIDs, from VoxelizerPass)
 
 	VkDevice device = QTDoughApplication::instance->_logicalDevice;
 	uint32_t buffersInFlight = 3;
@@ -305,6 +307,12 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 		brushAccumInfo.offset = 0;
 		brushAccumInfo.range = brushAccumBufferSize;
 
+		// Binding 25: Shared pre-process brush vertex soup (single buffer, no ping-pong).
+		VkDescriptorBufferInfo meshVertexInfo{};
+		meshVertexInfo.buffer = meshVertexBuffer;
+		meshVertexInfo.offset = 0;
+		meshVertexInfo.range = VK_WHOLE_SIZE;
+
 		std::array<VkWriteDescriptorSet, MAT_SIM_BINDINGS> writes{};
 		VkDescriptorBufferInfo* bufferInfos[] = {
 			&quantaInInfo, &quantaOutInfo, &quantaReadInfo,
@@ -319,7 +327,8 @@ void MaterialSimulation::CreateComputeDescriptorSets()
 			&materialGridAccumInfo,
 			&unusedInfo22,
 			&brushMatriciesInfo,
-			&brushAccumInfo
+			&brushAccumInfo,
+			&meshVertexInfo
 		};
 
 		for (uint32_t b = 0; b < writes.size(); b++)
@@ -388,6 +397,7 @@ void MaterialSimulation::CreateComputePipeline()
 	CreateComputePipelineFromSPV("matsim_collapse", collapsePipeline);
 	CreateComputePipelineFromSPV("matsim_collapse_fill", collapseFillPipeline);
 	CreateComputePipelineFromSPV("matsim_brush_assign", brushAssignPipeline);
+	CreateComputePipelineFromSPV("matsim_brush_assign_vertex_quanta", brushAssignVertexQuantaPipeline);
 	CreateComputePipelineFromSPV("matsim_p2g", p2gPipeline);
 	CreateComputePipelineFromSPV("matsim_g2p", g2pPipeline);
 	CreateComputePipelineFromSPV("matsim_project_quanta", projectQuantaPipeline);
@@ -535,6 +545,15 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
 		{
 			DispatchBrushFill(commandBuffer, i); // -1 means fill for all brushes that need it.
+		}
+
+		// Sort quanta into tiles so the vertex assign has a valid acceleration structure.
+		DispatchTileSort(commandBuffer);
+
+		//Assign Quanta to SRC.
+		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
+		{
+			DispatchBrushAssignVertexQuanta(commandBuffer, i);
 		}
 	}
 
@@ -716,11 +735,11 @@ void MaterialSimulation::IntegrateBodiesVelocity()
 
 
 
-		if (brush->interactiveType == 1)
-		{
+		//if (brush->interactiveType == 1)
+		//{
 			renderBody->_transform.position +=  velocity * dt;
 			renderBody->_transform.UpdateTransform();
-		}
+		//}
 
 
 
@@ -945,6 +964,48 @@ void MaterialSimulation::DispatchBrushFill(VkCommandBuffer commandBuffer, int br
 	vkCmdDispatch(commandBuffer, groups, groups, groups);
 
 	voxelizer->brushes[brushIndex].isCollapsing = 0; // Clear collapsing flag so next dispatch doesn't redo this fill.
+}
+
+void MaterialSimulation::DispatchBrushAssignVertexQuanta(VkCommandBuffer commandBuffer, int brushIndex)
+{
+	QTDoughApplication* app = QTDoughApplication::instance;
+	VoxelizerPass* voxelizer = VoxelizerPass::instance;
+
+	if (!voxelizer || brushIndex < 0 || brushIndex >= static_cast<int>(voxelizer->brushes.size()))
+		return;
+
+	// Prior fill/sort compute writes must be visible before this pass reads them.
+	VkMemoryBarrier2 fillBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	fillBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	fillBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	fillBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+	fillBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+	VkDependencyInfo fillDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	fillDep.memoryBarrierCount = 1;
+	fillDep.pMemoryBarriers = &fillBarrier;
+	vkCmdPipelineBarrier2(commandBuffer, &fillDep);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, brushAssignVertexQuantaPipeline);
+
+	VkDescriptorSet sets[] = {
+		app->globalDescriptorSets[currentFrame % app->globalDescriptorSets.size()],
+		descriptorSets[currentFrame]
+	};
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, sets, 0, nullptr);
+
+	PushConsts pc{};
+	pc.particleSize = 1.0f;
+	pc.tileGridX = Field.FieldSize.x / TileSize.x;
+	pc.tileGridY = Field.FieldSize.y / TileSize.y;
+	pc.tileGridZ = Field.FieldSize.z / TileSize.z;
+	pc.brushIndex = brushIndex;
+
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConsts), &pc);
+
+	uint32_t res = voxelizer->brushes[brushIndex].vertexCount;
+	uint32_t groups = (res + 7) / 8;
+	vkCmdDispatch(commandBuffer, groups, 1, 1);
 }
 
 void MaterialSimulation::DispatchPBMPMP2C(VkCommandBuffer commandBuffer)

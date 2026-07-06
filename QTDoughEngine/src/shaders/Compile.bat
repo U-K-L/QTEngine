@@ -12,6 +12,7 @@ C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/mats
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_collapse.hlsl -Fo matsim_collapse.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_collapse_fill.hlsl -Fo matsim_collapse_fill.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_brush_assign.hlsl -Fo matsim_brush_assign.spv
+C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_brush_assign_vertex_quanta.hlsl -Fo matsim_brush_assign_vertex_quanta.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_p2g.hlsl -Fo matsim_p2g.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_g2p.hlsl -Fo matsim_g2p.spv
 C:/VulkanSDK/1.3.290.0/Bin/dxc.exe dxc -T cs_6_0 -E main -spirv MaterialSim/matsim_emitter.hlsl -Fo matsim_emitter.spv

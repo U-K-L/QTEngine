@@ -15,6 +15,7 @@ struct Mat3x3_16 {
 //The particle that emerges from the field.
 //Compact, w values may store arbitrary different results.
 struct Quanta {
+	glm::vec4 canonicalPosition;
 	glm::vec4 position; //The position this quanta is currently in. w is mass.
 	glm::vec4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating. w is distance from the observer.
 	glm::ivec4 information; //Hashed ledger, maps to a lookup, a larger ledger.
@@ -95,7 +96,7 @@ struct BrushAccumulator
 	glm::ivec4 inertia;
 };
 
-#define MAT_SIM_BINDINGS 25
+#define MAT_SIM_BINDINGS 26
 
 
 class MaterialSimulation
@@ -128,6 +129,7 @@ class MaterialSimulation
 		void DispatchWaveFunctionCollapse(VkCommandBuffer commandBuffer); //Per-brush collapse after sim.
 		void DispatchCollapseFill(VkCommandBuffer commandBuffer); //Per-voxel fill: claim quanta into brush density grid.
 		void DispatchBrushFill(VkCommandBuffer commandBuffer, int brushIndex); //Direct per-brush quanta assignment on creation.
+		void DispatchBrushAssignVertexQuanta(VkCommandBuffer commandBuffer, int brushIndex);
 		void DispatchP2G(VkCommandBuffer commandBuffer); //Particle to Grid scatter.
 		void DispatchBrushAccum(VkCommandBuffer commandBuffer); //brushAccumulator -> brushMatricies.bCentroid.
 		void DispatchG2P(VkCommandBuffer commandBuffer); //Grid to Particle gather.
@@ -293,9 +295,11 @@ class MaterialSimulation
 		// Wave Function Collapse — brush access for quanta gather/snap.
 		VkBuffer brushesBuffer = VK_NULL_HANDLE;
 		VkBuffer voxelL1Buffer = VK_NULL_HANDLE;
+		VkBuffer meshVertexBuffer = VK_NULL_HANDLE; //Shared pre-process brush vertex soup (ComputePass::CreateTriangleSoup).
 		VkPipeline collapsePipeline = VK_NULL_HANDLE;
 		VkPipeline collapseFillPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAssignPipeline = VK_NULL_HANDLE;
+		VkPipeline brushAssignVertexQuantaPipeline = VK_NULL_HANDLE;
 		VkPipeline p2gPipeline = VK_NULL_HANDLE;
 		VkPipeline brushAccumPipeline = VK_NULL_HANDLE;
 		VkPipeline g2pPipeline = VK_NULL_HANDLE;

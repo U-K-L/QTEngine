@@ -118,6 +118,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         if (quantaOut[slot].information.x != 0)
             continue; // Already claimed, try next.
 
+        quantaOut[slot].canonicalPosition.xyz = localPos;
         quantaOut[slot].position.xyz = localPos;
         quantaOut[slot].information.x = (int) brush.id;
         quantaOut[slot].information.w = 1;

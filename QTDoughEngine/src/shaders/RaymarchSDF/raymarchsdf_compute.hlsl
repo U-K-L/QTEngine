@@ -58,7 +58,7 @@ StructuredBuffer<Voxel> voxelsL3In : register(t6, space1); // readonly
 RWStructuredBuffer<Voxel> voxelsL3Out : register(u7, space1); // write
 
 
-StructuredBuffer<ComputeVertex> vertexBuffer : register(t8, space1);
+StructuredBuffer<Vertex> vertexBuffer : register(t8, space1);
 StructuredBuffer<Brush> Brushes : register(t9, space1);
 StructuredBuffer<MaterialGridPoint> materialGrid : register(t22, space1);
 // For reading
@@ -660,7 +660,7 @@ float IntersectionPoint(float3 pos, float3 dir, inout float4 resultOutput)
     for (int j = 0; j < 6661; j++)
     {
         Voxel voxel = voxelsIn[minIndex];
-        ComputeVertex vert = vertexBuffer[j];
+        Vertex vert = vertexBuffer[j];
 
         float3 halfExtent = voxel.normalDensity.w * 0.5f;
         float3 voxelMin = voxel.positionDistance.xyz - halfExtent;

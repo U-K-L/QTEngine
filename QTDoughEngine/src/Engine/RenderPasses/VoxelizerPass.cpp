@@ -43,7 +43,7 @@ void VoxelizerPass::CreateMaterials() {
     PassNames.push_back("MaterialGridPass");
 }
 
-std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<ComputeVertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
+std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFromTriplets(const std::vector<Vertex>& vertices, const std::vector<glm::uvec3>& triangleIndices)
 {
     std::vector<Triangle> triangles;
 
@@ -54,9 +54,9 @@ std::vector<VoxelizerPass::Triangle> VoxelizerPass::ExtractTrianglesFromMeshFrom
             continue;
         }
 
-        glm::vec3 a = glm::vec3(vertices[tri.x].position);
-        glm::vec3 b = glm::vec3(vertices[tri.y].position);
-        glm::vec3 c = glm::vec3(vertices[tri.z].position);
+        glm::vec3 a = glm::vec3(vertices[tri.x].pos);
+        glm::vec3 b = glm::vec3(vertices[tri.y].pos);
+        glm::vec3 c = glm::vec3(vertices[tri.z].pos);
         glm::vec3 normal = glm::normalize(glm::cross(b - a, c - a));
 
         triangles.push_back({ a, b, c, normal });

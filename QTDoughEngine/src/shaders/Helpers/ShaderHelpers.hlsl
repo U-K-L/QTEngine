@@ -131,6 +131,7 @@ struct Mat3x3_16
 
 struct Quanta
 {
+    float4 canonicalPosition;
     float4 position; //The position this quanta is currently in.
     float4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating.
     int4 information; //Hashed ledger, maps to a lookup, a larger ledger.
@@ -237,14 +238,8 @@ struct Vertex
     float4 color;
     float4 texCoord;
     float4 normal;
+    int4 quantaIDs;
 };
-
-struct ComputeVertex
-{
-    float4 position; // 16 bytes
-    float4 normal; // 16 bytes
-    float4 texCoord; // 16 bytes
-}; // Total: 48 bytes
 
 float2 GetVoxelResolutionWorldSDF(float sampleLevel)
 {
@@ -1120,7 +1115,9 @@ void QuantaUnseal(inout Quanta quanta, in Brush brush)
 {
     //Get the world position.
     float3 worldPosition = mul(brush.model, float4(quanta.position.xyz, 1.0f)).xyz;
+    float3 worldPositionCanon = mul(brush.model, float4(quanta.canonicalPosition.xyz, 1.0f)).xyz;
     quanta.position.xyz = worldPosition;
+    quanta.canonicalPosition.xyz = worldPositionCanon;
 }
 
 //Puts quanta back into compress format. Must be unsealed first.
@@ -1128,6 +1125,9 @@ void QuantaSeal(inout Quanta quanta, in Brush brush)
 {
     float3 localPosition = mul(brush.invModel, float4(quanta.position.xyz, 1.0f)).xyz;
     quanta.position.xyz = localPosition;
+
+    float3 localPositionCanon = mul(brush.invModel, float4(quanta.canonicalPosition.xyz, 1.0f)).xyz;
+    quanta.canonicalPosition.xyz = localPositionCanon;
 }
 
 float3x3 CrossMatrix(float3 a)
