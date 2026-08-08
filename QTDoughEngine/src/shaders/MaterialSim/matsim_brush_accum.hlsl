@@ -15,6 +15,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (count == 0)
     {
         brushMatricies[b].bCentroid = float4(0, 0, 0, 0);
+        brushMatricies[b].angularMomentum = float4(0, 0, 0, 0);
         return;
     }
 
@@ -23,7 +24,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
         
     float3 bcentroid = (float3)brushAccumulator[b].bcentroid.xyz * invCount * invScale;
     float3 velocity = (float3) brushAccumulator[b].velocity.xyz * invCount * invScale;
-    float3 inertia = (float3)brushAccumulator[b].inertia.xyz * invCount * invScale;
+    float3 angularMomentum = (float3) brushAccumulator[b].angularMomentum.xyz * invCount * invScale;
 
     brushMatricies[b].bCentroid = float4(bcentroid.xyz, count);
     //brushMatricies[b].velocity = float4(velocity.xyz, brushMatricies[b].velocity.w);
@@ -61,26 +62,25 @@ void main(uint3 DTid : SV_DispatchThreadID)
   MaterialGridPoint centroidPoint = materialGrid[Flatten3D(centerCell, gridRes)];
   massMomentumSum = centroidPoint.massMomentum;
 
-  //Solving for linear velocity and angular velocity
-  float3 Us = brushMatricies[b].velocity.xyz;
-  float M = brushMatricies[b].velocity.w;
-  float3 P = Us * brushMatricies[b].velocity.w;
-  
-  float3 R = M * inertia;
+  float3 inertiaDiagonal = (float3)brushAccumulator[b].inertiaDiag.xyz * invCount * invScale;
+  float3 inertiaOffDiagonal = (float3)brushAccumulator[b].inertiaOffDiag.xyz * invCount * invScale;
 
-  float3 L = cross(R, Us);
+  float3x3 inertiaTensor = float3x3(
+      inertiaDiagonal.x, inertiaOffDiagonal.x, inertiaOffDiagonal.y,
+      inertiaOffDiagonal.x, inertiaDiagonal.y, inertiaOffDiagonal.z,
+      inertiaOffDiagonal.y, inertiaOffDiagonal.z, inertiaDiagonal.z);
 
-  float1x3 iM;
-  iM[0][0] = inertia.x;
-  iM[0][1] = inertia.y;
-  iM[0][2] = inertia.z;
+  inertiaTensor += (1e-4f * max(inertiaDiagonal.x + inertiaDiagonal.y + inertiaDiagonal.z, 1e-6f)) * IDENTITY_MATRIX3_3;
 
+  float3 angularVelocity = mul(inverse(inertiaTensor), angularMomentum);
 
-  float3x3 J = M * ( mul( dot2(inertia), IDENTITY_MATRIX3_3) - mul(iM, transpose(iM)) );
+  float angularSpeed = length(angularVelocity);
+  float maxAngularSpeed = 10.0f;
+  if (angularSpeed > maxAngularSpeed)
+      angularVelocity *= maxAngularSpeed / angularSpeed;
 
   float gm = massMomentumSum.w;
-  
-  float3 gv = (gm > 0.0f) ? (massMomentumSum.xyz / gm) : float3(0.0f, 0.0f, 0.0f);
 
   brushMatricies[b].velocity = float4(velocity, gm);
+  brushMatricies[b].angularMomentum = float4(angularVelocity, 0.0f);
 }

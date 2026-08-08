@@ -738,6 +738,23 @@ void MaterialSimulation::IntegrateBodiesVelocity()
 		//if (brush->interactiveType == 1)
 		//{
 			renderBody->_transform.position +=  velocity * dt;
+
+			glm::vec3 angularVelocity = glm::vec3(brushMatricies[i].angularMomentum) * 10.0f;
+
+			//std::cout << "Brush " << i << " angularVelocity: "
+			//	<< angularVelocity.x << " " << angularVelocity.y << " " << angularVelocity.z << std::endl;
+
+			float angle = glm::length(angularVelocity) * dt;
+			if (angle > 1e-6f)
+			{
+				glm::quat deltaRotation = glm::angleAxis(angle, angularVelocity / glm::length(angularVelocity));
+				glm::quat currentRotation = glm::quat(renderBody->_transform.rotation);
+				//renderBody->_transform.rotation = glm::eulerAngles(deltaRotation * currentRotation);
+
+				glm::vec3 centerOfMass = glm::vec3(brushMatricies[i].bCentroid);
+				//renderBody->_transform.position = centerOfMass + deltaRotation * (renderBody->_transform.position - centerOfMass);
+			}
+
 			renderBody->_transform.UpdateTransform();
 		//}
 

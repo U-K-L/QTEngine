@@ -58,18 +58,40 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         float3 bcentroid = (float3)brushAccumulator[brushId].bcentroid.xyz * invCount * invScale;
 
-        float3 rs = quanta.position - bcentroid;
+        float3 relativePosition = quanta.position - bcentroid;
         int dummyVal;
 
-        int RX = (int)round(rs.x * FIXED_POINT_SCALE);
-        int RY = (int)round(rs.y * FIXED_POINT_SCALE);
-        int RZ = (int)round(rs.z * FIXED_POINT_SCALE);
+        if (count > 0)
+        {
+            float3 meanVelocity = (float3)brushAccumulator[brushId].velocity.xyz * invCount * invScale;
+            float3 relativeVelocity = quanta.mana.xyz - meanVelocity;
 
-        float massQ = 0.1f; // change to per quanta property.
-        InterlockedAdd(brushAccumulator[brushId].inertia.w, massQ, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].inertia.x, RX, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].inertia.y, RY, dummyVal);
-        InterlockedAdd(brushAccumulator[brushId].inertia.z, RZ, dummyVal);
+            //Affine velocity already contains the angular velocity, just extract it and multiply by interia tensor.
+            //NEEDS MASS.
+            float mass = 1.0f;
+            
+            float3x3 affineVelocity = deformOut[globalIndex].AffVel;
+            float3 spin = 0.5f * float3(
+                affineVelocity[2][1] - affineVelocity[1][2],
+                affineVelocity[0][2] - affineVelocity[2][0],
+                affineVelocity[1][0] - affineVelocity[0][1]);
+            
+            float particleInertia = 2.0f / INERTIA_TENSOR_INVERSE[0][0];
+
+            float3 angularMomentum = mass * cross(relativePosition, relativeVelocity) + mass * particleInertia * spin;
+
+            InterlockedAdd(brushAccumulator[brushId].angularMomentum.x, (int) round(angularMomentum.x * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].angularMomentum.y, (int) round(angularMomentum.y * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].angularMomentum.z, (int) round(angularMomentum.z * FIXED_POINT_SCALE), dummyVal);
+
+            float radiusSquared = dot(relativePosition, relativePosition);
+            InterlockedAdd(brushAccumulator[brushId].inertiaDiag.x, (int)round((radiusSquared - relativePosition.x * relativePosition.x + particleInertia) * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].inertiaDiag.y, (int)round((radiusSquared - relativePosition.y * relativePosition.y + particleInertia) * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].inertiaDiag.z, (int)round((radiusSquared - relativePosition.z * relativePosition.z + particleInertia) * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].inertiaOffDiag.x, (int)round((-relativePosition.x * relativePosition.y) * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].inertiaOffDiag.y, (int)round((-relativePosition.x * relativePosition.z) * FIXED_POINT_SCALE), dummyVal);
+            InterlockedAdd(brushAccumulator[brushId].inertiaOffDiag.z, (int)round((-relativePosition.y * relativePosition.z) * FIXED_POINT_SCALE), dummyVal);
+        }
     }
 
     //float3 posNew = pos + pc.dt * quanta.mana.xyz;

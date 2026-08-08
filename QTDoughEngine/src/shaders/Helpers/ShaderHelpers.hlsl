@@ -166,14 +166,16 @@ struct BrushAccumulator
 {
     int4 bcentroid;
     int4 velocity;
-    int4 inertia;
+    int4 angularMomentum;
+    int4 inertiaDiag;
+    int4 inertiaOffDiag;
 };
 
 struct BrushMatrix
 {
 	float4 bCentroid; //xyz is pos, w is count.
     float4 velocity;
-    float4 inertia;
+    float4 angularMomentum;
 };
 
 struct Lepton

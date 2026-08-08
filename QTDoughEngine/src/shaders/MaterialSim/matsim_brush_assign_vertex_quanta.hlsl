@@ -87,58 +87,5 @@ void main(uint3 DTid : SV_DispatchThreadID)
             }
         }
     }
-    
-    /**
-    uint vIdx = brush.vertexOffset + DTid.x;
-    float3 localPos = vertexBuffer[vIdx].position.xyz;
-
-    int3 tileGrid = int3(pc.tileGridX, pc.tileGridY, pc.tileGridZ);
-    float3 halfField = float3(tileGrid) * (QUANTA_TILE_SIZE * 0.5f);
-    int3 centerTile = clamp((int3) floor((localPos + halfField) / QUANTA_TILE_SIZE), int3(0, 0, 0), tileGrid - 1);
-
-    int nearestIds[NEAREST_QUANTA] = { -1, -1, -1, -1 };
-    float nearestDist[NEAREST_QUANTA] = { 1e30f, 1e30f, 1e30f, 1e30f };
-
-    for (int dz = -1; dz <= 1; dz++)
-    {
-        for (int dy = -1; dy <= 1; dy++)
-        {
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                int3 tile = centerTile + int3(dx, dy, dz);
-                if (any(tile < 0) || any(tile >= tileGrid))
-                    continue;
-
-                uint tIdx = (uint) Flatten3D(tile, tileGrid);
-                uint start = tileOffsets[tIdx];
-                uint end = start + tileCounts[tIdx];
-
-                for (uint s = start; s < end; s++)
-                {
-                    uint qIdx = quantaIds[s];
-                    Quanta q = quantaOut[qIdx];
-
-                    if (q.information.x != (int) brush.id)
-                        continue;
-
-                    float difference = distance(q.position.xyz, localPos);
-
-                    if (difference >= nearestDist[NEAREST_QUANTA - 1])
-                        continue;
-
-                    int slot = NEAREST_QUANTA - 1;
-                    while (slot > 0 && nearestDist[slot - 1] > difference)
-                    {
-                        nearestDist[slot] = nearestDist[slot - 1];
-                        nearestIds[slot] = nearestIds[slot - 1];
-                        slot--;
-                    }
-                    nearestDist[slot] = difference;
-                    nearestIds[slot] = (int) qIdx;
-                }
-            }
-        }
-    }
-    */
     vertexBuffer[vertexId].quantaIDs = int4(nearestIds[0], nearestIds[1], nearestIds[2], nearestIds[3]);
 }

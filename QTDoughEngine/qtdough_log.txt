@@ -1,5 +1,5 @@
 Scene Loaded!
-Model Information and Material Size: 1
+Model Information and Material Size: 5
 Houston we're running the renderer!!!
 validation layer: windows_get_device_registry_files: GUID for 8 is not SoftwareComponent skipping
 validation layer: windows_get_device_registry_files: GUID for 9 is not SoftwareComponent skipping
@@ -47,8 +47,8 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 51463.9 GFLOPS
-  Memory bandwidth:   4862.96 GB/s
+  Compute throughput: 48210.4 GFLOPS
+  Memory bandwidth:   4953.41 GB/s
   Selected quality level: Ultra (0)
 ========================
 Required size for Quanta is: 167772160
@@ -132,6 +132,10 @@ Memory of 3D Textures in L2: 128 MB
 Memory of 3D Textures in L3: 8 MB
 Textures created
 Brush 0 batchID=0 new texture pair [5, 6]
+Brush 1 batchID=0 new texture pair [7, 8]
+Brush 2 batchID=0 new texture pair [9, 10]
+Brush 3 batchID=0 new texture pair [11, 12]
+Brush 4 batchID=0 new texture pair [13, 14]
 Textures created2
 Created 3D texture for world SDF level 0 with resolution: 512
 Created 3D texture for world SDF level 1 with resolution: 256
@@ -142,9 +146,9 @@ Textures creat2ed2
 Creating Uniform Buffers
 Created Uniform Buffers
 Creating Shader Storage Buffers VoxelizerPass
-Vertex count: 36
-Vertex size: 2880
-vertexBuffer memReq.size = 2880
+Vertex count: 2880
+Vertex size: 230400
+vertexBuffer memReq.size = 230400
 Voxel L1 Storage Buffers created
 VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
 Shader Storage Buffers created
@@ -186,10 +190,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 000001899418A7C0
-quanta[0]: 0000018994082080
-quanta[1]: 0000018994083020
-quanta[2]: 00000189940842E0
+emitterEventBuffer: 0000015B1425E770
+quanta[0]: 0000015B141B2F90
+quanta[1]: 0000015B141B27C0
+quanta[2]: 0000015B141B5060
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -201,12 +205,20 @@ Allocated compute command buffers
 Started pool info imgui
 Started pool info imgui
 Brush resolution and ID: 0 , 64
-Brush creation took: 0 milliseconds
-Brushes Processed: 1
-Total Voxels Created: 262144
-Estimated Particles Created: 32768
+Brush resolution and ID: 1 , 64
+Brush resolution and ID: 2 , 64
+Brush resolution and ID: 3 , 64
+Brush resolution and ID: 4 , 64
+Brush creation took: 1 milliseconds
+Brushes Processed: 5
+Total Voxels Created: 1310720
+Estimated Particles Created: 163840
 Brush resolution and ID: 0 , 64
-Brush creation took: 0 milliseconds
-Brushes Processed: 1
-Total Voxels Created: 262144
-Estimated Particles Created: 32768
+Brush resolution and ID: 1 , 64
+Brush resolution and ID: 2 , 64
+Brush resolution and ID: 3 , 64
+Brush resolution and ID: 4 , 64
+Brush creation took: 1 milliseconds
+Brushes Processed: 5
+Total Voxels Created: 1310720
+Estimated Particles Created: 163840

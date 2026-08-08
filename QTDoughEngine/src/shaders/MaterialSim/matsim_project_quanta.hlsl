@@ -71,7 +71,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     float l = distance(posNew, quanta.canonicalPosition.xyz);
 
-    quanta.position.xyz = lerp(posNew, quanta.canonicalPosition.xyz, saturate(l));
+    quanta.position.xyz = lerp(posNew, quanta.canonicalPosition.xyz, l);
 
     QuantaSeal(quanta, brush);
 

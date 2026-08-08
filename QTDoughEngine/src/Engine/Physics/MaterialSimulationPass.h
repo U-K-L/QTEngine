@@ -3,23 +3,12 @@
 #include "../../Application/QTDoughApplication.h"
 #include "../Renderer/UnigmaMaterial.h"
 #include "../Renderer/MeshGenerator.h"
-
-#define QUANTA_COUNT 2097152 //Only changes per official build. 
+#include "Quanta.h"
 
 struct Mat3x3_16 {
 	glm::vec4 r0;
 	glm::vec4 r1;
 	glm::vec4 r2;
-};
-
-//The particle that emerges from the field.
-//Compact, w values may store arbitrary different results.
-struct Quanta {
-	glm::vec4 canonicalPosition;
-	glm::vec4 position; //The position this quanta is currently in. w is mass.
-	glm::vec4 resonance; //Harmonic, waveform, fourier. Dot(sum(qset(i1), qset(i2)) = resonating. w is distance from the observer.
-	glm::ivec4 information; //Hashed ledger, maps to a lookup, a larger ledger.
-	glm::vec4 mana; //Potential energy. xyz is velocity, w energy.
 };
 
 struct QuantaDeformation {
@@ -43,33 +32,6 @@ struct MaterialGridAccumulator {
 	glm::ivec4 normal;
 };
 
-//Carries information, is the "hit" that interacts with the materialField.
-//A type of boson.
-struct Photon
-{
-	glm::vec4 position;
-	glm::vec4 direction;
-	glm::vec4 normal;
-	glm::vec4 force;
-	glm::ivec4 information;
-};
-
-//Control points... used for cage deformation AND creating spacetime metric.
-//A type of boson.
-struct Graviton
-{
-	glm::vec4 position;
-	glm::vec4 direction; //xyz normalize = direction, unormalized = direction and speed, w = time direction (dt * w)
-};
-
-struct Lepton
-{
-	glm::vec4 position; //Persistent position while claimed. w is ID of claimer.
-	glm::vec4 direction; //Direction of movement through the field. w is radius of influence which falls off with distance.
-	glm::vec4 mana; //Potential energy, or "charge". each xyz different type. w is lifespan
-	glm::vec4 velocity; //Speed at which it moves through the field.
-};
-
 struct UnigmaField
 {
 	glm::ivec3 FieldSize; //invariant holding the size of the field. This can be non-cubic, ie 64x64x16...
@@ -85,7 +47,7 @@ struct BrushMatrix
 {
 	glm::vec4 bCentroid; //xyz is pos, w is count.
 	glm::vec4 velocity;
-	glm::vec4 inertia;
+	glm::vec4 angularMomentum;
 };
 
 //Used for atomics, must be in fixed point format.
@@ -93,7 +55,9 @@ struct BrushAccumulator
 {
 	glm::ivec4 bcentroid;
 	glm::ivec4 velocity;
-	glm::ivec4 inertia;
+	glm::ivec4 angularMomentum;
+	glm::ivec4 inertiaDiag;
+	glm::ivec4 inertiaOffDiag;
 };
 
 #define MAT_SIM_BINDINGS 26

@@ -56,7 +56,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     velocity += pc.dt * float3(0.0f, 0.0f, -9.8f);
 
-    float floorZ = 0.0f;
+    float floorZ = -2.0f;
     float collisionBand = cellSize.z * 2.0f;
 
     float3 n = float3(0.0f, 0.0f, 1.0f);
@@ -69,11 +69,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
         float contactBand = saturate(1.0f - phi / collisionBand);
 
         if (vn < 0.0f)
-            velocity -= vn * contactBand * n;
+            velocity -= vn * n;
 
-        float friction = 0.4f;
         float3 vt = velocity - dot(velocity, n) * n;
-        velocity -= vt * friction * contactBand;
+        velocity -= vt;
     }
 
 
