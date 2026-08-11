@@ -47,7 +47,7 @@ Created Command Pool
 Running GPU Benchmark...
 ========================
 GPU Benchmark Results:
-  Compute throughput: 48210.4 GFLOPS
+  Compute throughput: 48771 GFLOPS
   Memory bandwidth:   4953.41 GB/s
   Selected quality level: Ultra (0)
 ========================
@@ -136,6 +136,7 @@ Brush 1 batchID=0 new texture pair [7, 8]
 Brush 2 batchID=0 new texture pair [9, 10]
 Brush 3 batchID=0 new texture pair [11, 12]
 Brush 4 batchID=0 new texture pair [13, 14]
+Brush 5 batchID=0 new texture pair [15, 16]
 Textures created2
 Created 3D texture for world SDF level 0 with resolution: 512
 Created 3D texture for world SDF level 1 with resolution: 256
@@ -146,9 +147,9 @@ Textures creat2ed2
 Creating Uniform Buffers
 Created Uniform Buffers
 Creating Shader Storage Buffers VoxelizerPass
-Vertex count: 2880
-Vertex size: 230400
-vertexBuffer memReq.size = 230400
+Vertex count: 3120
+Vertex size: 249600
+vertexBuffer memReq.size = 249600
 Voxel L1 Storage Buffers created
 VoxelizerPass: VoxelizerPass - MaterialBrushPoints: 32768 points per brush, 8388608 total points, 256 MB
 Shader Storage Buffers created
@@ -190,10 +191,10 @@ Creating Compute Descriptor Sets
 Created descriptor sets
 MaterialSimulation sort pipelines created.
 MaterialSimulation compute workload initialized.
-emitterEventBuffer: 0000015B1425E770
-quanta[0]: 0000015B141B2F90
-quanta[1]: 0000015B141B27C0
-quanta[2]: 0000015B141B5060
+emitterEventBuffer: 000001D314225210
+quanta[0]: 000001D314185620
+quanta[1]: 000001D3141889B0
+quanta[2]: 000001D314186A70
 Created Descriptor layout emitter
 Created Descriptor layout pool
 Created Descriptor sets
@@ -209,16 +210,18 @@ Brush resolution and ID: 1 , 64
 Brush resolution and ID: 2 , 64
 Brush resolution and ID: 3 , 64
 Brush resolution and ID: 4 , 64
+Brush resolution and ID: 5 , 64
 Brush creation took: 1 milliseconds
-Brushes Processed: 5
-Total Voxels Created: 1310720
-Estimated Particles Created: 163840
+Brushes Processed: 6
+Total Voxels Created: 1572864
+Estimated Particles Created: 196608
 Brush resolution and ID: 0 , 64
 Brush resolution and ID: 1 , 64
 Brush resolution and ID: 2 , 64
 Brush resolution and ID: 3 , 64
 Brush resolution and ID: 4 , 64
+Brush resolution and ID: 5 , 64
 Brush creation took: 1 milliseconds
-Brushes Processed: 5
-Total Voxels Created: 1310720
-Estimated Particles Created: 163840
+Brushes Processed: 6
+Total Voxels Created: 1572864
+Estimated Particles Created: 196608

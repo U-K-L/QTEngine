@@ -88,6 +88,9 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
     float3 velocitySum = 0;
     float3x3 B = 0.0f;
+    float wsum = 0.0f;
+    float3 m1 = 0.0f;
+    float3x3 M2 = 0.0f;
     [unroll]
     for (int i = 0; i < 3; i++)
     {
@@ -115,10 +118,19 @@ void main(uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 
                 velocitySum += weight * velocity;
                 B += weight * Outer(velocity, dx);
+                wsum += weight;
+                m1 += weight * dx;
+                M2 += weight * Outer(dx, dx);
             }
         }
     }
-    float3x3 C = mul(B, INERTIA_TENSOR_INVERSE);
+    wsum = max(wsum, 1e-6f);
+    velocitySum /= wsum;
+
+    //Solve C against the stencil's actual moments: translation-invariant and exact
+    //for linear fields even on truncated boundary stencils.
+    float3x3 M = M2 - Outer(m1, m1) / wsum + (1e-4f * cellSize.x * cellSize.x) * IDENTITY_MATRIX3_3;
+    float3x3 C = mul(B - Outer(velocitySum, m1), inverse(M));
 
     //Expand Quanta include center mass.
     int posX = (int)round(pos.x * FIXED_POINT_SCALE);

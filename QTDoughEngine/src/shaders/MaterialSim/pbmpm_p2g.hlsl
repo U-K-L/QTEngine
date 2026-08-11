@@ -35,6 +35,7 @@ RWStructuredBuffer<QuantaDeformation> deformOut : register(u10, space1);
 
 RWStructuredBuffer<MaterialGridAccumulator> accumulator : register(u21, space1);
 
+RWStructuredBuffer<BrushMatrix> brushMatricies : register(u23, space1);
 RWStructuredBuffer<BrushAccumulator> brushAccumulator : register(u24, space1);
 
 [numthreads(512, 1, 1)]
@@ -66,6 +67,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     // PB-MPM: affine comes from the candidate displacement being solved, C = D / dt.
     float3x3 AffineVelocity = deformOut[globalIndex].CandidateDeff / pc.dt;
+
+    //Add the body's rigid rotation gradient so the scattered field is exactly v + w x r.
+    if ((uint)brushMatricies[brushId].bCentroid.w > 0)
+        AffineVelocity += CrossMatrix(brushMatricies[brushId].angularMomentum.xyz);
 
     // --- World-space position ---
     float3 quantaPosition = quanta.position.xyz;

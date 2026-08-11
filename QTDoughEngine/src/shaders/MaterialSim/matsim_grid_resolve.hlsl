@@ -56,8 +56,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     velocity += pc.dt * float3(0.0f, 0.0f, -9.8f);
 
-    float floorZ = -2.0f;
-    float collisionBand = cellSize.z * 2.0f;
+    float floorZ = -1.0f;
+    float collisionBand = cellSize.z * 0.5f;
 
     float3 n = float3(0.0f, 0.0f, 1.0f);
 
@@ -66,13 +66,22 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     if (phi <= collisionBand)
     {
-        float contactBand = saturate(1.0f - phi / collisionBand);
 
-        if (vn < 0.0f)
-            velocity -= vn * n;
-
+        float inelasticity = 1.0f; //0 = springy, 1 = dead thud.
+        if (vn < -5.5f)
+            velocity -= inelasticity * vn * n;
+        
+        float friction = 0.25f;
         float3 vt = velocity - dot(velocity, n) * n;
-        velocity -= vt;
+        velocity -= friction * vt;
+        
+        //Baumgarte Stabilizatio.
+        float baumgarteBeta = 0.02f; //Controls how much it pushes propotional to penetration depth phi.
+        
+        if (phi < 0.0f)
+            velocity += n * min(baumgarteBeta * -phi / pc.dt, 1.0f); //Push along the normal, cap it to normal.
+ 
+
     }
 
 

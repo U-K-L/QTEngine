@@ -81,6 +81,17 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
   float gm = massMomentumSum.w;
 
+  //Snap to rest after sustained stillness; counter lives in angularMomentum.w.
+  float restFrames = brushMatricies[b].angularMomentum.w;
+  bool still = dot(velocity, velocity) < 0.0025f && dot(angularVelocity, angularVelocity) < 0.0025f;
+  restFrames = still ? restFrames + 1.0f : 0.0f;
+
+  if (restFrames > 10.0f)
+  {
+      velocity = 0.0f;
+      angularVelocity = 0.0f;
+  }
+
   brushMatricies[b].velocity = float4(velocity, gm);
-  brushMatricies[b].angularMomentum = float4(angularVelocity, 0.0f);
+  brushMatricies[b].angularMomentum = float4(angularVelocity, restFrames);
 }

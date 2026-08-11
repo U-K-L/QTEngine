@@ -73,6 +73,16 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
     quanta.position.xyz = lerp(posNew, quanta.canonicalPosition.xyz, l);
 
+    //Project velocity onto the brush's rigid field: v + w x r.
+    uint count = (uint)brushMatricies[brushId].bCentroid.w;
+    if (count > 0)
+    {
+        float3 bodyVelocity = brushMatricies[brushId].velocity.xyz;
+        float3 bodyAngularVelocity = brushMatricies[brushId].angularMomentum.xyz;
+        float3 bodyCentroid = brushMatricies[brushId].bCentroid.xyz;
+        quanta.mana.xyz = bodyVelocity + cross(bodyAngularVelocity, quanta.position.xyz - bodyCentroid);
+    }
+
     QuantaSeal(quanta, brush);
 
     quantaOut[globalIndex] = quanta;
