@@ -409,3 +409,4 @@ QTDoughEngine/Assets/
 
 QTDoughEngine/build.bat
 QTDoughEngine/qtdough_log.txt
+.venv/

@@ -89,7 +89,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float phiSDF = sdf;
     float vnSDF = dot(velocity, sdfNormal);
 
-    if (phiSDF <= collisionBand && vnSDF < 0.0f)
+    if (phiSDF <= collisionBand && phiSDF > 0.0f)
     {
         float contactBand = saturate(1.0f - phiSDF / collisionBand);
 
@@ -98,7 +98,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
         float vnNew = vnSDF * damp;
 
-        //velocity += (vnNew - vnSDF) * sdfNormal;
+        //velocity += 20 * sdfNormal;
     }
 
     //Velocity clamp.

@@ -513,7 +513,7 @@ void QTDoughApplication::SetupEngineGUI()
                 ImGui::Separator();
                 bool isRecording = (recorder != nullptr);
                 if (ImGui::MenuItem("Start Recording", nullptr, false, !isRecording))
-                    StartRecording("", 30);
+                    StartRecording("", 60);
                 if (ImGui::MenuItem("Stop Recording", nullptr, false, isRecording))
                     StopRecording();
                 ImGui::EndMenu();
@@ -1375,7 +1375,7 @@ void QTDoughApplication::RunMainGameLoop()
         bool f9Pressed = (GetKeyState(VK_F9) & 0x8000) != 0;
         if (f9Pressed && !f9WasPressed)
         {
-            if (recorder == nullptr) StartRecording("", 30);
+            if (recorder == nullptr) StartRecording("", 60);
             else                     StopRecording();
         }
         f9WasPressed = f9Pressed;

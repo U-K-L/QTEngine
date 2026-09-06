@@ -69,9 +69,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 displacement = (posNew - quanta.canonicalPosition.xyz);
     float3 springForce = k * displacement;
 
-    float l = distance(posNew, quanta.canonicalPosition.xyz);
+    float l = distance(posNew, quanta.canonicalPosition.xyz); //TODO: Exponential fall off.
 
-    quanta.position.xyz = lerp(posNew, quanta.canonicalPosition.xyz, l);
+    quanta.position.xyz = lerp(posNew, quanta.canonicalPosition.xyz, l * 0.5f);
 
     //Project velocity onto the brush's rigid field: v + w x r.
     uint count = (uint)brushMatricies[brushId].bCentroid.w;

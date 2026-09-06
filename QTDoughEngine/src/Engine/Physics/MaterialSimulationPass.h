@@ -63,6 +63,8 @@ struct BrushAccumulator
 #define MAT_SIM_BINDINGS 26
 
 
+
+
 class MaterialSimulation
 {
 
@@ -140,6 +142,8 @@ class MaterialSimulation
 		std::atomic<bool> materialGridReadbackInProgress{false};
 		std::atomic<bool> materialGridSDFReadbackInProgress{false};
 		std::atomic<bool> brushMatriciesReadbackInProgress{false};
+
+		//SETTINGS FOR SIM, CHANGED IN EXTERNAL FILES.
 		static const uint32_t MAX_BRUSH_COUNT = 256;
 		UnigmaField Field; //Underlying field of everything.
 
@@ -150,11 +154,31 @@ class MaterialSimulation
 		float TEMP_SCALE = 1.0f;
 		void SurveyTemperature();
 
+		uint32_t leptonMaxSize = 65536;
+		Lepton* Leptons;
+
+		float dt = 0.033f;
+		int numSubsteps = 1; //Make this always an odd number.
+		float subDt = dt / numSubsteps;
+
+		bool usePBMPM = true;
+		int iterationCount = 3;
+		bool useCenterHop = false;
+
+		//Decides if quanta take a trip from the GPU and read on CPU.
+		bool readBackQuanta = false;
+		//Low fidelity read of the grid.
+		bool readBackSDFGrid = false;
+		//Full grid reads.
+		bool readBackFullGrid = false;
+
+
+
+		//BUFFERS REQUIRED.
+
 		std::vector<VkBuffer> QuantaStorageBuffers;
 		std::vector<VkDeviceMemory> QuantaStorageMemory;
 
-		uint32_t leptonMaxSize = 65536;
-		Lepton* Leptons;
 		std::vector<VkBuffer> LeptonStorageBuffers;
 		std::vector<VkDeviceMemory> LeptonStorageMemory;
 		uint64_t leptonMemorySize;
@@ -225,13 +249,6 @@ class MaterialSimulation
 
 		uint32_t currentFrame = 0;
 
-		float dt = 0.033f;
-		int numSubsteps = 1; //Make this always an odd number.
-		float subDt = dt / numSubsteps;
-
-		bool usePBMPM = true;
-		int iterationCount = 3;
-		bool useCenterHop = false;
 
 		struct PushConsts {
 			float particleSize;

@@ -540,6 +540,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Copy matching SDF mip into materialGrid before P2G.
 	//DispatchSDFDownsample(commandBuffer); //Change this later on, no longer a direct downscale.
 
+	//Warm up the simulation.... waits for other components to ready themselves.
 	if (dispatchesCount >= 8 && dispatchesCount < 10)
 	{
 		for (size_t i = 0; i < VoxelizerPass::instance->brushes.size(); i++)
@@ -557,6 +558,7 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 		}
 	}
 
+	//If program is warmed....
 	if (dispatchesCount > 15)
 	{
 
@@ -635,80 +637,33 @@ void MaterialSimulation::Simulate(VkCommandBuffer commandBuffer)
 	// Lepton propagation: march leptons through field, reads In writes Out.
 	DispatchLeptonPropagate(commandBuffer);
 
-
-	
-
-
-
 	// Lepton P2G — scatter lepton mana into accumulator (atomic int).
 	DispatchLeptonP2G(commandBuffer);
 
 	*/
 
 
-	if (dispatchesCount < 60 * 6)
-	{
-		// Wave Function Collapse - dispatches only for brushes flagged isCollapsing.
-		//DispatchWaveFunctionCollapse(commandBuffer);
-
-		// Collapse Fill — per-voxel claim of quanta into brush density grid.
-		if (dispatchesCount > 60 * 5 && dispatchesCount < 60 * 6)
-		{
-			//DispatchCollapseFill(commandBuffer);
-			//dispatchesCount = 0; // reset count after fill to avoid overflow and keep sim/collapse in sync.
-		}
-	}
-	//DispatchWaveFunctionCollapse(commandBuffer);
-
-	/*
-	if (pendingCollapseBrushIndex >= 0)
-	{
-		VoxelizerPass* voxelizer = VoxelizerPass::instance;
-		if (voxelizer && pendingCollapseBrushIndex < static_cast<int>(voxelizer->brushes.size()))
-		{
-			voxelizer->brushes[pendingCollapseBrushIndex].isCollapsing = 1;
-			DispatchWaveFunctionCollapse(commandBuffer);
-			DispatchBrushFill(commandBuffer, pendingCollapseBrushIndex);
-
-			// Clear this brush's material brush grid so WriteToWorldSDF
-			// switches back from gaussian to the immutable SDF texture.
-			int gridRes = voxelizer->MATERIAL_BRUSH_GRID_RES;
-			int gridSize = gridRes * gridRes * gridRes;
-			VkDeviceSize pointSize = sizeof(VoxelizerPass::MaterialBrushPoint);
-			VkDeviceSize offset = pendingCollapseBrushIndex * gridSize * pointSize;
-			VkDeviceSize size = gridSize * pointSize;
-			vkCmdFillBuffer(commandBuffer, voxelizer->materialBrushPointsStorageBuffers, offset, size, 0);
-
-			VkMemoryBarrier2 mbpBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
-			mbpBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-			mbpBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-			mbpBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-			mbpBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-			VkDependencyInfo mbpDep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
-			mbpDep.memoryBarrierCount = 1;
-			mbpDep.pMemoryBarriers = &mbpBarrier;
-			vkCmdPipelineBarrier2(commandBuffer, &mbpDep);
-		}
-		pendingCollapseBrushIndex = -1;
-	}
-*/
-
-
 	//Needs finished results to do diffusion.
 	//DispatchDiffusion(commandBuffer);
-	//Out -> Read.
+	//Ping Pong is from IN <-> OUT, a third buffer is used for all other passes called READ.
+	//This takes the out to put in READ, so shader can continue running in parallel without
+	//overwriting other data.
 	CopyOutToRead(commandBuffer);
 
 	// Flip ping-pong: 0 -> 1 -> 0 -> 1 ...
 	currentFrame = (currentFrame + 1) % app->MAX_FRAMES_IN_FLIGHT;
 	dispatchesCount += 1;
 
-
-
-
+	//READ BACKS.
+	//Each of these does particularily expensive readbacks, and each are gated by settings.
 	//Load grid.
-	//ReadBackMaterialGridSDF();
-	//ReadBackMaterialGridFull(); //Make this on demand.
+	
+	if(readBackSDFGrid)
+		ReadBackMaterialGridSDF();
+	if(readBackFullGrid)
+		ReadBackMaterialGridFull();
+	if (readBackQuanta)
+		ReadBackQuantaFull();
 
 	
 	//Set Brush transforms.
@@ -2383,7 +2338,6 @@ void MaterialSimulation::ReadBackQuantaFull()
 {
 	if (readbackInProgress.exchange(true))
 	{
-		std::cout << "Readback already in progress, skipping." << std::endl;
 		return;
 	}
 
@@ -2421,11 +2375,6 @@ void MaterialSimulation::ReadBackQuantaFull()
 		//Clean up staging resources.
 		vkDestroyBuffer(app->_logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(app->_logicalDevice, stagingMemory, nullptr);
-
-
-
-		std::cout << "Done readback..." << std::endl;
-		SerializeQuantaText(AssetsPath + "Fields/quanta.txt");
 		readbackInProgress = false;
 	});
 }

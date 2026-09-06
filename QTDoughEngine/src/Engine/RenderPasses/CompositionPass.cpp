@@ -24,7 +24,7 @@ void CompositionPass::Render(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     else if (GetKeyState(VK_F6) & 0x8000) { pc.input = 5; app->editorState.viewMode = ViewModes::Albedo; }
     else if (GetKeyState(VK_F7) & 0x8000) { pc.input = 6; app->editorState.viewMode = ViewModes::Material; }
     else if (GetKeyState(VK_F8) & 0x8000) { pc.input = (int)ViewModes::MaterialBrush; app->editorState.viewMode = ViewModes::MaterialBrush; }
-    else if (GetKeyState(VK_F9) & 0x8000) { pc.input = (int)ViewModes::Quanta; app->editorState.viewMode = ViewModes::Quanta; }
+    else if (GetKeyState(VK_F10) & 0x8000) { pc.input = (int)ViewModes::Quanta; app->editorState.viewMode = ViewModes::Quanta; }
 
     RenderPassObject::Render(commandBuffer, imageIndex, currentFrame, &app->frameOutputView);
 }
